@@ -13,11 +13,10 @@ Tests:
 import re
 import logging
 
-import pytest
 from typer.testing import CliRunner
 
 from pamola_core.cli.main import app
-from pamola_core.cli.utils.exit_codes import EXIT_OK, EXIT_ERROR
+from pamola_core.cli.utils.exit_codes import EXIT_OK
 
 
 class TestMainAppStructure:

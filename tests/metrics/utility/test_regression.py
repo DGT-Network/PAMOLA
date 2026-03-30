@@ -25,7 +25,6 @@ Process:
 
 import pytest
 import pandas as pd
-import numpy as np
 from pamola_core.metrics.utility.regression import RegressionUtility
 
 @pytest.fixture

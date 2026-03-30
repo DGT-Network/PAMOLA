@@ -18,7 +18,7 @@ Licensed under BSD 3-Clause License
 """
 
 import logging
-from typing import Dict, Any, List, Tuple, Optional, Union
+from typing import Dict, Any, List
 
 import numpy as np
 

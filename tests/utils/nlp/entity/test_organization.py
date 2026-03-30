@@ -5,7 +5,6 @@ This module contains unit tests for the abstract base classes and concrete
 implementations in the organization.py module.
 """
 import unittest
-from unittest.mock import patch, MagicMock
 
 from pamola_core.utils.nlp.entity.organization import (
     OrganizationExtractor

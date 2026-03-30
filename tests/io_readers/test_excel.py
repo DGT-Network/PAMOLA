@@ -15,7 +15,6 @@ Tests for Excel reading and writing functionality:
 import pytest
 import pandas as pd
 import numpy as np
-from pathlib import Path
 
 from pamola_core.io.excel import DataExcel, read_excel, write_excel
 

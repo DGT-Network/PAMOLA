@@ -52,14 +52,9 @@ Success Criteria:
    - Proper isolation and clean workspace management
 """
 
-import os
 import sys
-import tempfile
-import unittest
-from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any, List, Optional
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -78,7 +73,6 @@ from pamola_core.errors.exceptions import (
     ValidationError,
     InvalidParameterError,
 )
-from pamola_core.utils.ops.op_config import OperationConfig
 
 
 class TestUniformTemporalNoiseOperation:
@@ -603,7 +597,7 @@ class TestUniformTemporalNoiseOperation:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == len(df)
 
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_advanced_progress_tracking(self, mock_progress_class):
         """Test progress tracking integration."""
         mock_tracker = Mock()

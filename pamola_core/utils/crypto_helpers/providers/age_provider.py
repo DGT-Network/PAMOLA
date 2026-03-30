@@ -111,7 +111,7 @@ class AgeProvider(CryptoProvider):
                 )
         except FileNotFoundError:
             raise ConfigurationError(
-                f"age command-line tool not found. Please install age or set PAMOLA_AGE_BINARY."
+                "age command-line tool not found. Please install age or set PAMOLA_AGE_BINARY."
             )
         except Exception as e:
             raise ConfigurationError(f"Error checking age installation: {e}")

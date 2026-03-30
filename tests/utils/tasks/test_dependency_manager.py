@@ -2,16 +2,14 @@ import pytest
 import logging
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from pamola_core.utils.tasks.dependency_manager import (
     TaskDependencyManager,
     DependencyMissingError,
     DependencyFailedError,
-    OptionalT1IDependencyManager,
-    PathSecurityError
+    OptionalT1IDependencyManager
 )
-from pamola_core.errors.exceptions import DependencyError
 from pamola_core.errors.exceptions import ValidationError, InvalidParameterError
 
 class DummyConfig:

@@ -742,7 +742,7 @@ def validate_and_get_dataframe(
     # Get DataFrame from the data source
     df = load_data_operation(data_source, dataset_name, **kwargs)
     if df is None:
-        error_message = f"Failed to load input data!"
+        error_message = "Failed to load input data!"
         raise ValidationError(error_message)
 
     # Apply data types from data source

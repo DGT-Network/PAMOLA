@@ -377,10 +377,10 @@ salary_noise = UniformNumericNoiseOperation(
 ### Example 5: Batch Processing with Progress
 
 ```python
-from pamola.pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 
 # Create progress tracker
-progress = ProgressTracker(total=100, description="Adding noise")
+progress = HierarchicalProgressTracker(total=100, description="Adding noise")
 
 # Configure operation
 operation = UniformNumericNoiseOperation(
@@ -506,7 +506,7 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
 - Inherits from `AnonymizationOperation`
 - Uses `SecureRandomGenerator` for noise generation
 - Integrates with `DataWriter` for output
-- Compatible with `ProgressTracker`
+- Compatible with `HierarchicalProgressTracker`
 - Supports `OperationResult` for metrics and artifacts
 
 ## Related Operations

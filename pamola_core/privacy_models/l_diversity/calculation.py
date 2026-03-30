@@ -200,7 +200,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         try:
             progress_bar = progress.ProgressBar(
                 total=len(grouped),
-                description=f"Calculating Group Diversity",
+                description="Calculating Group Diversity",
                 unit="grouped",
             )
             for group_name, group_data in grouped:

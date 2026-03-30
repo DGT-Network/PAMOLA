@@ -15,7 +15,7 @@ Core functions:
 """
 
 import logging
-from typing import Dict, List, Any, Tuple, Optional, Union, Callable
+from typing import Dict, List, Any, Tuple, Optional, Callable
 
 import numpy as np
 import pandas as pd
@@ -77,7 +77,7 @@ def analyze_correlation(
 
     # Validate fields
     if field1 not in df.columns or field2 not in df.columns:
-        error_message = f"Field not found: "
+        error_message = "Field not found: "
         if field1 not in df.columns:
             error_message += field1
         if field2 not in df.columns:

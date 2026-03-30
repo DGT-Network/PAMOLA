@@ -604,30 +604,30 @@ def optimize_dataframe_memory(
         if col_min >= 0:
             if col_max < 2**8:
                 df[col] = df[col].astype(np.uint8)
-                conversions[col] = f"int -> uint8"
+                conversions[col] = "int -> uint8"
             elif col_max < 2**16:
                 df[col] = df[col].astype(np.uint16)
-                conversions[col] = f"int -> uint16"
+                conversions[col] = "int -> uint16"
             elif col_max < 2**32:
                 df[col] = df[col].astype(np.uint32)
-                conversions[col] = f"int -> uint32"
+                conversions[col] = "int -> uint32"
         else:
             if col_min >= -2**7 and col_max < 2**7:
                 df[col] = df[col].astype(np.int8)
-                conversions[col] = f"int -> int8"
+                conversions[col] = "int -> int8"
             elif col_min >= -2**15 and col_max < 2**15:
                 df[col] = df[col].astype(np.int16)
-                conversions[col] = f"int -> int16"
+                conversions[col] = "int -> int16"
             elif col_min >= -2**31 and col_max < 2**31:
                 df[col] = df[col].astype(np.int32)
-                conversions[col] = f"int -> int32"
+                conversions[col] = "int -> int32"
 
     # Process float columns
     for col in df.select_dtypes(include=["float"]).columns:
         # Convert to float32 if precision loss is acceptable
         if df[col].notna().all(): # Only convert if no NaN values
             df[col] = df[col].astype(np.float32)
-            conversions[col] = f"float -> float32"
+            conversions[col] = "float -> float32"
 
     # Process object columns - consider converting to categorical
     for col in df.select_dtypes(include=["object"]).columns:

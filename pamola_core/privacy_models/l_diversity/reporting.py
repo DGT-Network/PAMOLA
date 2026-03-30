@@ -21,7 +21,7 @@ Licensed under BSD 3-Clause License
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 import pandas as pd
 import numpy as np
@@ -873,7 +873,7 @@ class LDiversityReport(PrivacyReport):
                     l_compliant = privacy.get('compliant', False) and c_compliant
                     if not l_compliant:
                         reasons.append(
-                            f"Recursive (c,l)-diversity does not meet requirements"
+                            "Recursive (c,l)-diversity does not meet requirements"
                         )
                 else:
                     # For distinct l-diversity, check min_l

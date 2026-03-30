@@ -13,9 +13,7 @@ Tests cover:
 """
 
 import unittest
-import pandas as pd
 import numpy as np
-import pytest
 from pamola_core.attacks.attack_metrics import AttackMetrics
 
 

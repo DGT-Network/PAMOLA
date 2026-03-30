@@ -4,13 +4,9 @@ Tests for the path_security module in the pamola_core/utils/tasks package.
 These tests ensure that the path security utilities properly validate, normalize, and secure file paths against traversal, symlink, and system path attacks.
 """
 
-import os
 import sys
-import tempfile
-import shutil
 import platform
 from pathlib import Path
-from unittest import mock
 import pytest
 
 from pamola_core.utils.tasks import path_security

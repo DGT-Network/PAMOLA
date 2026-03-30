@@ -7,10 +7,7 @@ and operation discovery.
 """
 
 import unittest
-from unittest.mock import patch, MagicMock, Mock
-import pytest
-import importlib
-import sys
+from unittest.mock import patch, MagicMock
 import inspect
 
 from pamola_core.utils.ops.op_registry import (
@@ -26,7 +23,6 @@ from pamola_core.utils.ops.op_registry import (
     list_categories,
     get_operations_by_category,
     create_operation_instance,
-    discover_operations,
     initialize_registry,
     _OPERATION_REGISTRY,
     _OPERATION_METADATA,
@@ -36,10 +32,8 @@ from pamola_core.utils.ops.op_registry import (
     _extract_init_parameters,
     _determine_operation_category,
     _parse_version_constraint,
-    _compare_versions,
-    _check_wildcard_compatibility
+    _compare_versions
 )
-from pamola_core.errors.exceptions import OpsError, TaskRegistryError as RegistryError
 
 
 class TestOperationRegistry(unittest.TestCase):

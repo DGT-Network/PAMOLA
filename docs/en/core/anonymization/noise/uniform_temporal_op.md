@@ -611,7 +611,7 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
 - Inherits from `AnonymizationOperation`
 - Uses `SecureRandomGenerator` for shift generation
 - Integrates with `DateTimeFieldValidator`
-- Compatible with `ProgressTracker`
+- Compatible with `HierarchicalProgressTracker`
 - Supports `OperationResult` for metrics
 
 ## Related Operations

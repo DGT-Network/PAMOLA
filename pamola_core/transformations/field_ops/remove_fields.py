@@ -224,7 +224,7 @@ class RemoveFieldsOperation(TransformationOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Remove fields (from cache)", details={"cached": True}
+                            "Remove fields (from cache)", details={"cached": True}
                         )
                     return cache_result
 
@@ -236,7 +236,7 @@ class RemoveFieldsOperation(TransformationOperation):
             try:
                 if reporter:
                     reporter.add_operation(
-                        f"Remove fields",
+                        "Remove fields",
                         details={
                             "fields_to_remove": self.fields_to_remove,
                             "pattern": self.pattern,
@@ -389,7 +389,7 @@ class RemoveFieldsOperation(TransformationOperation):
                         details["generalization_ratio"] = generalization_ratio
 
                 # Add the operation to the reporter
-                reporter.add_operation(f"Remove fields completed", details=details)
+                reporter.add_operation("Remove fields completed", details=details)
 
             # Clean up memory AFTER all write operations are complete
             self.logger.info("Cleaning up memory after all file operations")
@@ -686,7 +686,7 @@ class RemoveFieldsOperation(TransformationOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -698,7 +698,7 @@ class RemoveFieldsOperation(TransformationOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -745,17 +745,17 @@ class RemoveFieldsOperation(TransformationOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -801,7 +801,7 @@ class RemoveFieldsOperation(TransformationOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -881,10 +881,10 @@ class RemoveFieldsOperation(TransformationOperation):
 
         # Check if visualization should be skipped
         if vis_backend is None:
-            self.logger.info(f"Skipping visualization (backend=None)")
+            self.logger.info("Skipping visualization (backend=None)")
             return visualization_paths
 
-        self.logger.info(f"[VIZ] Starting visualization generation")
+        self.logger.info("[VIZ] Starting visualization generation")
         self.logger.debug(
             f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
         )
@@ -942,7 +942,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"fields_count_comparison"] = viz_path
+                visualization_paths["fields_count_comparison"] = viz_path
 
             # Memory Usage Comparison before/after
             viz_data = {
@@ -969,7 +969,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"memory_usage_comparison"] = viz_path
+                visualization_paths["memory_usage_comparison"] = viz_path
 
             # Field Removal Impact - Data
             impact_data = []
@@ -1020,7 +1020,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"field_removal_impact_memory_usage"] = viz_path
+                visualization_paths["field_removal_impact_memory_usage"] = viz_path
 
             # Field Removal Impact - Missing Percent
             viz_data = {
@@ -1047,7 +1047,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"field_removal_impact_missing_percent"] = viz_path
+                visualization_paths["field_removal_impact_missing_percent"] = viz_path
 
             # Field Removal Impact - Unique Count
             viz_data = {
@@ -1074,7 +1074,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"field_removal_impact_unique_count"] = viz_path
+                visualization_paths["field_removal_impact_unique_count"] = viz_path
 
             # Step 3: Finalize visualizations
             if progress_tracker:
@@ -1092,7 +1092,7 @@ class RemoveFieldsOperation(TransformationOperation):
             self.logger.error(
                 f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}"
             )
-            self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
+            self.logger.debug("[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
 

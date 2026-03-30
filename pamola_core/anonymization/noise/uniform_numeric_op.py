@@ -36,7 +36,7 @@ Framework Integration:
    - Integrates with validation_utils for parameter validation
    - Uses metric_utils and statistical_utils for metrics
    - Supports DataWriter for output and metrics
-   - Compatible with ProgressTracker for monitoring
+   - Compatible with HierarchicalProgressTracker for monitoring
 
 Changelog:
    1.0.0 (2025-06-15):
@@ -46,8 +46,7 @@ Changelog:
       - Comprehensive metrics and validation
 """
 
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd

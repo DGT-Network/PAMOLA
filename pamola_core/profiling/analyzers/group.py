@@ -58,7 +58,7 @@ from pamola_core.utils.ops.op_result import (
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import create_histogram, create_heatmap
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_settings_operation
 from pamola_core.common.constants import Constants
 import pamola_core.profiling.commons.helpers as helpers
 
@@ -551,7 +551,7 @@ class GroupAnalyzerOperation(FieldOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Saving results"})
 
-            self.logger.info(f"Saving metrics")
+            self.logger.info("Saving metrics")
 
             # Save metrics
             metrics_result = writer.write_metrics(
@@ -945,7 +945,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     kde=False,
                     **kwargs,
                 )
-            except (ValidationError, TypeError, ValueError) as e:
+            except (ValidationError, TypeError, ValueError):
                 # Fallback to matplotlib for proper histogram
                 plt.figure(figsize=(10, 6))
                 plt.bar(list(data.keys()), list(data.values()), color="skyblue")
@@ -1034,7 +1034,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     annotation_format=".3f",
                     **kwargs,
                 )
-            except (ValidationError, TypeError, ValueError) as e:
+            except (ValidationError, TypeError, ValueError):
                 # Fallback to matplotlib for the heatmap
                 plt.figure(figsize=(12, len(field_names) * 0.8))
                 im = plt.imshow(df_data.values, cmap="viridis")
@@ -1177,9 +1177,9 @@ class GroupAnalyzerOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -1285,7 +1285,7 @@ class GroupAnalyzerOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1297,7 +1297,7 @@ class GroupAnalyzerOperation(FieldOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1349,17 +1349,17 @@ class GroupAnalyzerOperation(FieldOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1405,7 +1405,7 @@ class GroupAnalyzerOperation(FieldOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts

@@ -7,7 +7,7 @@ manipulating personal names for use in fake data generation.
 
 import re
 import unicodedata
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, List, Any
 import pandas as pd
 import pamola_core.utils.logging as pamola_logging
 

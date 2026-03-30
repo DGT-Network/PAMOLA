@@ -19,7 +19,6 @@ to ensure thread-safe operation for concurrent execution contexts.
 import logging
 from typing import Any, Dict, List, Optional, Union, Tuple, Set
 
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from pamola_core.utils.vis_helpers.base import (

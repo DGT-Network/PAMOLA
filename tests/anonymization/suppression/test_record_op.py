@@ -24,23 +24,19 @@ Test Categories:
 """
 
 import json
-import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple, Union
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
-import numpy as np
 import pandas as pd
-import pytest
 
 from pamola_core.anonymization.suppression.record_op import RecordSuppressionOperation
 from pamola_core.anonymization.commons.validation_utils import FieldNotFoundError
 from pamola_core.errors.exceptions import ValidationError, ConfigurationError
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
 

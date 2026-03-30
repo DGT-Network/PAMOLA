@@ -332,18 +332,6 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
         RECORD_EXCLUDE_FIELDS as UNIFORM_TEMPORAL_EXCLUDE_FIELDS,
     )
 
-    from pamola_core.metrics.schemas.fidelity_ops_config import FidelityConfig
-    from pamola_core.metrics.schemas.fidelity_ops_config_exclude import (
-        FIDELITY_EXCLUDE_FIELDS,
-    )
-    from pamola_core.metrics.schemas.privacy_ops_config import PrivacyMetricConfig
-    from pamola_core.metrics.schemas.privacy_ops_config_exclude import (
-        PRIVACY_EXCLUDE_FIELDS,
-    )
-    from pamola_core.metrics.schemas.utility_ops_config import UtilityMetricConfig
-    from pamola_core.metrics.schemas.utility_ops_config_exclude import (
-        UTILITY_EXCLUDE_FIELDS,
-    )
 
     from pamola_core.profiling.schemas.anonymity_core_schema import (
         KAnonymityProfilerOperationConfig,
@@ -421,7 +409,6 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.transformations.schemas.split_fields_op_ui_schema import (
         SplitFieldsOperationUIConfig,
     )
-    from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
     configs = [
         # -------------- Anonymization ---------------

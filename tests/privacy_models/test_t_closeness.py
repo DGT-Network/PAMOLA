@@ -9,10 +9,8 @@ Run with: pytest -s tests/privacy_models/test_t_closeness.py
 
 import pytest
 import pandas as pd
-import numpy as np
 
 from pamola_core.privacy_models.t_closeness.calculation import TCloseness
-from pamola_core.errors.exceptions import ValidationError
 
 
 class TestTClosenessInitialization:

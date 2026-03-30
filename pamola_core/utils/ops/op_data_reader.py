@@ -644,7 +644,7 @@ class DataReader:
                     df = df[valid_cols]
                 else:
                     self.logger.warning(
-                        f"None of the requested columns exist in JSON data"
+                        "None of the requested columns exist in JSON data"
                     )
 
             if skiprows is not None:
@@ -966,7 +966,7 @@ class DataReader:
                 else:
                     # Files in different directories, read individually and combine
                     self.logger.info(
-                        f"Files in multiple directories. Reading individually and combining."
+                        "Files in multiple directories. Reading individually and combining."
                     )
 
                     # Create progress tracker

@@ -382,7 +382,7 @@ class MetricsCollector:
                         visualizations["value_distribution"] = Path(vis_path)
                     else:
                         logger.warning(
-                            f"Error creating replacement rate visualization: {str(e)}"
+                            f"Error creating value distribution visualization: {vis_path}"
                         )
                 except Exception as e:
                     logger.warning(
@@ -494,7 +494,7 @@ class MetricsCollector:
                         visualizations["replacement_rate"] = Path(vis_path)
                     else:
                         logger.warning(
-                            f"Error creating replacement rate visualization: {str(e)}"
+                            f"Error creating replacement rate visualization: {vis_path}"
                         )
                 except Exception as e:
                     logger.warning(

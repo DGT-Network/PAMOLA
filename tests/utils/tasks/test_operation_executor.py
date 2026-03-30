@@ -7,13 +7,10 @@ retry logic, error handling, progress tracking, and parallel execution.
 
 import pytest
 import logging
-import time
-from unittest import mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from pamola_core.utils.tasks.operation_executor import (
     TaskOperationExecutor,
-    ExecutionError,
     MaxRetriesExceededError,
     NonRetriableError,
     create_operation_executor,

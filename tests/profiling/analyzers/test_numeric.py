@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -22,7 +22,7 @@ class TestNumericAnalyzer(unittest.TestCase):
         self.assertIn('not found', result['error'])
 
     @patch('pamola_core.profiling.commons.numeric_utils.prepare_numeric_data', return_value=([], 10, 0))
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_analyze_valid_count_zero(self, mock_progress, mock_prepare):
         result = self.analyzer.analyze(self.df, 'num')
         self.assertIn('stats', result)
@@ -35,7 +35,7 @@ class TestNumericAnalyzer(unittest.TestCase):
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram', return_value={'bins':[0,1,2],'counts':[1,2]})
     @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers', return_value={'count':0,'percentage':0})
     @patch('pamola_core.profiling.commons.numeric_utils.test_normality', side_effect=Exception('fail'))
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_analyze_normality_exception(self, mock_progress, mock_normal, mock_outlier, mock_hist, mock_percent, mock_stats, mock_prepare):
         result = self.analyzer.analyze(self.df, 'num', should_test_normality=True)
         self.assertIn('normality', result['stats'])
@@ -48,7 +48,7 @@ class TestNumericAnalyzer(unittest.TestCase):
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram', return_value={'bins':[0,1,2],'counts':[1,2]})
     @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers', return_value={'count':0,'percentage':0})
     @patch('pamola_core.profiling.commons.numeric_utils.test_normality', return_value={'is_normal':False,'shapiro':{'p_value':0.5}})
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_analyze_success(self, mock_progress, mock_normal, mock_outlier, mock_hist, mock_percent, mock_stats, mock_prepare):
         result = self.analyzer.analyze(self.df, 'num', bins=2, should_detect_outliers=True, should_test_normality=True)
         self.assertIn('stats', result)
@@ -61,7 +61,7 @@ class TestNumericAnalyzer(unittest.TestCase):
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles', return_value={'p50':3})
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram', return_value={'bins':[0,1,2],'counts':[1,2]})
     @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers', return_value={'count':0,'percentage':0})
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_analyze_large_df(self, mock_progress, mock_outlier, mock_hist, mock_percent, mock_handle, mock_prepare):
         df = pd.DataFrame({'num': np.arange(20000)})
         result = self.analyzer.analyze(df, 'num', use_chunks=True, chunk_size=10000)
@@ -74,7 +74,7 @@ class TestNumericAnalyzer(unittest.TestCase):
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles', return_value={'p50':3})
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram', return_value={'bins':[0,1,2],'counts':[1,2]})
     @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers', return_value={'count':0,'percentage':0})
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_analyze_large_df_use_dask(self, mock_progress, mock_outlier, mock_hist, mock_percent, mock_handle, mock_prepare):
         df = pd.DataFrame({'num': np.arange(20000)})
         result = self.analyzer.analyze(df, 'num', use_dask=True)
@@ -87,7 +87,7 @@ class TestNumericAnalyzer(unittest.TestCase):
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles', return_value={'p50':3})
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram', return_value={'bins':[0,1,2],'counts':[1,2]})
     @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers', return_value={'count':0,'percentage':0})
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_analyze_large_df_use_vectorization(self, mock_progress, mock_outlier, mock_hist, mock_percent, mock_handle, mock_prepare):
         df = pd.DataFrame({'num': np.arange(20000)})
         result = self.analyzer.analyze(df, 'num', use_vectorization=True)
@@ -349,7 +349,7 @@ class TestAnalyzeNumericFields(unittest.TestCase):
             print("DEBUG update calls:", calls)
         self.assertTrue(found, f"Expected update(1, ...) with status='completed', got: {calls}")
 
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     @patch('pamola_core.profiling.commons.numeric_utils.prepare_numeric_data', return_value=(np.array([1,2,3]), 0, 3))
     def test_normality_skipped_insufficient_data(self, mock_prepare, mock_progress):
         # Test normality skipped due to insufficient data (valid_count < 8)
@@ -363,7 +363,7 @@ class TestAnalyzeNumericFields(unittest.TestCase):
         self.assertIn('Insufficient data', normality['message'])
         # Do not assert progress.update, as it may not be called for insufficient data
 
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     @patch('pamola_core.profiling.commons.numeric_utils.prepare_numeric_data', return_value=(np.array([1,2,3,4,5,6,7,8]), 0, 8))
     def test_normality_skipped_user_choice(self, mock_prepare, mock_progress):
         # Test normality skipped due to user choice (should_test_normality=False)

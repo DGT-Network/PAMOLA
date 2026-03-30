@@ -224,7 +224,7 @@ class MappingStorage:
                         f"Saved {len(mapping)} mappings to {self.mapping_file}"
                     )
 
-                except Exception as e:
+                except Exception:
                     # Clean up temporary file on error
                     if temp_path.exists():
                         temp_path.unlink()

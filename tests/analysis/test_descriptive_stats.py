@@ -10,7 +10,6 @@ Tests statistical analysis of DataFrames including means, medians, modes.
 import pytest
 import pandas as pd
 import numpy as np
-from unittest.mock import patch
 from pamola_core.analysis.descriptive_stats import analyze_descriptive_stats
 
 

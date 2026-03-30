@@ -21,7 +21,6 @@ For details, see the LICENSE file or visit:
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-from typing import List
 
 import numpy as np
 import pandas as pd

@@ -1059,7 +1059,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                     ),
                 }
 
-            logger.info(f"Dataset comparison completed")
+            logger.info("Dataset comparison completed")
             return result
 
         except Exception as e:

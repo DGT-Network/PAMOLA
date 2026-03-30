@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 import pandas as pd
 from pamola_core.fake_data import FakeNameOperation
-from pamola_core.fake_data.commons.base import NullStrategy
 from pamola_core.fake_data.generators.name import NameGenerator
 from pamola_core.utils.ops.op_registry import unregister_operation, get_operation_class
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus, OperationArtifact

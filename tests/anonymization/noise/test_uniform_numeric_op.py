@@ -14,10 +14,8 @@ Test Coverage: 24 comprehensive test methods covering all operation aspects
 import pytest
 import pandas as pd
 import numpy as np
-import tempfile
-import json
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 
 from pamola_core.anonymization.noise.uniform_numeric_op import (
     UniformNumericNoiseOperation,
@@ -25,9 +23,7 @@ from pamola_core.anonymization.noise.uniform_numeric_op import (
 from pamola_core.errors.exceptions import InvalidParameterError
 from pamola_core.anonymization.schemas.uniform_numeric_op_core_schema import UniformNumericNoiseConfig
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.errors.exceptions import ConfigurationError as ConfigError
-from pamola_core.utils.progress import HierarchicalProgressTracker
 
 # Test config file path - dynamically resolved relative to this test file location
 # Points to: tests/anonymization/configs/test_config_uniform_numeric_op.json

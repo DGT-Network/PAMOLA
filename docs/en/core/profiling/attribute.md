@@ -168,7 +168,7 @@ def configure_operations(self):
 
 - **IO System**: Uses `write_json`, `write_dataframe_to_csv`
 - **Visualization System**: Generates standardized plots
-- **Progress Tracking**: Supports `ProgressTracker`
+- **Progress Tracking**: Supports `HierarchicalProgressTracker`
 - **Logging System**: Comprehensive logging
 
 ## 7. Best Practices

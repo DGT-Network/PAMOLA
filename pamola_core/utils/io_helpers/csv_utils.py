@@ -371,7 +371,7 @@ def filter_csv_columns(
     if not valid_columns:
         error_info = error_utils.create_error_info(
             "NoValidColumnsError",
-            f"None of the requested columns exist in the DataFrame",
+            "None of the requested columns exist in the DataFrame",
             "Check column names or DataFrame structure",
             details={
                 "requested_columns": columns,
@@ -421,7 +421,6 @@ def detect_csv_dialect(
     Dict[str, Any]
         Dictionary with detected dialect information
     """
-    import csv
 
     file_path = Path(file_path)
 

@@ -35,8 +35,7 @@ Dependencies:
 from datetime import datetime
 from pathlib import Path
 import pandas as pd
-import numpy as np
-from typing import Optional, List, Union, Dict, Any, Tuple, Set
+from typing import Optional, List, Union, Dict, Any, Tuple
 import logging
 from pamola_core.utils.visualization import create_correlation_matrix, create_heatmap
 from pamola_core.errors.codes import ErrorCode

@@ -63,13 +63,10 @@ from scipy import stats
 from pamola_core.errors.exceptions import (
     FeatureNotImplementedError,
     InvalidParameterError,
-    ValidationError,
 )
 
 # Import base statistical functions from core utils
 from pamola_core.utils.statistical_metrics import (
-    calculate_gini_coefficient,
-    calculate_shannon_entropy,
     get_distribution_summary,
     EPSILON,
 )

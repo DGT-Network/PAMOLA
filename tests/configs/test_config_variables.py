@@ -14,14 +14,12 @@ Run with: pytest -s tests/configs/test_config_variables.py
 import os
 from unittest import mock
 
-import pytest
 
 from pamola_core.configs.config_variables import (
     L_DIVERSITY_DEFAULTS,
     validate_l_diversity_config,
     get_l_diversity_config,
 )
-from pamola_core.errors.exceptions import InvalidParameterError
 
 
 class TestLDiversityDefaults:

@@ -132,7 +132,6 @@ def test_validate_input_parameters_no_id_field(operation):
         operation._validate_input_parameters(df)
 
 def test_validate_input_parameters_invalid_partition_method(operation):
-    from pamola_core.errors.exceptions import InvalidStrategyError
     df = sample_dataframe()
     operation.value_groups = None
     operation.number_of_partitions = 2
@@ -377,7 +376,6 @@ def test_save_output_and_metrics_and_cache(operation, tmp_path):
 
 # --- Tests for execute (integration, error, and edge cases) ---
 def test_execute_success(operation, mock_data_source, mock_task_dir, mock_reporter, mock_progress_tracker):
-    from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
     df = sample_dataframe()
     operation.save_output = True
     operation.use_cache = True

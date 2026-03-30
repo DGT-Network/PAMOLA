@@ -28,7 +28,7 @@ import os
 import tempfile
 import hashlib
 import shutil
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple, Union
 from contextlib import nullcontext
@@ -287,7 +287,7 @@ class TaskContextManager:
                 # Log through progress manager if available
                 if self.progress_manager:
                     # Can adjust message if count wasn't obtained
-                    info_msg = f"Successfully cleared checkpoints."
+                    info_msg = "Successfully cleared checkpoints."
                     if existing_count > 0:  # Only if count was obtained
                         info_msg += f" (Initially {existing_count})"
                     self.progress_manager.log_info(info_msg)
@@ -298,7 +298,7 @@ class TaskContextManager:
 
         except filelock.Timeout:
             # This block remains the same as lock timeout is a specific error
-            error_msg = f"Timeout waiting for lock when attempting to clear checkpoints"
+            error_msg = "Timeout waiting for lock when attempting to clear checkpoints"
             self.logger.error(error_msg)
             if self.progress_manager:
                 self.progress_manager.log_error(error_msg)
@@ -411,7 +411,7 @@ class TaskContextManager:
                             )
         except filelock.Timeout:
             self.logger.warning(
-                f"Timeout waiting for lock when loading checkpoint history"
+                "Timeout waiting for lock when loading checkpoint history"
             )
             # Continue without history rather than failing
         except Exception as e:
@@ -615,7 +615,7 @@ class TaskContextManager:
                 return checkpoint_path
 
             except filelock.Timeout:
-                error_msg = f"Timeout waiting for lock when saving checkpoint"
+                error_msg = "Timeout waiting for lock when saving checkpoint"
                 self.logger.error(error_msg)
 
                 # Log through progress manager if available
@@ -855,7 +855,7 @@ class TaskContextManager:
                     return self.current_state
 
             except filelock.Timeout:
-                error_msg = f"Timeout waiting for lock when restoring checkpoint"
+                error_msg = "Timeout waiting for lock when restoring checkpoint"
                 self.logger.error(error_msg)
 
                 # Log through progress manager if available
@@ -1296,7 +1296,7 @@ class TaskContextManager:
 
             except filelock.Timeout:
                 self.logger.warning(
-                    f"Timeout waiting for lock when checking resumable execution"
+                    "Timeout waiting for lock when checking resumable execution"
                 )
 
                 # Log through progress manager if available
@@ -1375,7 +1375,7 @@ class TaskContextManager:
             with filelock.FileLock(self.lock_file, timeout=DEFAULT_LOCK_TIMEOUT):
                 return self.checkpoints.copy()
         except filelock.Timeout:
-            self.logger.warning(f"Timeout waiting for lock when getting checkpoints")
+            self.logger.warning("Timeout waiting for lock when getting checkpoints")
 
             # Log through progress manager if available
             if self.progress_manager:
@@ -1525,7 +1525,7 @@ class TaskContextManager:
                     return removed_count
 
             except filelock.Timeout:
-                error_msg = f"Timeout waiting for lock when cleaning up checkpoints"
+                error_msg = "Timeout waiting for lock when cleaning up checkpoints"
                 self.logger.error(error_msg)
 
                 # Log through progress manager if available
@@ -1687,7 +1687,7 @@ def create_task_context_manager(
     except Exception as e:
         # Use standard logger for initial errors before context manager is created
         logger = logging.getLogger(f"task.{task_id}.context")
-        logger.error(f"Error creating context manager", exc_info=True)
+        logger.error("Error creating context manager", exc_info=True)
 
         # Log through progress manager if available
         if progress_manager:

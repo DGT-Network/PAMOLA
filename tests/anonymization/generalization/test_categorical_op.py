@@ -13,20 +13,16 @@ Test Coverage: 24 comprehensive test methods covering all operation aspects
 
 import pytest
 import pandas as pd
-import numpy as np
-import tempfile
-import json
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 
 from pamola_core.anonymization.generalization.categorical_op import (
     CategoricalGeneralizationOperation,
     create_categorical_generalization_operation,
 )
-from pamola_core.anonymization.commons.categorical_config import NullStrategy
 from pamola_core.anonymization.schemas.categorical_op_core_schema import CategoricalGeneralizationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import OperationStatus
 from pamola_core.errors.exceptions import ConfigurationError as ConfigError
 from pamola_core.utils.progress import HierarchicalProgressTracker
 

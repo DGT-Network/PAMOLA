@@ -4,11 +4,11 @@ import pandas as pd
 from unittest.mock import patch, MagicMock
 from pamola_core.profiling.analyzers.email import EmailAnalyzer, analyze_email_fields
 from pathlib import Path
-from unittest.mock import patch, MagicMock, ANY
+from unittest.mock import ANY
 from pamola_core.profiling.analyzers.email import EmailOperation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 
 class DummyDataSource:
     def __init__(self, df=None, error=None):
@@ -189,7 +189,7 @@ class TestEmailOperation(unittest.TestCase):
         })
         self.mock_data_source = DummyDataSource(df=df)
         self.mock_reporter = MagicMock()
-        self.mock_progress_tracker = MagicMock(spec=ProgressTracker)
+        self.mock_progress_tracker = MagicMock(spec=HierarchicalProgressTracker)
 
     def tearDown(self):
         """Clean up test artifacts"""

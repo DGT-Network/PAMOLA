@@ -13,7 +13,6 @@ Usage:
 import os
 import sys
 import argparse
-import shutil
 from datetime import datetime
 from pathlib import Path
 import re

@@ -21,14 +21,11 @@ Example:
 python t_2C_resumable_process.py --data_repository /path/to/data
 """
 
-import os
 import sys
 import time
 import argparse
-import logging
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional
 
 # Import PAMOLA Core modules
 from pamola_core.utils.tasks.base_task import BaseTask

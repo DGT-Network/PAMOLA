@@ -116,7 +116,7 @@ def execute_operation(
     self,
     operation: BaseOperation,
     params: Dict[str, Any],
-    progress_tracker: Optional[ProgressTracker] = None
+    progress_tracker: Optional[HierarchicalProgressTracker] = None
 ) -> OperationResult
 ```
 
@@ -145,7 +145,7 @@ def execute_with_retry(
     initial_wait: Optional[float] = None,
     max_wait: Optional[float] = None,
     jitter: Optional[bool] = None,
-    progress_tracker: Optional[ProgressTracker] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
     on_retry: Optional[Callable[[Exception, int, float], None]] = None
 ) -> OperationResult
 ```
@@ -180,7 +180,7 @@ def execute_operations(
     self,
     operations: List[BaseOperation],
     common_params: Dict[str, Any],
-    progress_tracker: Optional[ProgressTracker] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
     continue_on_error: Optional[bool] = None
 ) -> Dict[str, OperationResult]
 ```
@@ -204,7 +204,7 @@ def execute_operations_parallel(
     operations: List[BaseOperation],
     common_params: Dict[str, Any],
     max_workers: Optional[int] = None,
-    progress_tracker: Optional[ProgressTracker] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
     continue_on_error: Optional[bool] = None
 ) -> Dict[str, OperationResult]
 ```
@@ -377,7 +377,7 @@ except NonRetriableError as e:
 
 ```python
 from pamola_core.utils.tasks.operation_executor import create_operation_executor
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 
 # Create operation executor
 executor = create_operation_executor(
@@ -387,7 +387,7 @@ executor = create_operation_executor(
 )
 
 # Create progress tracker
-progress = ProgressTracker(
+progress = HierarchicalProgressTracker(
     total=len(operations),
     description="Executing operations",
     unit="operations"

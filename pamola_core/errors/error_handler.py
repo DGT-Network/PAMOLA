@@ -40,7 +40,7 @@ from pamola_core.errors.exceptions.validation import (
 # → Imports only run when the type-checker (mypy/pyright) parses them; they do NOT run at runtime.
 # → Break cycle: errors → utilities
 if TYPE_CHECKING:
-    from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+    from pamola_core.utils.ops.op_result import OperationResult
 
 T = TypeVar("T")
 F = TypeVar("F", bound=Callable[..., Any])

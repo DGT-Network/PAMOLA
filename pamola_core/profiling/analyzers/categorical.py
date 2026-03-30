@@ -52,7 +52,6 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
-    OperationArtifact,
 )
 from pamola_core.utils.visualization import plot_value_distribution
 from pamola_core.common.constants import Constants
@@ -302,7 +301,7 @@ class CategoricalOperation(FieldOperation):
                     data_source, dataset_name, **kwargs
                 )
 
-                self.logger.info(f"Loading data'")
+                self.logger.info("Loading data'")
 
                 df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
@@ -966,9 +965,9 @@ class CategoricalOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:

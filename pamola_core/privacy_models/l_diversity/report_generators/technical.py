@@ -19,13 +19,13 @@ Licensed under BSD 3-Clause License
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 import pandas as pd
 import numpy as np
 
 # Import from pamola_core utilities
-from pamola_core.utils.io import write_json, write_csv
+from pamola_core.utils.io import write_json
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -610,3 +610,140 @@ def calculate_recursive_diversity_metrics(
         metrics["compliance_distribution"][sa] = compliance_distribution
 
     return metrics
+
+
+def calculate_attribute_diversity_metrics(
+    data: pd.DataFrame,
+    quasi_identifiers: List[str],
+    sensitive_attribute: str,
+    diversity_type: str = "distinct",
+) -> Dict[str, Any]:
+    """
+    Calculate diversity metrics for a single sensitive attribute.
+
+    Computes per-group diversity statistics (distinct count, entropy, effective-l)
+    and aggregates them into summary metrics for the given attribute.
+    """
+    if sensitive_attribute not in data.columns:
+        return {}
+
+    groups = data.groupby(quasi_identifiers)
+
+    distinct_counts = []
+    entropy_values = []
+    effective_l_values = []
+
+    for _, group in groups:
+        values = group[sensitive_attribute].dropna()
+        if values.empty:
+            continue
+
+        n_distinct = values.nunique()
+        distinct_counts.append(n_distinct)
+
+        freq = values.value_counts(normalize=True)
+        entropy = -float((freq * np.log(freq.clip(lower=1e-10))).sum())
+        entropy_values.append(entropy)
+        effective_l_values.append(float(np.exp(entropy)) if entropy > 0 else 1.0)
+
+    if not distinct_counts:
+        return {}
+
+    return {
+        "attribute": sensitive_attribute,
+        "diversity_type": diversity_type,
+        "groups_analyzed": len(distinct_counts),
+        "distinct_values": {
+            "min": int(min(distinct_counts)),
+            "max": int(max(distinct_counts)),
+            "mean": float(np.mean(distinct_counts)),
+            "median": float(np.median(distinct_counts)),
+        },
+        "entropy": {
+            "min": float(min(entropy_values)),
+            "max": float(max(entropy_values)),
+            "mean": float(np.mean(entropy_values)),
+            "median": float(np.median(entropy_values)),
+        },
+        "effective_l": {
+            "min": float(min(effective_l_values)),
+            "max": float(max(effective_l_values)),
+            "mean": float(np.mean(effective_l_values)),
+            "median": float(np.median(effective_l_values)),
+        },
+        "global_distinct_count": int(data[sensitive_attribute].nunique()),
+        "global_value_distribution": (
+            data[sensitive_attribute]
+            .value_counts(normalize=True)
+            .head(10)
+            .to_dict()
+        ),
+    }
+
+
+def calculate_group_level_metrics(
+    data: pd.DataFrame,
+    quasi_identifiers: List[str],
+    sensitive_attribute: str,
+    diversity_type: str = "distinct",
+) -> Dict[str, Any]:
+    """
+    Calculate group-level l-diversity metrics.
+
+    Produces per-group analysis showing which equivalence classes meet
+    the diversity threshold and which are at risk.
+    """
+    if sensitive_attribute not in data.columns:
+        return {}
+
+    groups = data.groupby(quasi_identifiers)
+    group_results = []
+
+    for group_key, group in groups:
+        values = group[sensitive_attribute].dropna()
+        if values.empty:
+            continue
+
+        n_distinct = int(values.nunique())
+        freq = values.value_counts(normalize=True)
+        entropy = -float((freq * np.log(freq.clip(lower=1e-10))).sum())
+        effective_l = float(np.exp(entropy)) if entropy > 0 else 1.0
+
+        key_label = str(group_key) if not isinstance(group_key, tuple) else "|".join(str(k) for k in group_key)
+
+        group_results.append({
+            "group_key": key_label,
+            "size": len(group),
+            "distinct_values": n_distinct,
+            "entropy": round(entropy, 4),
+            "effective_l": round(effective_l, 4),
+            "most_frequent_value": str(freq.index[0]) if len(freq) > 0 else None,
+            "most_frequent_ratio": round(float(freq.iloc[0]), 4) if len(freq) > 0 else 0.0,
+        })
+
+    if not group_results:
+        return {}
+
+    sizes = [g["size"] for g in group_results]
+    distinct_vals = [g["distinct_values"] for g in group_results]
+
+    return {
+        "total_groups": len(group_results),
+        "group_size_summary": {
+            "min": int(min(sizes)),
+            "max": int(max(sizes)),
+            "mean": round(float(np.mean(sizes)), 2),
+            "median": float(np.median(sizes)),
+        },
+        "diversity_summary": {
+            "min_distinct": int(min(distinct_vals)),
+            "max_distinct": int(max(distinct_vals)),
+            "mean_distinct": round(float(np.mean(distinct_vals)), 2),
+            "single_value_groups": sum(1 for d in distinct_vals if d == 1),
+            "single_value_percentage": round(
+                sum(1 for d in distinct_vals if d == 1) / len(distinct_vals) * 100, 2
+            ),
+        },
+        "at_risk_groups": [g for g in group_results if g["distinct_values"] < 2],
+        "groups": group_results[:50],  # cap at 50 to avoid huge reports
+    }

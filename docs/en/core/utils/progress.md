@@ -75,7 +75,7 @@ The Progress module consists of several key classes:
     │               │          │                       │
 ┌───┴───────────┐ ┌─┴────────┐ ┌──┴─────────────────┐  │
 │ Simple         │ │ Enhanced  │ │ Hierarchical      │  │
-│ ProgressBar    │ │ Progress  │ │ ProgressTracker   │  │
+│ ProgressBar    │ │ Progress  │ │ HierarchicalProgressTracker   │  │
 └───────────────┘ │ Bar       │ └───────────────────┘  │
                   └───────────┘                        │
                    (Consolidated in v2.0)              │
@@ -85,7 +85,7 @@ The Progress module consists of several key classes:
 
 ```mermaid
 flowchart TD
-    A[Operation.run] -->|creates| B[ProgressTracker]
+    A[Operation.run] -->|creates| B[HierarchicalProgressTracker]
     B -->|tracks| C["Update Progress<br/>(update)"]
     C -->|checks| D["Memory Usage"]
     C -->|displays| E["Progress Bar<br/>(tqdm)"]
@@ -172,7 +172,7 @@ HierarchicalProgressTracker(
 ```python
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
-with HierarchicalProgressTracker(total=3, description="Main Process") as main:
+with HierarchicalHierarchicalProgressTracker(total=3, description="Main Process") as main:
     for stage in range(3):
         sub = main.create_subtask(total=100, description=f"Stage {stage+1}")
         for i in range(100):
@@ -294,7 +294,7 @@ def context_manager_example():
     print("Example 4: Context Manager with Error Handling")
 
     try:
-        with HierarchicalProgressTracker(total=5, description="Process stages") as tracker:
+        with HierarchicalHierarchicalProgressTracker(total=5, description="Process stages") as tracker:
             for i in range(5):
                 sub = tracker.create_subtask(total=20, description=f"Subtask {i+1}")
                 for j in range(20):
@@ -337,7 +337,7 @@ result = operation.run(
     data_source=data_source,
     task_dir=task_dir,
     reporter=reporter,
-    progress_tracker=HierarchicalProgressTracker(total=len(df), description="Main operation")
+    progress_tracker=HierarchicalHierarchicalProgressTracker(total=len(df), description="Main operation")
 )
 ```
 
@@ -365,7 +365,7 @@ result = operation.run(
 
 4. **Use Hierarchical Tracking for Multi-Stage Operations**: Better visibility into complex workflows
    ```python
-   with HierarchicalProgressTracker(total=stages) as main:
+   with HierarchicalHierarchicalProgressTracker(total=stages) as main:
        for stage in range(stages):
            sub = main.create_subtask(total=items_per_stage)
            # Process stage

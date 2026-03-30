@@ -98,7 +98,6 @@ def read_csv_in_chunks(
     """
     try:
         import dask.dataframe as dd
-        from dask.diagnostics import ProgressBar
 
         file_path = Path(file_path)
         logger.info(f"Starting Dask chunked read of {file_path}")

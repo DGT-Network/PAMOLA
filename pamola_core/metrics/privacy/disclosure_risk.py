@@ -578,6 +578,11 @@ def calculate_disclosure_risk_metrics(
 
     # Calculate l-diversity risk if sensitive attributes are provided
     if sensitive_attributes:
+        # Extract l-diversity specific parameters from kwargs
+        diversity_type = kwargs.get("diversity_type", "distinct")
+        l_threshold = kwargs.get("l_threshold", 3)
+        c_value = kwargs.get("c_value", 1.0)
+
         # Try to use specialized metrics from ldiversity_risk module
         try:
             l_risk = LDiversityRiskMetric(
@@ -593,11 +598,6 @@ def calculate_disclosure_risk_metrics(
             logger.warning(
                 "Specialized ldiversity_risk module not available. Using basic implementation."
             )
-
-            # Extract l-diversity specific parameters
-            diversity_type = kwargs.get("diversity_type", "distinct")
-            l_threshold = kwargs.get("l_threshold", 3)
-            c_value = kwargs.get("c_value", 1.0)
 
             l_risk = LDiversityRiskMetric(
                 l_threshold=l_threshold, diversity_type=diversity_type, c_value=c_value

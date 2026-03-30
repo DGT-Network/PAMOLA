@@ -764,7 +764,7 @@ def find_task_by_output(file_path: Union[str, Path],
         with progress_manager.create_operation_context(
                 name="find_task_by_output",
                 total=1,
-                description=f"Finding task for output file"
+                description="Finding task for output file"
         ) as progress:
             try:
                 # Load execution log
@@ -1075,7 +1075,7 @@ def update_execution_record(task_run_id: str, updates: Dict[str, Any],
         with progress_manager.create_operation_context(
                 name="update_execution_record",
                 total=1,
-                description=f"Updating execution record"
+                description="Updating execution record"
         ) as progress:
             try:
                 # Load execution log
@@ -1179,7 +1179,7 @@ def remove_execution_record(task_run_id: str,
         with progress_manager.create_operation_context(
                 name="remove_execution_record",
                 total=1,
-                description=f"Removing execution record"
+                description="Removing execution record"
         ) as progress:
             try:
                 # Load execution log
@@ -1267,7 +1267,7 @@ def cleanup_old_executions(max_age_days: int = 30,
         with progress_manager.create_operation_context(
                 name="cleanup_old_executions",
                 total=3,
-                description=f"Cleaning up old execution records"
+                description="Cleaning up old execution records"
         ) as progress:
             try:
                 # Load execution log

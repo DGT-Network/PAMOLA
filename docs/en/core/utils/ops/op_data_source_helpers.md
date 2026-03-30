@@ -616,7 +616,7 @@ print(sample['status'].value_counts(normalize=True))
 | `DataReader` | Coordinates with these utilities |
 | `BaseOperation` | Uses helpers for memory management |
 | `pamola_core.utils.io` | Provides `optimize_dataframe_memory()` |
-| `ProgressTracker` | Used by chunking functions |
+| `HierarchicalProgressTracker` | Used by chunking functions |
 
 ## Summary
 

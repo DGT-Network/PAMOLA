@@ -192,7 +192,7 @@ task_dir = Path("tasks/job_title_analysis")
 
 # Create reporter and progress tracker
 reporter = SimpleReporter()
-progress_tracker = ProgressTracker(total_steps=5)
+progress_tracker = HierarchicalHierarchicalProgressTracker(total=5)
 
 # Execute the operation
 result = operation.execute(

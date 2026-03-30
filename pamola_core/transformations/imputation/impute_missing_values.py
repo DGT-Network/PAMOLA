@@ -81,7 +81,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         kwargs.setdefault("name", name)
         kwargs.setdefault(
             "description",
-            f"Impute missing or invalid values",
+            "Impute missing or invalid values",
         )
 
         # --- Build config object ---
@@ -230,7 +230,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Impute missing values (from cache)",
+                            "Impute missing values (from cache)",
                             details={"cached": True},
                         )
                     return cache_result
@@ -243,7 +243,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
             try:
                 if reporter:
                     reporter.add_operation(
-                        f"Impute missing values",
+                        "Impute missing values",
                         details={
                             "field_strategies": self.field_strategies,
                             "invalid_values": self.invalid_values,
@@ -400,7 +400,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
 
                 # Add the operation to the reporter
                 reporter.add_operation(
-                    f"Impute missing values completed", details=details
+                    "Impute missing values completed", details=details
                 )
 
             # Clean up memory AFTER all write operations are complete
@@ -1035,7 +1035,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1047,7 +1047,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1094,17 +1094,17 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1150,7 +1150,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1231,10 +1231,10 @@ class ImputeMissingValuesOperation(TransformationOperation):
 
         # Check if visualization should be skipped
         if vis_backend is None:
-            self.logger.info(f"Skipping visualization (backend=None)")
+            self.logger.info("Skipping visualization (backend=None)")
             return visualization_paths
 
-        self.logger.info(f"[VIZ] Starting visualization generation")
+        self.logger.info("[VIZ] Starting visualization generation")
         self.logger.debug(
             f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
         )
@@ -1279,7 +1279,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"imputed_values_count"] = viz_path
+                visualization_paths["imputed_values_count"] = viz_path
 
             # Before/after fields
             fields_added = [
@@ -1442,7 +1442,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
             self.logger.error(
                 f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}"
             )
-            self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
+            self.logger.debug("[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
 

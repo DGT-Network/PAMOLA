@@ -932,7 +932,7 @@ class PartialMaskingOperation(AnonymizationOperation):
                     value, mtype, preset_name.upper(), random_mask=random_mask
                 )
             return value
-        except (ValidationError, ValueError, KeyError) as e:
+        except (ValidationError, ValueError, KeyError):
             return None
 
     def _random_percentage_mask(self, value: str) -> str:

@@ -2,12 +2,10 @@
 Tests for the clean_invalid_values module in the pamola_core/transformations/cleaning package.
 These tests ensure that the CleanInvalidValuesOperation class and related logic properly handle constraint cleaning, null replacement, caching, metrics, and error handling.
 """
-import os
 import tempfile
 import shutil
 import pytest
 import pandas as pd
-import numpy as np
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

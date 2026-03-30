@@ -1,6 +1,5 @@
 import unittest
-import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import pandas as pd
 from pathlib import Path
 from pamola_core.profiling.analyzers.text import TextSemanticCategorizerOperation

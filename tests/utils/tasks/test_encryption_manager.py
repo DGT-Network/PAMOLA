@@ -5,9 +5,7 @@ These tests ensure that the TaskEncryptionManager and related classes properly i
 """
 
 import base64
-import tempfile
 import os
-import shutil
 from pathlib import Path
 from unittest import mock
 import pytest
@@ -20,7 +18,6 @@ from pamola_core.utils.tasks.encryption_manager import (
     KeyLoadingError,
     DataRedactionError,
     MemoryProtectedKey,
-    EncryptionContext,
 )
 from pamola_core.errors.exceptions import EncryptionInitializationError
 from pamola_core.errors.exceptions import ValidationError

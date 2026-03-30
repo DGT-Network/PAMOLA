@@ -28,7 +28,6 @@ from pamola_core.utils.group_processing import (
 from pamola_core.errors.exceptions import (
     FeatureNotImplementedError,
     InvalidStrategyError,
-    ValidationError,
 )
 from pamola_core.privacy_models.l_diversity.calculation import (
     LDiversityCalculator,

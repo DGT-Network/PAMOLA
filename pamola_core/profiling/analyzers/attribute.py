@@ -247,7 +247,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             # Report operation details
             if reporter:
                 reporter.add_operation(
-                    f"Attribute Profiling",
+                    "Attribute Profiling",
                     details={
                         "records_count": len(df),
                         "columns_count": len(df.columns),
@@ -875,9 +875,9 @@ class DataAttributeProfilerOperation(BaseOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -977,7 +977,7 @@ class DataAttributeProfilerOperation(BaseOperation):
 
                 try:
                     # Log context variables
-                    logger.info(f"[DIAG] Checking context variables...")
+                    logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         logger.info(
@@ -987,7 +987,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                         logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
 
                     # Generate visualizations with visualization context parameters
-                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1033,17 +1033,17 @@ class DataAttributeProfilerOperation(BaseOperation):
                     logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1089,7 +1089,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts

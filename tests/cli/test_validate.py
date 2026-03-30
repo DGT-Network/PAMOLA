@@ -12,7 +12,6 @@ Tests:
 import json
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from pamola_core.cli.main import app

@@ -9,8 +9,7 @@ Run with: pytest -s tests/privacy_models/test_l_diversity.py
 
 import pytest
 import pandas as pd
-import numpy as np
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from pamola_core.privacy_models.l_diversity.calculation import LDiversityCalculator
 from pamola_core.errors.exceptions import ValidationError, TypeValidationError

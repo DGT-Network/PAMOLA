@@ -19,8 +19,7 @@ from pamola_core.utils.tasks.task_config import (
     load_task_config,
     find_project_root,
     validate_path_security,
-    EncryptionMode,
-    ConfigurationError
+    EncryptionMode
 )
 from pamola_core.utils.tasks.project_config_loader import clear_config_cache
 

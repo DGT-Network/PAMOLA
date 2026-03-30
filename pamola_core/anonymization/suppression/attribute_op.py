@@ -866,7 +866,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                     result.add_artifact(
                         artifact_type="json",
                         path=schema_path.path,
-                        description=f"Metadata about suppressed columns including data types and statistics",
+                        description="Metadata about suppressed columns including data types and statistics",
                         category=Constants.Artifact_Category_Metrics,
                     )
 
@@ -1045,7 +1045,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
         step = "Generate visualizations"
         self.logger.info(
-            f"[VIZ] Preparing to generate visualizations in a separate thread"
+            "[VIZ] Preparing to generate visualizations in a separate thread"
         )
 
         viz_error = None
@@ -1108,7 +1108,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                         },
                     )
             else:
-                self.logger.info(f"[VIZ] Visualization thread completed successfully")
+                self.logger.info("[VIZ] Visualization thread completed successfully")
                 if reporter:
                     num_images = len(
                         [a for a in result.artifacts if a.artifact_type == "png"]

@@ -5,9 +5,6 @@ This module contains unit tests for the abstract base classes and concrete
 implementations in the category_matching.py module.
 """
 import unittest
-from unittest.mock import patch, mock_open, MagicMock
-from pathlib import Path
-import json
 
 from pamola_core.utils.nlp.category_matching import (
     CategoryDictionary,

@@ -364,7 +364,7 @@ class TaskEncryptionManager:
                 # Validate encryption mode
                 if self._encryption_mode == EncryptionMode.NONE:
                     self.logger.warning(
-                        f"Invalid encryption configuration: mode is 'none' but use_encryption is True, defaulting to 'simple'"
+                        "Invalid encryption configuration: mode is 'none' but use_encryption is True, defaulting to 'simple'"
                     )
                     self._encryption_mode = EncryptionMode.SIMPLE
 

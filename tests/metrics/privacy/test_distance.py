@@ -136,7 +136,6 @@ class TestDistanceToClosestRecord:
     def test_faiss_fallback_error(self, monkeypatch):
         # Simulate FAISS present but error in FAISS block
         import sys
-        import types
         class DummyFaiss:
             def __getattr__(self, name):
                 raise RuntimeError("FAISS error")

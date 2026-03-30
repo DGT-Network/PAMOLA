@@ -796,7 +796,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             # Return everything needed
             return batch
 
-        except Exception as e:
+        except Exception:
             raise
 
     def _prepare_context(

@@ -58,7 +58,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Union, Optional
+from typing import Any, Dict, Optional
 
 from pamola_core.common.type_aliases import PathLike
 import logging
@@ -478,7 +478,7 @@ def _is_path_writable(file_path: Path) -> bool:
                 pass
             can_write = True
         except Exception as e:
-            logger.debug(f"Cannot write to existing file {str(file_path)}: {e}")  # noqa
+            logger.debug(f"Cannot write to existing file {str(file_path)}: {e}")
             can_write = False
     else:
         # File doesn't exist, try to create a test file

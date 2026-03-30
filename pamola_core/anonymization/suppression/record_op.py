@@ -1246,7 +1246,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         step = "Generate visualizations"
         self.logger.info(
-            f"[VIZ] Preparing to generate visualizations in a separate thread"
+            "[VIZ] Preparing to generate visualizations in a separate thread"
         )
 
         viz_error = None
@@ -1309,7 +1309,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                         },
                     )
             else:
-                self.logger.info(f"[VIZ] Visualization thread completed successfully")
+                self.logger.info("[VIZ] Visualization thread completed successfully")
                 if reporter:
                     num_images = len(
                         [a for a in result.artifacts if a.artifact_type == "png"]

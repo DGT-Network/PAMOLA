@@ -19,7 +19,6 @@ import logging
 from pathlib import Path
 from typing import Union, Dict, Any, Optional
 from decouple import config
-import pandas as pd
 
 # Import register providers function to break circular imports
 from pamola_core.common.enum.encryption_mode import EncryptionMode

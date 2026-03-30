@@ -7,8 +7,6 @@ implementations in the base.py module.
 import unittest
 from unittest.mock import patch, mock_open, MagicMock
 import os
-import json
-import tempfile
 from pathlib import Path
 from typing import Optional
 

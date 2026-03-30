@@ -17,13 +17,11 @@ Run with: pytest tests/errors/test_error_handler.py
 
 import logging
 import pytest
-from unittest import mock
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.base import BasePamolaError
 from pamola_core.errors.codes.registry import ErrorCode
 from pamola_core.errors.exceptions.validation import (
     ValidationError,
-    FieldNotFoundError,
     InvalidParameterError,
 )
 

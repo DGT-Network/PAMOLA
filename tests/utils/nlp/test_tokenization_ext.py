@@ -5,7 +5,7 @@ This module contains unit tests for the abstract base classes and concrete
 implementations in the tokenization_ext.py module.
 """
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from pamola_core.utils.nlp.tokenization_ext import (
     load_ngram_dictionary,

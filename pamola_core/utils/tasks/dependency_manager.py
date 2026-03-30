@@ -303,7 +303,7 @@ class TaskDependencyManager:
                         else:
                             raise DependencyMissingError(error_message)
 
-                except DependencyMissingError as e:
+                except DependencyMissingError:
                     # This is already handled properly based on continue_on_error
                     if not self.config.continue_on_error:
                         raise

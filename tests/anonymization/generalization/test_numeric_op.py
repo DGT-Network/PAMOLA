@@ -27,8 +27,7 @@ Key Features Tested:
 import warnings
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-from unittest.mock import Mock, patch, MagicMock
-import tempfile
+from unittest.mock import Mock, patch
 import json
 import numpy as np
 import pandas as pd

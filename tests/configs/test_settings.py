@@ -18,7 +18,6 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
-import pytest
 
 from pamola_core.configs.settings import (
     load_config,

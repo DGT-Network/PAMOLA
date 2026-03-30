@@ -6,7 +6,6 @@ Provides CliRunner, temporary files, and mocked registry.
 
 import json
 from pathlib import Path
-from typing import Dict, Any
 
 import pytest
 from typer.testing import CliRunner

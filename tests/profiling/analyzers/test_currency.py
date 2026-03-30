@@ -1,4 +1,3 @@
-import pytest
 import unittest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
@@ -8,7 +7,7 @@ import pandas as pd
 
 from pamola_core.profiling.analyzers.currency import CurrencyAnalyzer
 from pamola_core.profiling.analyzers.currency import CurrencyOperation
-from pamola_core.utils.ops.op_result import OperationStatus, OperationResult, OperationArtifact
+from pamola_core.utils.ops.op_result import OperationStatus
 
 class DummyDataSource:
     def __init__(self, df=None, error=None):

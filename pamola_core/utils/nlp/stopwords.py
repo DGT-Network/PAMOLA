@@ -47,7 +47,6 @@ def _ensure_nltk() -> None:
             _NLTK_AVAILABLE = False
             return
         try:
-            import nltk
             from nltk.corpus import stopwords as nltk_stopwords
 
             _NLTK_STOPWORDS = nltk_stopwords

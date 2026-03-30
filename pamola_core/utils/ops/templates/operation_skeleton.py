@@ -16,9 +16,8 @@ Key features:
 
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Union
+from typing import Any, Optional, Union
 
-import pandas as pd
 
 from pamola_core.common.constants import Constants
 from pamola_core.utils.ops.op_base import BaseOperation
@@ -27,7 +26,7 @@ from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register_operation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.error_handler import ErrorHandler
 
@@ -110,7 +109,7 @@ class MyOperation(BaseOperation):
         data_source: DataSource,
         task_dir: Path,
         reporter: Any,
-        progress_tracker: Optional[ProgressTracker] = None,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
         **kwargs,
     ) -> OperationResult:
         """
@@ -124,7 +123,7 @@ class MyOperation(BaseOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : ProgressTracker, optional
+        progress_tracker : HierarchicalProgressTracker, optional
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for the operation

@@ -877,7 +877,6 @@ def extract_sentiment_words(
         # Try to find lexicon files
         from pamola_core.utils.nlp.base import RESOURCES_DIR
         import os
-        import json
 
         lexicon_dir = os.path.join(RESOURCES_DIR, 'sentiment')
         pos_path = os.path.join(lexicon_dir, f'{language}_positive.txt')

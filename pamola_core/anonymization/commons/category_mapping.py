@@ -530,7 +530,7 @@ class CategoryMappingEngine:
                         priority=cm.get("priority", 0),
                     )
 
-            logger.info(f"Imported complete mapping configuration")
+            logger.info("Imported complete mapping configuration")
 
     def set_hierarchy_version(self, version: Optional[str]) -> None:
         """

@@ -37,21 +37,16 @@ Test Categories:
 """
 
 import json
-import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple, Union
-from unittest.mock import Mock, patch, MagicMock, call
+from typing import Dict, Any
+from unittest.mock import Mock, patch
 
-import numpy as np
 import pandas as pd
-import pytest
-import dask.dataframe as dd
 
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
-from pamola_core.anonymization.commons.validation_utils import FieldNotFoundError
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker

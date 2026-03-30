@@ -120,7 +120,7 @@ class KAnonymityReport(PrivacyReport):
             A summary of key k-anonymity metrics and results.
         """
         summary = [
-            f"PAMOLA k-Anonymity Summary",
+            "PAMOLA k-Anonymity Summary",
             "=========================",
             "",
             f"Generated on: {self.metadata['creation_time']}"
@@ -129,21 +129,21 @@ class KAnonymityReport(PrivacyReport):
         # Add configuration overview
         if "k_anonymity_configuration" in self.report_data:
             config = self.report_data["k_anonymity_configuration"]
-            summary.append(f"\nConfiguration:")
+            summary.append("\nConfiguration:")
             summary.append(f"- k-value: {config.get('k_value', 'N/A')}")
             summary.append(f"- Method: {'Suppression' if config.get('suppression') else 'Masking'}")
 
         # Add dataset overview
         if "dataset_information" in self.report_data:
             dataset = self.report_data["dataset_information"]
-            summary.append(f"\nDataset:")
+            summary.append("\nDataset:")
             summary.append(f"- Records: {dataset.get('record_count', 'N/A')}")
             summary.append(f"- Quasi-identifiers: {len(dataset.get('quasi_identifiers', []))}")
 
         # Add key results
         if "anonymization_result" in self.report_data:
             result = self.report_data["anonymization_result"]
-            summary.append(f"\nResults:")
+            summary.append("\nResults:")
             summary.append(f"- Records processed: {result.get('original_records', 'N/A')}")
             summary.append(f"- Records after anonymization: {result.get('anonymized_records', 'N/A')}")
             summary.append(f"- Records removed: {result.get('records_removed', 'N/A')}")
@@ -151,7 +151,7 @@ class KAnonymityReport(PrivacyReport):
         # Add anonymization metrics
         if "privacy_evaluation" in self.report_data:
             privacy = self.report_data["privacy_evaluation"]
-            summary.append(f"\nPrivacy:")
+            summary.append("\nPrivacy:")
             summary.append(f"- Minimum k: {privacy.get('min_k', 'N/A')}")
             summary.append(f"- Records at risk: {privacy.get('at_risk_records', 'N/A')}")
             summary.append(f"- Compliance: {'Yes' if privacy.get('compliant', False) else 'No'}")
@@ -159,7 +159,7 @@ class KAnonymityReport(PrivacyReport):
         # Add information loss
         if "information_loss" in self.report_data:
             loss = self.report_data["information_loss"]
-            summary.append(f"\nInformation Loss:")
+            summary.append("\nInformation Loss:")
             summary.append(f"- Overall: {loss.get('overall_information_loss', 'N/A')}%")
 
         return "\n".join(summary)

@@ -17,25 +17,20 @@ Test Architecture:
 """
 
 import json
-import os
 import pandas as pd
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any, List
+from unittest.mock import Mock, patch
 import tempfile
-import numpy as np
 
 # Import the operation and related classes
 from pamola_core.anonymization.suppression.cell_op import (
     CellSuppressionOperation,
     apply_suppression_strategy,
 )
-from pamola_core.errors.exceptions import FieldNotFoundError, FieldTypeError, ValidationError, InvalidStrategyError
+from pamola_core.errors.exceptions import FieldNotFoundError, ValidationError, InvalidStrategyError
 from pamola_core.utils.ops.op_config import OperationConfig
-from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.utils.ops.op_result import OperationStatus
 
 
 class TestCellSuppressionOperation:

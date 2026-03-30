@@ -304,7 +304,7 @@ def generate_data_hash(
 
         return blake(sig.encode())
 
-    except Exception as e:
+    except Exception:
         fallback = f"{type(data).__name__}_{getattr(data, '__len__', lambda: 0)()}"
         return blake(fallback.encode())
 

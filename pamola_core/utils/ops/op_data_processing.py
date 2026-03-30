@@ -30,10 +30,9 @@ Design Principles:
 
 import gc
 import logging
-from typing import Any, Dict, Generator, Optional, Tuple, Union
+from typing import Any, Dict, Generator, Optional, Tuple
 from typing import Literal
 
-import numpy as np
 import pandas as pd
 from pamola_core.errors.exceptions import ColumnNotFoundError, InvalidStrategyError
 

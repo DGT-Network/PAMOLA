@@ -151,7 +151,7 @@ def execute(self,
             data_source: DataSource,
             task_dir: Path,
             reporter: Any,
-            progress_tracker: Optional[ProgressTracker] = None,
+            progress_tracker: Optional[HierarchicalProgressTracker] = None,
             **kwargs) -> OperationResult:
 ```
 
@@ -357,7 +357,7 @@ The categorical analysis module integrates with:
    - Uses `plot_value_distribution` for creating standardized visualizations
 
 3. **Progress Tracking** (`pamola_core.utils.progress`)
-   - Uses `ProgressTracker` for monitoring operation progress
+   - Uses `HierarchicalProgressTracker` for monitoring operation progress
 
 4. **Logging System** (`pamola_core.utils.logging`)
    - Uses standardized logging throughout the module

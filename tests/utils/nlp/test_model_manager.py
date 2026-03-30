@@ -8,8 +8,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 from pamola_core.utils.nlp.model_manager import (
-    NLPModelManager,
-    ModelLoadError
+    NLPModelManager
 )
 
 

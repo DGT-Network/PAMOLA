@@ -15,7 +15,6 @@ Tests for Parquet reading and writing functionality:
 import pytest
 import pandas as pd
 import numpy as np
-from pathlib import Path
 
 from pamola_core.io.parquet import DataParquet, read_parquet, write_parquet
 

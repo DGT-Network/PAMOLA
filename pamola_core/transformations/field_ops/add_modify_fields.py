@@ -84,7 +84,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         kwargs.setdefault("name", name)
         kwargs.setdefault(
             "description",
-            f"Add or modify fields based on lookups or conditions.",
+            "Add or modify fields based on lookups or conditions.",
         )
 
         # --- Build config object ---
@@ -217,7 +217,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             try:
                 if reporter:
                     reporter.add_operation(
-                        name=f"Add/modify fields",
+                        name="Add/modify fields",
                         details={
                             "operation_type": self.operation_name,
                             "field_operations": self.field_operations,
@@ -262,7 +262,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Add/modify fields (from cache)", details={"cached": True}
+                            "Add/modify fields (from cache)", details={"cached": True}
                         )
                     return cache_result
 
@@ -400,7 +400,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         details["generalization_ratio"] = generalization_ratio
 
                 # Add the operation to the reporter
-                reporter.add_operation(f"Add/modify fields completed", details=details)
+                reporter.add_operation("Add/modify fields completed", details=details)
 
             self.logger.info("Cleaning up memory after all file operations")
             self._cleanup_memory(
@@ -867,7 +867,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             processed_partitions = df.map_partitions(process_partition)
 
             return processed_partitions, True
-        except Exception as e:
+        except Exception:
             return df, False
 
     def _process_dataframe_using_joblib(
@@ -913,7 +913,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 try:
                     processed_chunk = process_function(chunk)
                     return processed_chunk
-                except Exception as e:
+                except Exception:
                     return None
 
             # Directly use the generator to iterate through chunks
@@ -935,7 +935,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 return df, False
 
             return pd.concat(processed_chunks, ignore_index=True), True
-        except Exception as e:
+        except Exception:
             return df, False
 
     def _process_dataframe_using_chunk(
@@ -986,7 +986,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
                     # Accumulate the results
                     processed_chunks.append(processed_chunk)
-                except Exception as e:
+                except Exception:
                     # Log any error encountered while processing the chunk
                     processed_chunks.append(None)
                     continue  # Continue with the next chunk even if an error occurs
@@ -996,7 +996,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 return df, False
 
             return pd.concat(processed_chunks, ignore_index=True), True
-        except Exception as e:
+        except Exception:
             return df, False
 
     def _calculate_all_metrics(
@@ -1199,7 +1199,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             elapsed_time = time.time() - start_time
 
             return result
-        except Exception as e:
+        except Exception:
             raise
 
     def _compare_row_counts(
@@ -1579,7 +1579,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1591,7 +1591,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1638,17 +1638,17 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1694,7 +1694,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1769,10 +1769,10 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
         # Check if visualization should be skipped
         if vis_backend is None:
-            self.logger.info(f"Skipping visualization (backend=None)")
+            self.logger.info("Skipping visualization (backend=None)")
             return visualization_paths
 
-        self.logger.info(f"[VIZ] Starting visualization generation")
+        self.logger.info("[VIZ] Starting visualization generation")
         self.logger.debug(
             f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
         )
@@ -1843,7 +1843,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"fields_count_comparison"] = viz_path
+                visualization_paths["fields_count_comparison"] = viz_path
 
             # Distribution statistics for new/modified fields
             distribution_stats = metrics.get("distribution_statistics", {})
@@ -1901,7 +1901,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 viz_result = create_bar_plot(
                     data=viz_data,
                     output_path=viz_path,
-                    title=f"Correlations",
+                    title="Correlations",
                     x_label="Field",
                     y_label="Correlation",
                     sort_by="key",
@@ -1913,7 +1913,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 if viz_result.startswith("Error"):
                     self.logger.error(f"Failed to create visualization: {viz_result}")
                 else:
-                    visualization_paths[f"correlations"] = viz_path
+                    visualization_paths["correlations"] = viz_path
 
             self.logger.info(
                 f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations"
@@ -1925,7 +1925,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             self.logger.error(
                 f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}"
             )
-            self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
+            self.logger.debug("[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
 

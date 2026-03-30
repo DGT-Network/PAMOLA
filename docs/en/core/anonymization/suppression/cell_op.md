@@ -262,9 +262,9 @@ op = CellSuppressionOperation(
 )
 
 # Execute with progress tracking
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 
-tracker = ProgressTracker(total=100, description="Processing")
+tracker = HierarchicalProgressTracker(total=100, description="Processing")
 result = op.execute(
     data_source,
     task_dir,

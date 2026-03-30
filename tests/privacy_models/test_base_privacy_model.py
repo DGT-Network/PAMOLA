@@ -9,7 +9,6 @@ Run with: pytest -s tests/privacy_models/test_base_privacy_model.py
 
 import pytest
 import pandas as pd
-from abc import ABC, abstractmethod
 
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
 

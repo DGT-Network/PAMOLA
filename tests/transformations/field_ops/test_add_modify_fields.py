@@ -331,7 +331,6 @@ def test__handle_visualizations(monkeypatch, op, sample_df):
     assert "vis" in vis
 
 def test__generate_visualizations(monkeypatch, op, sample_df, tmp_path):
-    import sys
     from unittest.mock import patch as mpatch
     op.field_operations = {"mod_field": {"operation_type": "modify_constant", "constant_value": "X"}}
     metrics = {"fields_modified_count": 1, "fields_added_count": 0}

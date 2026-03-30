@@ -8,7 +8,7 @@ to perform numeric analysis.
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, List, Any, Tuple, Union
 
 import numpy as np
 import pandas as pd

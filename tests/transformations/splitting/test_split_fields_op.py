@@ -3,12 +3,8 @@ Tests for the split_fields_op module in the pamola_core/transformations/splittin
 These tests ensure that the SplitFieldsOperation class properly implements field splitting,
 parameter validation, metrics collection, caching, and output saving, including edge and error cases.
 """
-import os
-from datetime import datetime
 import pytest
 import pandas as pd
-from pathlib import Path
-from unittest import mock
 from unittest.mock import MagicMock, patch
 from pamola_core.transformations.splitting.split_fields_op import SplitFieldsOperation
 from pamola_core.transformations.commons.enum import OutputFormat

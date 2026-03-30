@@ -52,7 +52,7 @@ graph TD
         A --> |uses| H(DataSource)
         A --> |registered in| I(op_registry)
         A --> |configures| J(OperationConfig)
-        A --> |reports via| K(ProgressTracker)
+        A --> |reports via| K(HierarchicalProgressTracker)
         A --> |writes files via| R(DataWriter)
     end
     

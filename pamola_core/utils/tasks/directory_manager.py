@@ -589,11 +589,11 @@ class TaskDirectoryManager:
             else:
                 return self._clean_temp_directory_standard(temp_dir)
 
-        except Exception as e:
+        except Exception:
             if self.progress_manager:
-                self.progress_manager.log_error(f"Error accessing temp directory")
+                self.progress_manager.log_error("Error accessing temp directory")
             else:
-                self.logger.error(f"Error accessing temp directory", exc_info=True)
+                self.logger.error("Error accessing temp directory", exc_info=True)
             return False
 
     def _clean_temp_directory_with_progress(self, temp_dir: Path) -> bool:
@@ -777,7 +777,7 @@ class TaskDirectoryManager:
                 reverse=True,
             )
 
-        except Exception as e:
+        except Exception:
             if self.progress_manager:
                 self.progress_manager.log_error(f"Error listing artifacts in {subdir}")
             else:
@@ -971,11 +971,11 @@ def create_directory_manager(
 
     except Exception as e:
         if logger:
-            logger.error(f"Error creating directory manager", exc_info=True)
+            logger.error("Error creating directory manager", exc_info=True)
         elif progress_manager:
             progress_manager.log_error(f"Error creating directory manager: {str(e)}")
         else:
-            logging.error(f"Error creating directory manager", exc_info=True)
+            logging.error("Error creating directory manager", exc_info=True)
         raise DirectoryManagerError(
             f"Failed to create directory manager: {str(e)}"
         ) from e

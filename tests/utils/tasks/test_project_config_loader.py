@@ -4,9 +4,6 @@ Tests for the project_config_loader module in the pamola_core/utils/tasks packag
 These tests ensure that the project configuration loader functions properly implement project root detection, config loading, variable substitution, caching, default value handling, path resolution, and error handling.
 """
 
-import os
-import shutil
-import tempfile
 import pytest
 import logging
 from pathlib import Path
@@ -19,7 +16,6 @@ from pamola_core.errors.exceptions import PamolaFileNotFoundError
 
 # --- Fixtures and Mocks ---
 
-import contextlib
 
 @pytest.fixture
 def temp_project_root(tmp_path):

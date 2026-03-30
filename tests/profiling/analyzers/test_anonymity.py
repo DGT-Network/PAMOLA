@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch, ANY
 from pathlib import Path
-import tempfile
 import pandas as pd
 from pamola_core.profiling.analyzers.anonymity import KAnonymityProfilerOperation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus

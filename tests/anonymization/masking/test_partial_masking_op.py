@@ -6,10 +6,8 @@ Coverage Status: In Progress
 Last Updated: 2025-07-25
 """
 
-import pytest
 import pandas as pd
 from pamola_core.anonymization.masking.partial_masking_op import PartialMaskingOperation
-from pathlib import Path
 from pamola_core.utils.ops.op_data_source import DataSource
 
 # =============================

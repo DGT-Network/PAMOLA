@@ -11,12 +11,10 @@ Tests for JSON reading and writing functionality:
 - Edge cases (empty files, single record)
 """
 
-import os
 import json
 import pytest
 import pandas as pd
 import numpy as np
-from pathlib import Path
 
 from pamola_core.io.json import DataJSON, read_json, write_json
 

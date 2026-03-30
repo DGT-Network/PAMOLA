@@ -40,7 +40,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import pandas as pd
 
 from pamola_core.common.constants import Constants
@@ -603,7 +602,7 @@ class MetricsOperation(BaseOperation):
 
         df = load_data_operation(source, dataset_name_or_path, **settings_operation)
         if df is None:
-            error_message = f"Failed to load input data!"
+            error_message = "Failed to load input data!"
             self.logger.error(error_message)
             raise ValidationError(error_message)
 
@@ -925,7 +924,7 @@ class MetricsOperation(BaseOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -937,7 +936,7 @@ class MetricsOperation(BaseOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -983,10 +982,10 @@ class MetricsOperation(BaseOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -1040,7 +1039,7 @@ class MetricsOperation(BaseOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1185,7 +1184,7 @@ class MetricsOperation(BaseOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Metrics (cached)",
+                    "Metrics (cached)",
                     details={"cached": True},
                 )
 
@@ -1263,9 +1262,9 @@ class MetricsOperation(BaseOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved metrics results to cache")
+                self.logger.info("Successfully saved metrics results to cache")
             else:
-                self.logger.warning(f"Failed to save metrics results to cache")
+                self.logger.warning("Failed to save metrics results to cache")
 
             return success
 

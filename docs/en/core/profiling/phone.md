@@ -331,7 +331,7 @@ This module integrates with the broader PAMOLA CORE framework through:
 
 - The `DataSource` abstraction for data access
 - `OperationResult` for standardized result reporting
-- `ProgressTracker` for operation progress monitoring
+- `HierarchicalProgressTracker` for operation progress monitoring
 - `TaskReporter` for logging operations and artifacts
 - Visualization utility functions for creating standardized charts
 - Error handling and logging through `ErrorHandler`

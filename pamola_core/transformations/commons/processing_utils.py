@@ -961,7 +961,7 @@ def merge_dataframes(
                 )
             return ddf_result.compute()
         else:
-            logger.info(f"Using pandas to merge datasets processing!!!")
+            logger.info("Using pandas to merge datasets processing!!!")
             logger.info("Parallel Disabled")
             logger.info("Parallel Engine: None")
             logger.info(f"Parallel Workers: {npartitions}")
@@ -1187,7 +1187,7 @@ def aggregate_dataframe(
                     },
                 )
         else:
-            logger.info(f"Using pandas to aggregation records processing!!!")
+            logger.info("Using pandas to aggregation records processing!!!")
             logger.info("Parallel Disabled")
             logger.info("Parallel Engine: None")
             logger.info(f"Parallel Workers: {npartitions}")
@@ -1228,7 +1228,7 @@ def aggregate_dataframe(
 
         return result
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error during aggregation")
         raise
 

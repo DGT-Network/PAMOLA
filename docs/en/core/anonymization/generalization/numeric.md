@@ -78,7 +78,7 @@ The module follows several key architectural principles:
 
 2. **Framework Integration**: Fully integrated with PAMOLA.CORE utilities:
    - Uses `DataWriter` for all file operations
-   - Leverages `ProgressTracker` for operation monitoring
+   - Leverages `HierarchicalProgressTracker` for operation monitoring
    - Returns standardized `OperationResult` objects
    - Delegates metrics to commons utilities
 
@@ -113,7 +113,7 @@ The module follows several key architectural principles:
 │                                                 │
 │ Framework Integration:                          │
 │ ├── DataWriter (file operations)               │
-│ ├── ProgressTracker (progress reporting)       │
+│ ├── HierarchicalProgressTracker (progress reporting)       │
 │ ├── OperationResult (result packaging)         │
 │ ├── OperationConfig (configuration)            │
 │ └── Field Utilities (naming, conditions)       │
@@ -314,7 +314,7 @@ def execute(self,
             data_source: DataSource, 
             task_dir: Path, 
             reporter: Any = None, 
-            progress_tracker: Optional[ProgressTracker] = None, 
+            progress_tracker: Optional[HierarchicalProgressTracker] = None, 
             **kwargs) -> OperationResult
 ```
 

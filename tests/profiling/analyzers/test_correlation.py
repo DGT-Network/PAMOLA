@@ -1,6 +1,5 @@
-from pprint import pprint
 import unittest
-from unittest.mock import Mock, call, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 import pandas as pd
 import pamola_core.profiling.analyzers.correlation as _correlation_module
@@ -11,7 +10,6 @@ from pamola_core.profiling.analyzers.correlation import (
     CorrelationMatrixOperation,
 )
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.utils.progress import ProgressTracker
 
 
 class DummyDataSource:
@@ -52,7 +50,7 @@ def analyze_correlations(data_source, task_dir, reporter, pairs=None, **kwargs):
     track_progress = kwargs.get("track_progress", True)
     overall_tracker = None
     if track_progress and pairs:
-        overall_tracker = _correlation_module.ProgressTracker(
+        overall_tracker = _correlation_module.HierarchicalProgressTracker(
             total=len(pairs), description="Analyzing correlations", unit="pairs"
         )
 
@@ -841,7 +839,7 @@ class TestAnalyzeCorrelations(unittest.TestCase):
         reporter = MagicMock()
 
         # Patch ProgressTracker to check update
-        with patch("pamola_core.profiling.analyzers.correlation.ProgressTracker") as MockProgressTracker:
+        with patch("pamola_core.profiling.analyzers.correlation.HierarchicalProgressTracker") as MockProgressTracker:
             mock_tracker = MockProgressTracker.return_value
 
             # Call analyze_correlations with track_progress=True (default)
@@ -873,7 +871,7 @@ class TestAnalyzeCorrelations(unittest.TestCase):
         reporter = MagicMock()
 
         # Patch ProgressTracker to check update
-        with patch("pamola_core.profiling.analyzers.correlation.ProgressTracker") as MockProgressTracker:
+        with patch("pamola_core.profiling.analyzers.correlation.HierarchicalProgressTracker") as MockProgressTracker:
             mock_tracker = MockProgressTracker.return_value
 
             pairs = [("A", "B")]

@@ -8,7 +8,7 @@ dictionaries used in the fake data generation process.
 import random
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, Tuple, Set, BinaryIO, TextIO
+from typing import Dict, List, Optional, Union, Any, Tuple
 import chardet
 import pandas as pd
 import pamola_core.utils.io as io

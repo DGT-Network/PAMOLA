@@ -5,8 +5,8 @@ This module defines various types, enumerations, and constants used
 throughout the profiling system to ensure consistency and type safety.
 """
 
-from enum import Enum, auto
-from typing import Dict, List, Any, Set, Union, Optional
+from enum import Enum
+from typing import Dict, List, Any, Set
 
 
 class DataType(Enum):

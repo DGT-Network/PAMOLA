@@ -1,12 +1,9 @@
-import os
-import sys
 import unittest
 from unittest.mock import MagicMock, patch
 import pandas as pd
 from pathlib import Path
 
 from pamola_core.profiling.analyzers.group import GroupAnalyzerOperation
-from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import OperationStatus
 
 class DummyDataSource:

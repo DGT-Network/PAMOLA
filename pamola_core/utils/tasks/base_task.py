@@ -58,8 +58,6 @@ from pamola_core.utils.tasks.dependency_manager import TaskDependencyManager
 
 if TYPE_CHECKING:
     from pamola_core.utils.ops.op_base import BaseOperation
-    from pamola_core.utils.ops.op_data_source import DataSource
-    from pamola_core.utils.ops.op_data_writer import DataWriter
     from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 
 # Import component managers
@@ -496,7 +494,7 @@ class BaseTask:
                 and self.config.continue_on_error
             ):
                 self.logger.warning(
-                    f"Task dependencies not satisfied, but continue_on_error=True - continuing execution"
+                    "Task dependencies not satisfied, but continue_on_error=True - continuing execution"
                 )
                 # Reset status to pending to reflect that task is continuing despite errors
                 self.status = "pending"

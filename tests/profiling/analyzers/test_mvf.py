@@ -424,7 +424,7 @@ class TestAnalyzeMVFFields(unittest.TestCase):
         self.assertFalse(kwargs['track_progress'])
 
 
-    @patch("pamola_core.utils.progress.ProgressTracker")
+    @patch("pamola_core.utils.progress.HierarchicalProgressTracker")
     @patch("pamola_core.profiling.analyzers.mvf.load_data_operation")
     @patch("pamola_core.profiling.analyzers.mvf.MVFOperation.execute")
     def test_analyze_mvf_fields_overall_tracker_error_update(self, mock_execute, mock_load, mock_tracker_cls):

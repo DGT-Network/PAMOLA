@@ -28,7 +28,7 @@ from datetime import datetime
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Optional
 import pandas as pd
 from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation,
@@ -47,11 +47,10 @@ from pamola_core.profiling.schemas.correlation_matrix_core_schema import (
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
-    load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.progress import ProgressTracker, HierarchicalProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation, BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -352,7 +351,7 @@ class CorrelationOperation(FieldOperation):
                     data_source, dataset_name, **kwargs
                 )
 
-                self.logger.info(f"Loading data'")
+                self.logger.info("Loading data'")
 
                 df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
@@ -939,7 +938,7 @@ class CorrelationOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -951,7 +950,7 @@ class CorrelationOperation(FieldOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -996,17 +995,17 @@ class CorrelationOperation(FieldOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1052,7 +1051,7 @@ class CorrelationOperation(FieldOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = []
 
         # Register visualization artifacts
@@ -1122,9 +1121,9 @@ class CorrelationOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -1381,7 +1380,7 @@ class CorrelationMatrixOperation(BaseOperation):
                     data_source, dataset_name, **kwargs
                 )
 
-                self.logger.info(f"Loading data'")
+                self.logger.info("Loading data'")
 
                 df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
@@ -1538,7 +1537,7 @@ class CorrelationMatrixOperation(BaseOperation):
             )
             if reporter:
                 reporter.add_operation(
-                    f"Correlation matrix analysis completed",
+                    "Correlation matrix analysis completed",
                     details={
                         "fields_analyzed": len(self.fields),
                         "significant_correlations": significant_count,

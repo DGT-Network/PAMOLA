@@ -423,7 +423,7 @@ operation = CategoricalGeneralizationOperation(
 #### execute()
 ```python
 def execute(self, data_source: DataSource, task_dir: Path, 
-            reporter: Reporter, progress_tracker: Optional[ProgressTracker] = None,
+            reporter: Reporter, progress_tracker: Optional[HierarchicalProgressTracker] = None,
             **kwargs) -> OperationResult
 ```
 Execute the generalization operation.

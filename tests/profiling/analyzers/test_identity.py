@@ -1,17 +1,15 @@
 import unittest
 import pandas as pd
-from typing import Dict, Any
+from typing import Dict
 from pamola_core.profiling.analyzers.identity import IdentityAnalyzer, analyze_identities
 
 
 from unittest.mock import MagicMock, Mock, patch
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from pamola_core.profiling.analyzers.identity import IdentityAnalysisOperation
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.ops.op_result import OperationStatus
+from pamola_core.utils.progress import HierarchicalProgressTracker
 
 # Add pytest-based tests for full coverage
 class DummyDataSource:
@@ -162,7 +160,7 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
         self.mock_data_source.return_value = self.df
         
         self.mock_reporter = Mock()
-        self.mock_progress_tracker = Mock(spec=ProgressTracker)
+        self.mock_progress_tracker = Mock(spec=HierarchicalProgressTracker)
         
         # Create temporary task directory
         self.task_dir = Path('test_task_dir')

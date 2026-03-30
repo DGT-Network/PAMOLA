@@ -436,7 +436,7 @@ class UtilityMetricOperation(MetricsOperation):
                             viz_result = create_line_plot(
                                 data=tradeoff_precision,
                                 output_path=viz_path,
-                                title=f"Precision-Recall Curve",
+                                title="Precision-Recall Curve",
                                 x_data=tradeoff_recall,
                                 x_label="Recall",
                                 y_label="Precision",

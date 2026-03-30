@@ -558,9 +558,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -681,7 +681,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             flag_processed = False
 
         if not flag_processed:
-            self.logger.exception(f"Error in processing")
+            self.logger.exception("Error in processing")
 
         # Get text values
         text_values = df[field_name].astype("object").fillna("").astype(str).tolist()
@@ -1144,7 +1144,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             flag_processed = False
 
         if not flag_processed:
-            self.logger.exception(f"Error in processing")
+            self.logger.exception("Error in processing")
 
         # Merge results
         merged_results = {
@@ -1698,7 +1698,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1710,7 +1710,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1755,17 +1755,17 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1812,7 +1812,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = []
 
         return visualization_paths

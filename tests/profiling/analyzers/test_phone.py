@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch, call, ANY
+from unittest.mock import MagicMock, patch, ANY
 import pandas as pd
 from pathlib import Path
 import numpy as np
@@ -60,7 +60,7 @@ class TestPhoneAnalyzer(unittest.TestCase):
         self.assertIn('memory', result)
         
     @patch('pamola_core.profiling.analyzers.phone.analyze_phone_field_with_dask', return_value={'min':1,'max':5,'mean':3,'zero_count':0,'zero_percentage':0})
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_analyze_large_df_use_dask(self, mock_tracker, mock_handle):
         df = pd.DataFrame({'phone': np.arange(20000)})
         result = phone.PhoneAnalyzer.analyze(df, 'phone', use_dask=True)
@@ -72,7 +72,7 @@ class TestPhoneAnalyzer(unittest.TestCase):
         mock_handle.assert_called_once()
         
     @patch('pamola_core.profiling.analyzers.phone.analyze_phone_field_with_joblib', return_value={'min':1,'max':5,'mean':3,'zero_count':0,'zero_percentage':0})
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_analyze_large_df_use_vectorization(self, mock_tracker, mock_handle):
         df = pd.DataFrame({'phone': np.arange(20000)})
         result = phone.PhoneAnalyzer.analyze(df, 'phone', use_vectorization=True)
@@ -84,7 +84,7 @@ class TestPhoneAnalyzer(unittest.TestCase):
         mock_handle.assert_called_once()
         
     @patch('pamola_core.profiling.analyzers.phone.analyze_phone_field_with_chunk', return_value={'min':1,'max':5,'mean':3,'zero_count':0,'zero_percentage':0})
-    @patch('pamola_core.utils.progress.ProgressTracker')
+    @patch('pamola_core.utils.progress.HierarchicalProgressTracker')
     def test_analyze_large_df_chunk(self, mock_tracker, mock_handle):
         df = pd.DataFrame({'phone': np.arange(20000)})
         result = phone.PhoneAnalyzer.analyze(df, 'phone', chunk_size=10000)

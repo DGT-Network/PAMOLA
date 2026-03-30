@@ -220,6 +220,6 @@ def validate_dataframe(df: pd.DataFrame) -> None:
         str_df.apply(lambda s: s.astype(str).str.strip().eq("")).any().any()
     ):
         raise DataError(
-            message=f"Dataset contains blank (empty string) values.",
+            message="Dataset contains blank (empty string) values.",
             error_code=ErrorCode.DATA_EMPTY,
         )

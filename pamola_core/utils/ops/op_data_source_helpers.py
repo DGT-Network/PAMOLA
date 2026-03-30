@@ -287,7 +287,7 @@ def generate_dataframe_chunks(
     if columns is not None:
         valid_cols = [col for col in columns if col in df.columns]
         if not valid_cols:
-            logger.error(f"None of the requested columns exist in DataFrame")
+            logger.error("None of the requested columns exist in DataFrame")
             return
         df = df[valid_cols]
         logger.debug(f"Selected {len(valid_cols)} columns for chunking")
@@ -699,5 +699,5 @@ def create_sample_dataframe(
         try:
             return df.sample(n=sample_size, random_state=random_seed).reset_index(drop=True)
         except Exception:
-            logger.warning(f"Error with random sample. Falling back to head.")
+            logger.warning("Error with random sample. Falling back to head.")
             return df.head(sample_size).reset_index(drop=True)

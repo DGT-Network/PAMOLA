@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from pamola_core.utils.io import write_json, write_dataframe_to_csv
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure logger
@@ -154,7 +154,7 @@ def create_ka_index_map(field_combinations: List[List[str]]) -> Dict[str, List[s
 def calculate_k_anonymity(
     df: pd.DataFrame,
     fields: List[str],
-    progress_tracker: Optional[ProgressTracker] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
 ) -> Dict[str, Any]:
     """
     Calculate k-anonymity metrics for a set of fields.
@@ -165,7 +165,7 @@ def calculate_k_anonymity(
         DataFrame to analyze
     fields : List[str]
         List of fields (quasi-identifiers)
-    progress_tracker : ProgressTracker, optional
+    progress_tracker : HierarchicalProgressTracker, optional
         Progress tracker for operations
 
     Returns

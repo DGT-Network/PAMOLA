@@ -10,7 +10,7 @@ Tests dataset analysis including type detection, missing values, and outliers.
 import pytest
 import pandas as pd
 import numpy as np
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from pamola_core.analysis.dataset_summary import analyze_dataset_summary, DatasetAnalyzer
 
 

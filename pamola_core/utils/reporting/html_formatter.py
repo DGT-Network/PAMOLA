@@ -321,7 +321,7 @@ def create_html_report(task_reports: Dict[str, Dict[str, Any]],
             missing_resources = [res for res in required_resources if not res.exists()]
 
             if missing_resources:
-                logger.info(f"Некоторые локальные ресурсы отсутствуют. Загружаем их...")
+                logger.info("Некоторые локальные ресурсы отсутствуют. Загружаем их...")
                 include_external_resources(output_path.parent)
 
                 # Проверяем снова после загрузки
@@ -329,7 +329,7 @@ def create_html_report(task_reports: Dict[str, Dict[str, Any]],
                 resource_files_exist = len(missing_resources) == 0
 
                 if not resource_files_exist:
-                    logger.warning(f"Невозможно загрузить все необходимые ресурсы. Будут использованы CDN.")
+                    logger.warning("Невозможно загрузить все необходимые ресурсы. Будут использованы CDN.")
             else:
                 resource_files_exist = True
 

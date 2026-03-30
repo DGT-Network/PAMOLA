@@ -501,7 +501,7 @@ class BaseOperation(ABC):
         """
         if not hasattr(result, "status"):
             self.logger.error(
-                f"Invalid OperationResult object: missing status attribute"
+                "Invalid OperationResult object: missing status attribute"
             )
             return
 

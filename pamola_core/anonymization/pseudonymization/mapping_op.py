@@ -1079,7 +1079,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 if attempts > 10:
                     self._collision_count += 1
                     self.logger.warning(
-                        f"High collision rate detected for random_string generation"
+                        "High collision rate detected for random_string generation"
                     )
 
                 if attempts > 100:

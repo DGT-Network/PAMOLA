@@ -285,7 +285,7 @@ def _decrypt_v1_json(source_path: Path, destination_path: Path, key: str) -> Non
         # Check required fields
         required_keys = LEGACY_FORMATS["v1_json"]["keys"]
         if not all(k in data for k in required_keys):
-            raise LegacyMigrationError(f"Missing required fields in JSON")
+            raise LegacyMigrationError("Missing required fields in JSON")
 
         # Extract encrypted data and IV
         encrypted_data = data["data"]

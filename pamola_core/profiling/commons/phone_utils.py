@@ -623,7 +623,6 @@ def analyze_phone_field_with_chunk(df: pd.DataFrame, field_name: str, patterns_c
     Dict[str, Any]
         The results of the analysis
     """
-    import joblib
 
     if field_name not in df.columns:
         return {'error': f"Field {field_name} not found in DataFrame"}

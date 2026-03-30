@@ -22,7 +22,6 @@ NOTE: This module requires 'numpy', 'pandas', 'recordlinkage' and 'scikit-learn'
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-from typing import Optional
 import numpy as np
 import pandas as pd
 import recordlinkage

@@ -49,7 +49,6 @@ from pamola_core.transformations.commons.enum import PartitionMethod
 from pamola_core.utils.io import (
     ensure_directory,
     load_settings_operation,
-    write_json,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -270,7 +269,7 @@ class SplitByIDValuesOperation(TransformationOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Split by values (from cache)",
+                            "Split by values (from cache)",
                             details={"cached": True},
                         )
                     return cache_result
@@ -899,7 +898,7 @@ class SplitByIDValuesOperation(TransformationOperation):
         import contextvars
 
         self.logger.info(
-            f"[VIZ] Preparing to generate visualizations in a separate thread"
+            "[VIZ] Preparing to generate visualizations in a separate thread"
         )
 
         viz_error = None
@@ -939,7 +938,7 @@ class SplitByIDValuesOperation(TransformationOperation):
             elif viz_error:
                 self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
             else:
-                self.logger.info(f"[VIZ] Visualization thread completed successfully")
+                self.logger.info("[VIZ] Visualization thread completed successfully")
 
         except Exception as e:
             self.logger.error(

@@ -15,11 +15,10 @@ Licensed under BSD 3-Clause License
 
 import logging
 import math
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from functools import lru_cache
 
 import pandas as pd
-import numpy as np
 
 
 class LDiversityMetricsCalculator:

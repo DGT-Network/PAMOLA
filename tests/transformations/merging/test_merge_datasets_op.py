@@ -136,7 +136,7 @@ def test_edge_case_empty_right(operation, left_df, tmp_path):
     assert operation.process_count == len(left_df)
 
 def test_invalid_input_missing_key(tmp_path):
-    from pamola_core.errors.exceptions import MissingParameterError, ConfigurationError
+    from pamola_core.errors.exceptions import MissingParameterError
     # Schema validation now rejects left_key=None at config time,
     # so we test _validate_input_params on an already-created operation
     op = MergeDatasetsOperation(

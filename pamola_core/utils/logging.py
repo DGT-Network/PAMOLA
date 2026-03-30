@@ -30,7 +30,7 @@ import threading
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 from pamola_core.errors.exceptions import ConfigurationError
 

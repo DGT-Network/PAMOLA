@@ -9,8 +9,6 @@ Tests k-anonymity, l-diversity, attack simulations, and risk aggregation.
 
 import pytest
 import pandas as pd
-import numpy as np
-from unittest.mock import patch, MagicMock
 from pamola_core.analysis.privacy_risk import (
     calculate_full_risk,
     _calculate_k_anonymity,

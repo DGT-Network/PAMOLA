@@ -13,7 +13,6 @@ Tests cover:
 Run with: pytest tests/errors/test_auto_exception.py
 """
 
-import pytest
 from pamola_core.errors.base import BasePamolaError, auto_exception
 from pamola_core.errors.codes.registry import ErrorCode
 

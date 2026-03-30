@@ -141,7 +141,7 @@ from pamola_core.utils.ops.op_field_utils import (
 )
 
 # Progress tracking
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 ```
 
 ### Privacy-Specific Dependencies

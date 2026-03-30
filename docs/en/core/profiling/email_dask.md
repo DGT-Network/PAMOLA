@@ -374,7 +374,7 @@ The module integrates seamlessly with PAMOLA.CORE:
 
 - **DataSource**: Supports both pandas and Dask DataFrames
 - **OperationResult**: Returns standard result format
-- **ProgressTracker**: Works with distributed computation
+- **HierarchicalProgressTracker**: Works with distributed computation
 - **Caching**: Compatible with operation cache system
 - **Error Handling**: Comprehensive error messages for Dask issues
 

@@ -20,7 +20,7 @@ Licensed under BSD 3-Clause License
 
 import logging
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Any, Union
+from typing import Dict, List, Any
 
 import pandas as pd
 from pamola_core.errors.exceptions import ValidationError
@@ -618,15 +618,15 @@ class AttributeDisclosureRiskAnalyzer:
         """
         # Base interpretation on risk score
         if risk_score < 20:
-            base = f"Very Low Risk: Excellent protection of sensitive values."
+            base = "Very Low Risk: Excellent protection of sensitive values."
         elif risk_score < 40:
-            base = f"Low Risk: Good protection of sensitive values."
+            base = "Low Risk: Good protection of sensitive values."
         elif risk_score < 60:
-            base = f"Moderate Risk: Acceptable for many scenarios."
+            base = "Moderate Risk: Acceptable for many scenarios."
         elif risk_score < 80:
-            base = f"High Risk: Significant chance of attribute disclosure."
+            base = "High Risk: Significant chance of attribute disclosure."
         else:
-            base = f"Very High Risk: Sensitive values are poorly protected."
+            base = "Very High Risk: Sensitive values are poorly protected."
 
         # Add compliance information
         if compliant:

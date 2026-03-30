@@ -7,7 +7,6 @@ implementations for functions that might not be available in some
 pandas versions.
 """
 
-import pandas as pd
 import numpy as np
 
 

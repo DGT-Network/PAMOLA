@@ -428,7 +428,7 @@ df, error = reader.read_dataframe(
 | `DataSource` | Data source management | Container for DataReader output |
 | `BaseOperation` | Operation framework | Parent class for operations using DataReader |
 | `OperationResult` | Operation results | Returns DataReader errors wrapped in results |
-| `ProgressTracker` | Progress tracking | Integrated with DataReader for status |
+| `HierarchicalProgressTracker` | Progress tracking | Integrated with DataReader for status |
 | `HierarchicalProgressTracker` | Nested progress | Used for multi-stage reads |
 
 ## Summary

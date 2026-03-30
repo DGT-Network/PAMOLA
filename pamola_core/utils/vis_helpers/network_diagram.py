@@ -266,7 +266,6 @@ class MatplotlibNetworkDiagram(MatplotlibFigure):
         with visualization_context(backend=backend, theme=theme, strict=strict):
             try:
                 import matplotlib.pyplot as plt
-                import networkx as nx
 
                 node_labels = node_labels or {}
 
@@ -367,7 +366,6 @@ class MatplotlibNetworkDiagram(MatplotlibFigure):
         with visualization_context(backend=backend, theme=theme, strict=strict):
             try:
                 import matplotlib.pyplot as plt
-                import networkx as nx
 
                 if nodes and edges:
                     return self.create(

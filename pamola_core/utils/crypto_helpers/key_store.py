@@ -131,7 +131,7 @@ class EncryptedKeyStore:
                     return self._generate_master_key()
             except Exception:
                 logger.warning(
-                    f"Master key is not a valid base64 string. Generating new key."
+                    "Master key is not a valid base64 string. Generating new key."
                 )
                 return self._generate_master_key()
 

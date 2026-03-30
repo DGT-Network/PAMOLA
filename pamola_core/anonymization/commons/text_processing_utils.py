@@ -53,8 +53,6 @@ from typing import List, Optional, Tuple, Dict
 from pamola_core.utils.nlp.text_utils import (
     normalize_text as nlp_normalize_text,
     clean_category_name as nlp_clean_category_name,
-    calculate_string_similarity,
-    find_closest_match,
     find_closest_category as nlp_find_closest_category,
     split_composite_value as nlp_split_composite_value,
     extract_tokens as nlp_extract_tokens,

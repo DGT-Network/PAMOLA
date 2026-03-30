@@ -33,7 +33,7 @@ Design Principles:
  - Speed: Fast calculations suitable for batch processing
  - Simplicity: Basic metrics only, no complex statistics
  - Focus: Process monitoring, not final assessment
- - Integration: Works with DataWriter and ProgressTracker
+ - Integration: Works with DataWriter and HierarchicalProgressTracker
 
 Usage:
  Used by anonymization operations to track progress, measure basic

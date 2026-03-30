@@ -24,9 +24,9 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 from pathlib import Path
 from typing import Dict, List, Union, Optional
 
+import numpy as np  # noqa: F401 — re-exported, used by memory_utils etc.
 import dask.dataframe as dd
 import pandas as pd
-import numpy as np
 from pamola_core.errors.exceptions import ValidationError
 
 # Define type variables for better type hints

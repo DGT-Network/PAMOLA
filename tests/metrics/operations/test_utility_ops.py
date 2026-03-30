@@ -116,7 +116,6 @@ def test_calculate_metrics_all_supported(mock_signature, mock_safe_instantiate, 
 
 @patch("pamola_core.metrics.commons.safe_instantiate.safe_instantiate", side_effect=lambda cls, params: cls(**params))
 def test_calculate_metrics_unsupported_metric(mock_safe_instantiate, dummy_data):
-    from pamola_core.errors.exceptions import ConfigurationError as ConfigError
     op = UtilityMetricOperation(utility_metrics=["unsupported"])
     df1, df2 = dummy_data
     # InvalidParameterError (BasePamolaError) is raised, wrapped in ValidationError
@@ -247,7 +246,6 @@ def test_generate_visualizations_no_metrics(tmp_path):
     assert len(paths) == 0
 
 def test_config_missing_required():
-    from pamola_core.errors.exceptions import ConfigurationError as ConfigError
     with pytest.raises(ConfigError):
         UtilityMetricConfig()
 

@@ -303,7 +303,7 @@ class AnonymizationOperation(FieldOperation):
 
             # Validate and get dataframe
             try:
-                self.logger.info(f"Loading data for")
+                self.logger.info("Loading data for")
                 df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
@@ -640,7 +640,7 @@ class AnonymizationOperation(FieldOperation):
         # Get DataFrame from the data source
         df = load_data_operation(data_source, dataset_name, **kwargs)
         if df is None:
-            error_message = f"Failed to load input data!"
+            error_message = "Failed to load input data!"
             self.logger.error(error_message)
             raise ValidationError(error_message)
 
@@ -1199,7 +1199,7 @@ class AnonymizationOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1211,7 +1211,7 @@ class AnonymizationOperation(FieldOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1258,10 +1258,10 @@ class AnonymizationOperation(FieldOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -1315,7 +1315,7 @@ class AnonymizationOperation(FieldOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts

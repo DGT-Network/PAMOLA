@@ -124,7 +124,7 @@ def execute(
     data_source: DataSource,
     task_dir: Path,
     reporter: Any,
-    progress_tracker: Optional[ProgressTracker] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
     **kwargs
 ) -> OperationResult
 ```

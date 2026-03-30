@@ -20,7 +20,7 @@ Licensed under BSD 3-Clause License
 
 import logging
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Any, Union
+from typing import Dict, List, Any
 
 import pandas as pd
 

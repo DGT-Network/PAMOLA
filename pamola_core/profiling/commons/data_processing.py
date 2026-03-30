@@ -6,12 +6,11 @@ including handling of missing values, type conversion, and chunked processing.
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Callable
+from typing import Dict, Any, Tuple, Callable
 
 import pandas as pd
-import numpy as np
 import pamola_core.utils.logging as pamola_logging
-from pamola_core.utils.progress import ProgressTracker, process_dataframe_in_chunks
+from pamola_core.utils.progress import process_dataframe_in_chunks
 
 # Configure logger using the custom logging utility
 logger = pamola_logging.configure_logging(level=logging.INFO)
@@ -141,7 +140,6 @@ def handle_large_dataframe(
     description = f"Processing {field_name} in chunks"
 
     # Get the function from process_dataframe_in_chunks
-    from pamola_core.utils.progress import process_dataframe_in_chunks
 
     chunk_results = process_dataframe_in_chunks(
         field_df,

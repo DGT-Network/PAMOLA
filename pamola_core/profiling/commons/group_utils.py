@@ -8,7 +8,7 @@ Separates analytical logic from operational components.
 
 import hashlib
 import logging
-from typing import Dict, List, Any, Set, Tuple, Optional, Union
+from typing import Dict, List, Any, Set, Tuple, Optional
 
 import numpy as np
 import pandas as pd

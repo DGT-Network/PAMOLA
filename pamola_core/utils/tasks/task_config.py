@@ -155,7 +155,7 @@ class TaskConfig:
                 # Set up additional properties and caches
                 self._setup_additional_properties()
             except (PamolaFileNotFoundError, FileNotFoundError):
-                logger.warning(f"Project configuration file not found, using defaults")
+                logger.warning("Project configuration file not found, using defaults")
                 self.project_config = {}
 
     def _setup_additional_properties(self):
@@ -1386,7 +1386,7 @@ def load_task_config(
                     task_defaults["enable_checkpoints"] = False
                     project_config["task_defaults"] = task_defaults
 
-                logger.debug(f"Loaded project configuration")
+                logger.debug("Loaded project configuration")
             except Exception as e:
                 logger.warning(f"Failed to load project configuration: {e}")
                 # Create minimal project config with default enable_checkpoints setting

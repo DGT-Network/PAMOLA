@@ -160,7 +160,7 @@ def execute(self,
             data_source: DataSource,
             task_dir: Path,
             reporter: Any,
-            progress_tracker: Optional[ProgressTracker] = None,
+            progress_tracker: Optional[HierarchicalProgressTracker] = None,
             **kwargs) -> OperationResult:
 ```
 
@@ -431,7 +431,7 @@ The Email Analysis module integrates with:
    - Uses `plot_email_domains` for visualizing domain distributions
 
 3. **Progress Tracking** (`pamola_core.utils.progress`)
-   - Uses `ProgressTracker` for monitoring operation progress
+   - Uses `HierarchicalProgressTracker` for monitoring operation progress
 
 4. **Task System**
    - Implements the operation interface (`FieldOperation`)

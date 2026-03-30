@@ -785,7 +785,7 @@ class DataSource:
                     self.logger.error(f"Error reading chunks from '{name}': {str(e)}")
             else:
                 self.logger.error(
-                    f"Cannot generate chunks: File path does not exist or is not a single file"
+                    "Cannot generate chunks: File path does not exist or is not a single file"
                 )
         else:
             self.logger.error(f"Cannot generate chunks: DataFrame '{name}' not found")

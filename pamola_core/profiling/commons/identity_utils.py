@@ -485,7 +485,7 @@ def find_cross_matches_fuzzy(
 
     valid_fields = [f for f in reference_fields if f in df.columns]
     if not valid_fields:
-        return {"error": f"No valid reference fields found", "total_records": len(df)}
+        return {"error": "No valid reference fields found", "total_records": len(df)}
 
     # Keep only relevant columns and drop nulls
     df_clean = df[[id_field] + valid_fields].dropna()

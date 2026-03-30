@@ -1283,7 +1283,7 @@ def process_with_chunks(
             0, {"step": "Chunked processing completed", "total_chunks": total_chunks}
         )
 
-    logger.info(f"Chunked processing completed successfully")
+    logger.info("Chunked processing completed successfully")
 
     return result
 

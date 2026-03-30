@@ -11,7 +11,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from pamola_core.analysis.distribution import visualize_distribution_df
 
 

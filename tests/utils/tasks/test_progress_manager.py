@@ -7,8 +7,6 @@ properly implement progress tracking, logging, metrics, and error handling.
 
 import logging
 import sys
-import time
-import types
 import pytest
 from unittest import mock
 from pamola_core.utils.tasks import progress_manager

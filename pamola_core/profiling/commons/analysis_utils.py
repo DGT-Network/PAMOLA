@@ -106,7 +106,7 @@ def process_dataframe_with_config(
         logger.info("Process using chunk")
         logger.info("Parallel Enabled")
         logger.info("Parallel Engine: Chunk")
-        logger.info(f"Parallel Workers")
+        logger.info("Parallel Workers")
 
         processed_df, flag_processed = _process_dataframe_using_chunk(
             df=df,
