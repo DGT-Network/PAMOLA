@@ -273,22 +273,18 @@ PAMOLA.CORE follows [Semantic Versioning](https://semver.org/) and [PEP 440](htt
 
 ```python
 import pamola_core
-print(pamola_core.__version__)  # e.g. "1.0.0a1"
+print(pamola_core.__version__)  # e.g. "1.0.0dev1"
 ```
 
-| Phase | Version | Meaning |
-|-------|---------|---------|
-| Alpha | `1.0.0a1` | Feature development in progress |
-| Beta | `1.0.0b1` | Feature-complete, testing |
-| RC | `1.0.0rc1` | Release candidate, QA pass |
-| Stable | `1.0.0` | Production release |
-| Patch | `1.0.1` | Bugfix |
-| Minor | `1.1.0` | New feature, backwards-compatible |
-| Major | `2.0.0` | Breaking changes |
+| Phase | Version | Branch | Tag | Install |
+|-------|---------|--------|-----|---------|
+| Dev | `1.0.0dev1` | `develop` | `v1.0.0dev1` | `pip install pamola-core==1.0.0dev1` |
+| Stable | `1.0.0` | `main` | `v1.0.0` | `pip install pamola-core` |
 
 - **Source of truth:** `pyproject.toml` → `version`
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 - **CI/CD:** GitHub Actions — lint, test (3.10/3.11/3.12), build, PyPI publish on tag `v*`
+- **Release rules:** Dev tags (`v*dev*`) must be on `develop`, stable tags on `main`
 
 ---
 
