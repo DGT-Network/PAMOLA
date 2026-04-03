@@ -13,10 +13,14 @@ First alpha release. Epic 3 (Core Library) in progress.
 
 ### Added
 
+- **CI/CD:** GitHub Actions pipelines for lint (ruff), test (pytest), build (sdist+wheel), and PyPI release (#FR-EP3-CORE-002)
+- **CI artifacts:** JUnit XML + Coverage HTML reports uploaded as artifacts on every CI run
+- **CI matrix:** Conditional Python version matrix — 3.10/3.11/3.12 on main, 3.11 on develop
+- **Tests:** 5,436 tests across 172 files reaching 85% Public API coverage
+- **Coverage config:** `.coveragerc` defining 73-file Public API scope (18,896 statements)
 - **CLI:** `pamola` CLI with 4 commands: `list-ops`, `run`, `schema`, `validate` via Typer (#96)
 - **Sphinx docs:** API reference for all public modules with autosummary, napoleon, viewcode (#94)
 - **Python compat:** Enforce Python 3.10-3.12 compatibility, remove 3.9 walrus operators (FR-EP3-CORE-003, FR-EP3-CORE-004)
-- **Tests:** 127 test files, 3,527 test cases covering all Tier 1+2 modules (100% pass)
 - **Docs:** 221 documentation pages in `docs/en/core/` synced with source code
 - **Privacy models:** k-anonymity, l-diversity, t-closeness, differential privacy processors
 - **Attacks:** Linkage, membership inference, attribute inference, DCR, NNDR metrics
@@ -33,6 +37,8 @@ First alpha release. Epic 3 (Core Library) in progress.
 
 ### Fixed
 
+- **CI:** Resolve 25 CI test failures, add missing `jsonschema` dependency
+- **Tests:** Fix sys.modules pollution, keyword-only `run()` args, assertion mismatches across 40+ test files
 - **Sphinx build:** Achieve 0-warning clean build — fix duplicate object warnings, RST formatting, docstring issues (#94)
 - **Op cache:** Remove Python 3.9-incompatible walrus operators from `op_cache.py`
 - **Cell suppression:** Fix missing `operation_name` attribute initialization order in `cell_op.py`
