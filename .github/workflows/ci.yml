@@ -39,9 +39,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Full matrix (3.10/3.11/3.12) on all branches (temporary)
-        # TODO: revert to single version (3.11) on develop after validation
-        python-version: ["3.10", "3.11", "3.12"]
+        # Full matrix (3.10/3.11/3.12) on main and PRs to main
+        # Single version (3.11) on develop and PRs to develop
+        python-version: ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && fromJSON('["3.10", "3.11", "3.12"]') || fromJSON('["3.11"]') }}
     steps:
       - uses: actions/checkout@v4
 
