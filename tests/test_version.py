@@ -27,7 +27,7 @@ def test_version_format_pep440():
     """Version must follow PEP 440."""
     version = _read_version()
     # PEP 440 regex
-    pattern = r"^\d+\.\d+\.\d+(a\d+|b\d+|rc\d+)?$"
+    pattern = r"^\d+\.\d+\.\d+(\.dev\d+|a\d+|b\d+|rc\d+)?$"
     assert re.match(pattern, version), f"Version {version} doesn't match PEP 440"
 
 

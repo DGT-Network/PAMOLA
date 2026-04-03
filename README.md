@@ -273,12 +273,12 @@ PAMOLA.CORE follows [Semantic Versioning](https://semver.org/) and [PEP 440](htt
 
 ```python
 import pamola_core
-print(pamola_core.__version__)  # e.g. "1.0.0dev1"
+print(pamola_core.__version__)  # e.g. "1.0.0.dev1"
 ```
 
 | Phase | Version | Branch | Tag | Install |
 |-------|---------|--------|-----|---------|
-| Dev | `1.0.0dev1` | `develop` | `v1.0.0dev1` | `pip install pamola-core==1.0.0dev1` |
+| Dev | `1.0.0.dev1` | `develop` | `v1.0.0.dev1` | `pip install pamola-core==1.0.0.dev1` |
 | Stable | `1.0.0` | `main` | `v1.0.0` | `pip install pamola-core` |
 
 - **Source of truth:** `pyproject.toml` → `version`
