@@ -183,13 +183,13 @@ def test_execute_success(monkeypatch, tmp_path, op, sample_df):
     monkeypatch.setattr("pamola_core.utils.ops.op_data_writer.DataWriter", DummyWriter)
     monkeypatch.setattr("pamola_core.transformations.commons.processing_utils.process_dataframe_with_config", lambda **kwargs: sample_df)
     import sys
-    sys.modules['pamola_core.transformations.commons.metric_utils'] = __import__('types').SimpleNamespace(
+    monkeypatch.setitem(sys.modules, 'pamola_core.transformations.commons.metric_utils', __import__('types').SimpleNamespace(
         calculate_dataset_comparison=lambda a, b: {"foo": 1},
         calculate_transformation_impact=lambda a, b: {"bar": 2}
-    )
-    sys.modules['pamola_core.transformations.commons.visualization_utils'] = __import__('types').SimpleNamespace(
+    ))
+    monkeypatch.setitem(sys.modules, 'pamola_core.transformations.commons.visualization_utils', __import__('types').SimpleNamespace(
         generate_visualization_filename=lambda **kwargs: "testfile.csv"
-    )
+    ))
     ds = DummyDataSource(df=sample_df)
     result = op.execute(ds, tmp_path, dummy_reporter(), dummy_progress(), dataset_name="main", save_output=True, generate_visualization=False)
     assert hasattr(result, "status")
@@ -361,9 +361,9 @@ def test_execute_with_visualization(monkeypatch, tmp_path, op, sample_df):
     monkeypatch.setattr("pamola_core.transformations.commons.processing_utils.process_dataframe_with_config", lambda **kwargs: sample_df)
     # Patch visualization utils to avoid real plotting
     import sys
-    sys.modules['pamola_core.transformations.commons.visualization_utils'] = __import__('types').SimpleNamespace(
+    monkeypatch.setitem(sys.modules, 'pamola_core.transformations.commons.visualization_utils', __import__('types').SimpleNamespace(
         generate_visualization_filename=lambda **kwargs: "testfile.csv"
-    )
+    ))
     # Patch _handle_visualizations to simulate artifact creation
     monkeypatch.setattr(op, "_handle_visualizations", lambda *a, **k: {"vis": Path("/tmp/vis.png")})
     # Set vis_backend to a non-None value

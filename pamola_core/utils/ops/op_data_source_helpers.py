@@ -408,7 +408,7 @@ def optimize_memory_usage(
     # Check if optimization is needed
     if memory_percent is None or memory_percent < threshold_percent:
         logger.debug(
-            f"Memory usage ({memory_percent:.1f if memory_percent else 'unknown'}%) below threshold ({threshold_percent:.1f}%), no optimization needed")
+            f"Memory usage ({f'{memory_percent:.1f}' if memory_percent is not None else 'unknown'}%) below threshold ({threshold_percent:.1f}%), no optimization needed")
         result["final_memory"] = result["initial_memory"]
         return result
 

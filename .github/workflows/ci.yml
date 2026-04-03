@@ -55,8 +55,21 @@ jobs:
           pip install -e ".[dev]" 2>/dev/null || pip install -e .
           pip install pytest
 
-      - name: Run tests
-        run: python -m pytest tests/ --tb=short -q
+      - name: Run tests with coverage
+        run: |
+          pip install pytest-cov
+          python -m pytest tests/ --tb=short -q \
+            --junitxml=reports/junit.xml \
+            --cov --cov-report=html:reports/coverage-html \
+            --cov-report=term
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-py${{ matrix.python-version }}
+          path: reports/
+          retention-days: 30
 
   build:
     name: "Build: sdist + wheel"
