@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
+  <a href="https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD--3--Clause-blue.svg"></a>
   <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10--3.12-blue.svg"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-active%20development-orange.svg">
 </p>
@@ -391,7 +391,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 This repository is hosted under DGT-Network GitHub organization, which provides shared development infrastructure for Realm Inveo projects. **DGT-Network does not claim ownership of this intellectual property.** All IP rights belong exclusively to Realm Inveo Inc.
 
-**License:** Apache 2.0 - see [LICENSE](https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE)
+**License:** BSD-3-Clause - see [LICENSE](https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE)
 
 ---
 

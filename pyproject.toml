@@ -34,7 +34,6 @@ dependencies = [
     "scikit-learn==1.7.2",
     "deepdiff==8.6.1",
     "diff-match-patch==20241021",
-    "sdv==1.18.0",
     "faker==33.3.1",
     "scipy==1.15.3",
     "uvicorn[standard]==0.38.0",
