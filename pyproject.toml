@@ -1,6 +1,6 @@
 [project]
 name = "pamola-core"
-version = "1.0.0.dev1"
+version = "1.0.0.dev2"
 requires-python = ">=3.10,<3.13"
 
 authors = [
@@ -75,11 +75,6 @@ dependencies = [
 test = [
     "pytest==8.4.2",
     "pytest-cov>=7.0",
-]
-dev = [
-    "pytest==8.4.2",
-    "pytest-cov>=7.0",
-    "ruff>=0.4",
 ]
 
 [build-system]
