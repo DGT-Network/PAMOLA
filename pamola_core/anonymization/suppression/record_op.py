@@ -41,10 +41,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 import pandas as pd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
-from pamola_core.anonymization.commons import calculate_anonymization_effectiveness
+from pamola_core.anonymization.commons.metric_utils import (
+    calculate_anonymization_effectiveness,
+)
 from pamola_core.anonymization.commons.validation_utils import (
     check_field_exists,
-    FieldNotFoundError,
     validate_numeric_field,
 )
 from pamola_core.anonymization.commons.visualization_utils import create_bar_plot
@@ -66,6 +67,9 @@ from pamola_core.utils.ops.op_result import (
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_registry import register
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import FieldNotFoundError, ValidationError
 
 import dask.dataframe as dd
 from functools import partial
@@ -125,22 +129,22 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         # Validate mode
         if suppression_mode != "REMOVE":
-            raise ValueError(
+            raise ValidationError(
                 f"RecordSuppressionOperation only supports mode='REMOVE', got '{suppression_mode}'"
             )
         # Validate suppression_condition
         valid_conditions = ["null", "value", "range", "risk", "custom"]
         if suppression_condition not in valid_conditions:
-            raise ValueError(
+            raise ValidationError(
                 f"Invalid suppression_condition '{suppression_condition}'. "
                 f"Must be one of: {valid_conditions}"
             )
 
         # Condition-specific validation
         if suppression_condition == "value" and not suppression_values:
-            raise ValueError("suppression_values required for 'value' condition")
+            raise ValidationError("suppression_values required for 'value' condition")
         if suppression_condition == "range" and not suppression_range:
-            raise ValueError("suppression_range required for 'range' condition")
+            raise ValidationError("suppression_range required for 'range' condition")
 
         # --- Build config object ---
         config = RecordSuppressionConfig(
@@ -187,7 +191,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -200,46 +204,68 @@ class RecordSuppressionOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
-            # Initialize operation
+            # Start timing
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
+            )
+
+            # Initialize result object
+            result = OperationResult(status=OperationStatus.PENDING)
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            # Initialize result object
-            result = OperationResult(
-                status=OperationStatus.PENDING,
-                artifacts=[],
-                metrics={},
-                error_message=None,
-                execution_time=0,
-                error_trace=None,
+            # Prepare directories for artifacts
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
             )
 
-            # Start operation - Preparation
-            self.logger.info(
-                f"Operation: {self.operation_name}, Start operation - Preparation"
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
             )
 
-            # Handle preparation
-            self._handle_preparation(
-                task_dir=task_dir,
-                progress_tracker=progress_tracker,
-                reporter=reporter,
-                **kwargs,
-            )
-
-            # Create writer for consistent output handling
+            # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
+
+            # Save configuration to task directory
+            self.save_config(task_dir)
+
+            # Setup total progress steps
+            if progress_tracker:
+                progress_tracker.total = self._compute_total_steps()
+                progress_tracker.update(
+                    1, {"step": "Preparation", "operation": self.operation_name}
+                )
+
+            # Report preparation success
+            if reporter:
+                reporter.add_operation(
+                    f"Operation {self.operation_name}",
+                    status="info",
+                    details={
+                        "step": "Preparation",
+                        "message": "Preparation successfully",
+                        "directories": {k: str(v) for k, v in dirs.items()},
+                    },
+                )
 
             # Load data and validate input parameters
             self.logger.info(
@@ -252,8 +278,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     progress_tracker.update(
                         1, {"step": step, "operation": self.operation_name}
                     )
-                # Validate configuration early
-                dataset_name = kwargs.get("dataset_name", "main")
                 # Load settings operation
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
@@ -264,16 +288,13 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-                is_valid = self._validate_input_parameters(df)
-                if not is_valid:
-                    raise ValueError("Missing fields in DataFrame.")
+                self._validate_input_parameters(df)
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Store original data for caching
@@ -281,34 +302,36 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
-                try:
+                if progress_tracker:
+                    progress_tracker.update(
+                        1,
+                        {"step": "Checking cache", "field": self.field_name},
+                    )
+
+                # Generate cache key based on operation parameters
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
+
+                if cache_result:
+                    self.logger.info(
+                        f"Using cached result for {self.field_name} generalization"
+                    )
+
+                    # Update progress
                     if progress_tracker:
                         progress_tracker.update(
                             1,
-                            {
-                                "step": "Load result from cache",
-                                "operation": self.operation_name,
-                            },
+                            {"step": "Complete (cached)", "field": self.field_name},
                         )
 
-                    self.logger.info(
-                        f"Operation: {self.operation_name}, Load result from cache"
-                    )
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Record operation of {self.field_name} (cached)",
+                            details={"cached": True},
+                        )
 
-                    cached_result = self._check_cache(df, reporter)
-
-                    if cached_result is not None and isinstance(
-                        cached_result, OperationResult
-                    ):
-                        return cached_result
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                    return cache_result
 
             try:
                 # Process data
@@ -320,16 +343,21 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     reporter=reporter,
                 )
             except Exception as e:
-                error_message = f"Error processing data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Record end time after processing metrics
             self.end_time = time.time()
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             try:
                 # Handle metric
@@ -367,12 +395,14 @@ class RecordSuppressionOperation(AnonymizationOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_name},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Generate visualizations if required
@@ -417,99 +447,26 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 anonymized_data=None,
             )
 
-            # Finalize timing
-            self.end_time = time.time()
-
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
             self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
             )
-
             return result
 
         except Exception as e:
-            self.logger.error(f"Operation: {self.operation_name}, error occurred: {e}")
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": "Exception",
-                        "message": "Operation failed due to an exception",
-                        "error": str(e),
-                    },
-                )
-
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=str(e),
-                exception=e,
-            )
-
-    def _handle_preparation(
-        self,
-        task_dir: Path,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        **kwargs,
-    ) -> Dict[str, Path]:
-        """
-        Handle preparation step at the beginning of the execute method.
-
-        This includes:
-        - Logging the start of the operation.
-        - Setting up progress tracker total steps.
-        - Preparing directories.
-        - Sending preparation status to reporter.
-
-        Parameters
-        ----------
-        task_dir : Path
-            Root path for the task's working directory.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker for updating progress status.
-        reporter : Optional[Any]
-            Optional reporter for external operation updates.
-        **kwargs : dict
-            Additional keyword arguments passed to compute steps or directory creation.
-
-        Returns
-        -------
-        Dict[str, Path]
-            Dictionary of prepared directory paths.
-        """
-        step = "Preparation"
-
-        # Setup total progress steps
-        if progress_tracker:
-            progress_tracker.total = self._compute_total_steps()
-            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
-
-        # Prepare necessary directories
-        dirs = self._prepare_directories(task_dir)
-
-        # Initialize operation cache
-        self.operation_cache = OperationCache(
-            cache_dir=dirs["cache"],
-        )
-
-        # Save configuration to task directory
-        self.save_config(task_dir)
-
-        # Report preparation success
-        if reporter:
-            reporter.add_operation(
-                f"Operation {self.operation_name}",
-                status="info",
-                details={
-                    "step": "Preparation",
-                    "message": "Preparation successfully",
-                    "directories": {k: str(v) for k, v in dirs.items()},
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
                 },
             )
-
-        return dirs
 
     def _process_data(
         self,
@@ -874,10 +831,12 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Build boolean mask for records to suppress.
 
-        Args:
+        Parameters
+        ----------
             batch: DataFrame batch
 
-        Returns:
+        Returns
+        -------
             Boolean Series where True indicates record should be suppressed
         """
         if self.suppression_condition == "null":
@@ -897,7 +856,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             # Validate numeric field for range comparison
             if not validate_numeric_field(batch, self.field_name, allow_null=True):
-                raise ValueError(
+                raise ValidationError(
                     f"Field '{self.field_name}' must be numeric for range condition"
                 )
 
@@ -928,7 +887,8 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Save suppressed records to disk immediately to manage memory.
 
-        Args:
+        Parameters
+        ----------
             suppressed_df: DataFrame of suppressed records
             record_num: Record number for file naming (count of suppressed records or identifier)
         """
@@ -968,7 +928,8 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Get human-readable suppression reason.
 
-        Returns:
+        Returns
+        -------
             String describing the suppression reason
         """
         if self.suppression_condition == "null":
@@ -993,11 +954,13 @@ class RecordSuppressionOperation(AnonymizationOperation):
         Note: For record suppression, we work with accumulated counts,
         not series data.
 
-        Args:
+        Parameters
+        ----------
             original_data: Not used for record suppression
             anonymized_data: Not used for record suppression
 
-        Returns:
+        Returns
+        -------
             Dictionary of suppression metrics
         """
         suppression_rate = 0.0
@@ -1143,14 +1106,16 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Generate visualizations showing columns before/after suppression and data type distribution.
 
-        Args:
+        Parameters
+        ----------
             input_data: Original DataFrame
             output_data: Processed DataFrame
             task_dir: Directory to save visualization
             result: OperationResult to register visualization artifacts
             operation_timestamp: Timestamp string for filenames
 
-        Returns:
+        Returns
+        -------
             Path to saved visualization or None
         """
 
@@ -1281,7 +1246,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         step = "Generate visualizations"
         self.logger.info(
-            f"[VIZ] Preparing to generate visualizations in a separate thread"
+            "[VIZ] Preparing to generate visualizations in a separate thread"
         )
 
         viz_error = None
@@ -1344,7 +1309,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                         },
                     )
             else:
-                self.logger.info(f"[VIZ] Visualization thread completed successfully")
+                self.logger.info("[VIZ] Visualization thread completed successfully")
                 if reporter:
                     num_images = len(
                         [a for a in result.artifacts if a.artifact_type == "png"]
@@ -1417,10 +1382,12 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     required_fields.add(cond["field"])
 
         # Validate existence
-        missing = [field for field in required_fields if field not in df.columns]
-        if missing:
-            self.logger.error(f"Missing required fields in DataFrame: {missing}")
-            return False
+        missings = [field for field in required_fields if field not in df.columns]
+        if missings:
+            raise FieldNotFoundError(
+                field_name=missings[0],
+                available_fields=list(df.columns),
+            )
 
         return True
 
@@ -1482,7 +1449,7 @@ def build_suppression_mask_for_dask(
         if not check_field_exists(batch, field_name):
             raise FieldNotFoundError(field_name, list(batch.columns))
         if not validate_numeric_field(batch, field_name, allow_null=True):
-            raise ValueError(
+            raise ValidationError(
                 f"Field '{field_name}' must be numeric for range condition"
             )
         return batch[field_name].between(

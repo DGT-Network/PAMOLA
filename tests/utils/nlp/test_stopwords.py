@@ -7,7 +7,6 @@ implementations in the stopwords.py module.
 import os
 import tempfile
 import unittest
-from pathlib import Path
 from pamola_core.utils.nlp.stopwords import (
     load_stopwords_from_file,
     remove_stopwords,

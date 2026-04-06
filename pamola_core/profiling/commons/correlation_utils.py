@@ -15,7 +15,7 @@ Core functions:
 """
 
 import logging
-from typing import Dict, List, Any, Tuple, Optional, Union, Callable
+from typing import Dict, List, Any, Tuple, Optional, Callable
 
 import numpy as np
 import pandas as pd
@@ -38,7 +38,7 @@ def analyze_correlation(
     """
     Analyze correlation between two fields in a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -58,7 +58,7 @@ def analyze_correlation(
         Options: 'pearson', 'spearman', 'cramers_v', 'correlation_ratio', 'point_biserial'
     **kwargs : dict
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Results of the correlation analysis including:
@@ -77,7 +77,7 @@ def analyze_correlation(
 
     # Validate fields
     if field1 not in df.columns or field2 not in df.columns:
-        error_message = f"Field not found: "
+        error_message = "Field not found: "
         if field1 not in df.columns:
             error_message += field1
         if field2 not in df.columns:
@@ -143,7 +143,7 @@ def analyze_correlation_matrix(
     """
     Create a correlation matrix for multiple fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -160,7 +160,7 @@ def analyze_correlation_matrix(
         - min_threshold: minimum correlation threshold for significant correlations
         - max_fields: maximum number of fields to include
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with correlation matrix and supporting information
@@ -270,7 +270,7 @@ def detect_correlation_type(df: pd.DataFrame, field1: str, field2: str) -> str:
     """
     Automatically detect the most appropriate correlation method for two fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -279,7 +279,7 @@ def detect_correlation_type(df: pd.DataFrame, field1: str, field2: str) -> str:
     field2 : str
         Name of the second field
 
-    Returns:
+    Returns
     --------
     str
         Recommended correlation method
@@ -321,7 +321,7 @@ def calculate_correlation(df: pd.DataFrame,
     """
     Calculate correlation between two fields based on their types.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -332,7 +332,7 @@ def calculate_correlation(df: pd.DataFrame,
     method : str, optional
         Override automatic method selection
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Correlation information including coefficient, method, and p-value if applicable
@@ -431,14 +431,14 @@ def calculate_cramers_v(x: pd.Series, y: pd.Series) -> float:
     """
     Calculate Cramer's V statistic for categorical variables.
 
-    Parameters:
+    Parameters
     -----------
     x : pd.Series
         First categorical variable
     y : pd.Series
         Second categorical variable
 
-    Returns:
+    Returns
     --------
     float
         Cramer's V statistic (0 to 1)
@@ -474,14 +474,14 @@ def calculate_correlation_ratio(categories: pd.Series, values: pd.Series) -> flo
     """
     Calculate the correlation ratio (eta) between a categorical and a numeric variable.
 
-    Parameters:
+    Parameters
     -----------
     categories : pd.Series
         Categorical variable
     values : pd.Series
         Numeric variable
 
-    Returns:
+    Returns
     --------
     float
         Correlation ratio (0 to 1)
@@ -509,14 +509,14 @@ def calculate_point_biserial(binary_var: pd.Series, numeric_var: pd.Series) -> T
     """
     Calculate point-biserial correlation between a binary and a numeric variable.
 
-    Parameters:
+    Parameters
     -----------
     binary_var : pd.Series
         Binary variable (will be converted to 0/1)
     numeric_var : pd.Series
         Numeric variable
 
-    Returns:
+    Returns
     --------
     Tuple[float, float]
         Correlation coefficient and p-value
@@ -533,14 +533,14 @@ def interpret_correlation(correlation_value: float, method: str) -> str:
     """
     Interpret the correlation coefficient.
 
-    Parameters:
+    Parameters
     -----------
     correlation_value : float
         Correlation coefficient
     method : str
         Correlation method used
 
-    Returns:
+    Returns
     --------
     str
         Interpretation of the correlation
@@ -590,14 +590,14 @@ def handle_null_values(df: pd.DataFrame, method: str = 'drop') -> Tuple[pd.DataF
     """
     Handle null values in DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
     method : str
         Method to handle nulls: 'drop', 'fill', or 'pairwise'
 
-    Returns:
+    Returns
     --------
     Tuple[pd.DataFrame, Dict[str, Any]]
         Processed DataFrame and null statistics
@@ -643,7 +643,7 @@ def find_significant_correlations(corr_matrix: pd.DataFrame,
     """
     Find significant correlations in a correlation matrix.
 
-    Parameters:
+    Parameters
     -----------
     corr_matrix : pd.DataFrame
         Correlation matrix
@@ -652,7 +652,7 @@ def find_significant_correlations(corr_matrix: pd.DataFrame,
     p_values : Dict[str, float], optional
         Dictionary of p-values
 
-    Returns:
+    Returns
     --------
     List[Dict[str, Any]]
         List of significant correlations
@@ -694,7 +694,7 @@ def prepare_mvf_fields(df: pd.DataFrame,
     """
     Prepare multi-valued fields for correlation analysis.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -705,7 +705,7 @@ def prepare_mvf_fields(df: pd.DataFrame,
     mvf_parser : Callable
         Function to parse multi-valued fields
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame with processed MVF fields
@@ -753,7 +753,7 @@ def prepare_plot_data(df: pd.DataFrame,
     """
     Prepare data for correlation plot.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -766,7 +766,7 @@ def prepare_plot_data(df: pd.DataFrame,
     is_numeric2 : bool
         Whether field2 is numeric
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Plot data configuration
@@ -828,7 +828,7 @@ def estimate_resources(df: pd.DataFrame, field1: str, field2: str) -> Dict[str, 
     """
     Estimate resources needed for correlation analysis.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -837,7 +837,7 @@ def estimate_resources(df: pd.DataFrame, field1: str, field2: str) -> Dict[str, 
     field2 : str
         Name of the second field
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Estimated resource requirements

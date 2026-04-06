@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        DateTime Generalization Operation
 Package:       pamola_core.anonymization.generalization
 Version:       2.0.1
@@ -51,7 +50,15 @@ import numpy as np
 import pandas as pd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.categorical_config import NullStrategy
-from pamola_core.anonymization.commons.validation.exceptions import FieldValueError
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    DateTimeGeneralizationError,
+    DateTimeParsingError,
+    FieldValueError,
+    InvalidStrategyError,
+    ValidationError,
+)
 from pamola_core.anonymization.commons.validation_utils import (
     validate_datetime_field,
 )
@@ -87,25 +94,6 @@ class DateTimeConstants:
     DAYS_PER_MONTH = 30
     DAYS_PER_WEEK = 7
     MIN_PRIVACY_REDUCTION = 0.3  # Minimum 30% reduction in unique values
-
-
-# Custom exceptions for better error handling
-class DateTimeParsingError(Exception):
-    """Exception raised when datetime parsing fails."""
-
-    pass
-
-
-class DateTimeGeneralizationError(Exception):
-    """Exception raised when generalization fails."""
-
-    pass
-
-
-class InsufficientPrivacyError(Exception):
-    """Exception raised when generalization doesn't provide enough privacy."""
-
-    pass
 
 
 @register(version="1.0.0")
@@ -237,7 +225,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -250,25 +238,30 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
-            # Initialize timing and result
+            # Start timing
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
             self.logger.info(
-                f"Starting {self.operation_name} operation at {self.start_time}"
+                f"Starting: {self.operation_name} operation at {self.start_time}"
             )
 
-            df = None
+            # Initialize result object
             result = OperationResult(status=OperationStatus.PENDING)
 
-            self.logger.info(
-                f"Starting execute for field '{self.field_name}' with strategy '{self.strategy}'"
-            )
+            # Initialize dataframe
+            df = None
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -278,16 +271,19 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                 cache_dir=dirs["cache"],
             )
 
-            # Save configuration to task directory
-            self.save_config(task_dir)
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
+            # Save configuration to task directory
+            self.save_config(task_dir)
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -349,63 +345,49 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                     raise FieldValueError(
                         self.field_name,
                         reason="Invalid datetime format",
+                        examples=df[self.field_name].head(5).tolist(),
                     )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Check if we have a cached result
             if self.use_cache and not self.force_recalculation:
-                try:
+                if main_progress:
+                    current_steps += 1
+                    main_progress.update(
+                        current_steps,
+                        {"step": "Checking cache", "field": self.field_name},
+                    )
 
+                # Generate cache key based on operation parameters
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
+
+                if cache_result:
+                    self.logger.info(
+                        f"Using cached result for {self.field_name} generalization"
+                    )
+
+                    # Update progress
                     if main_progress:
-                        current_steps += 1
                         main_progress.update(
                             current_steps,
-                            {"step": "Checking cache", "field": self.field_name},
+                            {"step": "Complete (cached)", "field": self.field_name},
                         )
 
-                    # Generate cache key based on operation parameters
-                    self.logger.info("Checking operation cache...")
-                    cache_result = self._check_cache(df, reporter)
-
-                    if cache_result:
-                        self.logger.info(
-                            f"Using cached result for {self.field_name} generalization"
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Date time generalization of {self.field_name} (cached)",
+                            details={"cached": True},
                         )
 
-                        # Update progress
-                        if main_progress:
-                            main_progress.update(
-                                current_steps,
-                                {"step": "Complete (cached)", "field": self.field_name},
-                            )
-
-                        # Report cache hit to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Date time generalization of {self.field_name} (cached)",
-                                details={"cached": True},
-                            )
-
-                        return cache_result
-                    else:
-                        self.logger.info(
-                            "No cached result found, proceeding with operation"
-                        )
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                    return cache_result
 
             # Step 3: Prepare output field
             if main_progress:
@@ -420,12 +402,15 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                 self.logger.info(f"Prepared output_field: '{self.output_field_name}'")
                 self._report_operation_details(reporter, self.output_field_name)
             except Exception as e:
-                error_message = f"Preparing output field error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "prepare_output_field", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 4: Processing
@@ -477,19 +462,21 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                     except:
                         pass
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Record end time after processing metrics
             self.end_time = time.time()
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             # Step 5: Metrics Calculation
             if main_progress:
@@ -505,7 +492,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             try:
                 metrics = self._collect_all_metrics(original_data, anonymized_data)
 
-                # Generate metrics file name (in self.name existed field_name)
+                # Generate metrics file name
                 metrics_file_name = (
                     f"{self.field_name}_{self.name}_metrics_{operation_timestamp}"
                 )
@@ -585,12 +572,14 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                         **safe_kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_name},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -614,16 +603,13 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                 anonymized_data=anonymized_data,
             )
 
-            # Finalize timing
-            self.end_time = time.time()
-
             # Report completion
             if reporter:
                 reporter.add_operation(
                     f"Anonymization of {self.field_name} completed",
                     details={
                         "records_processed": self.process_count,
-                        "execution_time": self.end_time - self.start_time,
+                        "execution_time": self.execution_time,
                         "processed_df": len(processed_df),
                         "vulnerable_records_handled": metrics.get(
                             "vulnerable_records", 0
@@ -633,18 +619,23 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
 
             # Set success status
             result.status = OperationStatus.SUCCESS
-            result.execution_time = self.end_time - self.start_time
+            result.execution_time = self.execution_time
             self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
             )
             return result
 
         except Exception as e:
-            self.logger.error(f"Error in date time generalization: {str(e)}")
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=str(e),
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _parse_reference_date(
@@ -657,7 +648,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             return pd.Timestamp(ref_date)
         try:
             return pd.to_datetime(ref_date)
-        except (ValueError, TypeError) as e:
+        except (ValidationError, ValueError, TypeError) as e:
             raise DateTimeParsingError(
                 f"Invalid reference date format: {ref_date}"
             ) from e
@@ -675,7 +666,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             else:
                 try:
                     parsed_bins.append(pd.to_datetime(bin_value))
-                except (ValueError, TypeError) as e:
+                except (ValidationError, ValueError, TypeError) as e:
                     raise DateTimeParsingError(
                         f"Invalid bin value at index {i}: {bin_value}"
                     ) from e
@@ -685,12 +676,12 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Process a batch of datetime data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame with generalized datetimes
@@ -722,7 +713,11 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         elif strategy == "relative":
             generalized = self._apply_relative(field_values)
         else:
-            raise ValueError(f"Unknown strategy: {strategy}")
+            raise InvalidStrategyError(
+                strategy=strategy,
+                valid_strategies=["rounding", "binning", "component", "relative"],
+                operation_type=self.operation_name,
+            )
 
         # Update DataFrame
         if mode == "REPLACE":
@@ -736,12 +731,12 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
-        Parameters:
+        Parameters
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
 
-        Returns:
+        Returns
         --------
         dd.DataFrame
             Processed Dask DataFrame
@@ -757,12 +752,12 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Process a single datetime value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             DateTime value to process
 
-        Returns:
+        Returns
         --------
         Any
             Processed datetime value
@@ -1218,7 +1213,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Validate dates are within pandas datetime range.
 
-        Returns:
+        Returns
         --------
         Tuple[int, int]
             (out_of_range_count, total_count)
@@ -1243,14 +1238,14 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Validate that generalization provides sufficient privacy.
 
-        Parameters:
+        Parameters
         -----------
         original : pd.Series
             Original datetime series
         generalized : pd.Series
             Generalized datetime series
 
-        Returns:
+        Returns
         --------
         bool
             True if privacy level is sufficient, False otherwise
@@ -1307,7 +1302,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                         avg_loss_hours = time_diffs.dt.total_seconds().mean() / 3600
                         metrics["avg_temporal_loss_hours"] = float(avg_loss_hours)
 
-            except (ValueError, TypeError) as e:
+            except (ValidationError, ValueError, TypeError) as e:
                 self.logger.warning(f"Could not calculate temporal loss: {e}")
 
         # Date range coverage
@@ -1344,7 +1339,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for date time generalization
@@ -1373,14 +1368,14 @@ def create_datetime_generalization_operation(
     """
     Create a datetime generalization operation.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Field to generalize
     **kwargs : dict
         Additional parameters
 
-    Returns:
+    Returns
     --------
     DateTimeGeneralizationOperation
         Configured operation instance

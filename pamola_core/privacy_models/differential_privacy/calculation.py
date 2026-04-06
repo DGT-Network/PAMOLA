@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Differential Privacy Processor
---------------------------------------------
 This module provides a class for implementing differential privacy using
 Laplace and Gaussian mechanisms. Differential privacy ensures that the
 output of a dataset query is statistically indistinguishable, providing
@@ -32,16 +31,18 @@ from typing import Dict, Any, List
 import logging
 
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
+from pamola_core.errors.exceptions import ValidationError
 
-# Set up logging configuration
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logger
+logger = logging.getLogger(__name__)
+
 
 class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
     """Class to calculate Epsilon-Differential Privacy using Laplace and Gaussian mechanisms"""
 
     def __init__(self, epsilon: float, sensitivity: float, mechanism: str = "laplace"):
         """
-        Parameters:
+        Parameters
         -----------
         epsilon : float
             Privacy level (smaller -> more private but less accurate).
@@ -53,9 +54,15 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         self.epsilon = epsilon
         self.sensitivity = sensitivity
         self.mechanism = mechanism.lower()
-        
+
         if self.mechanism not in ["laplace", "gaussian"]:
-            raise ValueError("Mechanism must be 'laplace' or 'gaussian'")
+            raise ValidationError("Mechanism must be 'laplace' or 'gaussian'")
+
+    def process(self, data):
+        """Process the input data by applying differential privacy."""
+        if isinstance(data, pd.DataFrame):
+            return self.apply_model(data, [])
+        return data
 
     def add_noise(self, value: float) -> float:
         """Add noise to a value based on the selected mechanism."""
@@ -65,15 +72,17 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         else:  # Gaussian Mechanism
             scale = np.sqrt(2 * np.log(1.25)) * (self.sensitivity / self.epsilon)
             noise = np.random.normal(0, scale)
-        
+
         return value + noise
 
-    def evaluate_privacy(self, data: pd.DataFrame, quasi_identifiers: List[str], **kwargs) -> Dict[str, Any]:
+    def evaluate_privacy(
+        self, data: pd.DataFrame, quasi_identifiers: List[str], **kwargs
+    ) -> Dict[str, Any]:
         """
         Evaluate anonymization risks and compliance of the dataset based on
         differential privacy principles and calculate means.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to be evaluated.
@@ -82,7 +91,7 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         kwargs : dict
             Additional parameters for model evaluation.
 
-        Returns:
+        Returns
         --------
         dict
             A dictionary containing anonymization metrics, evaluation results,
@@ -90,7 +99,7 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         """
         try:
             if not isinstance(data, pd.DataFrame):
-                raise ValueError("Input data must be a pandas DataFrame!")
+                raise ValidationError("Input data must be a pandas DataFrame!")
 
             original_means = {}
             dp_means = {}
@@ -112,24 +121,30 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
                 "compliance": True,  # Placeholder for actual compliance check
                 "original_means": original_means,
                 "dp_means": dp_means,
-                "dp_data": dp_data
+                "dp_data": dp_data,
             }
         except Exception as e:
-            logging.error(f"An error occurred during privacy evaluation: {e}")
+            logger.error(f"An error occurred during privacy evaluation: {e}")
             return {
                 "privacy_budget": None,
                 "quasi_identifiers": quasi_identifiers,
                 "compliance": False,
                 "original_means": {},
                 "dp_means": {},
-                "dp_data": {}
+                "dp_data": {},
             }
 
-    def apply_model(self, data: pd.DataFrame, quasi_identifiers: List[str], suppression: bool = True, **kwargs) -> pd.DataFrame:
+    def apply_model(
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        suppression: bool = True,
+        **kwargs,
+    ) -> pd.DataFrame:
         """
         Apply the differential privacy model to transform the dataset.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The input dataset to be transformed.
@@ -140,7 +155,7 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         kwargs : dict
             Additional parameters for model application.
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The transformed dataset with differential privacy guarantees applied.

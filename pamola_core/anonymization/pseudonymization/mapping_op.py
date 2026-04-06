@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Consistent Mapping Pseudonymization Operation
 Package:       pamola_core.anonymization.pseudonymization
 Version:       1.0.2
@@ -75,6 +74,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
+
+from pamola_core.errors.exceptions import (
+    PseudonymizationError,
+    FieldNotFoundError,
+    InvalidParameterError,
+    PamolaFileNotFoundError,
+    ValidationError,
+)
 
 # Base anonymization operation import
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
@@ -245,7 +252,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Initialize consistent mapping pseudonymization operation.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Primary field to pseudonymize
@@ -322,8 +329,8 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             # Assume hex-encoded
             try:
                 self._encryption_key = bytes.fromhex(encryption_key)
-            except ValueError as e:
-                raise ValueError(f"Invalid hex encryption key: {e}")
+            except (ValidationError, ValueError) as e:
+                raise ValidationError(f"Invalid hex encryption key: {e}")
         else:
             self._encryption_key = encryption_key
 
@@ -332,7 +339,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             validate_key_size(self._encryption_key, 256)
         except Exception as e:
             # Don't expose internal details about expected size
-            raise ValueError("Invalid encryption key size") from e
+            raise ValidationError("Invalid encryption key size") from e
 
         # P-6: Validate pseudonym_length for random_string type
         if pseudonym_type == "random_string":
@@ -341,14 +348,16 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             effective_length = pseudonym_length - prefix_len - suffix_len
 
             if effective_length < 4:
-                raise ValueError(
+                raise ValidationError(
                     f"Pseudonym length ({pseudonym_length}) minus prefix/suffix "
                     f"({prefix_len + suffix_len}) must be at least 4 characters"
                 )
 
         # Validate compound mode
         if compound_mode and not additional_fields:
-            raise ValueError("compound_mode requires additional_fields to be specified")
+            raise ValidationError(
+                "compound_mode requires additional_fields to be specified"
+            )
 
         # Ensure additional_fields is always a list
         if additional_fields is None:
@@ -837,12 +846,12 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Process a batch of data to pseudonymize values.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame with pseudonymized values
@@ -851,7 +860,10 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         all_fields = [self.field_name] + self.additional_fields
         for field in all_fields:
             if field not in batch.columns:
-                raise ValueError(f"Field '{field}' not found in DataFrame")
+                raise FieldNotFoundError(
+                    field_name=field,
+                    available_fields=list(batch.columns),
+                )
 
         # Create working series based on mode
         if self.compound_mode:
@@ -867,7 +879,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             processed_series = process_nulls(
                 working_series, self.null_strategy, anonymize_value="*REDACTED*"
             )
-        except ValueError as e:
+        except (ValidationError, ValueError) as e:
             # Handle ERROR strategy gracefully
             self.logger.warning(
                 f"Null processing error: {e}. Continuing with PRESERVE strategy."
@@ -992,7 +1004,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
 
             self.logger.info(f"Loaded {len(self._mapping)} existing mappings")
 
-        except FileNotFoundError:
+        except (PamolaFileNotFoundError, FileNotFoundError):
             if self.create_if_not_exists:
                 self.logger.info("Creating new mapping file")
                 self._mapping = {}
@@ -1015,7 +1027,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             try:
                 seq_num = int(num_part)
                 max_seq = max(max_seq, seq_num)
-            except ValueError:
+            except (ValidationError, ValueError):
                 continue
         self._sequential_counter = max_seq
 
@@ -1023,7 +1035,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Generate a unique pseudonym that doesn't exist in current mappings.
 
-        Returns:
+        Returns
         --------
         str
             Unique pseudonym
@@ -1067,15 +1079,23 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 if attempts > 10:
                     self._collision_count += 1
                     self.logger.warning(
-                        f"High collision rate detected for random_string generation"
+                        "High collision rate detected for random_string generation"
                     )
 
                 if attempts > 100:
-                    raise RuntimeError(
-                        "Unable to generate unique pseudonym after 100 attempts"
+                    raise PseudonymizationError(
+                        field_name=self.field_name,
+                        reason="unable to generate unique pseudonym after 100 attempts",
+                        pseudonym_type=self.pseudonym_type,
+                        attempts=attempts,
+                        max_attempts=100,
                     )
         else:
-            raise ValueError(f"Unknown pseudonym type: {self.pseudonym_type}")
+            raise InvalidParameterError(
+                param_name="pseudonym_type",
+                param_value=self.pseudonym_type,
+                reason=f"Unknown pseudonym type: {self.pseudonym_type}",
+            )
 
         # Track generated pseudonym
         self._generated_pseudonyms.add(pseudonym)
@@ -1216,12 +1236,12 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Get original value for a pseudonym (for authorized reversal).
 
-        Parameters:
+        Parameters
         -----------
         pseudonym : str
             Pseudonym to reverse
 
-        Returns:
+        Returns
         --------
         Optional[str]
             Original value if found, None otherwise
@@ -1233,7 +1253,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Export mappings in encrypted form (for backup/transfer).
 
-        Parameters:
+        Parameters
         -----------
         output_path : Path
             Path to export to
@@ -1276,7 +1296,7 @@ def create_mapping_pseudonymization_operation(
     """
     Create a consistent mapping pseudonymization operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Field to pseudonymize
@@ -1285,7 +1305,7 @@ def create_mapping_pseudonymization_operation(
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     ConsistentMappingPseudonymizationOperation
         Configured mapping pseudonymization operation

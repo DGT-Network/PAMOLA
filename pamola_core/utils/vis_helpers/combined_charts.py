@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
----------------------------------------------------
 Module: Combined Chart Visualization Implementation
 
 Description:
@@ -30,6 +29,7 @@ from pamola_core.utils.vis_helpers.base import (
     PlotlyFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 from pamola_core.utils.vis_helpers.context import visualization_context
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
@@ -47,12 +47,12 @@ def prepare_data_for_combined_chart(
     """
     Prepare data for combined chart visualization.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, Any], pd.Series, or pd.DataFrame
         Data to process
 
-    Returns:
+    Returns
     --------
     pd.Series
         Processed data as a pandas Series
@@ -72,7 +72,9 @@ def prepare_data_for_combined_chart(
             )
             return data.iloc[:, 0]
     else:
-        raise TypeError(f"Unsupported data type for combined chart: {type(data)}")
+        raise TypeValidationError(
+            f"Unsupported data type for combined chart: {type(data)}"
+        )
 
 
 class PlotlyCombinedChart(PlotlyFigure):
@@ -102,7 +104,7 @@ class PlotlyCombinedChart(PlotlyFigure):
         """
         Create a combined chart with dual Y-axes using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         primary_data : Dict[str, Any], pd.Series, or pd.DataFrame
             Data for the primary Y-axis.
@@ -141,7 +143,7 @@ class PlotlyCombinedChart(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to the underlying plotting function.
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             The resulting Plotly figure.
@@ -431,7 +433,7 @@ class PlotlyCombinedChart(PlotlyFigure):
         """
         Update an existing Plotly combined chart.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Existing Plotly figure to update
@@ -444,7 +446,7 @@ class PlotlyCombinedChart(PlotlyFigure):
         **kwargs:
             Parameters to update (same as create method)
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated Plotly figure
@@ -637,7 +639,7 @@ class MatplotlibCombinedChart(MatplotlibFigure):
         """
         Create a combined chart with dual Y-axes using Matplotlib.
 
-        Parameters:
+        Parameters
         -----------
         primary_data : Dict[str, Any], pd.Series, or pd.DataFrame
             Data for the primary Y-axis.
@@ -677,7 +679,7 @@ class MatplotlibCombinedChart(MatplotlibFigure):
             If True, raise exceptions for invalid configuration; otherwise log warnings.
         **kwargs:
             Additional arguments to pass to the underlying matplotlib function.
-        Returns:
+        Returns
         --------
         plt.Figure: The resulting Matplotlib figure.
         """
@@ -860,7 +862,7 @@ class MatplotlibCombinedChart(MatplotlibFigure):
         """
         Update an existing Matplotlib combined chart.
 
-        Parameters:
+        Parameters
         -----------
         fig : plt.Figure
             Existing Matplotlib figure to update
@@ -873,7 +875,7 @@ class MatplotlibCombinedChart(MatplotlibFigure):
         **kwargs:
             Parameters to update (same as create method)
 
-        Returns:
+        Returns
         --------
         plt.Figure: Updated Matplotlib figure
         """

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: Attack Simulation
------------------------
 This module provides an abstract base class for attack simulation feature
 in PAMOLA.CORE. It defines the general structure and required methods for
 implementing specific attack simulation
@@ -29,9 +27,8 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
 from pamola_core.attacks.distance_to_closest_record import DistanceToClosestRecord
-from pamola_core.attacks.nearest_neighbor_distance_ratio import (
-    NearestNeighborDistanceRatio,
-)
+from pamola_core.attacks.nearest_neighbor_distance_ratio import NearestNeighborDistanceRatio
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.attacks.preprocess_data import PreprocessData
 
 
@@ -45,7 +42,7 @@ class MembershipInference(PreprocessData):
         """
         The constructor of the MembershipInferenceAttack class
 
-        Parameters:
+        Parameters
         -----------
         dcr_threshold: Threshold used for DCR algorithm (MIA)
         nndr_threshold: Threshold used for NNDR algorithm (MIA)
@@ -183,7 +180,7 @@ class MembershipInference(PreprocessData):
             1 = predicted as member of data_train, 0 = non-member.
         """
         if data_train is None or data_test is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
 
         # Preprocess consistently
         data1_transform, data2_transform = self.preprocess_data(data_train, data_test)

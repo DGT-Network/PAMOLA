@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Masking Patterns Library
 Package:       pamola_core.anonymization.commons.masking_patterns
 Version:       1.0.0
@@ -39,9 +38,9 @@ import string
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 
-logger = logging.getLogger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 @dataclass
@@ -390,10 +389,12 @@ class MaskingPatterns:
         """
         Get pattern configuration by type.
 
-        Args:
+        Parameters
+        ----------
             pattern_type (str): Name of pattern.
 
-        Returns:
+        Returns
+        -------
             Optional[PatternConfig]: Matching pattern config, or None.
         """
         return cls.PATTERNS.get(pattern_type)
@@ -411,7 +412,8 @@ class MaskingPatterns:
         """
         List all available pattern types.
 
-        Returns:
+        Returns
+        -------
             List[str]: List of pattern names.
         """
         return list(cls.PATTERNS)
@@ -421,10 +423,12 @@ class MaskingPatterns:
         """
         Check if a pattern type exists.
 
-        Args:
+        Parameters
+        ----------
             pattern_type (str): Name to test.
 
-        Returns:
+        Returns
+        -------
             bool: True if pattern_type is registered.
         """
         return pattern_type in cls.PATTERNS
@@ -434,10 +438,12 @@ class MaskingPatterns:
         """
         Attempt to guess the pattern type of a value.
 
-        Args:
+        Parameters
+        ----------
             value (str): Value to analyze.
 
-        Returns:
+        Returns
+        -------
             Optional[str]: Most probable pattern type, or None.
         """
         if not isinstance(value, str) or not value.strip():
@@ -469,7 +475,8 @@ def apply_pattern_mask(
     """
     Apply pattern-based masking to a string value based on regex groups.
 
-    Args:
+    Parameters
+    ----------
         value (str): The input value to mask.
         pattern_config (PatternConfig): The pattern configuration, including:
             - regex (str): Regex pattern with groups.
@@ -477,7 +484,8 @@ def apply_pattern_mask(
             - mask_groups (List[int]): List of group indices to mask.
         mask_char (str): Character used for masking. Default is "*".
 
-    Returns:
+    Returns
+    -------
         str: Masked value, or original value if pattern doesn't match.
     """
     if not isinstance(value, str) or not value:
@@ -517,12 +525,14 @@ def _reconstruct_from_groups(
     """
     Reconstruct a masked string from masked groups while preserving non-captured text.
 
-    Args:
+    Parameters
+    ----------
         original (str): The original input string.
         regex (str): The regex used to extract groups.
         masked_groups (List[str]): The list of masked/unmasked group values.
 
-    Returns:
+    Returns
+    -------
         str: The reconstructed string with separators preserved.
     """
     try:
@@ -560,11 +570,13 @@ def create_random_mask(length: int, char_pool: Optional[str] = None) -> str:
     """
     Create a random string of a specified length using characters from a pool.
 
-    Args:
+    Parameters
+    ----------
         length (int): Desired length of the mask.
         char_pool (Optional[str]): Optional character pool. If None, defaults to symbols.
 
-    Returns:
+    Returns
+    -------
         str: Random mask string.
     """
     if char_pool is None:
@@ -787,7 +799,8 @@ def get_mask_char_pool(pool_name: str) -> str:
     """
     Retrieve a predefined character pool used for masking.
 
-    Args:
+    Parameters
+    ----------
         pool_name (str): The name of the character pool to retrieve.
             Options include:
             - "symbols"
@@ -797,7 +810,8 @@ def get_mask_char_pool(pool_name: str) -> str:
             - "alphanumeric"
             - "extended"
 
-    Returns:
+    Returns
+    -------
         str: A string of characters representing the mask pool.
              Defaults to 'symbols' pool if not found.
     """
@@ -808,7 +822,8 @@ def set_mask_char_pool(pool_name: str, characters: str) -> None:
     """
     Define or override a custom character pool for future masking.
 
-    Args:
+    Parameters
+    ----------
         pool_name (str): The name of the new or existing character pool.
         characters (str): A string of characters to assign to the pool.
     """

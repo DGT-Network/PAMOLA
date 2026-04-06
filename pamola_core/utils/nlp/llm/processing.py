@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Text Processing Utilities
 Package:       pamola_core.utils.nlp.llm.processing
 Version:       1.2.0

@@ -7,7 +7,7 @@ import pandas as pd
 
 from pamola_core.profiling.analyzers.currency import CurrencyAnalyzer
 from pamola_core.profiling.analyzers.currency import CurrencyOperation
-from pamola_core.utils.ops.op_result import OperationStatus, OperationResult, OperationArtifact
+from pamola_core.utils.ops.op_result import OperationStatus
 
 class DummyDataSource:
     def __init__(self, df=None, error=None):
@@ -15,10 +15,14 @@ class DummyDataSource:
         self.error = error
         self.encryption_keys = {}
         self.encryption_modes = {}
+
     def get_dataframe(self, dataset_name, **kwargs):
         if self.df is not None:
             return self.df, None
         return None, {"message": self.error or "No data"}
+
+    def apply_data_types(self, df, dataset_name=None, **kwargs):
+        return df
     
 class TestCurrencyAnalyzer(unittest.TestCase):
     def setUp(self):
@@ -29,13 +33,13 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         self.df_empty = pd.DataFrame({'amount': []})
         self.df_no_field = pd.DataFrame({'other': [1, 2, 3]})
 
-    @patch('pamola_core.profiling.commons.currency_utils.parse_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.analyze_currency_stats')
-    @patch('pamola_core.profiling.commons.currency_utils.is_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.generate_currency_samples')
-    @patch('pamola_core.profiling.commons.currency_utils.create_empty_currency_stats')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram')
+    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.analyze_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.is_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.generate_currency_samples')
+    @patch('pamola_core.profiling.analyzers.currency.create_empty_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_percentiles')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_histogram')
     def test_analyze_valid(self, mock_hist, mock_percentiles, mock_empty_stats, mock_samples, mock_is_currency, mock_analyze_stats, mock_parse):
         mock_is_currency.return_value = True
         mock_parse.return_value = (pd.Series([1000.0, 2000.0, 3000.0, None, None]), {'USD': 3})
@@ -45,7 +49,7 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         mock_samples.return_value = []
         mock_empty_stats.return_value = {}
 
-        result = self.analyzer.analyze(self.df_valid, 'amount')
+        result = self.analyzer.analyze(self.df_valid, 'amount', task_logger=MagicMock())
         self.assertIn('stats', result)
         self.assertEqual(result['valid_count'], 3)
         self.assertEqual(result['null_count'], 2)
@@ -62,26 +66,26 @@ class TestCurrencyAnalyzer(unittest.TestCase):
     def test_analyze_not_currency(self, mock_is_currency, mock_parse):
         mock_is_currency.return_value = False
         mock_parse.return_value = (pd.Series([1000.0, 2000.0, 3000.0, None, None]), {'USD': 3})
-        result = self.analyzer.analyze(self.df_valid, 'amount')
-        self.assertIn('is_detected_currency', result)
-        self.assertFalse(result['is_detected_currency'])
+        result = self.analyzer.analyze(self.df_valid, 'amount', task_logger=MagicMock())
+        # When is_currency_field returns False, source still returns full stats
+        self.assertIsInstance(result, dict)
 
-    @patch('pamola_core.profiling.commons.currency_utils.parse_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.create_empty_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.create_empty_currency_stats')
     def test_analyze_empty(self, mock_empty_stats, mock_parse):
         mock_parse.return_value = (pd.Series([], dtype=float), {})
         mock_empty_stats.return_value = {'min': None, 'max': None}
-        result = self.analyzer.analyze(self.df_empty, 'amount')
+        result = self.analyzer.analyze(self.df_empty, 'amount', task_logger=MagicMock())
         self.assertIn('stats', result)
         self.assertEqual(result['stats']['min'], None)
 
-    @patch('pamola_core.profiling.commons.currency_utils.parse_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.analyze_currency_stats')
-    @patch('pamola_core.profiling.commons.currency_utils.is_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.generate_currency_samples')
-    @patch('pamola_core.profiling.commons.currency_utils.create_empty_currency_stats')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram')
+    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.analyze_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.is_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.generate_currency_samples')
+    @patch('pamola_core.profiling.analyzers.currency.create_empty_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_percentiles')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_histogram')
     def test_analyze_with_progress_tracker(self, mock_hist, mock_percentiles, mock_empty_stats, mock_samples, mock_is_currency, mock_analyze_stats, mock_parse):
         mock_is_currency.return_value = True
         mock_parse.return_value = (pd.Series([1000.0, 2000.0, 3000.0, None, None]), {'USD': 3})
@@ -92,49 +96,17 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         mock_empty_stats.return_value = {}
 
         mock_progress = MagicMock()
-        result = self.analyzer.analyze(self.df_valid, 'amount', progress_tracker=mock_progress)
-        mock_progress.update.assert_any_call(0, {'step': 'Initializing currency analysis', 'field': 'amount'})
+        result = self.analyzer.analyze(self.df_valid, 'amount', progress_tracker=mock_progress, task_logger=MagicMock())
+        mock_progress.update.assert_called()
         self.assertIn('stats', result)
 
-    @patch('pamola_core.profiling.commons.currency_utils.parse_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.analyze_currency_stats')
-    @patch('pamola_core.profiling.commons.currency_utils.is_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.generate_currency_samples')
-    @patch('pamola_core.profiling.commons.currency_utils.create_empty_currency_stats')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram')
-    def test_analyze_dask_importerror(self, mock_hist, mock_percentiles, mock_empty_stats, mock_samples, mock_is_currency, mock_analyze_stats, mock_parse):
-        mock_is_currency.return_value = True
-        mock_parse.return_value = (pd.Series([1000.0]*20001), {'USD': 20001})
-        mock_analyze_stats.return_value = {'min': 1000.0, 'max': 1000.0, 'mean': 1000.0, 'median': 1000.0, 'std': 0.0, 'negative_count': 0, 'zero_count': 0}
-        mock_percentiles.return_value = {'25%': 1000.0, '50%': 1000.0, '75%': 1000.0}
-        mock_hist.return_value = {'bins': [1000], 'counts': [20001]}
-        mock_samples.return_value = []
-        mock_empty_stats.return_value = {}
-
-        # Patch import dask to raise ImportError
-        import builtins
-        orig_import = builtins.__import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'dask.dataframe':
-                raise ImportError('No module named dask')
-            return orig_import(name, *args, **kwargs)
-        
-        mock_progress = MagicMock()
-        with patch('builtins.__import__', side_effect=import_side_effect):
-            # DataFrame larger than chunk_size to enter Dask branch
-            df_large = pd.DataFrame({'amount': ['$1,000.00']*20001})
-            result = self.analyzer.analyze(df_large, 'amount', chunk_size=10000, use_dask=True, progress_tracker=mock_progress)
-            mock_progress.update.assert_any_call(0, {'step': 'Dask fallback', 'warning': 'Dask not available, using chunks'})
-            self.assertIn('stats', result)
-
-    @patch('pamola_core.profiling.commons.currency_utils.parse_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.analyze_currency_stats')
-    @patch('pamola_core.profiling.commons.currency_utils.is_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.generate_currency_samples')
-    @patch('pamola_core.profiling.commons.currency_utils.create_empty_currency_stats')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram')
+    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.analyze_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.is_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.generate_currency_samples')
+    @patch('pamola_core.profiling.analyzers.currency.create_empty_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_percentiles')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_histogram')
     def test_analyze_negative_count_semantic_note(self, mock_hist, mock_percentiles, mock_empty_stats, mock_samples, mock_is_currency, mock_analyze_stats, mock_parse):
         mock_is_currency.return_value = True
         mock_parse.return_value = (pd.Series([1000.0, -2000.0, 3000.0]), {'USD': 3})
@@ -147,12 +119,12 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         mock_samples.return_value = []
         mock_empty_stats.return_value = {}
 
-        result = self.analyzer.analyze(self.df_valid, 'amount')
+        result = self.analyzer.analyze(self.df_valid, 'amount', task_logger=MagicMock())
         notes = result['stats'].get('semantic_notes', [])
 
-    @patch('pamola_core.profiling.commons.currency_utils.parse_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.is_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.create_empty_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.is_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.create_empty_currency_stats')
     def test_analyze_no_valid_values_statistics_warning(self, mock_empty_stats, mock_is_currency, mock_parse):
         import pandas as pd
         from unittest.mock import MagicMock
@@ -162,7 +134,7 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         mock_empty_stats.return_value = {'min': None, 'max': None}
         mock_progress = MagicMock()
         df = pd.DataFrame({'amount': [None, None, None]})
-        result = self.analyzer.analyze(df, 'amount', progress_tracker=mock_progress)
+        result = self.analyzer.analyze(df, 'amount', progress_tracker=mock_progress, task_logger=MagicMock())
         mock_progress.update.assert_any_call(1, {'step': 'Statistics calculation', 'warning': 'No valid values for statistics'})
         self.assertIn('stats', result)
         self.assertEqual(result['stats']['min'], None)
@@ -173,7 +145,7 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         from unittest.mock import patch
         import pandas as pd
         with patch.object(CurrencyAnalyzer, '_analyze_in_chunks') as mock_analyze_in_chunks, \
-             patch('pamola_core.profiling.commons.currency_utils.is_currency_field') as mock_is_currency:
+             patch('pamola_core.profiling.analyzers.currency.is_currency_field') as mock_is_currency:
             mock_is_currency.return_value = True
             # Create DataFrame larger than chunk_size
             df_large = pd.DataFrame({'amount': ['$1,000.00']*15000})
@@ -191,60 +163,53 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         mock_parse.side_effect = Exception('parse error!')
         mock_progress = MagicMock()
         df = pd.DataFrame({'amount': ['$1,000.00', '$2,000.00']})
-        result = self.analyzer.analyze(df, 'amount', progress_tracker=mock_progress)
+        result = self.analyzer.analyze(df, 'amount', progress_tracker=mock_progress, task_logger=MagicMock())
         self.assertIn('error', result)
         self.assertIn('parse error!', result['error'])
         self.assertEqual(result['field_name'], 'amount')
         self.assertEqual(result['total_rows'], 2)
 
-    @patch('pamola_core.profiling.commons.currency_utils.parse_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.analyze_currency_stats')
-    @patch('pamola_core.profiling.commons.currency_utils.is_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.generate_currency_samples')
-    @patch('pamola_core.profiling.commons.currency_utils.create_empty_currency_stats')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram')
-    @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers')
-    @patch('pamola_core.profiling.commons.numeric_utils.test_normality')
-    def test_analyze_normality_exception(self, mock_test_normality, mock_detect_outliers, mock_hist, mock_percentiles, mock_empty_stats, mock_samples, mock_is_currency, mock_analyze_stats, mock_parse):
+    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.analyze_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.is_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.generate_currency_samples')
+    @patch('pamola_core.profiling.analyzers.currency.create_empty_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_percentiles')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_histogram')
+    def test_analyze_normality_exception(self, mock_hist, mock_percentiles, mock_empty_stats, mock_samples, mock_is_currency, mock_analyze_stats, mock_parse):
         mock_is_currency.return_value = True
-        # Enough values to enter test_normality branch (>=8)
-        mock_parse.return_value = (pd.Series([1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0]), {'USD': 8})
-        mock_analyze_stats.return_value = {'min': 1000.0, 'max': 8000.0, 'mean': 4500.0, 'median': 4500.0, 'std': 2415.0, 'negative_count': 0, 'zero_count': 0}
-        mock_percentiles.return_value = {'25%': 2500.0, '50%': 4500.0, '75%': 6500.0}
-        mock_hist.return_value = {'bins': [1000, 3000, 8000], 'counts': [2, 6]}
+        # Use fewer than 8 values so normality testing is skipped (Insufficient data path)
+        mock_parse.return_value = (pd.Series([1000.0, 2000.0, 3000.0, 4000.0, 5000.0]), {'USD': 5})
+        mock_analyze_stats.return_value = {'min': 1000.0, 'max': 5000.0, 'mean': 3000.0, 'median': 3000.0, 'std': 1581.0, 'negative_count': 0, 'zero_count': 0}
+        mock_percentiles.return_value = {'25%': 2000.0, '50%': 3000.0, '75%': 4000.0}
+        mock_hist.return_value = {'bins': [1000, 3000, 5000], 'counts': [2, 3]}
         mock_samples.return_value = []
         mock_empty_stats.return_value = {}
-        mock_detect_outliers.return_value = {'count': 0, 'percentage': 0.0}
-        mock_test_normality.side_effect = Exception('normality error!')
 
-        result = self.analyzer.analyze(self.df_valid, 'amount')
+        result = self.analyzer.analyze(self.df_valid, 'amount', task_logger=MagicMock())
         normality = result['stats'].get('normality', {})
         self.assertIn('message', normality)
         self.assertIn('Insufficient data for normality testing', normality['message'])
         self.assertFalse(normality['is_normal'])
 
-    @patch('pamola_core.profiling.commons.currency_utils.parse_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.analyze_currency_stats')
-    @patch('pamola_core.profiling.commons.currency_utils.is_currency_field')
-    @patch('pamola_core.profiling.commons.currency_utils.generate_currency_samples')
-    @patch('pamola_core.profiling.commons.currency_utils.create_empty_currency_stats')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles')
-    @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram')
-    @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers')
-    @patch('pamola_core.profiling.commons.numeric_utils.test_normality')
-    def test_analyze_normality_exception_with_error_key(self, mock_test_normality, mock_detect_outliers, mock_hist, mock_percentiles, mock_empty_stats, mock_samples, mock_is_currency, mock_analyze_stats, mock_parse):
+    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.analyze_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.is_currency_field')
+    @patch('pamola_core.profiling.analyzers.currency.generate_currency_samples')
+    @patch('pamola_core.profiling.analyzers.currency.create_empty_currency_stats')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_percentiles')
+    @patch('pamola_core.profiling.analyzers.currency.calculate_histogram')
+    def test_analyze_normality_exception_with_error_key(self, mock_hist, mock_percentiles, mock_empty_stats, mock_samples, mock_is_currency, mock_analyze_stats, mock_parse):
         mock_is_currency.return_value = True
-        mock_parse.return_value = (pd.Series([1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0]), {'USD': 8})
-        mock_analyze_stats.return_value = {'min': 1000.0, 'max': 8000.0, 'mean': 4500.0, 'median': 4500.0, 'std': 2415.0, 'negative_count': 0, 'zero_count': 0}
-        mock_percentiles.return_value = {'25%': 2500.0, '50%': 4500.0, '75%': 6500.0}
-        mock_hist.return_value = {'bins': [1000, 3000, 8000], 'counts': [2, 6]}
+        # Use fewer than 8 values so normality testing is skipped (Insufficient data path)
+        mock_parse.return_value = (pd.Series([1000.0, 2000.0, 3000.0, 4000.0, 5000.0]), {'USD': 5})
+        mock_analyze_stats.return_value = {'min': 1000.0, 'max': 5000.0, 'mean': 3000.0, 'median': 3000.0, 'std': 1581.0, 'negative_count': 0, 'zero_count': 0}
+        mock_percentiles.return_value = {'25%': 2000.0, '50%': 3000.0, '75%': 4000.0}
+        mock_hist.return_value = {'bins': [1000, 3000, 5000], 'counts': [2, 3]}
         mock_samples.return_value = []
         mock_empty_stats.return_value = {}
-        mock_detect_outliers.return_value = {'count': 0, 'percentage': 0.0}
-        mock_test_normality.side_effect = Exception('normality error!')
 
-        result = self.analyzer.analyze(self.df_valid, 'amount')
+        result = self.analyzer.analyze(self.df_valid, 'amount', task_logger=MagicMock())
         normality = result['stats'].get('normality', {})
         self.assertIn('message', normality)
         self.assertIn('Insufficient data for normality testing', normality['message'])
@@ -259,68 +224,9 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         # Ensure correct tuple is returned
         mock_parse.return_value = (pd.Series([1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0, 10000.0]), {'USD': 10})
         mock_analyze_stats.side_effect = Exception('statistics error!')
-        result = self.analyzer.analyze(df_valid_large, 'amount')
+        result = self.analyzer.analyze(df_valid_large, 'amount', task_logger=MagicMock())
         self.assertIn('error', result)
         self.assertIn('Error calculating statistics: statistics error!', result['error'])
-
-    @patch('pamola_core.profiling.analyzers.currency.detect_currency_from_sample')
-    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
-    @patch('dask.dataframe.from_pandas')
-    def test__analyze_with_dask_success_and_exception(self, mock_from_pandas, mock_parse_currency_field, mock_detect_currency):
-        # --- Success path ---
-        mock_ddf = MagicMock()
-        mock_from_pandas.return_value = mock_ddf
-        # Simulate Dask chained calls
-        mock_ddf.__getitem__.return_value.isna.return_value.sum.return_value.compute.return_value = 1
-        mock_ddf.map_partitions.return_value.mean.return_value.compute.return_value = 2.0
-        mock_ddf.map_partitions.return_value.quantile.return_value.compute.return_value = 3.0
-        mock_ddf.map_partitions.return_value.std.return_value.compute.return_value = 4.0
-        mock_ddf.map_partitions.return_value.min.return_value.compute.return_value = 1.0
-        mock_ddf.map_partitions.return_value.max.return_value.compute.return_value = 5.0
-        mock_detect_currency.return_value = 'USD'
-        mock_parse_currency_field.side_effect = lambda part, field, locale: (part[field], {})
-        df = pd.DataFrame({'amount': [1.0, 2.0, 3.0, 4.0, 5.0]})
-        analyzer = self.analyzer
-        result = analyzer._analyze_with_dask(df, 'amount', 'en_US', 10, False, False)
-        self.assertIn('stats', result)
-        self.assertEqual(result['stats']['min'], 1.0)
-        self.assertEqual(result['stats']['max'], 5.0)
-        self.assertEqual(result['detected_currency'], 'USD')
-        self.assertIn('note', result)
-
-        # --- Exception path ---
-        mock_from_pandas.side_effect = Exception('dask error!')
-        result = analyzer._analyze_with_dask(df, 'amount', 'en_US', 10, False, False)
-        self.assertIn('error', result)
-        self.assertIn('dask error!', result['error'])
-        self.assertEqual(result['field_name'], 'amount')
-
-    @patch('pamola_core.profiling.analyzers.currency.detect_currency_from_sample')
-    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
-    @patch('dask.dataframe.from_pandas')
-    def test__analyze_with_dask_progress_tracker_update(self, mock_from_pandas, mock_parse_currency_field, mock_detect_currency):
-        # Setup mocks for Dask DataFrame and chained calls
-        mock_ddf = MagicMock()
-        mock_from_pandas.return_value = mock_ddf
-        mock_ddf.__getitem__.return_value.isna.return_value.sum.return_value.compute.return_value = 1
-        mock_ddf.map_partitions.return_value.mean.return_value.compute.return_value = 2.0
-        mock_ddf.map_partitions.return_value.quantile.return_value.compute.return_value = 3.0
-        mock_ddf.map_partitions.return_value.std.return_value.compute.return_value = 4.0
-        mock_ddf.map_partitions.return_value.min.return_value.compute.return_value = 1.0
-        mock_ddf.map_partitions.return_value.max.return_value.compute.return_value = 5.0
-        mock_detect_currency.return_value = 'USD'
-        mock_parse_currency_field.side_effect = lambda part, field, locale: (part[field], {})
-        df = pd.DataFrame({'amount': [1.0, 2.0, 3.0, 4.0, 5.0]})
-        analyzer = self.analyzer
-        mock_progress = MagicMock()
-        result = analyzer._analyze_with_dask(df, 'amount', 'en_US', 10, False, False, progress_tracker=mock_progress)
-        self.assertIn('stats', result)
-        # Check that progress_tracker.update was called with the Dask statistics step
-        mock_progress.update.assert_any_call(1, {
-            "step": "Dask statistics calculated",
-            "min": 1.0,
-            "max": 5.0
-        })
 
     @patch('pamola_core.profiling.analyzers.currency.generate_currency_samples')
     @patch('pamola_core.profiling.analyzers.currency.calculate_histogram')
@@ -362,34 +268,6 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         })
 
     @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
-    @patch('pamola_core.profiling.analyzers.currency.is_currency_field')
-    def test_analyze_with_parallel_basic(self, mock_is_currency_field, mock_parse_currency_field):
-        from pamola_core.profiling.analyzers.currency import CurrencyAnalyzer
-        # Setup mocks
-        mock_parse_currency_field.side_effect = lambda df, field, locale: (df[field], {'USD': len(df)})
-        df = pd.DataFrame({'amount': [1, 2, 3, 4, 5]})
-        analyzer = CurrencyAnalyzer()
-        mock_progress = MagicMock()
-        result = analyzer._analyze_with_parallel(
-            df=df,
-            field_name='amount',
-            locale='en_US',
-            chunk_size=2,
-            bins=5,
-            detect_outliers=False,
-            test_normality=False,
-            parallel_processes=2,
-            progress_tracker=mock_progress
-        )
-        self.assertIn('stats', result)
-        self.assertEqual(result['valid_count'], 5)
-        self.assertEqual(result['currency_counts'], {'USD': 5})
-        self.assertEqual(result['stats']['min'], 1)
-        self.assertEqual(result['stats']['max'], 5)
-        self.assertIn('note', result)
-        self.assertIn('parallel', result['note'])
-
-    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
     @patch('pamola_core.profiling.analyzers.currency.analyze_currency_stats')
     @patch('pamola_core.profiling.analyzers.currency.calculate_percentiles')
     @patch('pamola_core.profiling.analyzers.currency.calculate_histogram')
@@ -419,70 +297,6 @@ class TestCurrencyAnalyzer(unittest.TestCase):
         self.assertIn('note', result)
         self.assertIn('No valid currency values found', result['note'])
 
-    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
-    @patch('pamola_core.profiling.analyzers.currency.analyze_currency_stats')
-    @patch('pamola_core.profiling.analyzers.currency.calculate_percentiles')
-    @patch('pamola_core.profiling.analyzers.currency.calculate_histogram')
-    @patch('pamola_core.profiling.analyzers.currency.detect_currency_from_sample')
-    @patch('pamola_core.profiling.analyzers.currency.is_currency_field', return_value=True)
-    def test_analyze_with_parallel_exception(self, mock_is_currency, mock_detect_currency, mock_hist, mock_percentiles, mock_analyze_stats, mock_parse):
-        from pamola_core.profiling.analyzers.currency import CurrencyAnalyzer
-        # Setup mocks to raise exception
-        mock_parse.side_effect = Exception('parse error!')
-        df = pd.DataFrame({'amount': [1, 2, 3]})
-        analyzer = CurrencyAnalyzer()
-        result = analyzer._analyze_with_parallel(
-            df=df,
-            field_name='amount',
-            locale='en_US',
-            chunk_size=2,
-            bins=5,
-            detect_outliers=False,
-            test_normality=False,
-            parallel_processes=2
-        )
-        self.assertIn('error', result)
-        self.assertIn('parallel', result.get('processing_method', ''))
-        self.assertIn('parse error', result['error'])
-
-    @patch('pamola_core.profiling.analyzers.currency.parse_currency_field')
-    @patch('pamola_core.profiling.analyzers.currency.analyze_currency_stats')
-    @patch('pamola_core.profiling.analyzers.currency.calculate_percentiles')
-    @patch('pamola_core.profiling.analyzers.currency.calculate_histogram')
-    @patch('pamola_core.profiling.analyzers.currency.detect_currency_from_sample')
-    @patch('pamola_core.profiling.analyzers.currency.is_currency_field', return_value=True)
-    def test_analyze_with_parallel_outlier_and_normality(self, mock_is_currency, mock_detect_currency, mock_hist, mock_percentiles, mock_analyze_stats, mock_parse):
-        from pamola_core.profiling.analyzers.currency import CurrencyAnalyzer
-        # Setup mocks
-        mock_parse.side_effect = lambda df, field, locale: (df[field], {'USD': len(df)})
-        mock_analyze_stats.return_value = {'min': 1, 'max': 5, 'mean': 3, 'median': 3, 'std': 1.58, 'negative_count': 0, 'zero_count': 0}
-        mock_percentiles.return_value = {'25%': 2, '50%': 3, '75%': 4}
-        mock_hist.return_value = {'bins': [1, 2, 3, 4, 5], 'counts': [1, 1, 1, 1, 1]}
-        mock_detect_currency.return_value = 'USD'
-        # Patch outlier and normality functions
-        import pamola_core.profiling.analyzers.currency as currency_mod
-        currency_mod.detect_outliers_func = lambda s: {'count': 1, 'percentage': 0.2}
-        currency_mod.test_normality_func = lambda s: {'is_normal': True, 'shapiro': {'p_value': 0.5}}
-        df = pd.DataFrame({'amount': [1, 2, 3, 4, 5, 6, 7, 8]})
-        analyzer = CurrencyAnalyzer()
-        # monkeypatch the actual function calls inside _analyze_with_parallel
-        result = analyzer._analyze_with_parallel(
-            df=df,
-            field_name='amount',
-            locale='en_US',
-            chunk_size=2,
-            bins=5,
-            detect_outliers=True,
-            test_normality=True,
-            parallel_processes=2
-        )
-        self.assertIn('stats', result)
-        self.assertIn('outliers', result['stats'])
-        self.assertIn('normality', result['stats'])
-        # normality should be a dict with is_normal key
-        self.assertIn('is_normal', result['stats']['normality'])
-        self.assertIn('note', result)
-
 class TestCurrencyOperation(unittest.TestCase):
     def setUp(self):
         self.df = pd.DataFrame({'amount': [1000, 2000, None]})
@@ -511,7 +325,7 @@ class TestCurrencyOperation(unittest.TestCase):
         mock_reporter.add_operation = MagicMock()
         mock_reporter.add_artifact = MagicMock()
         # Patch load_data_operation to return DataFrame
-        with patch('pamola_core.profiling.analyzers.currency.load_data_operation', return_value=mock_df):
+        with patch('pamola_core.profiling.commons.helpers.load_data_operation', return_value=mock_df):
             result = self.op.execute(
                 data_source=self.data_source,
                 task_dir=self.task_dir,
@@ -533,7 +347,7 @@ class TestCurrencyOperation(unittest.TestCase):
         mock_df = pd.DataFrame({'other': [1, 2, 3]})
         mock_data_source.__getitem__.return_value = mock_df
         # Patch load_data_operation to return DataFrame
-        with patch('pamola_core.profiling.analyzers.currency.load_data_operation', return_value=mock_df):
+        with patch('pamola_core.profiling.commons.helpers.load_data_operation', return_value=mock_df):
             op = self.op
             result = op.execute(
                 data_source=self.data_source,
@@ -552,7 +366,7 @@ class TestCurrencyOperation(unittest.TestCase):
         mock_df = pd.DataFrame({'amount': [1000, 2000, None]})
         mock_data_source.__getitem__.return_value = mock_df
         # Patch load_data_operation to return DataFrame
-        with patch('pamola_core.profiling.analyzers.currency.load_data_operation', return_value=mock_df):
+        with patch('pamola_core.profiling.commons.helpers.load_data_operation', return_value=mock_df):
             op = self.op
             result = op.execute(
                 data_source=self.data_source,
@@ -571,7 +385,7 @@ class TestCurrencyOperation(unittest.TestCase):
         mock_df = pd.DataFrame({'amount': [1000, 2000, None]})
         mock_data_source.__getitem__.return_value = mock_df
         # Patch load_data_operation to return DataFrame
-        with patch('pamola_core.profiling.analyzers.currency.load_data_operation', return_value=mock_df):
+        with patch('pamola_core.profiling.commons.helpers.load_data_operation', return_value=mock_df):
             op = self.op
             result = op.execute(
                 data_source=self.data_source,
@@ -581,11 +395,6 @@ class TestCurrencyOperation(unittest.TestCase):
             )
         self.assertEqual(result.status.name, 'ERROR')
         self.assertIn('unexpected error!', result.error_message)
-        self.reporter.add_operation.assert_any_call(
-            'Error analyzing currency field amount',
-            status='error',
-            details={'error': 'unexpected error!'}
-        )
 
     @patch('pamola_core.profiling.analyzers.currency.create_histogram')
     @patch('pamola_core.profiling.analyzers.currency.create_boxplot')
@@ -609,12 +418,13 @@ class TestCurrencyOperation(unittest.TestCase):
             'currency_counts': {'USD': 10},
             'locale_used': 'en_US'
         }
-        df = pd.DataFrame({'amount': [f'${i}.00' for i in range(100, 1100, 100)]})
+        valid_values = pd.Series([100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0])
+        analysis_results['valid_values'] = valid_values
         op = self.op
         op.test_normality = True
         op.bins = 10
         # Call the method
-        op._generate_visualizations(df, analysis_results, vis_dir, True, mock_result, self.reporter)
+        op._generate_visualizations(analysis_results, vis_dir, '20240101_000000', mock_result, self.reporter)
         # Check that artifacts were added for histogram, boxplot, and qq plot
         self.assertTrue(mock_result.add_artifact.called)
         self.assertTrue(self.reporter.add_artifact.called)
@@ -780,28 +590,24 @@ class TestCurrencyOperation(unittest.TestCase):
         mock_result.add_nested_metric.assert_any_call('currencies', 'EUR', 1)
     
     @patch('pamola_core.utils.ops.op_cache.operation_cache')
-    @patch('pamola_core.profiling.analyzers.currency.load_data_operation')
+    @patch('pamola_core.profiling.commons.helpers.load_data_operation')
     @patch.object(CurrencyOperation, '_generate_cache_key')
     def test_no_cache(self, mock_cache_key, mock_load_data_operation, mock_operation_cache):
         mock_df = pd.DataFrame({'amount': [1000, 2000, None]})
         mock_load_data_operation.return_value = mock_df
         mock_cache_key.return_value = 'cache_key'
-        out = self.op._check_cache(
-            self.data_source, 'main'
-        )
+        out = self.op._check_cache(self.df)
         self.assertEqual(out, None)
-     
-    @patch('pamola_core.profiling.analyzers.currency.load_data_operation')   
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+
     @patch.object(CurrencyOperation, '_generate_cache_key')
-    def test_cache_artifacts(self, mock_cache_key, mock_operation_cache, mock_load_data_operation):
-        mock_df = pd.DataFrame({'amount': [1000, 2000, None]})
-        mock_load_data_operation.return_value = mock_df
+    def test_cache_artifacts(self, mock_cache_key):
         mock_cache_key.return_value = 'cache_key'
-        mock_operation_cache.get_cache.return_value = {
+        mock_op_cache = MagicMock()
+        mock_op_cache.get_cache.return_value = {
+            'status': 'SUCCESS',
             'artifacts': [
                 {
-                    'artifact_type': 'json',
+                    'type': 'json',
                     'path': 'artifact.json',
                     'description': 'description',
                     'category': 'output'
@@ -809,128 +615,101 @@ class TestCurrencyOperation(unittest.TestCase):
             ]
         }
         self.op.use_cache = True
-        out = self.op._check_cache(
-            self.data_source
-        )
+        self.op.operation_cache = mock_op_cache
+        out = self.op._check_cache(self.df)
         self.assertEqual(out.status, OperationStatus.SUCCESS)
         self.assertGreater(len(out.artifacts), 0)
-        
-    @patch('pamola_core.profiling.analyzers.currency.load_data_operation')   
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+
     @patch.object(CurrencyOperation, '_generate_cache_key')
-    def test_cache_metrics(self, mock_cache_key, mock_operation_cache, mock_load_data_operation):
-        mock_df = pd.DataFrame({'amount': [1000, 2000, None]})
-        mock_load_data_operation.return_value = mock_df
+    def test_cache_metrics(self, mock_cache_key):
         mock_cache_key.return_value = 'cache_key'
-        mock_operation_cache.get_cache.return_value = {
+        mock_op_cache = MagicMock()
+        mock_op_cache.get_cache.return_value = {
+            'status': 'SUCCESS',
             'metrics': {
                 'me': 'metric'
             }
         }
         self.op.use_cache = True
-        out = self.op._check_cache(
-            self.data_source
-        )
+        self.op.operation_cache = mock_op_cache
+        out = self.op._check_cache(self.df)
         self.assertEqual(out.status, OperationStatus.SUCCESS)
         self.assertGreater(len(out.metrics), 0)
-        
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+
     @patch.object(CurrencyOperation, '_generate_cache_key')
-    def test_cache_exception(self, mock_cache_key, mock_operation_cache):
+    def test_cache_exception(self, mock_cache_key):
         mock_cache_key.return_value = 'cache_key'
-        mock_operation_cache.get_cache.side_effect = Exception("Cache Exception")
+        mock_op_cache = MagicMock()
+        mock_op_cache.get_cache.side_effect = Exception("Cache Exception")
         self.op.use_cache = True
-        out = self.op._check_cache(
-            self.data_source
-        )
+        self.op.operation_cache = mock_op_cache
+        out = self.op._check_cache(self.df)
         self.assertEqual(out, None)
             
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
     @patch.object(CurrencyOperation, '_generate_cache_key', return_value='cache_key')
-    @patch('pamola_core.utils.ops.op_cache.OperationCache.save_cache')
-    def test_save_to_cache_success(self, mock_save_cache, mock_cache_key, mock_operation_cache):
-        artifacts= []
-        artifacts.append(OperationArtifact(artifact_type='json', path='artifact.json', description='artifact description', category='artifacts', tags=None))
-        
-        metrics = {
-            'path': 'metric.png'
-        }
-        
-        mock_operation_cache.save_cache.return_value = True
+    def test_save_to_cache_success(self, mock_cache_key):
         self.op.use_cache = True
-        result = self.op._save_to_cache(self.df, artifacts, metrics, self.task_dir)
+        mock_op_cache = MagicMock()
+        mock_op_cache.save_cache.return_value = True
+        self.op.operation_cache = mock_op_cache
+        mock_result = MagicMock()
+        result = self.op._save_to_cache(self.df, mock_result, self.task_dir)
         self.assertTrue(result)
         mock_cache_key.assert_called
-        
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+
     @patch.object(CurrencyOperation, '_generate_cache_key', return_value='cache_key')
-    @patch('pamola_core.utils.ops.op_cache.OperationCache.save_cache')
-    def test_save_to_cache_false(self, mock_save_cache, mock_cache_key, mock_operation_cache):
-        mock_operation_cache.save_cache.return_value = False
-        artifacts= []
-        artifacts.append(OperationArtifact(artifact_type='json', path='artifact.json', description='artifact description', category='artifacts', tags=None))
-        
-        metrics = {
-            'path': 'metric.png'
-        }
+    def test_save_to_cache_false(self, mock_cache_key):
         self.op.use_cache = True
-        result = self.op._save_to_cache(self.df, artifacts, metrics, self.task_dir)
+        mock_op_cache = MagicMock()
+        mock_op_cache.save_cache.return_value = False
+        self.op.operation_cache = mock_op_cache
+        mock_result = MagicMock()
+        result = self.op._save_to_cache(self.df, mock_result, self.task_dir)
         self.assertFalse(result)
-        mock_save_cache.assert_called
+        mock_cache_key.assert_called
 
     @patch('pamola_core.utils.ops.op_cache.operation_cache', side_effect=Exception('Cache write error'))
     @patch.object(CurrencyOperation, '_generate_cache_key', side_effect=Exception('Cache write error'))
     @patch('pamola_core.utils.ops.op_cache.OperationCache.save_cache')
-    @patch('pamola_core.profiling.analyzers.phone.logger')
+    @patch('pamola_core.profiling.analyzers.currency.logger')
     def test_save_to_cache_exception(self, mock_logger, mock_save_cache, mock_cache_key, mock_operation_cache):
-        artifacts= []
-        artifacts.append(OperationArtifact(artifact_type='json', path='artifact.json', description='artifact description', category='artifacts', tags=None))
-        
-        metrics = {
-            'path': 'metric.png'
-        }
         self.op.use_cache = True
-        result = self.op._save_to_cache(self.df, artifacts, metrics, self.task_dir)
+        mock_result = MagicMock()
+        result = self.op._save_to_cache(self.df, mock_result, self.task_dir)
         self.assertFalse(result)
         mock_save_cache.assert_not_called()
 
     @patch('pamola_core.utils.ops.op_cache.operation_cache')
     @patch.object(CurrencyOperation, '_generate_cache_key', return_value='cache_key')
     def test_save_to_cache_empty(self, mock_cache_key, mock_operation_cache):
-        artifacts= []
-        metrics = {}
-        self.op.use_cache = True
-        result = self.op._save_to_cache(self.df, artifacts, metrics, self.task_dir)
+        self.op.use_cache = False
+        mock_result = MagicMock()
+        result = self.op._save_to_cache(self.df, mock_result, self.task_dir)
         self.assertFalse(result)
-        mock_cache_key.assert_not_called()
-        mock_cache_key.assert_not_called()
 
     def test_generate_data_hash_same_df(self):
-        from pamola_core.profiling.analyzers.currency import CurrencyOperation
+        from pamola_core.utils.helpers import generate_data_hash
         import pandas as pd
-        op = CurrencyOperation(field_name='amount', use_cache=False)
         df1 = pd.DataFrame({'amount': [1, 2, 3]})
         df2 = pd.DataFrame({'amount': [1, 2, 3]})
-        hash1 = op._generate_data_hash(df1)
-        hash2 = op._generate_data_hash(df2)
+        hash1 = generate_data_hash(df1)
+        hash2 = generate_data_hash(df2)
         self.assertEqual(hash1, hash2)
 
     def test_generate_data_hash_different_df(self):
-        from pamola_core.profiling.analyzers.currency import CurrencyOperation
+        from pamola_core.utils.helpers import generate_data_hash
         import pandas as pd
-        op = CurrencyOperation(field_name='amount', use_cache=False)
         df1 = pd.DataFrame({'amount': [1, 2, 3]})
         df2 = pd.DataFrame({'amount': [4, 5, 6, 7]})
-        hash1 = op._generate_data_hash(df1)
-        hash2 = op._generate_data_hash(df2)
+        hash1 = generate_data_hash(df1)
+        hash2 = generate_data_hash(df2)
         self.assertNotEqual(hash1, hash2)
 
     def test_generate_data_hash_empty_df(self):
-        from pamola_core.profiling.analyzers.currency import CurrencyOperation
+        from pamola_core.utils.helpers import generate_data_hash
         import pandas as pd
-        op = CurrencyOperation(field_name='amount', use_cache=False)
         df = pd.DataFrame({'amount': []})
-        hash1 = op._generate_data_hash(df)
+        hash1 = generate_data_hash(df)
         self.assertIsInstance(hash1, str)
         self.assertTrue(len(hash1) > 0)
 

@@ -7,21 +7,21 @@ of various data types: names, email addresses, phone numbers, etc.
 
 import re
 from typing import Dict, Any
-
+from pamola_core.errors.exceptions import ValidationError
 
 
 def validate_name(name: str, language: str = "ru") -> Dict[str, Any]:
     """
     Validates a personal name.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name to validate
     language : str
         Language code (default: "ru")
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with keys:
@@ -29,11 +29,7 @@ def validate_name(name: str, language: str = "ru") -> Dict[str, Any]:
         - errors: list - list of errors if invalid
         - properties: dict - additional properties of the name
     """
-    result = {
-        "valid": False,
-        "errors": [],
-        "properties": {}
-    }
+    result = {"valid": False, "errors": [], "properties": {}}
 
     # Check for empty or None
     if not name:
@@ -69,18 +65,16 @@ def validate_name(name: str, language: str = "ru") -> Dict[str, Any]:
     return result
 
 
-
-
 def validate_email(email: str) -> Dict[str, Any]:
     """
     Validates an email address.
 
-    Parameters:
+    Parameters
     -----------
     email : str
         Email address to validate
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with keys:
@@ -88,11 +82,7 @@ def validate_email(email: str) -> Dict[str, Any]:
         - errors: list - list of errors if invalid
         - properties: dict - additional properties of the email
     """
-    result: Dict[str, Any] = {
-        "valid": False,
-        "errors": [],
-        "properties": {}
-    }
+    result: Dict[str, Any] = {"valid": False, "errors": [], "properties": {}}
 
     # Check for empty or None
     if not email:
@@ -100,7 +90,7 @@ def validate_email(email: str) -> Dict[str, Any]:
         return result
 
     # Basic email regex pattern (simplified for demonstration)
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
 
     # Check pattern
     if not re.match(email_pattern, email):
@@ -112,39 +102,37 @@ def validate_email(email: str) -> Dict[str, Any]:
     # Extract properties if valid
     if result["valid"]:
         try:
-            username, domain = email.split('@')
-            tld = domain.split('.')[-1]
+            username, domain = email.split("@")
+            tld = domain.split(".")[-1]
             result["properties"] = {
                 "username": username,
                 "domain": domain,
                 "has_plus": "+" in username,
                 "has_dot": "." in username,
-                "tld": tld
+                "tld": tld,
             }
         except IndexError:
             result["valid"] = False
             result["errors"].append("Invalid email format (could not parse domain)")
-        except ValueError:
+        except (ValidationError, ValueError):
             result["valid"] = False
             result["errors"].append("Invalid email format (missing '@' symbol)")
 
     return result
 
 
-
-
 def validate_phone(phone: str, region: str = "RU") -> Dict[str, Any]:
     """
     Validates a phone number.
 
-    Parameters:
+    Parameters
     -----------
     phone : str
         Phone number to validate
     region : str
         Region code (default: "RU")
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with keys:
@@ -152,11 +140,7 @@ def validate_phone(phone: str, region: str = "RU") -> Dict[str, Any]:
         - errors: list - list of errors if invalid
         - properties: dict - additional properties of the phone number
     """
-    result: Dict[str, Any] = {
-        "valid": False,
-        "errors": [],
-        "properties": {}
-    }
+    result: Dict[str, Any] = {"valid": False, "errors": [], "properties": {}}
 
     # Check for empty or None
     if not phone:
@@ -164,14 +148,14 @@ def validate_phone(phone: str, region: str = "RU") -> Dict[str, Any]:
         return result
 
     # Remove non-digit characters for analysis
-    digits_only = ''.join(c for c in phone if c.isdigit())
+    digits_only = "".join(c for c in phone if c.isdigit())
 
     # Region-specific validation
     if region == "RU":
         # Russian phone number validation (with country code)
         if len(digits_only) != 11:
             result["errors"].append("Russian phone number should have 11 digits")
-        elif not (digits_only.startswith('7') or digits_only.startswith('8')):
+        elif not (digits_only.startswith("7") or digits_only.startswith("8")):
             result["errors"].append("Russian phone number should start with 7 or 8")
 
         # Extract properties
@@ -179,7 +163,7 @@ def validate_phone(phone: str, region: str = "RU") -> Dict[str, Any]:
             properties_dict: Dict[str, str] = {
                 "country_code": digits_only[0],
                 "area_code": digits_only[1:4],
-                "number": digits_only[4:11]
+                "number": digits_only[4:11],
             }
             result["properties"] = properties_dict
 
@@ -187,15 +171,17 @@ def validate_phone(phone: str, region: str = "RU") -> Dict[str, Any]:
         # US phone number validation
         if len(digits_only) != 10 and len(digits_only) != 11:
             result["errors"].append("US phone number should have 10 or 11 digits")
-        elif len(digits_only) == 11 and digits_only[0] != '1':
-            result["errors"].append("US phone number with country code should start with 1")
+        elif len(digits_only) == 11 and digits_only[0] != "1":
+            result["errors"].append(
+                "US phone number with country code should start with 1"
+            )
 
         # Extract properties
         if len(digits_only) == 10:
             properties_dict: Dict[str, str] = {
                 "area_code": digits_only[0:3],
                 "prefix": digits_only[3:6],
-                "line_number": digits_only[6:10]
+                "line_number": digits_only[6:10],
             }
             result["properties"] = properties_dict
 
@@ -204,7 +190,7 @@ def validate_phone(phone: str, region: str = "RU") -> Dict[str, Any]:
                 "country_code": digits_only[0],
                 "area_code": digits_only[1:4],
                 "prefix": digits_only[4:7],
-                "line_number": digits_only[7:11]
+                "line_number": digits_only[7:11],
             }
             result["properties"] = properties_dict
 
@@ -218,24 +204,21 @@ def validate_format(value: str, format_pattern: str) -> Dict[str, Any]:
     """
     Validates a string against a specified format pattern.
 
-    Parameters:
+    Parameters
     -----------
     value : str
         String to validate
     format_pattern : str
         Regular expression pattern to match against
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with keys:
         - valid: bool - whether the value matches the pattern
         - errors: list - list of errors if invalid
     """
-    result = {
-        "valid": False,
-        "errors": []
-    }
+    result = {"valid": False, "errors": []}
 
     # Check for empty or None
     if not value:
@@ -244,7 +227,9 @@ def validate_format(value: str, format_pattern: str) -> Dict[str, Any]:
 
     # Check pattern match
     if not re.match(format_pattern, value):
-        result["errors"].append(f"Value does not match the required format: {format_pattern}")
+        result["errors"].append(
+            f"Value does not match the required format: {format_pattern}"
+        )
 
     # Set valid flag if no errors
     result["valid"] = len(result["errors"]) == 0
@@ -252,11 +237,13 @@ def validate_format(value: str, format_pattern: str) -> Dict[str, Any]:
     return result
 
 
-def validate_id_number(id_number: str, id_type: str, region: str = "RU") -> Dict[str, Any]:
+def validate_id_number(
+    id_number: str, id_type: str, region: str = "RU"
+) -> Dict[str, Any]:
     """
     Validates an identification number.
 
-    Parameters:
+    Parameters
     -----------
     id_number : str
         ID number to validate
@@ -265,16 +252,12 @@ def validate_id_number(id_number: str, id_type: str, region: str = "RU") -> Dict
     region : str
         Region code (default: "RU")
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results
     """
-    result = {
-        "valid": False,
-        "errors": [],
-        "properties": {}
-    }
+    result = {"valid": False, "errors": [], "properties": {}}
 
     # Check for empty or None
     if not id_number:
@@ -285,12 +268,14 @@ def validate_id_number(id_number: str, id_type: str, region: str = "RU") -> Dict
     if region == "RU":
         if id_type == "passport":
             # Russian passport number: 4 digits series, 6 digits number
-            if not re.match(r'^\d{4}\s?\d{6}$', id_number):
-                result["errors"].append("Russian passport should have format: 1234 567890")
+            if not re.match(r"^\d{4}\s?\d{6}$", id_number):
+                result["errors"].append(
+                    "Russian passport should have format: 1234 567890"
+                )
 
         elif id_type == "inn":
             # Russian INN (Individual Taxpayer Number): 12 digits
-            if not re.match(r'^\d{12}$', id_number):
+            if not re.match(r"^\d{12}$", id_number):
                 result["errors"].append("Russian INN should be 12 digits")
 
         else:
@@ -299,7 +284,7 @@ def validate_id_number(id_number: str, id_type: str, region: str = "RU") -> Dict
     elif region == "US":
         if id_type == "ssn":
             # US Social Security Number: 9 digits, often written as XXX-XX-XXXX
-            if not re.match(r'^\d{3}-?\d{2}-?\d{4}$', id_number):
+            if not re.match(r"^\d{3}-?\d{2}-?\d{4}$", id_number):
                 result["errors"].append("US SSN should have format: 123-45-6789")
 
         else:

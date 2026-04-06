@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Field Type Validators
 Package:       pamola_core.anonymization.commons.validation
 Version:       1.0.0
@@ -39,12 +38,17 @@ from typing import List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from .base import BaseValidator, ValidationResult
-from .exceptions import (
+from pamola_core.anonymization.commons.validation.base import (
+    BaseValidator,
+    ValidationResult,
+)
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
     FieldTypeError,
     FieldValueError,
-    RangeValidationError,
     InvalidDataFormatError,
+    InvalidParameterError,
+    RangeValidationError,
 )
 
 
@@ -70,7 +74,8 @@ class NumericFieldValidator(BaseValidator):
         """
         Initialize numeric field validator.
 
-        Args:
+        Parameters
+        ----------
             allow_null: Whether null values are allowed
             min_value: Minimum allowed value
             max_value: Maximum allowed value
@@ -171,7 +176,8 @@ class CategoricalFieldValidator(BaseValidator):
         """
         Initialize categorical field validator.
 
-        Args:
+        Parameters
+        ----------
             allow_null: Whether null values are allowed
             valid_categories: List of valid category values
             max_categories: Maximum number of unique categories
@@ -264,7 +270,8 @@ class DateTimeFieldValidator(BaseValidator):
         """
         Initialize datetime field validator.
 
-        Args:
+        Parameters
+        ----------
             allow_null: Whether null values are allowed
             min_date: Minimum allowed date
             max_date: Maximum allowed date
@@ -364,7 +371,8 @@ class BooleanFieldValidator(BaseValidator):
         """
         Initialize boolean field validator.
 
-        Args:
+        Parameters
+        ----------
             allow_null: Whether null values are allowed
         """
         super().__init__()
@@ -446,7 +454,8 @@ class TextFieldValidator(BaseValidator):
         """
         Initialize text field validator.
 
-        Args:
+        Parameters
+        ----------
             allow_null: Whether null values are allowed
             min_length: Minimum string length
             max_length: Maximum string length
@@ -553,23 +562,22 @@ class FieldExistsValidator(BaseValidator):
         """
         Validate that the field exists in the DataFrame.
 
-        Args:
+        Parameters
+        ----------
             df: The DataFrame to check.
             field_name: The field/column name to check.
 
-        Returns:
+        Returns
+        -------
             ValidationResult
 
-        Raises:
+        Raises
+        ------
             FieldTypeError: If the field does not exist.
         """
         result = ValidationResult(is_valid=True, field_name=field_name)
         if field_name not in df.columns:
-            raise FieldTypeError(
-                field_name=field_name,
-                expected_type="existing column",
-                actual_type="missing",
-            )
+            raise FieldNotFoundError(field_name, list(df.columns))
         return result
 
 
@@ -588,7 +596,8 @@ class PatternValidator(BaseValidator):
         """
         Initialize pattern validator.
 
-        Args:
+        Parameters
+        ----------
             pattern: Regex pattern to match.
             allow_null: Whether null values are allowed.
         """
@@ -602,14 +611,17 @@ class PatternValidator(BaseValidator):
         """
         Validate that all values in the Series match the pattern.
 
-        Args:
+        Parameters
+        ----------
             series: The Series to check.
             field_name: Optional field name for error reporting.
 
-        Returns:
+        Returns
+        -------
             ValidationResult
 
-        Raises:
+        Raises
+        ------
             InvalidDataFormatError: If any value does not match the pattern.
         """
         result = ValidationResult(is_valid=True, field_name=field_name)
@@ -650,14 +662,17 @@ def create_field_validator(field_type: str, **kwargs) -> BaseValidator:
     """
     Factory function to create field validators.
 
-    Args:
+    Parameters
+    ----------
         field_type: Type of field validator
         **kwargs: Arguments for the validator
 
-    Returns:
+    Returns
+    -------
         Configured field validator
 
-    Raises:
+    Raises
+    ------
         ValueError: If field_type is not recognized
     """
     validators = {
@@ -669,22 +684,11 @@ def create_field_validator(field_type: str, **kwargs) -> BaseValidator:
     }
 
     if field_type not in validators:
-        raise ValueError(
-            f"Unknown field type: {field_type}. "
-            f"Valid types: {list(validators.keys())}"
+        raise InvalidParameterError(
+            param_name="field",
+            param_value=field_type,
+            reason=f"Unknown field type: {field_type}. "
+            f"Valid types: {list(validators.keys())}",
         )
 
     return validators[field_type](**kwargs)
-
-
-# Module exports
-__all__ = [
-    "NumericFieldValidator",
-    "CategoricalFieldValidator",
-    "DateTimeFieldValidator",
-    "BooleanFieldValidator",
-    "TextFieldValidator",
-    "FieldExistsValidator",
-    "PatternValidator",
-    "create_field_validator",
-]

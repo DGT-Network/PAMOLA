@@ -8,7 +8,6 @@ Last Updated: 2025-07-28
 
 import pytest
 import pandas as pd
-from pathlib import Path
 from pamola_core.anonymization.masking.full_masking_op import FullMaskingOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import OperationStatus

@@ -5,19 +5,17 @@ This module provides functions for generating and formatting analysis reports
 and artifacts, including JSON reports, CSV dictionaries, and metadata formatting.
 """
 
-import json
 import logging
-import os
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, Any, Optional
 
 from pamola_core.utils.io import ensure_directory
-from pamola_core.utils.logging import configure_logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure logger using the custom logging utility
-logger = configure_logging(level=logging.INFO)
+logger = pamola_logging.configure_logging(level=logging.INFO)
 
 
 def save_profiling_results(
@@ -31,7 +29,7 @@ def save_profiling_results(
     """
     Save profiling results to a file.
 
-    Parameters:
+    Parameters
     -----------
     result : Dict[str, Any]
         Result dictionary to save
@@ -46,7 +44,7 @@ def save_profiling_results(
     include_timestamp : bool
         Whether to include a timestamp in the filename
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved file
@@ -113,7 +111,7 @@ def save_value_dictionary(
     """
     Save a dictionary of field values with counts and percentages.
 
-    Parameters:
+    Parameters
     -----------
     value_counts : pd.Series
         Series of value counts (from value_counts())
@@ -130,7 +128,7 @@ def save_value_dictionary(
     include_timestamp : bool
         Whether to include a timestamp in the filename
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved dictionary file
@@ -193,7 +191,7 @@ def format_operation_metadata(
     """
     Format metadata for an operation to include in reports.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Name of the field being analyzed
@@ -202,7 +200,7 @@ def format_operation_metadata(
     parameters : Dict[str, Any]
         Parameters used for the operation
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Formatted metadata dictionary

@@ -1,7 +1,6 @@
 
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Fidelity Exclude Fields
 Package:       pamola_core.metrics.schemas
 Version:       1.0.0

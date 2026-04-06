@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        LLM Metrics and Results
 Package:       pamola_core.utils.nlp.llm.metrics
 Version:       1.0.0
@@ -45,8 +44,7 @@ TODO:
 
 import json
 import logging
-import time
-from collections import defaultdict, deque
+from collections import deque
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
 from enum import Enum

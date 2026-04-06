@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - L-Diversity Privacy Risk Assessment
--------------------------------------------------
 This module provides comprehensive privacy risk assessment capabilities
 for l-diversity anonymization techniques.
 
@@ -21,7 +20,7 @@ Licensed under BSD 3-Clause License
 
 import logging
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Any, Union
+from typing import Dict, List, Any
 
 import pandas as pd
 
@@ -41,7 +40,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Initialize Risk Assessor
 
-        Parameters:
+        Parameters
         -----------
         processor : object, optional
             L-Diversity processor instance for accessing cached calculations
@@ -63,7 +62,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Comprehensive privacy risk assessment for l-diversity dataset
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -80,7 +79,7 @@ class LDiversityPrivacyRiskAssessor:
             - force_recalculate: bool - Whether to force recalculation
             - detailed: bool - Whether to include detailed metrics
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Detailed privacy risk metrics
@@ -141,7 +140,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Calculate group diversity metrics directly when no processor cache is available
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -152,7 +151,7 @@ class LDiversityPrivacyRiskAssessor:
         diversity_type : str
             Type of l-diversity to calculate
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Group diversity metrics
@@ -225,7 +224,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Calculate detailed risk metrics from group diversity data
 
-        Parameters:
+        Parameters
         -----------
         group_diversity : pd.DataFrame
             Grouped diversity information
@@ -240,7 +239,7 @@ class LDiversityPrivacyRiskAssessor:
         detailed : bool, optional
             Whether to include detailed metrics
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Comprehensive risk assessment
@@ -355,7 +354,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Calculate risk under different attack models
 
-        Parameters:
+        Parameters
         -----------
         attribute_risks : Dict[str, Dict]
             Pre-calculated risks by attribute
@@ -366,7 +365,7 @@ class LDiversityPrivacyRiskAssessor:
         diversity_type : str
             Type of l-diversity being assessed
 
-        Returns:
+        Returns
         --------
         Dict[str, float]
             Risk percentage under different attack models
@@ -430,14 +429,14 @@ class LDiversityPrivacyRiskAssessor:
         """
         Convert a diversity value to a risk percentage
 
-        Parameters:
+        Parameters
         -----------
         diversity_value : float
             L-diversity value to convert
         diversity_type : str
             Type of diversity metric
 
-        Returns:
+        Returns
         --------
         float
             Risk percentage (0-100)
@@ -463,7 +462,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Count groups that don't satisfy recursive (c,l)-diversity
 
-        Parameters:
+        Parameters
         -----------
         group_diversity : pd.DataFrame
             Group diversity information
@@ -474,7 +473,7 @@ class LDiversityPrivacyRiskAssessor:
         c_value : float
             c parameter for recursive diversity
 
-        Returns:
+        Returns
         --------
         int
             Count of non-compliant groups
@@ -506,7 +505,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Check if a group satisfies recursive (c,l)-diversity
 
-        Parameters:
+        Parameters
         -----------
         group_row : pd.Series
             Row from group diversity DataFrame
@@ -517,7 +516,7 @@ class LDiversityPrivacyRiskAssessor:
         c_value : float
             c parameter for recursive diversity
 
-        Returns:
+        Returns
         --------
         bool
             Whether the group is compliant
@@ -554,7 +553,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Check overall recursive (c,l)-diversity compliance
 
-        Parameters:
+        Parameters
         -----------
         group_diversity : pd.DataFrame
             Group diversity information
@@ -565,7 +564,7 @@ class LDiversityPrivacyRiskAssessor:
         c_value : float
             c parameter for recursive diversity
 
-        Returns:
+        Returns
         --------
         bool
             Whether all groups are compliant
@@ -582,12 +581,12 @@ class LDiversityPrivacyRiskAssessor:
         """
         Provide human-readable interpretation of risk values
 
-        Parameters:
+        Parameters
         -----------
         risk_value : float
             Risk percentage (0-100)
 
-        Returns:
+        Returns
         --------
         str
             Human-readable risk interpretation
@@ -616,7 +615,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Identify groups with high privacy risks
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -633,7 +632,7 @@ class LDiversityPrivacyRiskAssessor:
         c_value : float, optional
             Parameter for recursive (c,l)-diversity
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             High-risk groups with detailed risk information
@@ -709,7 +708,7 @@ class LDiversityPrivacyRiskAssessor:
         """
         Calculate a risk score for a specific group
 
-        Parameters:
+        Parameters
         -----------
         group_row : pd.Series
             Row from group diversity DataFrame
@@ -722,7 +721,7 @@ class LDiversityPrivacyRiskAssessor:
         c_value : float
             Parameter for recursive (c,l)-diversity
 
-        Returns:
+        Returns
         --------
         float
             Risk score (higher means higher risk)
@@ -765,7 +764,7 @@ def evaluate_privacy(data: pd.DataFrame, quasi_identifiers: List[str],
     This function is called by the LDiversityCalculator.evaluate_privacy method
     and serves as a bridge between the calculation module and the privacy module.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -776,7 +775,7 @@ def evaluate_privacy(data: pd.DataFrame, quasi_identifiers: List[str],
     **kwargs : dict
         Additional risk assessment parameters
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Comprehensive privacy risk metrics
@@ -805,7 +804,7 @@ def calculate_attribute_disclosure_risk(
     """
     Calculate attribute disclosure risk for a specific attribute
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -818,7 +817,7 @@ def calculate_attribute_disclosure_risk(
     **kwargs : dict
         Additional parameters for risk calculation
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Attribute disclosure risk metrics

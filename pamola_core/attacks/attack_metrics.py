@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: Attack Simulation
------------------------
 This module provides an abstract base class for attack simulation feature
 in PAMOLA.CORE. It defines the general structure and required methods for
 implementing specific attack simulation
@@ -32,6 +30,7 @@ from sklearn.metrics import (
     f1_score,
     roc_auc_score,
 )
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.attacks.preprocess_data import PreprocessData
 
 
@@ -82,7 +81,7 @@ class AttackMetrics(PreprocessData):
         # AUC requires both positive and negative classes to exist
         try:
             auc = roc_auc_score(y_true, y_pred)
-        except ValueError:
+        except (ValidationError, ValueError):
             auc = 0.5  # fallback: if only one class is present, attack ≈ random
 
         # Advantage = how much better the attack is than random guessing

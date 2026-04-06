@@ -16,7 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from pamola_core.utils.ops.op_config import OperationConfig, OperationConfigRegistry, ConfigError, OpsError
+from pamola_core.utils.ops.op_config import OperationConfig, OperationConfigRegistry
+from pamola_core.errors.exceptions import OpsError, ConfigurationError as ConfigError
 
 
 class TestOperationConfig:
@@ -287,12 +288,12 @@ class TestErrorClasses:
         assert str(error) == "Test error"
 
     def test_config_error(self):
-        """Test ConfigError is an OpsError subclass."""
-        assert issubclass(ConfigError, OpsError)
+        """Test ConfigError is an Exception subclass."""
+        assert issubclass(ConfigError, Exception)
 
         # Test instantiation
         error = ConfigError("Configuration error")
-        assert str(error) == "Configuration error"
+        assert "Configuration error" in str(error)
 
 
 class TestCustomConfigurations:

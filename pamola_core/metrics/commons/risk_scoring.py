@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Risk Scoring Utilities
 Package:       pamola_core.metrics.commons.risk_scoring
 Version:       1.0.0
@@ -37,12 +36,10 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from pamola_core.analysis.privacy_risk import _calculate_k_anonymity
-from pamola_core.profiling.commons.attribute_utils import categorize_column_by_name
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 # Default attribute role categories
 DEFAULT_ATTRIBUTE_ROLES = {
@@ -123,15 +120,19 @@ def calculate_provisional_risk(
         Path to a metadata dictionary for field detection (currently unused).
     weights : Dict[str, float], optional
         Custom weights for each risk component. Default:
+
             - direct_identifier : 0.50
             - quasi_identifier  : 0.30
             - uniqueness_estimate : 0.20
+
     sigmoid_midpoints : Dict[str, float], optional
         Custom sigmoid midpoints controlling the curve for each component.
         Default:
+
             - direct_identifier : 0.2
             - quasi_identifier  : 0.4
             - uniqueness_estimate : 0.1
+
     penalty_sensitive : float, optional
         Penalty added to risk score if sensitive attributes are detected. Default 0.1.
 
@@ -230,6 +231,8 @@ def calculate_provisional_risk(
     provisional_score = min(max(provisional_score, 0.0), 1.0)
 
     # --- 8. Supplementary metrics ---
+    from pamola_core.analysis.privacy_risk import _calculate_k_anonymity
+
     k_result = (
         _calculate_k_anonymity(df, quasi_identifiers) if quasi_identifiers else {"k": 0}
     )
@@ -308,6 +311,7 @@ def _detect_fields_by_role_category(
         List of field names that match the given role category.
     """
     categorized_fields = []
+    from pamola_core.profiling.commons.attribute_utils import categorize_column_by_name
 
     # Load attribute dictionary (either custom or default)
     # TODO: Extend to support loading custom dictionaries from dictionary_path
@@ -332,7 +336,7 @@ def _calculate_confidence_level(
     - Sample size (number of rows)
     - Coverage consistency (percentage of non-null values)
 
-    Confidence rules:
+    Confidence rules
     -----------------
     Sample size:
         < 100     -> low

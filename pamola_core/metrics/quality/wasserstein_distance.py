@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Wasserstein Distance
-----------------------------------
 This module provides the Wasserstein Distance for evaluating the similarity
 between the distributions of real and synthetic datasets.
 

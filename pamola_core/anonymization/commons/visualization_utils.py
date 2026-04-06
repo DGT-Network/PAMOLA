@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Anonymization Visualization Utilities
 Description: Helper utilities for creating visualizations of anonymization metrics
 Author: PAMOLA Core Team
@@ -39,6 +38,7 @@ from pamola_core.utils.visualization import (
     create_histogram,
     create_sunburst_chart,
 )
+from pamola_core.errors.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def generate_visualization_filename(
     """
     Generate a standardized filename for a visualization.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Name of the field being visualized
@@ -72,7 +72,7 @@ def generate_visualization_filename(
     extension : str, optional
         File extension (default: "png")
 
-    Returns:
+    Returns
     --------
     str
         Standardized filename following pattern: {field}_{operation}_{visType}_{timestamp}.{ext}
@@ -97,7 +97,7 @@ def register_visualization_artifact(
     """
     Register a visualization artifact with the result and reporter.
 
-    Parameters:
+    Parameters
     -----------
     result : OperationResult
         Operation result to add the artifact to
@@ -136,7 +136,7 @@ def sample_large_dataset(
     """
     Sample a large dataset to a manageable size for visualization.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Original dataset
@@ -145,7 +145,7 @@ def sample_large_dataset(
     random_state : int, optional
         Random seed for reproducibility
 
-    Returns:
+    Returns
     --------
     pd.Series
         Sampled dataset if original exceeds max_samples, otherwise original
@@ -165,7 +165,7 @@ def prepare_comparison_data(
     """
     Prepare data for before/after comparison visualizations.
 
-    Parameters:
+    Parameters
     -----------
     original_data : pd.Series
         Original data before anonymization
@@ -174,7 +174,7 @@ def prepare_comparison_data(
     max_categories : int, optional
         Maximum categories to show for categorical data
 
-    Returns:
+    Returns
     --------
     Tuple[Dict[str, Any], str]
         (prepared_data, data_type) where data_type is 'int', 'float', or 'categorical'
@@ -230,7 +230,7 @@ def calculate_optimal_bins(
     """
     Calculate optimal number of bins for histograms using Sturges' rule.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Data to calculate bins for
@@ -239,7 +239,7 @@ def calculate_optimal_bins(
     max_bins : int, optional
         Maximum number of bins (default: 30)
 
-    Returns:
+    Returns
     --------
     int
         Optimal number of bins
@@ -275,7 +275,7 @@ def create_metric_visualization(
     """
     Create a visualization for a specific metric using appropriate chart type.
 
-    Parameters:
+    Parameters
     -----------
     metric_name : str
         Name of the metric (e.g., 'k_anonymity_distribution', 'generalization_level')
@@ -476,9 +476,7 @@ def create_comparison_visualization(
 
 
 def generate_flat_counts(
-    data: Dict[str, Any],
-    data_type: str,
-    max_items: int = DEFAULT_MAX_CATEGORIES
+    data: Dict[str, Any], data_type: str, max_items: int = DEFAULT_MAX_CATEGORIES
 ) -> Dict[str, Any]:
     """
     Generate flattened counts for Original and Anonymized data.
@@ -551,7 +549,7 @@ def create_distribution_visualization(
     """
     Create a distribution visualization for metrics like k-anonymity or risk scores.
 
-    Parameters:
+    Parameters
     -----------
     data : Union[pd.Series, Dict[str, int]]
         Distribution data (e.g., {k_value: count} or Series of values)
@@ -574,7 +572,7 @@ def create_distribution_visualization(
     **kwargs : Any
         Additional keyword arguments for visualization functions.
 
-    Returns:
+    Returns
     --------
     Optional[Path]
         Path to visualization or None if failed
@@ -647,7 +645,7 @@ def create_category_distribution_comparison(
     Shows top categories before and after anonymization, with counts and optionally
     percentages. Particularly useful for merge_low_freq and hierarchy strategies.
 
-    Parameters:
+    Parameters
     -----------
     original_data : pd.Series
         Original categorical data
@@ -674,7 +672,7 @@ def create_category_distribution_comparison(
     **kwargs : Any
         Additional keyword arguments for visualization functions.
 
-    Returns:
+    Returns
     --------
     Optional[Path]
         Path to visualization or None if failed
@@ -782,7 +780,7 @@ def create_hierarchy_sunburst(
     Useful for visualizing generalization hierarchies and understanding
     the impact of hierarchy-based anonymization.
 
-    Parameters:
+    Parameters
     -----------
     hierarchy_data : Dict[str, Any]
         Hierarchical structure data. Can be:
@@ -809,7 +807,7 @@ def create_hierarchy_sunburst(
     **kwargs : Any
         Additional keyword arguments for visualization functions.
 
-    Returns:
+    Returns
     --------
     Optional[Path]
         Path to visualization or None if failed
@@ -866,12 +864,12 @@ def _is_nested_hierarchy(data: Dict[str, Any]) -> bool:
     """
     Check if data is in nested hierarchy format.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, Any]
         Data to check
 
-    Returns:
+    Returns
     --------
     bool
         True if nested hierarchy format
@@ -895,7 +893,7 @@ def _limit_hierarchy_size(
     """
     Limit the size and depth of a hierarchy for visualization.
 
-    Parameters:
+    Parameters
     -----------
     hierarchy : Dict[str, Any]
         Nested hierarchy data
@@ -906,7 +904,7 @@ def _limit_hierarchy_size(
     current_depth : int
         Current recursion depth
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Limited hierarchy
@@ -948,12 +946,12 @@ def _count_leaves(hierarchy: Dict[str, Any]) -> int:
     """
     Count leaf nodes in a hierarchy.
 
-    Parameters:
+    Parameters
     -----------
     hierarchy : Dict[str, Any]
         Hierarchy to count
 
-    Returns:
+    Returns
     --------
     int
         Number of leaf nodes
@@ -978,7 +976,7 @@ def _convert_flat_to_nested_hierarchy(
     2. Tree format with path strings: {"name": "Fruit > Apple > Gala", ...}
     3. Flat format: {"child": {"parent": "parent_name", "count": 10}}
 
-    Parameters:
+    Parameters
     -----------
     flat_data : Dict[str, Any]
         Input hierarchy data in one of the supported formats
@@ -987,21 +985,21 @@ def _convert_flat_to_nested_hierarchy(
     max_depth : int
         Maximum depth to traverse (currently enforced in tree format)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Properly nested dictionary suitable for sunburst visualization.
         Format: nested dicts where leaf nodes have integer values.
         Example: {"Fruit": {"Apple": {"Gala": 1, "Fuji": 2}}}
 
-    Raises:
+    Raises
     -------
     ValueError
         If input data is not a valid dictionary format
     """
     # Validate input
     if not isinstance(flat_data, dict):
-        raise ValueError("Input hierarchy data must be a dictionary.")
+        raise ValidationError("Input hierarchy data must be a dictionary.")
 
     # Detect and handle tree format
     if "name" in flat_data and "children" in flat_data:
@@ -1019,14 +1017,14 @@ def _convert_tree_to_nested(
 
     Handles path strings in 'name' fields by parsing and rebuilding hierarchy.
 
-    Parameters:
+    Parameters
     -----------
     tree_data : Dict[str, Any]
         Tree structure with 'name' and 'children' keys
     max_depth : int
         Maximum depth to traverse
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Nested dictionary with proper hierarchical structure
@@ -1036,22 +1034,22 @@ def _convert_tree_to_nested(
         """
         Parse a path string into segments, removing parent prefix if present.
 
-        Parameters:
+        Parameters
         -----------
         path : str
             Path string like "Fruit > Apple > Gala"
         parent_name : str
             Parent node name to strip from beginning
 
-        Returns:
+        Returns
         --------
         List[str]
             List of path segments
         """
-        if ' > ' not in path:
+        if " > " not in path:
             return [path]
 
-        segments = [s.strip() for s in path.split(' > ')]
+        segments = [s.strip() for s in path.split(" > ")]
 
         # Remove parent prefix if it matches
         if parent_name and segments and segments[0] == parent_name:
@@ -1063,14 +1061,14 @@ def _convert_tree_to_nested(
         """
         Build a nested dictionary from path segments and a leaf value.
 
-        Parameters:
+        Parameters
         -----------
         segments : List[str]
             Path segments like ["Apple", "Gala"]
         value : Any
             Value for the leaf node
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Nested dictionary
@@ -1088,7 +1086,7 @@ def _convert_tree_to_nested(
         """
         Deep merge source dict into target dict.
 
-        Parameters:
+        Parameters
         -----------
         target : Dict[str, Any]
             Target dictionary to merge into (modified in place)
@@ -1106,20 +1104,18 @@ def _convert_tree_to_nested(
             else:
                 target[key] = value
 
-    def traverse_tree(
-        node: Dict[str, Any], current_depth: int = 0
-    ) -> Dict[str, Any]:
+    def traverse_tree(node: Dict[str, Any], current_depth: int = 0) -> Dict[str, Any]:
         """
         Recursively traverse tree structure and build nested dict.
 
-        Parameters:
+        Parameters
         -----------
         node : Dict[str, Any]
             Current node with 'name' and optional 'children'
         current_depth : int
             Current depth in the tree
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Nested dictionary representation of this subtree
@@ -1181,14 +1177,14 @@ def _convert_flat_to_nested(
     """
     Convert flat format to nested {parent: {child: count}} structure.
 
-    Parameters:
+    Parameters
     -----------
     flat_data : Dict[str, Any]
         Flat format like {"child": {"parent": "parent_name", "count": 10}}
     max_categories : int
         Maximum number of entries to include (top entries by count)
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, int]]
         Nested dictionary with two levels: parent -> child -> count
@@ -1246,7 +1242,7 @@ def sample_large_dataset(
         Sampled subset of the original data
     """
     if not isinstance(data, (pd.Series, pd.DataFrame)):
-        raise ValueError("Input must be a pandas Series or DataFrame")
+        raise ValidationError("Input must be a pandas Series or DataFrame")
 
     if len(data) <= max_samples:
         return data
@@ -1268,7 +1264,7 @@ def create_metrics_overview_visualization(
     """
     Create an overview visualization for categorical generalization metrics using core visualization functions.
 
-    Parameters:
+    Parameters
     -----------
     metrics : Dict[str, Any]
         Categorical generalization metrics
@@ -1289,7 +1285,7 @@ def create_metrics_overview_visualization(
     **kwargs : Any
         Additional keyword arguments for visualization functions.
 
-    Returns:
+    Returns
     --------
     Optional[List[Path]]
         List of paths to visualization files or None if failed

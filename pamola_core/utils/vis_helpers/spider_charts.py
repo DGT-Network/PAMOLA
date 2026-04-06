@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Spider Chart Visualization Implementation
 Description: Thread-safe spider/radar chart visualization capabilities
 Author: PAMOLA Core Team
@@ -33,12 +32,17 @@ from matplotlib.colors import to_rgba
 import numpy as np
 import pandas as pd
 
-from pamola_core.utils.vis_helpers.base import MatplotlibFigure, PlotlyFigure, FigureRegistry
+from pamola_core.utils.vis_helpers.base import (
+    MatplotlibFigure,
+    PlotlyFigure,
+    FigureRegistry,
+)
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
     apply_theme_to_plotly_figure,
     get_theme_colors,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 from pamola_core.utils.vis_helpers.context import visualization_context
 
 # Configure logger
@@ -68,7 +72,7 @@ class PlotlySpiderChart(PlotlyFigure):
         """
         Create a spider/radar chart using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict[str, Dict[str, float]], pd.DataFrame]
             Data to visualize.
@@ -102,7 +106,7 @@ class PlotlySpiderChart(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to the Plotly trace
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the spider chart
@@ -124,7 +128,7 @@ class PlotlySpiderChart(PlotlyFigure):
                 elif isinstance(data, pd.DataFrame):
                     df = data.copy()
                 else:
-                    raise TypeError(
+                    raise TypeValidationError(
                         f"Unsupported data type for spider chart: {type(data)}"
                     )
 
@@ -265,7 +269,7 @@ class PlotlySpiderChart(PlotlyFigure):
         """
         Update an existing Plotly spider chart.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Existing Plotly figure to update
@@ -278,7 +282,7 @@ class PlotlySpiderChart(PlotlyFigure):
         **kwargs:
             Parameters to update (same as create method)
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated Plotly figure
@@ -439,7 +443,7 @@ class MatplotlibSpiderChart(MatplotlibFigure):
                 elif isinstance(data, pd.DataFrame):
                     df = data.copy()
                 else:
-                    raise TypeError(
+                    raise TypeValidationError(
                         f"Unsupported data type for spider chart: {type(data)}"
                     )
 

@@ -7,26 +7,26 @@ manipulating personal names for use in fake data generation.
 
 import re
 import unicodedata
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, List, Any
 import pandas as pd
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure logger
-logger = logging.get_logger("pamola_core.fake_data.commons.name_utils")
+logger = pamola_logging.getLogger(__name__)
 
 
 def parse_full_name(full_name: str, language: str = "ru") -> Dict[str, str]:
     """
     Parses a full name into components based on language conventions.
 
-    Parameters:
+    Parameters
     -----------
     full_name : str
         Full name to parse
     language : str
         Language code (default: "ru")
 
-    Returns:
+    Returns
     --------
     Dict[str, str]
         Dictionary with name parts (first_name, last_name, middle_name)
@@ -91,7 +91,7 @@ def format_name(name_parts: Dict[str, str], format_type: str = "full", language:
     """
     Formats name parts into a full name based on format type and language.
 
-    Parameters:
+    Parameters
     -----------
     name_parts : Dict[str, str]
         Dictionary with name parts (first_name, last_name, middle_name)
@@ -100,7 +100,7 @@ def format_name(name_parts: Dict[str, str], format_type: str = "full", language:
     language : str
         Language code (default: "ru")
 
-    Returns:
+    Returns
     --------
     str
         Formatted name
@@ -167,14 +167,14 @@ def detect_name_format(name: str, language: str = "ru") -> str:
     """
     Attempts to detect the format of a given name.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name to analyze
     language : str
         Language code for cultural context
 
-    Returns:
+    Returns
     --------
     str
         Detected format: "full", "first_only", "last_only", "initials"
@@ -219,14 +219,14 @@ def generate_patronymic(father_name: str, gender: str = "M") -> str:
     """
     Generates a Russian patronymic from a father's name.
 
-    Parameters:
+    Parameters
     -----------
     father_name : str
         Father's first name
     gender : str
         Gender of the person ("M" or "F")
 
-    Returns:
+    Returns
     --------
     str
         Generated patronymic
@@ -267,12 +267,12 @@ def is_compound_name(name: str) -> bool:
     """
     Checks if a name is compound (e.g., Jean-Pierre, O'Sullivan).
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the name is compound
@@ -288,14 +288,14 @@ def normalize_name(name: str, keep_case: bool = True) -> str:
     """
     Normalizes a name by handling special characters and formatting.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name to normalize
     keep_case : bool
         Whether to preserve the original case
 
-    Returns:
+    Returns
     --------
     str
         Normalized name
@@ -341,12 +341,12 @@ def extract_potential_names(text: str) -> List[str]:
     """
     Extracts potential names from a text based on capitalization patterns.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to analyze
 
-    Returns:
+    Returns
     --------
     List[str]
         List of potential names found in the text
@@ -371,12 +371,12 @@ def analyze_name_statistics(names: List[str]) -> Dict[str, Any]:
     """
     Analyzes statistics for a list of names.
 
-    Parameters:
+    Parameters
     -----------
     names : List[str]
         List of names to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with name statistics

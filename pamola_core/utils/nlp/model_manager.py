@@ -14,24 +14,17 @@ from typing import Optional, List, Set, Callable
 
 # Import from base to avoid circular dependencies
 # Make sure these imports match your actual package structure
+from pamola_core.errors.exceptions import ModelLoadError, ModelNotAvailableError
 from pamola_core.utils.nlp.base import (
     DependencyManager,
     normalize_language_code,
-    ModelNotAvailableError
 )
 from pamola_core.utils.nlp.cache import (
     get_cache,
-    cache_function
+    cache_function,
 )
 
 logger = logging.getLogger(__name__)
-
-
-class ModelLoadError(ModelNotAvailableError):
-    """
-    Exception raised when a model fails to load.
-    """
-    pass
 
 
 class NLPModelManager:
@@ -83,7 +76,7 @@ class NLPModelManager:
         """
         Check which NLP libraries are currently available in the environment.
 
-        Returns:
+        Returns
         --------
         Set[str]
             Set of available NLP library names.
@@ -108,7 +101,7 @@ class NLPModelManager:
         Get or load a model of the specified type for the given language.
         First checks the cache; if not found, attempts to load a new model.
 
-        Parameters:
+        Parameters
         -----------
         model_type : str
             The type of model to retrieve (e.g., 'spacy', 'transformers', 'ner').
@@ -117,12 +110,12 @@ class NLPModelManager:
         **params : dict
             Additional parameters for model configuration.
 
-        Returns:
+        Returns
         --------
         Any
             The loaded model instance.
 
-        Raises:
+        Raises
         -------
         ModelNotAvailableError
             If the required library is not available for this model type.
@@ -178,12 +171,12 @@ class NLPModelManager:
         """
         Check if the underlying library for the given model_type is present in the environment.
 
-        Parameters:
+        Parameters
         -----------
         model_type : str
             The requested model type.
 
-        Returns:
+        Returns
         --------
         bool
             True if the required library is available, otherwise False.
@@ -201,7 +194,7 @@ class NLPModelManager:
         """
         Generate a unique key for identifying models in the cache.
 
-        Parameters:
+        Parameters
         -----------
         model_type : str
             The type of the model.
@@ -210,7 +203,7 @@ class NLPModelManager:
         params : Dict[str, Any]
             Model configuration parameters.
 
-        Returns:
+        Returns
         --------
         str
             A unique cache key.
@@ -222,19 +215,19 @@ class NLPModelManager:
         """
         Load a spaCy model for the specified language. Installs it if missing.
 
-        Parameters:
+        Parameters
         -----------
         language : str
             Language code (e.g., 'en', 'ru').
         **kwargs : dict
             Accepts arbitrary parameters; if 'model_name' is provided, uses it instead of default.
 
-        Returns:
+        Returns
         --------
         spacy.language.Language
             The loaded spaCy model.
 
-        Raises:
+        Raises
         -------
         ModelLoadError
             If the spaCy model cannot be downloaded or loaded.
@@ -279,7 +272,7 @@ class NLPModelManager:
         """
         Load a Hugging Face Transformers model and tokenizer.
 
-        Parameters:
+        Parameters
         -----------
         language : str
             Language code.
@@ -288,12 +281,12 @@ class NLPModelManager:
             - 'model_name' (str): specific model name from the Hub,
             - 'task' (str): NLP task (classification, sequence-labeling, etc.).
 
-        Returns:
+        Returns
         --------
         (transformers.PreTrainedModel, transformers.PreTrainedTokenizer)
             A tuple containing the loaded model and tokenizer.
 
-        Raises:
+        Raises
         -------
         ModelLoadError
             If loading or downloading the model fails.
@@ -325,19 +318,19 @@ class NLPModelManager:
         """
         Load a Named Entity Recognition model. By default uses spaCy.
 
-        Parameters:
+        Parameters
         -----------
         language : str
             Language code.
         **kwargs : dict
             Additional parameters. 'model_type' or 'model_name' can be passed if needed.
 
-        Returns:
+        Returns
         --------
         Any
             An NER-capable model or pipeline.
 
-        Raises:
+        Raises
         -------
         ModelNotAvailableError
             If the required library is not available.
@@ -363,19 +356,19 @@ class NLPModelManager:
         """
         Load an entity extractor. This might rely on an external utility function.
 
-        Parameters:
+        Parameters
         -----------
         language : str
             Language code (not always necessary, depending on the extractor).
         **kwargs : dict
             Additional parameters, e.g. 'extractor_type': str for different strategies.
 
-        Returns:
+        Returns
         --------
         Any
             The entity extractor instance.
 
-        Raises:
+        Raises
         -------
         ModelLoadError
             If loading the extractor fails.
@@ -393,12 +386,12 @@ class NLPModelManager:
         """
         Unload a model from cache to free up memory.
 
-        Parameters:
+        Parameters
         -----------
         model_key : str
             The unique model key generated by _get_model_key.
 
-        Returns:
+        Returns
         --------
         bool
             True if the model was in cache and successfully removed, False otherwise.
@@ -418,7 +411,7 @@ class NLPModelManager:
         """
         Retrieve a list of supported model types based on detected libraries.
 
-        Returns:
+        Returns
         --------
         List[str]
             A list of recognized model types that can be loaded.
@@ -440,12 +433,12 @@ class NLPModelManager:
         """
         Get information about models stored in the cache.
 
-        Parameters:
+        Parameters
         -----------
         model_key : str, optional
             Specific model key for detailed info. If None, returns info for all.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary with metadata about the requested model(s).
@@ -456,7 +449,7 @@ class NLPModelManager:
         """
         Get memory usage statistics (if psutil is available).
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Memory usage information including RSS and VMS, or a fallback message.
@@ -480,7 +473,7 @@ class NLPModelManager:
         """
         Configure the maximum number of models to keep loaded.
 
-        Parameters:
+        Parameters
         -----------
         max_models : int
             Maximum number of models allowed in memory.
@@ -495,7 +488,7 @@ class NLPModelManager:
         """
         Configure time in seconds after which unused models may be unloaded.
 
-        Parameters:
+        Parameters
         -----------
         expiry_seconds : int
             Number of seconds to keep a model in the cache.
@@ -617,4 +610,26 @@ class NLPModelManager:
 
 
 # Create a singleton instance for convenience
-nlp_model_manager = NLPModelManager()
+class _LazyNLPModelManager:
+    """Lazy proxy for the NLP model manager singleton."""
+
+    def __getattr__(self, name: str):
+        return getattr(get_nlp_model_manager(), name)
+
+    def __repr__(self) -> str:
+        return repr(get_nlp_model_manager())
+
+
+_nlp_model_manager: Optional[NLPModelManager] = None
+
+
+def get_nlp_model_manager() -> NLPModelManager:
+    """Return the shared NLPModelManager instance (initialized on first use)."""
+    global _nlp_model_manager
+    if _nlp_model_manager is None:
+        _nlp_model_manager = NLPModelManager()
+    return _nlp_model_manager
+
+
+# Backwards-compatible module-level handle
+nlp_model_manager = _LazyNLPModelManager()

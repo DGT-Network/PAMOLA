@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Text Transformer
 Package:       pamola_core.utils.nlp.text_transformer
 Version:       2.2.0
@@ -76,12 +75,19 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import pandas as pd
 
 # PAMOLA Core imports
-from pamola_core.utils.nlp.cache import get_cache, CacheBase
+from pamola_core.utils.nlp.cache import (
+    get_cache,
+    CacheBase,
+)
 from pamola_core.utils.nlp.llm.client import (
     create_llm_client,
     BaseLLMClient,
-    LLMConnectionError,
     LLMGenerationParams,
+)
+from pamola_core.errors.exceptions import (
+    ColumnNotFoundError,
+    ValidationError,
+    LLMConnectionError,
 )
 from pamola_core.utils.nlp.llm.config import (
     LLMConfig,
@@ -293,7 +299,9 @@ class TextTransformer:
             # Create from dict
             self.prompt_template = PromptTemplate(**template_input)
         else:
-            raise ValueError(f"Invalid prompt template type: {type(template_input)}")
+            raise ValidationError(
+                f"Invalid prompt template type: {type(template_input)}"
+            )
 
         logger.info(f"Using prompt template: {self.prompt_template.name}")
 
@@ -682,7 +690,10 @@ class TextTransformer:
         """
         # Validate inputs
         if source_column not in df.columns:
-            raise ValueError(f"Source column '{source_column}' not found")
+            raise ColumnNotFoundError(
+                column_name=source_column,
+                available_columns=list(df.columns),
+            )
 
         # Use config defaults if not specified
         if skip_processed is None:

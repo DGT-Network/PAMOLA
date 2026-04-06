@@ -17,12 +17,12 @@ def get_all_tasks(task_reports: Dict[str, Dict[str, Any]]) -> List[str]:
     """
     Получает список всех задач из отчетов.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
 
-    Returns:
+    Returns
     --------
     List[str]
         Список идентификаторов задач
@@ -35,14 +35,14 @@ def resolve_dependencies(task_dependencies: Dict[str, List[str]],
     """
     Разрешает зависимости между задачами, учитывая задачи из отчетов.
 
-    Parameters:
+    Parameters
     -----------
     task_dependencies : Dict[str, List[str]]
         Словарь {задача: [зависимости]}
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Обновленный словарь зависимостей
@@ -68,12 +68,12 @@ def check_circular_dependencies(dependencies: Dict[str, List[str]]) -> List[Tupl
     """
     Проверяет наличие циклических зависимостей.
 
-    Parameters:
+    Parameters
     -----------
     dependencies : Dict[str, List[str]]
         Словарь {задача: [зависимости]}
 
-    Returns:
+    Returns
     --------
     List[Tuple[str, str]]
         Список пар задач, образующих циклические зависимости
@@ -113,12 +113,12 @@ def topological_sort(dependencies: Dict[str, List[str]]) -> List[str]:
     """
     Выполняет топологическую сортировку задач.
 
-    Parameters:
+    Parameters
     -----------
     dependencies : Dict[str, List[str]]
         Словарь {задача: [зависимости]}
 
-    Returns:
+    Returns
     --------
     List[str]
         Список задач в порядке выполнения
@@ -159,14 +159,14 @@ def get_dependent_tasks(task_id: str, dependencies: Dict[str, List[str]]) -> Lis
     """
     Получает список задач, зависящих от указанной.
 
-    Parameters:
+    Parameters
     -----------
     task_id : str
         Идентификатор задачи
     dependencies : Dict[str, List[str]]
         Словарь {задача: [зависимости]}
 
-    Returns:
+    Returns
     --------
     List[str]
         Список идентификаторов зависимых задач
@@ -184,12 +184,12 @@ def enrich_tasks_with_dependencies(task_reports: Dict[str, Dict[str, Any]]) -> D
     """
     Обогащает отчеты задач информацией о зависимостях.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Обновленный словарь отчетов
@@ -215,12 +215,12 @@ def create_dependency_graph_data(task_reports: Dict[str, Dict[str, Any]]) -> Dic
     """
     Создает данные для визуализации графа зависимостей.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Данные для визуализации графа
@@ -260,12 +260,12 @@ def check_missing_dependencies(task_reports: Dict[str, Dict[str, Any]]) -> Dict[
     """
     Проверяет наличие отсутствующих зависимостей.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Словарь {задача: [отсутствующие_зависимости]}
@@ -292,12 +292,12 @@ def suggest_dependencies(task_reports: Dict[str, Dict[str, Any]]) -> Dict[str, L
     """
     Предлагает возможные зависимости на основе времени выполнения задач.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Словарь {задача: [предлагаемые_зависимости]}
@@ -335,14 +335,14 @@ def create_dependency_graph_svg(task_reports: Dict[str, Dict[str, Any]],
     """
     Создает SVG-изображение графа зависимостей.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
     output_path : Path, optional
         Путь для сохранения SVG (если не указан, SVG не сохраняется)
 
-    Returns:
+    Returns
     --------
     str or None
         SVG-код или None в случае ошибки

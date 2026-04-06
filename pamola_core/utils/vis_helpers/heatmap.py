@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Heatmap Visualization Implementation
 Description: Thread-safe heatmap visualization capabilities
 Author: PAMOLA Core Team
@@ -38,12 +37,16 @@ from pamola_core.utils.vis_helpers.base import (
     MatplotlibFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_plotly_figure,
     apply_theme_to_matplotlib_figure,
     get_matplotlib_colormap,
 )
-from pamola_core.utils.vis_helpers.context import visualization_context, register_figure
+from pamola_core.utils.vis_helpers.context import (
+    visualization_context,
+    register_figure,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -55,12 +58,12 @@ def prepare_data_for_heatmap(
     """
     Prepare data for heatmap visualization.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, Dict[str, float]], pd.DataFrame, or np.ndarray
         Data to prepare
 
-    Returns:
+    Returns
     --------
     Tuple[np.ndarray, List[str], List[str]]
         Tuple containing (matrix, x_labels, y_labels)
@@ -84,7 +87,9 @@ def prepare_data_for_heatmap(
             x_labels = [str(i) for i in range(matrix.shape[1])]
             y_labels = [str(i) for i in range(matrix.shape[0])]
         else:
-            raise TypeError(f"Unsupported data type for heatmap: {type(data)}")
+            raise TypeValidationError(
+                f"Unsupported data type for heatmap: {type(data)}"
+            )
 
         return matrix, x_labels, y_labels
     except Exception as e:
@@ -99,14 +104,14 @@ def prepare_text_colors(
     """
     Prepare text colors for heatmap annotations based on cell values.
 
-    Parameters:
+    Parameters
     -----------
     matrix : np.ndarray
         The data matrix
     annotation_color_threshold : float, optional
         Threshold value (0-1) to switch annotation color from white to black
 
-    Returns:
+    Returns
     --------
     np.ndarray
         Array of text colors for each cell
@@ -155,14 +160,14 @@ def prepare_text_values(
     """
     Prepare text values for heatmap annotations.
 
-    Parameters:
+    Parameters
     -----------
     matrix : np.ndarray
         The data matrix
     annotation_format : str
         Format string for annotations
 
-    Returns:
+    Returns
     --------
     np.ndarray
         Formatted text values as strings for heatmap display
@@ -170,18 +175,18 @@ def prepare_text_values(
     try:
         # Convert to float first
         matrix_float = matrix.astype(float)
-        
+
         if annotation_format.startswith(".") and annotation_format.endswith("f"):
             decimal_places = int(annotation_format[1:-1])
         else:
             decimal_places = 2
-        
+
         # Format as strings with exact decimal places for heatmap annotations
         format_func = np.vectorize(lambda x: f"{x:.{decimal_places}f}")
         text_array = format_func(matrix_float)
-        
+
         return text_array
-        
+
     except Exception as e:
         logger.error(f"Error preparing text values: {e}")
         # Fallback: convert to string with 2 decimals
@@ -194,14 +199,14 @@ def handle_mask_values(
     """
     Apply mask to the data matrix.
 
-    Parameters:
+    Parameters
     -----------
     matrix : np.ndarray
         The data matrix
     mask_values : np.ndarray, optional
         Boolean mask to hide certain values (True = visible, False = hidden)
 
-    Returns:
+    Returns
     --------
     np.ndarray
         Masked matrix where hidden values are replaced with NaN
@@ -232,7 +237,7 @@ def add_colorbar_to_matplotlib(fig, im, ax, colorbar_label=None, pad=0.01):
     """
     Add a colorbar to a Matplotlib figure.
 
-    Parameters:
+    Parameters
     -----------
     fig : matplotlib.figure.Figure
         The figure to add the colorbar to
@@ -245,7 +250,7 @@ def add_colorbar_to_matplotlib(fig, im, ax, colorbar_label=None, pad=0.01):
     pad : float
         Padding between the colorbar and the plot
 
-    Returns:
+    Returns
     --------
     matplotlib.colorbar.Colorbar
         The colorbar object
@@ -266,7 +271,7 @@ def create_matplotlib_imshow(ax, masked_matrix, cmap_with_alpha, kwargs):
     """
     Create a matplotlib imshow plot with proper error handling for the aspect parameter.
 
-    Parameters:
+    Parameters
     -----------
     ax : matplotlib.axes.Axes
         The axes to plot on
@@ -277,7 +282,7 @@ def create_matplotlib_imshow(ax, masked_matrix, cmap_with_alpha, kwargs):
     kwargs : dict
         Additional arguments for imshow
 
-    Returns:
+    Returns
     --------
     matplotlib.image.AxesImage
         The image object from imshow
@@ -345,7 +350,7 @@ class PlotlyHeatmap(PlotlyFigure):
         """
         Create a heatmap using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Dict[str, float]], pd.DataFrame, or np.ndarray
             Data to visualize. If Dict, nested dictionary with row and column labels.
@@ -377,7 +382,7 @@ class PlotlyHeatmap(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to go.Heatmap
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the heatmap
@@ -425,14 +430,18 @@ class PlotlyHeatmap(PlotlyFigure):
                 # Add text annotations via scatter overlay if annotate is enabled
                 if annotate:
                     # Create text template
-                    if annotation_format.startswith(".") and annotation_format.endswith("f"):
+                    if annotation_format.startswith(".") and annotation_format.endswith(
+                        "f"
+                    ):
                         decimal_places = int(annotation_format[1:-1])
                         text_template = f"%{{z:.{decimal_places}f}}"
                     else:
                         text_template = f"%{{z:{annotation_format}}}"
 
                     text_values = prepare_text_values(matrix, annotation_format)
-                    text_colors = prepare_text_colors(matrix, annotation_color_threshold)
+                    text_colors = prepare_text_colors(
+                        matrix, annotation_color_threshold
+                    )
 
                     # Flatten for 2D loop
                     for i, y in enumerate(y_labels):
@@ -521,7 +530,7 @@ class PlotlyHeatmap(PlotlyFigure):
         """
         Update an existing Plotly heatmap.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Plotly figure to update
@@ -534,7 +543,7 @@ class PlotlyHeatmap(PlotlyFigure):
         **kwargs:
             Parameters to update
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated figure
@@ -669,7 +678,7 @@ class MatplotlibHeatmap(MatplotlibFigure):
         """
         Create a heatmap using Matplotlib.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Dict[str, float]], pd.DataFrame, or np.ndarray
             Data to visualize. If Dict, nested dictionary with row and column labels.
@@ -703,7 +712,7 @@ class MatplotlibHeatmap(MatplotlibFigure):
         **kwargs:
             Additional arguments to pass to ax.imshow
 
-        Returns:
+        Returns
         --------
         matplotlib.figure.Figure
             Matplotlib figure with the heatmap
@@ -844,7 +853,7 @@ class MatplotlibHeatmap(MatplotlibFigure):
         """
         Update an existing Matplotlib heatmap.
 
-        Parameters:
+        Parameters
         -----------
         fig : matplotlib.figure.Figure
             Matplotlib figure to update
@@ -857,7 +866,7 @@ class MatplotlibHeatmap(MatplotlibFigure):
         **kwargs:
             Parameters to update
 
-        Returns:
+        Returns
         --------
         matplotlib.figure.Figure
             Updated figure

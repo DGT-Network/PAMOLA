@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Privacy Metric Operation - NearestNeighborDistanceRatio
 Package:       pamola_core.metrics.privacy
 Version:       4.0.0
@@ -25,7 +24,7 @@ Key Features:
     - Seamless integration into PAMOLA.CORE metric pipelines
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 import numpy as np
 import pandas as pd
 
@@ -39,7 +38,8 @@ class NearestNeighborDistanceRatio:
     """
     NNDR measures ratio of distances to nearest and second-nearest neighbors.
 
-    Parameters:
+    Parameters
+    ----------
     - distance_metric: str ('euclidean', 'manhattan', 'cosine')
     - n_neighbors: int (default: 2, for NNDR)
     - normalize_features: bool
@@ -50,7 +50,8 @@ class NearestNeighborDistanceRatio:
     NNDR_i = dist(x_i^s, x_1^r) / dist(x_i^s, x_2^r)
     where x_1^r and x_2^r are first and second nearest neighbors
 
-    Example:
+    Examples
+    --------
         nndr = NearestNeighborDistanceRatio(distance_metric='euclidean', normalize_features=True, threshold=0.5)
         results = nndr.calculate_metric(original_df, transformed_df)
     """
@@ -67,7 +68,8 @@ class NearestNeighborDistanceRatio:
         """
         Initialize NearestNeighborDistanceRatio metric parameters.
 
-        Args:
+        Parameters
+        ----------
             distance_metric (str): Distance metric ('euclidean', 'manhattan', 'cosine').
             n_neighbors (int): Number of neighbors to consider (default: 2).
             normalize_features (bool): Whether to normalize features before calculation.
@@ -88,10 +90,12 @@ class NearestNeighborDistanceRatio:
         """
         Calculate the Nearest Neighbor Distance Ratio (NNDR) privacy metric between two datasets.
 
-        Args:
+        Parameters
+        ----------
             original_df (pd.DataFrame): Original/real dataset.
             transformed_df (pd.DataFrame): Transformed/synthetic dataset.
-        Returns:
+        Returns
+        -------
             Dict[str, Any]: NNDR statistics, risk assessment, privacy classification, and interpretation.
         """
 
@@ -154,10 +158,12 @@ class NearestNeighborDistanceRatio:
         """
         Provide interpretation and privacy assessment of NNDR results.
 
-        Args:
+        Parameters
+        ----------
             nndr_stats (dict): NNDR statistics (mean, std, min, max).
             high_risk_count (int): Number of records classified as high privacy risk.
-        Returns:
+        Returns
+        -------
             str: Human-readable interpretation and privacy recommendation.
         """
         if high_risk_count == 0:

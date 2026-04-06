@@ -15,7 +15,7 @@ import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.phone import PhoneGenerator
 from pamola_core.fake_data.schemas.phone_op_core_schema import FakePhoneOperationConfig
-from pamola_core.utils import io
+import pamola_core.utils.io as io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult
@@ -168,7 +168,7 @@ class FakePhoneOperation(GeneratorOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -181,20 +181,11 @@ class FakePhoneOperation(GeneratorOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
-        # Config logger task for operation
-        self.logger = kwargs.get("logger", self.logger)
-
-        # Start timing for performance metrics
-        self.start_time = time.time()
-        self.logger.info(
-            f"Starting {self.operation_name} operation at {self.start_time}"
-        )
-
         # Call parent execute method
         result = super().execute(
             data_source, task_dir, reporter, progress_tracker, **kwargs
@@ -214,11 +205,13 @@ class FakePhoneOperation(GeneratorOperation):
         """
         Process a batch of data to generate synthetic phone numbers.
 
-        Args:
+        Parameters
+        ----------
             batch: DataFrame batch to process
             kwargs: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed DataFrame batch
         """
         # Get the field value series
@@ -279,11 +272,13 @@ class FakePhoneOperation(GeneratorOperation):
         """
         Process a single value using the appropriate generation method with retry logic.
 
-        Args:
+        Parameters
+        ----------
             value: Original value
             **params: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed value
         """
         # Add time for detailed metrics
@@ -412,10 +407,12 @@ class FakePhoneOperation(GeneratorOperation):
         """
         Analyze the distribution of country codes in generated phone numbers.
 
-        Args:
+        Parameters
+        ----------
             df: Processed DataFrame
 
-        Returns:
+        Returns
+        -------
             Country distribution metrics
         """
         # Determine which field to analyze based on mode
@@ -486,10 +483,12 @@ class FakePhoneOperation(GeneratorOperation):
         """
         Analyze the distribution of phone number formats in generated numbers.
 
-        Args:
+        Parameters
+        ----------
             df: Processed DataFrame
 
-        Returns:
+        Returns
+        -------
             Format distribution metrics
         """
         # Determine which field to analyze based on mode
@@ -650,11 +649,13 @@ class FakePhoneOperation(GeneratorOperation):
         """
         Calculate quality metrics comparing original and generated phone numbers.
 
-        Args:
+        Parameters
+        ----------
             original_series: Series with original phone numbers
             generated_series: Series with generated phone numbers
 
-        Returns:
+        Returns
+        -------
             Dictionary with quality metrics
         """
         metrics = {}
@@ -732,10 +733,12 @@ class FakePhoneOperation(GeneratorOperation):
         """
         Determine the format type of a phone number.
 
-        Args:
+        Parameters
+        ----------
             phone: Phone number
 
-        Returns:
+        Returns
+        -------
             Format type identifier
         """
         has_parentheses = "(" in phone and ")" in phone
@@ -762,7 +765,7 @@ class FakePhoneOperation(GeneratorOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for numeric generalization

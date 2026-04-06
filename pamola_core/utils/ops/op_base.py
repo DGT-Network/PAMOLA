@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Base Classes
 Description: Base operation classes for defining modular privacy-enhancing tasks
 Author: PAMOLA Core Team
@@ -33,19 +32,20 @@ from pamola_core.utils.helpers import generate_data_hash
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register_operation
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import (
+    OperationResult,
+    OperationStatus,
+)
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.io import ensure_directory
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.base import BasePamolaError
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import ConfigSaveError
 
 # Configure module logger
-logger = logging.get_logger(__name__)
-
-
-class ConfigSaveError(Exception):
-    """Error raised when saving operation configuration fails."""
-
-    pass
+logger = pamola_logging.getLogger(__name__)
 
 
 class OperationScope:
@@ -65,7 +65,7 @@ class OperationScope:
         """
         Initialize an operation scope.
 
-        Parameters:
+        Parameters
         -----------
         datasets : List[str], optional
             List of dataset names to operate on
@@ -172,6 +172,8 @@ class BaseOperation(ABC):
         force_recalculation: bool = False,
         generate_visualization: bool = True,
         save_output: bool = True,
+        # Reproducibility
+        seed: Optional[int] = None,
     ):
         """
         Initialize a new BaseOperation instance.
@@ -285,12 +287,14 @@ class BaseOperation(ABC):
         self.force_recalculation = force_recalculation
         self.generate_visualization = generate_visualization
         self.save_output = save_output
+        self.seed = seed
 
         # Internal runtime state
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = pamola_logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.version = "1.0.0"
         self.operation_name = self.__class__.__name__
         self.operation_cache = None
+        self.error_handler = None
 
         # Performance tracking
         self.process_count: int = 0
@@ -308,17 +312,17 @@ class BaseOperation(ABC):
         Writes the configuration to {task_dir}/config.json atomically,
         including operation name and version information.
 
-        Parameters:
+        Parameters
         -----------
         task_dir : Path
             Directory where the configuration file should be saved
 
-        Raises:
+        Raises
         -------
         ConfigSaveError
             If the configuration cannot be saved
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-004: BaseOperation.save_config(task_dir) writes config.json
                     atomically before execution begins.
@@ -363,7 +367,7 @@ class BaseOperation(ABC):
         """
         Execute the operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation (dataframes or file paths)
@@ -376,7 +380,7 @@ class BaseOperation(ABC):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation including status, artifacts, and metrics
@@ -387,7 +391,7 @@ class BaseOperation(ABC):
         """
         Check if Dask is available for use.
 
-        Returns:
+        Returns
         --------
         bool
             True if Dask is available, False otherwise
@@ -409,14 +413,14 @@ class BaseOperation(ABC):
         """
         Determine whether to use Dask based on data size and configuration.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation (dataframes or file paths)
         dataset_name : str, optional
             Name of the DataFrame
 
-        Returns:
+        Returns
         --------
         bool
             True if Dask should be used, False otherwise
@@ -436,12 +440,12 @@ class BaseOperation(ABC):
         """
         Prepare directories for artifacts following PAMOLA.CORE conventions.
 
-        Parameters:
+        Parameters
         -----------
         task_dir : Path
             Root task directory
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with prepared directories
@@ -449,10 +453,13 @@ class BaseOperation(ABC):
         # Create standard directories following PAMOLA.CORE conventions
         directories = {
             "root": task_dir,
+            "input": task_dir / "input",
             "output": task_dir / "output",
+            "temp": task_dir / "temp",
             "dictionaries": task_dir / "dictionaries",
             "visualizations": task_dir / "visualizations",
             "metrics": task_dir / "metrics",
+            "attacks": task_dir / "attacks",
             "cache": task_dir / "cache",
             "logs": task_dir / "logs",
             "reports": task_dir / "reports",
@@ -494,7 +501,7 @@ class BaseOperation(ABC):
         """
         if not hasattr(result, "status"):
             self.logger.error(
-                f"Invalid OperationResult object: missing status attribute"
+                "Invalid OperationResult object: missing status attribute"
             )
             return
 
@@ -528,7 +535,7 @@ class BaseOperation(ABC):
         This is a wrapper around execute() that adds timing, error handling,
         and progress tracking.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -543,7 +550,7 @@ class BaseOperation(ABC):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -626,6 +633,12 @@ class BaseOperation(ABC):
         # Record start time
         start_time = time.time()
 
+        # Create standardized error result
+        self.error_handler = ErrorHandler(
+            logger=self.logger,
+            operation_name=self.name or self.__class__.__name__,
+        )
+
         try:
             # Setup pre-process config
             pre_process_config = {
@@ -681,6 +694,26 @@ class BaseOperation(ABC):
             result.execution_time = time.time() - start_time
             self.execution_time = result.execution_time
 
+            # Standardize error results that were created without error metadata
+            if result.status == OperationStatus.ERROR:
+                if not result.metrics.get("error_code"):
+                    error_code = ErrorCode.PROCESSING_FAILED
+                    if (
+                        isinstance(result.exception, BasePamolaError)
+                        and result.exception.error_code
+                    ):
+                        error_code = result.exception.error_code
+                    self.error_handler.standardize_result(
+                        result=result,
+                        error_code=error_code,
+                        message=result.error_message
+                        or str(result.exception or "Unknown error"),
+                        context={
+                            "operation": self.name or self.__class__.__name__,
+                            "task_dir": str(task_dir),
+                        },
+                    )
+
             # Add final operation status to reporter
             if reporter:
                 # Create standardized details dictionary
@@ -716,20 +749,24 @@ class BaseOperation(ABC):
                 )
 
         except Exception as e:
-            # Handle exceptions
+            # Handle exceptions through centralized handler
             self.logger.exception(f"Error in operation {self.name}: {str(e)}")
 
             # Close progress tracker if one was created
             if progress_tracker:
                 progress_tracker.close()
 
-            # Create error result
-            result = OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=str(e),
-                execution_time=time.time() - start_time,
-                exception=e,
+            result = self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.name, "task_dir": str(task_dir)},
+                message_kwargs={
+                    "field_name": getattr(self, "field_name", "<unspecified>"),
+                    "operation": self.name or self.__class__.__name__,
+                    "reason": str(e),
+                },
             )
+            result.execution_time = time.time() - start_time
 
             # Add error to reporter
             if reporter:
@@ -760,7 +797,6 @@ class BaseOperation(ABC):
         """Clean up resources when exiting context."""
         # Nothing to clean up in the base class
         return False  # Don't suppress exceptions
-        
 
     def _get_base_parameters(self) -> Dict[str, str]:
         """Get the basic parameters for the cache key generation."""
@@ -816,7 +852,7 @@ class BaseOperation(ABC):
         This method should be overridden by subclasses to provide
         operation-specific parameters for caching.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -824,16 +860,18 @@ class BaseOperation(ABC):
         # Base implementation returns minimal parameters
         return {}
 
-    def _generate_cache_key(self, df: Union[pd.Series, pd.DataFrame, dd.DataFrame]) -> str:
+    def _generate_cache_key(
+        self, df: Union[pd.Series, pd.DataFrame, dd.DataFrame]
+    ) -> str:
         """
         Generate a deterministic cache key based on operation parameters and data characteristics.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.Series, pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
 
-        Returns:
+        Returns
         --------
         str
             Unique cache key
@@ -909,7 +947,7 @@ class FieldOperation(BaseOperation, ABC):
         """
         Add a related field to the operation's scope.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the related field
@@ -920,12 +958,12 @@ class FieldOperation(BaseOperation, ABC):
         """
         Validate that the main field exists in the DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : DataFrameType
             DataFrame to check
 
-        Returns:
+        Returns
         --------
         bool
             True if field exists, False otherwise
@@ -973,7 +1011,7 @@ class DataFrameOperation(BaseOperation, ABC):
         """
         Add a group of fields to process together.
 
-        Parameters:
+        Parameters
         -----------
         group_name : str
             Name of the field group
@@ -986,12 +1024,12 @@ class DataFrameOperation(BaseOperation, ABC):
         """
         Get the fields in a specific group.
 
-        Parameters:
+        Parameters
         -----------
         group_name : str
             Name of the field group
 
-        Returns:
+        Returns
         --------
         List[str]
             List of field names in the group

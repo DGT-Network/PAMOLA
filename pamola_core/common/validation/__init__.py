@@ -1,18 +1,8 @@
 """
-PAMOLA.CORE - Validation Module
----------------------------------------------------------
-This module provides validation utilities for ensuring data integrity 
-and consistency across various processing steps. It includes functions 
-for checking the existence of DataFrame columns and other validation 
-mechanisms.
-
-Features:
- - Validate the existence of columns in Pandas DataFrames.
- - Centralize common validation functions for reuse.
- - Prevent runtime errors due to missing data attributes.
-
-This module is essential for data preprocessing, transformation pipelines, 
-and privacy-preserving analytics.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+This file is part of the PAMOLA ecosystem, a comprehensive suite for
+anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
+foundation for anonymization-preserving data processing.
 
 (C) 2024 Realm Inveo Inc. and DGT Network Inc.
 
@@ -22,5 +12,11 @@ For details, see the LICENSE file or visit:
     https://opensource.org/licenses/BSD-3-Clause
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
+Package: pamola_core.common.validation
+Type: Internal (Non-Public API)
+
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
+
+__all__ = []
+

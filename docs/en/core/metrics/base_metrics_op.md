@@ -38,10 +38,10 @@ Defines the `MetricsOperation` base class for all metrics operations in PAMOLA C
     - _generate_visualizations
     - _cleanup_memory
     - _check_cache
-    - _add_cached_metrics
-    - _restore_cached_artifacts
     - _save_to_cache
-    - _generate_cache_key
+    - _get_base_parameters
+    - _normalize_metric
+    - _get_metric_metadata
 
 ## 3. Architecture & Data Flow
 - Inherited by all operation wrappers (fidelity, privacy, utility)
@@ -73,10 +73,10 @@ Defines the `MetricsOperation` base class for all metrics operations in PAMOLA C
 | `_generate_visualizations(...)` | Generates visualizations |
 | `_cleanup_memory(...)` | Cleans up memory |
 | `_check_cache(...)` | Checks for cached results |
-| `_add_cached_metrics(...)` | Adds cached metrics |
-| `_restore_cached_artifacts(...)` | Restores cached artifacts |
 | `_save_to_cache(...)` | Saves to cache |
-| `_generate_cache_key(...)` | Generates cache key |
+| `_get_base_parameters()` | Gets base parameters for cache key |
+| `_normalize_metric(...)` | Normalizes metric values |
+| `_get_metric_metadata()` | Gets metric metadata |
 
 ## 6. Usage Examples
 ```python

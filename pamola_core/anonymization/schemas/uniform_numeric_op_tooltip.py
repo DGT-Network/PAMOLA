@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Uniform Numeric Noise Operation Tooltips
 Package:       pamola_core.anonymization.schemas
 Version:       1.0.0

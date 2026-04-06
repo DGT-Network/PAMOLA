@@ -1,6 +1,5 @@
 """
 AMOLA.CORE - Privacy-Preserving AI Data Processors
-------------------------------------------------------------
 Module:        Privacy-Specific Data Processing Utilities
 Package:       pamola_core.anonymization.commons
 Version:       1.1.0
@@ -60,6 +59,12 @@ import pandas as pd
 
 # Import framework utilities
 from pamola_core.utils.ops.op_field_utils import apply_condition_operator
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    InvalidStrategyError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -123,7 +128,7 @@ def process_nulls(
     strategies, particularly the ANONYMIZE option that replaces nulls with
     a privacy-preserving placeholder.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series containing null values to process
@@ -136,28 +141,28 @@ def process_nulls(
     anonymize_value : str, optional
         Value to use when strategy is "ANONYMIZE" (default: "SUPPRESSED")
 
-    Returns:
+    Returns
     --------
     pd.Series
         Series with processed null values. Note that when using "ANONYMIZE"
         with numeric series, the return type will be 'object' to accommodate
         the string replacement value.
 
-    Raises:
+    Raises
     -------
     TypeError
         If series is not a pandas Series
     ValueError
         If strategy is not recognized
 
-    Notes:
+    Notes
     ------
     - The "EXCLUDE" strategy returns a series with null values removed.
       For DataFrame-level filtering, handle this at the caller level.
     - When anonymizing numeric series with string values, the series
       dtype will change to 'object'.
 
-    Examples:
+    Examples
     ---------
     >>> s = pd.Series([1, 2, None, 4, None])
     >>> process_nulls(s, strategy="ANONYMIZE")
@@ -178,13 +183,15 @@ def process_nulls(
     """
     # Type validation
     if not isinstance(series, pd.Series):
-        raise TypeError(
+        raise TypeValidationError(
             f"Argument 'series' must be a pandas.Series, got {type(series).__name__}"
         )
 
     if strategy not in NULL_STRATEGIES:
-        raise ValueError(
-            f"Invalid null strategy: {strategy}. Must be one of {NULL_STRATEGIES}"
+        raise InvalidStrategyError(
+            strategy=strategy,
+            valid_strategies=NULL_STRATEGIES,
+            operation_type="process_nulls",
         )
 
     if strategy == "PRESERVE":
@@ -220,7 +227,7 @@ def process_nulls(
     elif strategy == "ERROR":
         # Raise an error if any nulls are present
         if series.isna().any():
-            raise ValueError(
+            raise ValidationError(
                 f"Null values found in field {series.name}, which is not permitted when null_strategy is {strategy}."
             )
         return series.copy()
@@ -228,7 +235,11 @@ def process_nulls(
     else:
         # This should never be reached due to earlier validation
         # but included for static analysis and defensive programming
-        raise RuntimeError(f"Unexpected strategy branch: {strategy}")
+        raise InvalidStrategyError(
+            strategy=strategy,
+            valid_strategies=NULL_STRATEGIES,
+            operation_type="process_nulls",
+        )
 
 
 # =============================================================================
@@ -253,7 +264,7 @@ def filter_records_conditionally(
     It's designed to work with profiling results where a risk score field
     indicates the privacy risk level of each record.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to filter
@@ -274,13 +285,13 @@ def filter_records_conditionally(
     condition_operator : str, optional
         Operator for additional condition (default: "in")
 
-    Returns:
+    Returns
     --------
     Tuple[pd.DataFrame, pd.Series]
         (Filtered DataFrame containing only records to process,
          Boolean mask indicating which records were selected)
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({
     ...     'name': ['Alice', 'Bob', 'Charlie', 'David'],
@@ -309,7 +320,7 @@ def filter_records_conditionally(
         elif operator == "le":
             risk_mask = df[risk_field] <= risk_threshold
         else:
-            raise ValueError(
+            raise ValidationError(
                 f"Invalid operator: {operator}. Must be one of ['ge', 'lt', 'gt', 'le']"
             )
 
@@ -360,7 +371,7 @@ def handle_vulnerable_records(
     applying various privacy-preserving strategies. It's typically used after
     filter_records_conditionally identifies which records need special handling.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -380,17 +391,17 @@ def handle_vulnerable_records(
     replacement_value : Optional[Any]
         Custom value to use when strategy is "custom"
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame with vulnerable records handled according to strategy
 
-    Raises:
+    Raises
     -------
     ValueError
         If strategy is not recognized or incompatible with field type
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({
     ...     'salary': [50000, 60000, 55000, 65000],
@@ -407,12 +418,17 @@ def handle_vulnerable_records(
     3    60000.0  # Replaced with mean
     """
     if strategy not in VULNERABLE_STRATEGIES:
-        raise ValueError(
-            f"Invalid strategy: {strategy}. Must be one of {VULNERABLE_STRATEGIES}"
+        raise InvalidStrategyError(
+            strategy=strategy,
+            valid_strategies=list(VULNERABLE_STRATEGIES),
+            operation_type="handle_vulnerable_records",
         )
 
     if field_name not in df.columns:
-        raise ValueError(f"Field '{field_name}' not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=field_name,
+            available_fields=list(df.columns),
+        )
 
     # Count vulnerable records
     vulnerable_count = vulnerability_mask.sum()
@@ -446,7 +462,7 @@ def handle_vulnerable_records(
     elif strategy == "mean":
         # Replace with mean (numeric fields only)
         if not pd.api.types.is_numeric_dtype(df[field_name]):
-            raise ValueError(
+            raise ValidationError(
                 f"Strategy 'mean' requires numeric field, but '{field_name}' is not numeric"
             )
 
@@ -482,7 +498,7 @@ def handle_vulnerable_records(
 
     elif strategy in {"mask", "full_mask"}:
         if not pd.api.types.is_string_dtype(df[field_name]):
-            raise ValueError(
+            raise ValidationError(
                 f"'mask' strategies require string dtype, but '{field_name}' is not string"
             )
 
@@ -503,7 +519,7 @@ def handle_vulnerable_records(
     elif strategy == "custom":
         # Replace with custom value
         if replacement_value is None:
-            raise ValueError(
+            raise ValidationError(
                 "replacement_value must be provided when using 'custom' strategy"
             )
 
@@ -533,7 +549,7 @@ def create_risk_based_processor(
     the specified strategy. The returned function can be used in anonymization
     operations to consistently apply the same risk-based processing.
 
-    Parameters:
+    Parameters
     -----------
     strategy : str, optional
         Risk handling strategy (default: "adaptive")
@@ -544,13 +560,13 @@ def create_risk_based_processor(
     risk_threshold : float, optional
         K-anonymity threshold for identifying vulnerable records
 
-    Returns:
+    Returns
     --------
     Callable
         A function that takes (df, field_name, vulnerability_mask) and
         returns processed DataFrame
 
-    Examples:
+    Examples
     ---------
     #>>> vulnerability_mask = (df["salary"] < 100)
     #>>> processed_df = processor(df, "salary", vulnerability_mask)
@@ -621,7 +637,7 @@ def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, A
     different anonymization operations to ensure consistent privacy
     protection.
 
-    Parameters:
+    Parameters
     -----------
     privacy_level : str, optional
         Target privacy level (default: "MEDIUM")
@@ -630,7 +646,7 @@ def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, A
         - "HIGH": Strong privacy, reduced utility
         - "VERY_HIGH": Maximum privacy, minimal utility
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Configuration parameters including:
@@ -640,7 +656,7 @@ def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, A
         - risk_processor: Callable for handling vulnerable records
         - null_strategy: Strategy for null handling
 
-    Examples:
+    Examples
     ---------
     >>> privacy_cfg = create_privacy_level_processor("HIGH")
     >>> k_threshold = privacy_cfg["k_threshold"]  # 10
@@ -649,7 +665,7 @@ def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, A
     >>> # processed_df = processor(my_df, "salary", my_mask)
     """
     if privacy_level not in PRIVACY_LEVELS:
-        raise ValueError(
+        raise ValidationError(
             f"Invalid privacy level: {privacy_level}. "
             f"Must be one of {list(PRIVACY_LEVELS.keys())}"
         )
@@ -798,13 +814,15 @@ def get_risk_statistics(
     """
     Calculate statistics for risk values in a DataFrame.
 
-    Args:
+    Parameters
+    ----------
         df: DataFrame containing risk values
         risk_field: Name of the field containing risk values
         thresholds: List of threshold values for distribution analysis
                    If None, uses standard risk level thresholds
 
-    Returns:
+    Returns
+    -------
         Dictionary containing statistics and distribution data
     """
     # Use standard thresholds if none provided
@@ -813,7 +831,10 @@ def get_risk_statistics(
 
     # Validate input
     if risk_field not in df.columns:
-        raise ValueError(f"Risk field '{risk_field}' not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=risk_field,
+            available_fields=list(df.columns),
+        )
 
     if len(df) == 0:
         logger.warning("Empty DataFrame provided")
@@ -940,12 +961,12 @@ def get_privacy_recommendations(risk_stats: Dict[str, Any]) -> Dict[str, Any]:
     """
     Generate privacy recommendations based on risk statistics.
 
-    Parameters:
+    Parameters
     -----------
     risk_stats : Dict[str, Any]
         Risk statistics from get_risk_statistics()
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Recommendations including:

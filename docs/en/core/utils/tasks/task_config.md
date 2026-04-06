@@ -383,7 +383,8 @@ def load_task_config(
     task_type: str,
     args: Optional[Dict[str, Any]] = None,
     default_config: Optional[Dict[str, Any]] = None,
-    progress_manager: Optional[TaskProgressManager] = None
+    progress_manager: Optional[Any] = None,
+    force_recreate_config_file: Optional[bool] = False,
 ) -> TaskConfig
 ```
 
@@ -395,6 +396,7 @@ Loads task configuration following the configuration cascade logic.
 - `args`: Command-line arguments to override configuration
 - `default_config`: Default configuration from task class (used during bootstrap)
 - `progress_manager`: Optional progress manager for tracking configuration loading
+- `force_recreate_config_file`: Whether to force recreation of the configuration file even if one exists (default: False)
 
 **Returns:**
 - TaskConfig instance with loaded configuration

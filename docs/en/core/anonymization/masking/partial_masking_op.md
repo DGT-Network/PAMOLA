@@ -1,93 +1,216 @@
 # Partial Masking Operation
-**Module:** pamola_core.anonymization.masking.partial_masking_op  
-**Version:** 1.0.0  
-**Last Updated:** 2025-07-29
 
-## Table of Contents
-1. [Module Overview](#1-module-overview)
-2. [Source Code Hierarchy](#2-source-code-hierarchy)
-3. [Architecture & Data Flow](#3-architecture--data-flow)
-4. [Main Functionalities & Features](#4-main-functionalities--features)
-5. [API Reference & Key Methods](#5-api-reference--key-methods)
-6. [Usage Examples](#6-usage-examples)
-7. [Troubleshooting & Investigation Guide](#7-troubleshooting--investigation-guide)
-8. [Unit Test Coverage](#unit-test-coverage)
-9. [Summary Analysis](#8-summary-analysis)
-10. [Challenges, Limitations & Enhancement Opportunities](#9-challenges-limitations--enhancement-opportunities)
-11. [Related Components & References](#10-related-components--references)
-12. [Change Log & Contributors](#11-change-log--contributors)
+**Module:** `pamola_core.anonymization.masking.partial_masking_op`
+**Version:** 2.0.0
+**Last Updated:** 2025-03-27
+**Status:** Stable
 
-## 1. Module Overview
-Partial Masking Operation provides functionality to mask parts of sensitive data fields, preserving some original information while anonymizing the rest. Commonly used for data privacy in compliance scenarios.
+## Overview
 
-## 2. Source Code Hierarchy
-- pamola_core/anonymization/masking/partial_masking_op.py
-  - class PartialMaskingOperation
-    - mask_partial_value
-    - ... (add other methods as needed)
+The `PartialMaskingOperation` selectively masks portions of data while preserving specified parts for utility. It supports multiple masking strategies (fixed, pattern-based, random, word-based) with position-based and pattern-based control, enabling flexible privacy-utility tradeoffs.
 
-## 3. Architecture & Data Flow
-- Inherits from BaseAnonymizationOperation
-- Utilizes internal masking utilities
-- Supports configuration-driven masking logic
+## Constructor Signature
 
-```mermaid
-flowchart TD
-    A[Input Data] --> B[PartialMaskingOperation.execute()]
-    B --> C[mask_partial_value]
-    C --> D[Output Masked Data]
+```python
+def __init__(
+    self,
+    field_name: str,
+    # ==== Masking Basics ====
+    mask_char: str = "*",
+    mask_strategy: str = "fixed",  # fixed, pattern, random, words
+    mask_percentage: Optional[float] = None,  # Random % to mask
+    # ==== Position-based Masking ====
+    unmasked_prefix: int = 0,
+    unmasked_suffix: int = 0,
+    unmasked_positions: Optional[List[int]] = None,
+    # ==== Pattern-based Masking ====
+    pattern_type: Optional[str] = None,
+    mask_pattern: Optional[str] = None,
+    preserve_pattern: Optional[str] = None,
+    # ==== Format & Word Preservation ====
+    preserve_separators: bool = True,
+    preserve_word_boundaries: bool = False,
+    # ==== Advanced Masking Behavior ====
+    case_sensitive: bool = True,
+    random_mask: bool = False,
+    mask_char_pool: Optional[str] = None,
+    # ==== Preset / Templates ====
+    preset_type: Optional[str] = None,
+    preset_name: Optional[str] = None,
+    # ==== Multi-field Consistency ====
+    consistency_fields: Optional[List[str]] = None,
+    **kwargs,
+):
 ```
 
-## 4. Main Functionalities & Features
-- Masks part of a string or value based on configuration
-- Supports custom mask characters and positions
-- Integrates with anonymization pipeline
+## Parameters
 
-## 5. API Reference & Key Methods
-| Method | Description |
-|--------|-------------|
-| `mask_partial_value(value, config)` | Masks part of the input value according to config |
-| `execute(data, config)` | Applies partial masking to input data |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Name of the field to be masked |
+| `mask_char` | str | "*" | Character used to mask sensitive content |
+| `mask_strategy` | str | "fixed" | Masking strategy: "fixed", "pattern", "random", or "words" |
+| `mask_percentage` | Optional[float] | None | Percentage (0–100) of characters to mask randomly |
+| `unmasked_prefix` | int | 0 | Number of characters at start to remain visible |
+| `unmasked_suffix` | int | 0 | Number of characters at end to remain visible |
+| `unmasked_positions` | Optional[List[int]] | None | Specific index positions to remain unmasked |
+| `pattern_type` | Optional[str] | None | Predefined pattern type (e.g., 'email', 'phone', 'ipv4') |
+| `mask_pattern` | Optional[str] | None | Custom regex pattern for masking if pattern-based strategy selected |
+| `preserve_pattern` | Optional[str] | None | Regex pattern to preserve (everything else masked) |
+| `preserve_separators` | bool | True | Whether to keep separators (e.g., '-', '_', '.') unchanged |
+| `preserve_word_boundaries` | bool | False | Whether to avoid masking across word boundaries |
+| `case_sensitive` | bool | True | Whether matching is case-sensitive |
+| `random_mask` | bool | False | Whether to use random characters from pool instead of fixed mask_char |
+| `mask_char_pool` | Optional[str] | None | Pool of characters for random masking (e.g., "ABC123") |
+| `preset_type` | Optional[str] | None | Preset category for reusable masking templates |
+| `preset_name` | Optional[str] | None | Name of specific preset configuration to apply |
+| `consistency_fields` | Optional[List[str]] | None | Other fields to mask consistently with main field |
+| `**kwargs` | dict | - | Additional keyword arguments passed to `AnonymizationOperation` |
 
-## 6. Usage Examples
+## Key Masking Strategies
+
+### Fixed Strategy
+Masks specified positions with a fixed character.
+```python
+op = PartialMaskingOperation(
+    field_name="ssn",
+    mask_strategy="fixed",
+    mask_char="*",
+    unmasked_prefix=3,
+    unmasked_suffix=4
+)
+# Input: "123456789" → Output: "123****789"
+```
+
+### Pattern Strategy
+Applies predefined or custom regex patterns to mask specific data types.
+```python
+op = PartialMaskingOperation(
+    field_name="email",
+    mask_strategy="pattern",
+    pattern_type="email"
+)
+# Masks domain while preserving first character of username
+```
+
+### Random Strategy
+Masks a random percentage of characters.
+```python
+op = PartialMaskingOperation(
+    field_name="text",
+    mask_strategy="random",
+    mask_percentage=50,
+    random_mask=True,
+    mask_char_pool="0123456789"
+)
+```
+
+### Word Strategy
+Masks entire words or tokens.
+```python
+op = PartialMaskingOperation(
+    field_name="address",
+    mask_strategy="words",
+    mask_char="***",
+    preserve_separators=True
+)
+```
+
+## Key Methods
+
+### execute()
+Executes the partial masking operation on the input data source.
+
+```python
+def execute(
+    self,
+    data_source: DataSource,
+    task_dir: Path,
+    reporter: Any,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    **kwargs,
+) -> OperationResult:
+```
+
+**Features:**
+- Full integration with PAMOLA framework
+- Support for both pandas and Dask DataFrames
+- Conditional and k-anonymity-based processing
+- Comprehensive metrics and visualization
+- Error handling and progress tracking
+
+## Usage Examples
+
+### Email Partial Masking
 ```python
 from pamola_core.anonymization.masking.partial_masking_op import PartialMaskingOperation
-op = PartialMaskingOperation(mask_char='*', start=2, end=6)
-masked = op.mask_partial_value('SensitiveData', {'mask_char': '*', 'start': 2, 'end': 6})
-# masked -> 'Se****iveData'
+from pamola_core.utils.ops.op_data_source import DataSource
+
+op = PartialMaskingOperation(
+    field_name="email",
+    mask_strategy="pattern",
+    pattern_type="email"
+)
+
+data_source = DataSource.from_file_path("users.csv", name="main")
+result = op.execute(
+    data_source=data_source,
+    task_dir=Path("output/task_001"),
+    reporter=None
+)
 ```
 
-## 7. Troubleshooting & Investigation Guide
-- Ensure configuration parameters (mask_char, start, end) are valid
-- Check for input values shorter than mask range
-- Review logs for pipeline integration errors
+### SSN Prefix/Suffix Masking
+```python
+op = PartialMaskingOperation(
+    field_name="ssn",
+    mask_strategy="fixed",
+    mask_char="*",
+    unmasked_prefix=3,
+    unmasked_suffix=4
+)
+# Input: "123-45-6789" → Output: "123-**-6789"
+```
 
-## Unit Test Coverage
+### Credit Card Tokenization
+```python
+op = PartialMaskingOperation(
+    field_name="cc_number",
+    mask_strategy="fixed",
+    mask_char="X",
+    unmasked_suffix=4,
+    preserve_separators=True
+)
+# Input: "4532-1111-5678-9010" → Output: "XXXX-XXXX-XXXX-9010"
+```
 
-All actionable tests validate output artifacts and business logic for prefix/suffix, pattern, and pool masking. No skips, xfails, or untestable tests remain. All tests pass and coverage is complete. File is marked as 'Full' per Metrics template.
+## Integration with Base Class
 
-## 8. Summary Analysis
+**Reference:** This operation inherits from the abstract base class documented in [base_anonymization_op.md](../base_anonymization_op.md). See that file for all shared parameters, methods, conditional processing, and k-anonymity integration details.
 
-- Provides partial masking for sensitive fields, balancing privacy and utility
-- Supports flexible configuration of unmasked prefix/suffix and mask characters
-- Integrates seamlessly with the base anonymization operation and metrics
-- Enables business-driven masking strategies for diverse data types
-- Facilitates compliance, traceability, and onboarding with clear usage patterns
-- Reference implementation for partial masking in PAMOLA.CORE
+## Metrics
 
-## 9. Challenges, Limitations & Enhancement Opportunities
-- Only supports string masking (future: add numeric/structured masking)
-- Edge cases for very short strings
-- Enhancement: support regex-based masking
+The operation collects:
+- **Suppression Rate:** Percentage of characters masked
+- **Anonymization Effectiveness:** Information loss ratio
+- **Disclosure Risk:** Based on unmasked portions
+- **Performance Metrics:** Processing time and throughput
 
-## 10. Related Components & References
-- pamola_core/anonymization/masking/base_anonymization_op.py
-- pamola_core/anonymization/commons/masking_patterns.py
+## Related Components
 
-## 11. Change Log & Contributors
-- 2025-07-25: Initial auto-generated documentation.
-- 2025-07-28: Migrated to strict Metrics package template for compliance.
+- `AnonymizationOperation` (base class)
+- `MaskingPatterns` (pattern utilities)
+- `PartialMaskingConfig` (configuration schema)
 
----
+## Changelog
 
-*This documentation is auto-generated as part of the PAMOLA Core Metrics package coverage process.*
+**v2.0.0 (2025-06-15)**
+- Added pattern-based masking with predefined types (email, phone, ipv4)
+- Added word-level masking strategy
+- Added random character pool masking
+- Added preset templates for reusable configurations
+- Added multi-field consistency support
+- Enhanced word and separator boundary preservation
+
+**v1.0.0 (2025-01-20)**
+- Initial implementation with position-based masking

@@ -1,0 +1,87 @@
+# Coverage configuration — Public API only (per SRS 4.1.11)
+# Scope: files containing classes/functions exported from pamola_core/__init__.py
+# Run: python -m pytest tests/ --cov --cov-report=term
+
+[run]
+include =
+    # analysis: 5 public functions
+    pamola_core/analysis/correlation.py
+    pamola_core/analysis/dataset_summary.py
+    pamola_core/analysis/descriptive_stats.py
+    pamola_core/analysis/distribution.py
+    pamola_core/analysis/privacy_risk.py
+    # anonymization: 10 operation classes
+    pamola_core/anonymization/generalization/categorical_op.py
+    pamola_core/anonymization/generalization/datetime_op.py
+    pamola_core/anonymization/generalization/numeric_op.py
+    pamola_core/anonymization/masking/full_masking_op.py
+    pamola_core/anonymization/masking/partial_masking_op.py
+    pamola_core/anonymization/noise/uniform_numeric_op.py
+    pamola_core/anonymization/noise/uniform_temporal_op.py
+    pamola_core/anonymization/suppression/attribute_op.py
+    pamola_core/anonymization/suppression/cell_op.py
+    pamola_core/anonymization/suppression/record_op.py
+    # profiling: 14 operation classes + analyze_dataset_attributes
+    pamola_core/profiling/analyzers/anonymity.py
+    pamola_core/profiling/analyzers/attribute.py
+    pamola_core/profiling/analyzers/categorical.py
+    pamola_core/profiling/analyzers/correlation.py
+    pamola_core/profiling/analyzers/currency.py
+    pamola_core/profiling/analyzers/date.py
+    pamola_core/profiling/analyzers/email.py
+    pamola_core/profiling/analyzers/group.py
+    pamola_core/profiling/analyzers/identity.py
+    pamola_core/profiling/analyzers/mvf.py
+    pamola_core/profiling/analyzers/numeric.py
+    pamola_core/profiling/analyzers/phone.py
+    pamola_core/profiling/analyzers/text.py
+    pamola_core/profiling/commons/attribute_utils.py
+    # transformations: 8 operation classes
+    pamola_core/transformations/cleaning/clean_invalid_values.py
+    pamola_core/transformations/field_ops/add_modify_fields.py
+    pamola_core/transformations/field_ops/remove_fields.py
+    pamola_core/transformations/grouping/aggregate_records_op.py
+    pamola_core/transformations/imputation/impute_missing_values.py
+    pamola_core/transformations/merging/merge_datasets_op.py
+    pamola_core/transformations/splitting/split_by_id_values_op.py
+    pamola_core/transformations/splitting/split_fields_op.py
+    # metrics: 3 ops + RuleCode + SchemaManager + 3 functions
+    pamola_core/metrics/operations/fidelity_ops.py
+    pamola_core/metrics/operations/privacy_ops.py
+    pamola_core/metrics/operations/utility_ops.py
+    pamola_core/metrics/commons/validation_rules.py
+    pamola_core/metrics/commons/schema_manager.py
+    pamola_core/metrics/commons/__init__.py
+    pamola_core/metrics/commons/risk_scoring.py
+    pamola_core/metrics/commons/predicted_utility_scoring.py
+    # fake_data: 4 operation classes
+    pamola_core/fake_data/operations/email_op.py
+    pamola_core/fake_data/operations/name_op.py
+    pamola_core/fake_data/operations/organization_op.py
+    pamola_core/fake_data/operations/phone_op.py
+    # io: 4 reader functions
+    pamola_core/io/csv.py
+    pamola_core/io/excel.py
+    pamola_core/io/json.py
+    pamola_core/io/parquet.py
+    # utils: BaseOperation, DataSource, OperationStatus
+    pamola_core/utils/ops/op_base.py
+    pamola_core/utils/ops/op_data_source.py
+    pamola_core/utils/ops/op_result.py
+    # utils: BaseTask, TaskConfig
+    pamola_core/utils/tasks/base_task.py
+    pamola_core/utils/tasks/task_config.py
+    # utils: load_data_operation, load_settings_operation, optimize_dataframe_memory
+    pamola_core/utils/io.py
+    # utils: decrypt_file, decrypt_data, encrypt_file
+    pamola_core/utils/io_helpers/crypto_utils.py
+    # utils: safe_remove_temp_file
+    pamola_core/utils/io_helpers/directory_utils.py
+    # utils: detect_encryption_mode
+    pamola_core/utils/io_helpers/crypto_router.py
+    # utils: get_key_for_task
+    pamola_core/utils/crypto_helpers/key_store.py
+
+[report]
+show_missing = true
+fail_under = 0

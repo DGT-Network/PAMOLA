@@ -73,7 +73,31 @@ AttributeSuppressionOperation
 ### 3.1 Constructor Signature
 
 ```python
-AttributeSuppressionOperation(
+def __init__(
+    self,
+    field_name: str,
+    additional_fields: Optional[List[str]] = None,
+    suppression_mode: str = "REMOVE",
+    save_suppressed_schema: bool = True,
+    **kwargs,
+):
+```
+
+### 3.2 Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Name of the primary field (column) to suppress |
+| `additional_fields` | Optional[List[str]] | None | Additional fields to suppress alongside `field_name` |
+| `suppression_mode` | str | "REMOVE" | Operation suppression mode; only "REMOVE" supported for attribute suppression |
+| `save_suppressed_schema` | bool | True | Whether to save metadata about suppressed columns |
+| `**kwargs` | dict | - | Additional keyword arguments passed to `AnonymizationOperation` |
+
+### 3.3 Constructor Details
+
+```python
+def __init__(
+    self,
     field_name: str,
     additional_fields: Optional[List[str]] = None,
     mode: str = "REMOVE",

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Dataset and Metric Validators
 Package:       pamola_core.metrics.commons.validation
 Version:       1.0.0
@@ -31,10 +30,17 @@ Dependencies:
   - dataclasses - Structured validation result
 """
 
-from typing import List, Optional
+from typing import List
 import pandas as pd
 from dataclasses import dataclass
 import numpy as np
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    ColumnNotFoundError,
+    InvalidParameterError,
+    ValidationError,
+)
 
 
 @dataclass
@@ -135,38 +141,53 @@ def validate_metric_inputs(
     if not isinstance(original, pd.DataFrame) or not isinstance(
         transformed, pd.DataFrame
     ):
-        raise ValueError(
+        raise ValidationError(
             "Both original and transformed inputs must be pandas DataFrames"
         )
 
     if not columns:
-        raise ValueError("Column list cannot be empty")
+        raise DataError(
+            message="Column list cannot be empty",
+            error_code=ErrorCode.DATA_EMPTY,
+        )
 
     missing_in_original = [col for col in columns if col not in original.columns]
     missing_in_transformed = [col for col in columns if col not in transformed.columns]
 
     if missing_in_original:
-        raise ValueError(f"Columns missing in original: {missing_in_original}")
+        raise ColumnNotFoundError(
+            column_name=missing_in_original,
+            available_columns=list(original.columns),
+        )
     if missing_in_transformed:
-        raise ValueError(f"Columns missing in transformed: {missing_in_transformed}")
+        raise ColumnNotFoundError(
+            column_name=missing_in_transformed,
+            available_columns=list(transformed.columns),
+        )
 
     if metric_type not in ["fidelity", "privacy", "utility"]:
-        raise ValueError(f"Unsupported metric_type: {metric_type}")
+        raise InvalidParameterError(
+            param_name="metric_type",
+            param_value=metric_type,
+            reason=f"Unsupported metric_type: {metric_type}",
+        )
 
 
 def validate_confidence_level(confidence_level: float) -> float:
     """Validate and clamp confidence level to valid range."""
     if not 0.0 < confidence_level < 1.0:
-        raise ValueError(
+        raise ValidationError(
             f"confidence_level must be between 0 and 1, got {confidence_level}"
         )
     return confidence_level
 
+
 def validate_epsilon(epsilon: float) -> float:
     """Validate epsilon parameter."""
     if epsilon < 0:
-        raise ValueError(f"epsilon must be non-negative, got {epsilon}")
+        raise ValidationError(f"epsilon must be non-negative, got {epsilon}")
     return epsilon
+
 
 def validate_dataframe(df: pd.DataFrame) -> None:
     """
@@ -179,15 +200,26 @@ def validate_dataframe(df: pd.DataFrame) -> None:
     # Missing
     null_cols = df.columns[df.isna().any()].tolist()
     if null_cols:
-        raise ValueError(f"Dataset contains missing (NaN) values at columns: {null_cols}.")
+        raise ColumnNotFoundError(
+            column_name=null_cols,
+            available_columns=list(df.columns),
+        )
 
     # Infinite
     num_df = df.select_dtypes(include=[np.number])
     inf_cols = num_df.columns[~np.isfinite(num_df).all()].tolist()
     if inf_cols:
-        raise ValueError(f"Dataset contains inf/-inf values at columns: {inf_cols}.")
+        raise DataError(
+            message=f"Dataset contains inf/-inf values at columns: {inf_cols}.",
+            error_code=ErrorCode.DATA_VALIDATION_ERROR,
+        )
 
     # Blank string
     str_df = df.select_dtypes(include=["object", "string"])
-    if not str_df.empty and (str_df.apply(lambda s: s.astype(str).str.strip().eq("")).any().any()):
-        raise ValueError(f"Dataset contains blank (empty string) values.")
+    if not str_df.empty and (
+        str_df.apply(lambda s: s.astype(str).str.strip().eq("")).any().any()
+    ):
+        raise DataError(
+            message="Dataset contains blank (empty string) values.",
+            error_code=ErrorCode.DATA_EMPTY,
+        )

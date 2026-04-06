@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Fake Data Generators
--------------------------------------------------------
 Module:        Fake Data Generator Operation
 Package:       pamola_core.fake_data
 Version:       3.0.0
@@ -49,9 +48,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 import pandas as pd
 
-# Import anonymization-specific utilities
-from pamola_core.anonymization.commons.data_utils import (
-    process_nulls,
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    TypeValidationError,
+    ValidationError,
+    FeatureNotImplementedError,
 )
 from pamola_core.common.constants import Constants
 from pamola_core.fake_data.commons.base import BaseGenerator
@@ -83,7 +85,7 @@ from pamola_core.utils.helpers import (
     filter_used_kwargs,
     get_cache_result,
 )
-from pamola_core.utils import helpers
+import pamola_core.utils.helpers as helpers
 
 
 class GeneratorOperation(FieldOperation):
@@ -178,7 +180,7 @@ class GeneratorOperation(FieldOperation):
         """
         Execute the generator operation with enhanced features including Dask support.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -191,7 +193,7 @@ class GeneratorOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -201,11 +203,17 @@ class GeneratorOperation(FieldOperation):
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
             self.logger.info(
-                f"Starting {self.operation_name} operation at {self.start_time}"
+                f"Starting: {self.operation_name} operation at {self.start_time}"
             )
 
             # Initialize result object
             result = OperationResult(status=OperationStatus.PENDING)
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -215,16 +223,19 @@ class GeneratorOperation(FieldOperation):
                 cache_dir=dirs["cache"],
             )
 
-            # Create writer for consistent output handling
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
+            # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
             # Save operation configuration
             self.save_config(task_dir)
-
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -276,56 +287,46 @@ class GeneratorOperation(FieldOperation):
                 )
 
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
-                try:
+                if main_progress:
+                    current_steps += 1
+                    main_progress.update(
+                        current_steps,
+                        {"step": "Checking cache", "field": self.field_name},
+                    )
+
+                # Load data for cache check
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(self._original_df, reporter)
+
+                if cache_result:
+                    self.logger.info(
+                        f"Using cached result for {self.field_name} gereration operation"
+                    )
+
+                    # Update progress
                     if main_progress:
-                        current_steps += 1
                         main_progress.update(
                             current_steps,
-                            {"step": "Checking cache", "field": self.field_name},
+                            {"step": "Complete (cached)", "field": self.field_name},
                         )
 
-                    # Load data for cache check
-                    self.logger.info("Checking operation cache...")
-                    cache_result = self._check_cache(self._original_df, reporter)
-
-                    if cache_result:
-                        self.logger.info(
-                            f"Using cached result for {self.field_name} gereration operation"
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Generator of {self.field_name} (from cache)",
+                            details={"cached": True},
                         )
 
-                        # Update progress
-                        if main_progress:
-                            main_progress.update(
-                                current_steps,
-                                {"step": "Complete (cached)", "field": self.field_name},
-                            )
-
-                        # Report cache hit to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Generator of {self.field_name} (from cache)",
-                                details={"cached": True},
-                            )
-
-                        return cache_result
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                    return cache_result
 
             # Step 3: Prepare output field
             if main_progress:
@@ -340,12 +341,15 @@ class GeneratorOperation(FieldOperation):
                 self.logger.info(f"Prepared output_field: '{self.output_field_name}'")
                 self._report_operation_details(reporter, self.output_field_name)
             except Exception as e:
-                error_message = f"Preparing output field error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "prepare_output_field", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 4: Processing
@@ -390,19 +394,21 @@ class GeneratorOperation(FieldOperation):
                     except:
                         pass
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Record end time after processing metrics
             self.end_time = time.time()
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             # Step 5: Metrics Calculation
             if main_progress:
@@ -436,7 +442,7 @@ class GeneratorOperation(FieldOperation):
                 generate_metrics_report(
                     metrics,
                     report_dir,
-                    op_type=self.name,
+                    op_type=self.operation_name,
                     field_name=self.field_name,
                     operation_timestamp=operation_timestamp,
                 )
@@ -516,12 +522,14 @@ class GeneratorOperation(FieldOperation):
                         **safe_kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_name},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -545,40 +553,43 @@ class GeneratorOperation(FieldOperation):
                 generated_data=generated_data,
             )
 
-            # Finalize timing
-            self.end_time = time.time()
-
             # Report completion
             if reporter:
                 reporter.add_operation(
                     f"Generator of {self.field_name} completed",
                     details={
                         "records_processed": self.process_count,
-                        "execution_time": self.end_time - self.start_time,
+                        "execution_time": self.execution_time,
                     },
                 )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
             self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
             )
             return result
 
         except Exception as e:
-            error_message = f"Error in generator operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=error_message,
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _initialize_mapping_store(self, path: Union[str, Path]) -> None:
         """
         Initialize the mapping store if needed.
 
-        Args:
+        Parameters
+        ----------
             path: Path to mapping store file
         """
         try:
@@ -601,7 +612,7 @@ class GeneratorOperation(FieldOperation):
         """
         Validate data source and retrieve the main dataframe.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             The data source to validate
@@ -610,12 +621,12 @@ class GeneratorOperation(FieldOperation):
         **kwargs : Any
             Additional keyword arguments to pass to the data loading function
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The validated dataframe
 
-        Raises:
+        Raises
         -------
         ValueError
             If no valid dataframe is found or the field is missing
@@ -623,29 +634,29 @@ class GeneratorOperation(FieldOperation):
         # Get DataFrame from the data source
         df = load_data_operation(data_source, dataset_name, **kwargs)
         if df is None:
-            error_message = f"Failed to load input data!"
+            error_message = "Failed to load input data!"
             self.logger.error(error_message)
-            raise ValueError(error_message)
+            raise ValidationError(error_message)
 
         if self.field_name not in df.columns:
             error_message = f"Field {self.field_name} not found in DataFrame"
             self.logger.error(error_message)
-            raise ValueError(error_message)
+            raise ValidationError(error_message)
 
         # Apply data types from data source
         try:
             df = data_source.apply_data_types(df, dataset_name)
-        except ValueError as e:
+        except (ValidationError, ValueError) as e:
             error_msg = (
                 f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
             )
             self.logger.error(error_msg)
-            raise ValueError(error_msg) from e
+            raise ValidationError(error_msg) from e
 
         except TypeError as e:
             error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
             self.logger.error(error_msg)
-            raise TypeError(error_msg) from e
+            raise TypeValidationError(error_msg) from e
 
         return df
 
@@ -653,12 +664,12 @@ class GeneratorOperation(FieldOperation):
         """
         Validate and generate the output field name.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to check field names against
 
-        Returns:
+        Returns
         --------
         str
             The validated output field name
@@ -683,7 +694,7 @@ class GeneratorOperation(FieldOperation):
         """
         Report details of the operation to the reporter.
 
-        Parameters:
+        Parameters
         -----------
         reporter : Any
             The reporter to log details to
@@ -711,14 +722,14 @@ class GeneratorOperation(FieldOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to process
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The processed dataframe
@@ -730,6 +741,8 @@ class GeneratorOperation(FieldOperation):
 
         # Handle null values based on strategy
         if self.null_strategy != "PRESERVE":
+            from pamola_core.anonymization.commons.data_utils import process_nulls
+
             df[self.field_name] = process_nulls(
                 df[self.field_name], strategy=self.null_strategy.upper()
             )
@@ -982,10 +995,12 @@ class GeneratorOperation(FieldOperation):
         """
         Collect operation-specific metrics. Should be overridden by subclasses.
 
-        Args:
+        Parameters
+        ----------
             df: Processed DataFrame
 
-        Returns:
+        Returns
+        -------
             Dictionary with metrics
         """
         return {}
@@ -1008,7 +1023,7 @@ class GeneratorOperation(FieldOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The processed dataframe
@@ -1061,7 +1076,7 @@ class GeneratorOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1073,7 +1088,7 @@ class GeneratorOperation(FieldOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1120,10 +1135,10 @@ class GeneratorOperation(FieldOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -1177,7 +1192,7 @@ class GeneratorOperation(FieldOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1217,7 +1232,7 @@ class GeneratorOperation(FieldOperation):
         This is a base implementation that provides a basic distribution comparison.
         Subclasses should override to provide operation-specific visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The processed dataframe
@@ -1238,7 +1253,7 @@ class GeneratorOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1291,7 +1306,7 @@ class GeneratorOperation(FieldOperation):
                     metrics=metrics,
                     field_name=self.field_name,
                     output_dir=viz_dir,
-                    op_type=self.name,
+                    op_type=self.operation_name,
                     **kwargs_visualization,
                 )
                 visualization_paths = {
@@ -1321,7 +1336,7 @@ class GeneratorOperation(FieldOperation):
         """
         Save the processed output data.
 
-        Parameters:
+        Parameters
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
@@ -1404,7 +1419,7 @@ class GeneratorOperation(FieldOperation):
         For large datasets, explicitly free memory by deleting
         references and optionally calling garbage collection.
 
-        Parameters:
+        Parameters
         -----------
         processed_df : pd.DataFrame, optional
             Processed DataFrame to clear from memory
@@ -1428,19 +1443,21 @@ class GeneratorOperation(FieldOperation):
         """
         Process a batch of data. Must be implemented by subclasses.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
         kwargs : dict
             Additional keyword arguments for processing
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame batch
         """
-        raise NotImplementedError("Subclasses must implement process_batch method")
+        raise FeatureNotImplementedError(
+            "Subclasses must implement process_batch method"
+        )
 
     def _check_cache(
         self, df: pd.DataFrame, reporter: Any
@@ -1508,7 +1525,7 @@ class GeneratorOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             Original input data
@@ -1519,7 +1536,7 @@ class GeneratorOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1658,7 +1675,7 @@ class GeneratorOperation(FieldOperation):
         """
         Save metrics.
 
-        Parameters:
+        Parameters
         -----------
         metrics : dict
             The metrics of operation

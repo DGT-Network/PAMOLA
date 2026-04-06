@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Utility Functions
-----------------------------------------------------
 Module: Helpers
 Description:
     Collection of utility functions for common operations such as:
@@ -26,6 +25,7 @@ from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -51,12 +51,14 @@ def cleanup_memory(instance: Optional[Any] = None, force_gc: bool = True) -> Non
     - Clears the `filter_mask` attribute if it exists.
     - Additionally, it removes any attributes that start with `_temp_` from the instance.
     - If `force_gc` is set to True, it triggers garbage collection.
-    Args:
+    Parameters
+    ----------
         instance (Optional[Any]): The instance from which to clear attributes.
                                    If None, only class-level attributes will be cleared.
         force_gc (bool): A flag indicating whether to force garbage collection.
                          Defaults to True.
-    Returns:
+    Returns
+    -------
         None: This function does not return any value.
     """
     try:
@@ -66,6 +68,10 @@ def cleanup_memory(instance: Optional[Any] = None, force_gc: bool = True) -> Non
         # Clear operation cache
         if hasattr(instance, "operation_cache"):
             instance.operation_cache = None
+
+        # Clear error handler
+        if hasattr(instance, "error_handler"):
+            instance.error_handler = None
 
         # Clear filter mask
         if hasattr(instance, "filter_mask"):
@@ -291,14 +297,14 @@ def generate_data_hash(
         elif isinstance(data, dd.DataFrame):
             sig = get_dask_df_signature(data, sample_size)
         else:
-            raise TypeError(
+            raise TypeValidationError(
                 f"Unsupported data type: {type(data).__name__}. "
                 "Expected pandas.Series, pandas.DataFrame, or dask.dataframe.DataFrame"
             )
 
         return blake(sig.encode())
 
-    except Exception as e:
+    except Exception:
         fallback = f"{type(data).__name__}_{getattr(data, '__len__', lambda: 0)()}"
         return blake(fallback.encode())
 
@@ -335,7 +341,9 @@ def build_base_cache(
     }
 
 
-def get_cache_result(result_data: Optional[Dict[str, Any]]) -> Optional[OperationResult]:
+def get_cache_result(
+    result_data: Optional[Dict[str, Any]],
+) -> Optional[OperationResult]:
     """
     Retrieve cached result if available and valid.
 

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Remove Fields Operation
 Description: Operation for remove one or more specified fields from a dataset.
 Author: PAMOLA Core Team
@@ -33,6 +32,9 @@ from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import FeatureNotImplementedError
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
@@ -58,7 +60,7 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Initialize the RemoveFieldsOperation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation (default: "remove_fields_operation").
@@ -109,7 +111,7 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -122,7 +124,7 @@ class RemoveFieldsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -130,19 +132,18 @@ class RemoveFieldsOperation(TransformationOperation):
         try:
             # Initialize timing and result
             self.start_time = time.time()
-
-            # Config logger task for operation
             self.logger = kwargs.get("logger", self.logger)
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
+            )
 
             result = OperationResult(status=OperationStatus.PENDING)
 
-            # Create DataWriter for consistent file operations
-            writer = DataWriter(
-                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-            )
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -152,11 +153,19 @@ class RemoveFieldsOperation(TransformationOperation):
                 cache_dir=dirs["cache"],
             )
 
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
             # Save configuration to task directory
             self.save_config(task_dir)
-
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -187,12 +196,11 @@ class RemoveFieldsOperation(TransformationOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Check Cache (if enabled and not forced to recalculate)
@@ -216,7 +224,7 @@ class RemoveFieldsOperation(TransformationOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Remove fields (from cache)", details={"cached": True}
+                            "Remove fields (from cache)", details={"cached": True}
                         )
                     return cache_result
 
@@ -228,7 +236,7 @@ class RemoveFieldsOperation(TransformationOperation):
             try:
                 if reporter:
                     reporter.add_operation(
-                        f"Remove fields",
+                        "Remove fields",
                         details={
                             "fields_to_remove": self.fields_to_remove,
                             "pattern": self.pattern,
@@ -239,14 +247,12 @@ class RemoveFieldsOperation(TransformationOperation):
                 # Get a copy of the original data for metrics calculation
                 original_df = df.copy(deep=True)
 
-                # Validation
             except Exception as e:
-                error_message = f"Validation error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_VALIDATION_ERROR,
+                    context={"operation": self.operation_name},
+                    message_kwargs={"context": "remove_fields", "reason": str(e)},
                 )
 
             # Step 4: Processing
@@ -257,12 +263,15 @@ class RemoveFieldsOperation(TransformationOperation):
             try:
                 processed_df = self._process_dataframe(df, progress_tracker)
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_label,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 5: Metrics
@@ -337,12 +346,14 @@ class RemoveFieldsOperation(TransformationOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_label},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -378,7 +389,7 @@ class RemoveFieldsOperation(TransformationOperation):
                         details["generalization_ratio"] = generalization_ratio
 
                 # Add the operation to the reporter
-                reporter.add_operation(f"Remove fields completed", details=details)
+                reporter.add_operation("Remove fields completed", details=details)
 
             # Clean up memory AFTER all write operations are complete
             self.logger.info("Cleaning up memory after all file operations")
@@ -390,26 +401,35 @@ class RemoveFieldsOperation(TransformationOperation):
 
             # Set success status
             result.status = OperationStatus.SUCCESS
-
+            result.execution_time = self.execution_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
+            )
             return result
+
         except Exception as e:
-            # Handle unexpected errors
-            error_message = f"Error in remove fields operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_label},
+                message_kwargs={
+                    "field_name": self.field_label,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             Batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed batch
@@ -432,25 +452,25 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Process a single value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Value to process
         **params : dict
             Additional parameters for processing
 
-        Returns:
+        Returns
         --------
         Any
             Processed value
         """
-        raise NotImplementedError("Not implement")
+        raise FeatureNotImplementedError("Not implement")
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -469,14 +489,14 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to process
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The processed dataframe
@@ -506,14 +526,14 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Calculate all metrics for operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -542,19 +562,19 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Collect metrics for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
         """
-        from pamola_core.utils.io_helpers import estimate_dataframe_size
+        from pamola_core.utils.io_helpers.memory_utils import estimate_dataframe_size
 
         # Basic metrics
         metrics: Dict[str, Any] = {}
@@ -602,7 +622,7 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
@@ -631,7 +651,7 @@ class RemoveFieldsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for visualization
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -666,7 +686,7 @@ class RemoveFieldsOperation(TransformationOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -678,7 +698,7 @@ class RemoveFieldsOperation(TransformationOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -725,17 +745,17 @@ class RemoveFieldsOperation(TransformationOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -781,7 +801,7 @@ class RemoveFieldsOperation(TransformationOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -820,7 +840,7 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Generate visualizations for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data before processing
@@ -841,7 +861,7 @@ class RemoveFieldsOperation(TransformationOperation):
         operation_timestamp : str
             Timestamp string for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -861,10 +881,10 @@ class RemoveFieldsOperation(TransformationOperation):
 
         # Check if visualization should be skipped
         if vis_backend is None:
-            self.logger.info(f"Skipping visualization (backend=None)")
+            self.logger.info("Skipping visualization (backend=None)")
             return visualization_paths
 
-        self.logger.info(f"[VIZ] Starting visualization generation")
+        self.logger.info("[VIZ] Starting visualization generation")
         self.logger.debug(
             f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
         )
@@ -922,7 +942,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"fields_count_comparison"] = viz_path
+                visualization_paths["fields_count_comparison"] = viz_path
 
             # Memory Usage Comparison before/after
             viz_data = {
@@ -949,7 +969,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"memory_usage_comparison"] = viz_path
+                visualization_paths["memory_usage_comparison"] = viz_path
 
             # Field Removal Impact - Data
             impact_data = []
@@ -1000,7 +1020,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"field_removal_impact_memory_usage"] = viz_path
+                visualization_paths["field_removal_impact_memory_usage"] = viz_path
 
             # Field Removal Impact - Missing Percent
             viz_data = {
@@ -1027,7 +1047,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"field_removal_impact_missing_percent"] = viz_path
+                visualization_paths["field_removal_impact_missing_percent"] = viz_path
 
             # Field Removal Impact - Unique Count
             viz_data = {
@@ -1054,7 +1074,7 @@ class RemoveFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"field_removal_impact_unique_count"] = viz_path
+                visualization_paths["field_removal_impact_unique_count"] = viz_path
 
             # Step 3: Finalize visualizations
             if progress_tracker:
@@ -1072,7 +1092,7 @@ class RemoveFieldsOperation(TransformationOperation):
             self.logger.error(
                 f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}"
             )
-            self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
+            self.logger.debug("[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
 
@@ -1082,12 +1102,12 @@ def create_remove_fields_operation(**kwargs) -> RemoveFieldsOperation:
     """
     Create remove fields operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     RemoveFieldsOperation
         Configured remove fields operation

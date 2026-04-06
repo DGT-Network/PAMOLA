@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Encryption Manager
 Description: Secure encryption key management and handling
 Author: PAMOLA Core Team
@@ -25,6 +24,15 @@ import logging
 import secrets
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List, TYPE_CHECKING
+from pamola_core.errors.exceptions import (
+    ValidationError,
+    DependencyMissingError,
+    DataRedactionError,
+    EncryptionError,
+    KeyGenerationError,
+    KeyLoadingError,
+    KeyStoreError,
+)
 
 # Avoid circular imports with TYPE_CHECKING
 if TYPE_CHECKING:
@@ -42,13 +50,11 @@ except ImportError:  # pragma: no cover
     logger = logging.getLogger(__name__)
     logger.debug("Cryptography module not available")
 
-
     # Stub classes to satisfy static analyzers
     class _CryptoStub:
         # Minimal stub with no methods
         def __getattr__(self, item) -> Any:
-            raise ImportError("Cryptography not installed")
-
+            raise DependencyMissingError("Cryptography not installed")
 
     Fernet = _CryptoStub()  # type: ignore
     hashes = _CryptoStub()  # type: ignore
@@ -61,12 +67,10 @@ try:
 except ImportError:  # pragma: no cover
     PYAGE_AVAILABLE = False
 
-
     # Stub for pyage
     class _PyAgeStub:
         def __getattr__(self, item) -> Any:
-            raise ImportError("PyAge not installed")
-
+            raise DependencyMissingError("PyAge not installed")
 
     pyage = _PyAgeStub()  # type: ignore
 
@@ -74,29 +78,30 @@ except ImportError:  # pragma: no cover
 try:
     from pamola_core.utils.crypto_helpers.key_store import (
         get_key_for_task,  # Function to get task key
-        KeyStoreError  # Specific exception if available
+        KeyStoreError,  # Specific exception if available
     )
 
     KEY_STORE_AVAILABLE = True
 except ImportError:  # pragma: no cover
     KEY_STORE_AVAILABLE = False
 
-
     # Define stubs for IDE satisfaction
     def get_key_for_task(task_id: str):  # type: ignore
-        raise ImportError("key-store unavailable")
+        raise DependencyMissingError("key-store unavailable")
 
-
-    class KeyStoreError(Exception):
-        pass
+    # KeyStoreError imported from pamola_core.errors
 
 # Import path security validation
 from pamola_core.common.enum.encryption_mode import EncryptionMode
-from pamola_core.utils.tasks.path_security import validate_path_security, PathSecurityError
+from pamola_core.utils.tasks.path_security import (
+    validate_path_security,
+    PathSecurityError,
+)
 
 # Set up logger with a null handler (will be replaced by proper handler)
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
 
 class EncryptionContext:
     """
@@ -111,7 +116,8 @@ class EncryptionContext:
         """
         Initialize encryption context.
 
-        Args:
+        Parameters
+        ----------
             mode: Encryption mode to use
             key_fingerprint: Fingerprint of the encryption key (not the key itself)
         """
@@ -128,39 +134,15 @@ class EncryptionContext:
         """
         Convert context to dictionary for serialization.
 
-        Returns:
+        Returns
+        -------
             Dict with context information (no sensitive data)
         """
         return {
             "mode": self.mode.value,
             "key_fingerprint": self.key_fingerprint,
-            "can_encrypt": self._can_encrypt
+            "can_encrypt": self._can_encrypt,
         }
-
-
-class EncryptionError(Exception):
-    """Base exception for encryption-related errors."""
-    pass
-
-
-class EncryptionInitializationError(EncryptionError):
-    """Exception raised when encryption initialization fails."""
-    pass
-
-
-class KeyGenerationError(EncryptionError):
-    """Exception raised when key generation fails."""
-    pass
-
-
-class KeyLoadingError(EncryptionError):
-    """Exception raised when key loading fails."""
-    pass
-
-
-class DataRedactionError(EncryptionError):
-    """Exception raised when data redaction fails."""
-    pass
 
 
 class MemoryProtectedKey:
@@ -175,7 +157,8 @@ class MemoryProtectedKey:
         """
         Initialize with key material.
 
-        Args:
+        Parameters
+        ----------
             key_material: Raw key bytes
             key_id: Optional identifier for the key
         """
@@ -194,10 +177,12 @@ class MemoryProtectedKey:
         """
         Generate a fingerprint of the key for identification without exposing the key.
 
-        Args:
+        Parameters
+        ----------
             key_material: Key bytes
 
-        Returns:
+        Returns
+        -------
             String fingerprint
         """
         if CRYPTOGRAPHY_AVAILABLE:
@@ -209,6 +194,7 @@ class MemoryProtectedKey:
             # Fallback to simple hash if cryptography not available
             # Not for cryptographic purposes, just for identification
             import hashlib
+
             return hashlib.sha256(key_material).hexdigest()[:16]
 
     def __enter__(self):
@@ -238,7 +224,7 @@ class MemoryProtectedKey:
         This is a best-effort method as Python's garbage collection
         and memory management can make true secure erasure difficult.
         """
-        if hasattr(self, '_key_material') and self._key_material:
+        if hasattr(self, "_key_material") and self._key_material:
             # Try to overwrite with zeros
             key_len = len(self._key_material)
             try:
@@ -292,15 +278,16 @@ class TaskEncryptionManager:
     _key_cache: Dict[str, bytes] = {}
 
     def __init__(
-            self,
-            task_config: Any,
-            logger: Optional[logging.Logger] = None,
-            progress_manager: Optional['TaskProgressManager'] = None
+        self,
+        task_config: Any,
+        logger: Optional[logging.Logger] = None,
+        progress_manager: Optional["TaskProgressManager"] = None,
     ):
         """
         Initialize encryption manager with task configuration.
 
-        Args:
+        Parameters
+        ----------
             task_config: Task configuration object containing encryption settings
             logger: Logger for encryption operations (optional)
             progress_manager: Progress manager for tracking initialization (optional)
@@ -312,23 +299,35 @@ class TaskEncryptionManager:
 
         # Initialize state variables
         self._protected_key = None
-        self._encryption_mode = getattr(task_config, 'encryption_mode', EncryptionMode.NONE)
-        self._use_encryption = getattr(task_config, 'use_encryption', False)
-        self._encryption_key_path = getattr(task_config, 'encryption_key_path', None)
+        self._encryption_mode = getattr(
+            task_config, "encryption_mode", EncryptionMode.NONE
+        )
+        self._use_encryption = getattr(task_config, "use_encryption", False)
+        self._encryption_key_path = getattr(task_config, "encryption_key_path", None)
         self._initialized = False
         self._initialization_error = None
 
         # Define set of sensitive parameter names
         self._sensitive_param_names = {
-            'encryption_key', 'key', 'password', 'secret', 'token', 'api_key',
-            'access_key', 'private_key', 'master_key', 'passphrase', 'credentials'
+            "encryption_key",
+            "key",
+            "password",
+            "secret",
+            "token",
+            "api_key",
+            "access_key",
+            "private_key",
+            "master_key",
+            "passphrase",
+            "credentials",
         }
 
     def initialize(self) -> bool:
         """
         Initialize encryption based on configuration.
 
-        Returns:
+        Returns
+        -------
             True if initialization successful, False otherwise
         """
         # If already initialized, return cached result
@@ -341,11 +340,12 @@ class TaskEncryptionManager:
                 progress_context = self.progress_manager.create_operation_context(
                     name="initialize_encryption",
                     total=5,  # steps: check config, load key, validate, check datasets, finalize
-                    description=f"Initializing encryption ({self._encryption_mode.value})"
+                    description=f"Initializing encryption ({self._encryption_mode.value})",
                 )
             else:
                 # Use a dummy context manager if progress manager isn't available
                 from contextlib import nullcontext
+
                 progress_context = nullcontext()
 
             with progress_context as progress:
@@ -356,7 +356,7 @@ class TaskEncryptionManager:
                     self._initialized = True
 
                     # Update progress if available
-                    if hasattr(progress, 'update'):
+                    if hasattr(progress, "update"):
                         progress.update(5, {"status": "disabled"})
 
                     return False
@@ -364,13 +364,16 @@ class TaskEncryptionManager:
                 # Validate encryption mode
                 if self._encryption_mode == EncryptionMode.NONE:
                     self.logger.warning(
-                        f"Invalid encryption configuration: mode is 'none' but use_encryption is True, defaulting to 'simple'")
+                        "Invalid encryption configuration: mode is 'none' but use_encryption is True, defaulting to 'simple'"
+                    )
                     self._encryption_mode = EncryptionMode.SIMPLE
 
-                self.logger.info(f"Initializing encryption with mode: {self._encryption_mode.value}")
+                self.logger.info(
+                    f"Initializing encryption with mode: {self._encryption_mode.value}"
+                )
 
                 # Update progress if available
-                if hasattr(progress, 'update'):
+                if hasattr(progress, "update"):
                     progress.update(1, {"status": "config_validated"})
 
                 # Try to load or generate encryption key
@@ -384,21 +387,29 @@ class TaskEncryptionManager:
 
                         if key_path.exists():
                             # Load key from file
-                            with open(key_path, 'rb') as f:
+                            with open(key_path, "rb") as f:
                                 key_material = f.read()
 
                             # Create protected key container
                             self._protected_key = MemoryProtectedKey(key_material)
-                            self.logger.info(f"Loaded encryption key (fingerprint: {self._protected_key.fingerprint})")
+                            self.logger.info(
+                                f"Loaded encryption key (fingerprint: {self._protected_key.fingerprint})"
+                            )
                             key_loaded = True
                         else:
-                            self.logger.warning(f"Encryption key file {key_path} not found")
+                            self.logger.warning(
+                                f"Encryption key file {key_path} not found"
+                            )
                     except Exception as e:
-                        self.logger.error(f"Error loading encryption key from file: {str(e)}")
+                        self.logger.error(
+                            f"Error loading encryption key from file: {str(e)}"
+                        )
 
                 # Update progress if available
-                if hasattr(progress, 'update'):
-                    progress.update(1, {"status": "file_key_checked", "key_loaded": key_loaded})
+                if hasattr(progress, "update"):
+                    progress.update(
+                        1, {"status": "file_key_checked", "key_loaded": key_loaded}
+                    )
 
                 # If key not loaded from file, try key store
                 if not key_loaded:
@@ -409,7 +420,8 @@ class TaskEncryptionManager:
                             # Create protected key container
                             self._protected_key = MemoryProtectedKey(key_material)
                             self.logger.info(
-                                f"Retrieved encryption key from key store (fingerprint: {self._protected_key.fingerprint})")
+                                f"Retrieved encryption key from key store (fingerprint: {self._protected_key.fingerprint})"
+                            )
                             key_loaded = True
                         else:
                             self.logger.warning("No encryption key found in key store")
@@ -417,8 +429,10 @@ class TaskEncryptionManager:
                         self.logger.error(f"Error retrieving key from store: {str(e)}")
 
                 # Update progress if available
-                if hasattr(progress, 'update'):
-                    progress.update(1, {"status": "store_key_checked", "key_loaded": key_loaded})
+                if hasattr(progress, "update"):
+                    progress.update(
+                        1, {"status": "store_key_checked", "key_loaded": key_loaded}
+                    )
 
                 # If still no key, try to generate one
                 if not key_loaded and (self._encryption_mode == EncryptionMode.SIMPLE):
@@ -428,7 +442,8 @@ class TaskEncryptionManager:
                         # Create protected key container
                         self._protected_key = MemoryProtectedKey(key_material)
                         self.logger.info(
-                            f"Generated new encryption key (fingerprint: {self._protected_key.fingerprint})")
+                            f"Generated new encryption key (fingerprint: {self._protected_key.fingerprint})"
+                        )
                         key_loaded = True
 
                         # Optionally save the key if path is provided
@@ -438,38 +453,53 @@ class TaskEncryptionManager:
                                 # Create directory if it doesn't exist
                                 key_path.parent.mkdir(parents=True, exist_ok=True)
                                 # Save key to file
-                                with open(key_path, 'wb') as f:
+                                with open(key_path, "wb") as f:
                                     f.write(key_material)
-                                self.logger.info(f"Saved new encryption key to {key_path}")
+                                self.logger.info(
+                                    f"Saved new encryption key to {key_path}"
+                                )
                     except Exception as e:
                         self.logger.error(f"Error generating encryption key: {str(e)}")
 
                 # Update progress if available
-                if hasattr(progress, 'update'):
-                    progress.update(1, {"status": "key_generation_attempted", "key_loaded": key_loaded})
+                if hasattr(progress, "update"):
+                    progress.update(
+                        1,
+                        {
+                            "status": "key_generation_attempted",
+                            "key_loaded": key_loaded,
+                        },
+                    )
 
                 # If still no key and encryption is required, disable encryption
                 if not key_loaded:
-                    self.logger.warning("No encryption key available, disabling encryption")
+                    self.logger.warning(
+                        "No encryption key available, disabling encryption"
+                    )
                     self._use_encryption = False
                     self._encryption_mode = EncryptionMode.NONE
                     self._initialized = True
 
                     # Update progress if available
-                    if hasattr(progress, 'update'):
+                    if hasattr(progress, "update"):
                         progress.update(1, {"status": "disabled_due_to_no_key"})
 
                     return False
 
                 # Log final encryption status
                 if self._use_encryption:
-                    self.logger.info(f"Encryption initialized successfully with mode: {self._encryption_mode.value}")
+                    self.logger.info(
+                        f"Encryption initialized successfully with mode: {self._encryption_mode.value}"
+                    )
                 else:
                     self.logger.info("Encryption is disabled")
 
                 # Update progress if available
-                if hasattr(progress, 'update'):
-                    progress.update(1, {"status": "initialized", "mode": self._encryption_mode.value})
+                if hasattr(progress, "update"):
+                    progress.update(
+                        1,
+                        {"status": "initialized", "mode": self._encryption_mode.value},
+                    )
 
                 # Mark as initialized
                 self._initialized = True
@@ -486,16 +516,20 @@ class TaskEncryptionManager:
         """
         Resolve the encryption key path safely.
 
-        Returns:
+        Returns
+        -------
             Path object for the encryption key
 
-        Raises:
+        Raises
+        ------
             PathSecurityError: If the path fails security validation
         """
         if isinstance(self._encryption_key_path, str):
             # Handle string path
             path_obj = Path(self._encryption_key_path)
-            if not path_obj.is_absolute() and hasattr(self.config, 'resolve_legacy_path'):
+            if not path_obj.is_absolute() and hasattr(
+                self.config, "resolve_legacy_path"
+            ):
                 # Use config's path resolution if available
                 path_obj = self.config.resolve_legacy_path(path_obj)
         elif isinstance(self._encryption_key_path, Path):
@@ -503,16 +537,16 @@ class TaskEncryptionManager:
             path_obj = self._encryption_key_path
         else:
             # Invalid path type
-            raise ValueError(f"Invalid encryption key path type: {type(self._encryption_key_path)}")
+            raise ValidationError(
+                f"Invalid encryption key path type: {type(self._encryption_key_path)}"
+            )
 
         # Validate path security
-        allowed_paths = getattr(self.config, 'allowed_external_paths', [])
-        allow_external = getattr(self.config, 'allow_external', False)
+        allowed_paths = getattr(self.config, "allowed_external_paths", [])
+        allow_external = getattr(self.config, "allow_external", False)
 
         if not validate_path_security(
-                path_obj,
-                allowed_paths=allowed_paths,
-                allow_external=allow_external
+            path_obj, allowed_paths=allowed_paths, allow_external=allow_external
         ):
             raise PathSecurityError(f"Insecure encryption key path: {path_obj}")
 
@@ -522,10 +556,12 @@ class TaskEncryptionManager:
         """
         Get encryption key from key store.
 
-        Returns:
+        Returns
+        -------
             Key bytes if available, None otherwise
 
-        Raises:
+        Raises
+        ------
             KeyLoadingError: If key store is available but returned an error
         """
         if not KEY_STORE_AVAILABLE:
@@ -570,10 +606,12 @@ class TaskEncryptionManager:
         """
         Generate a new encryption key.
 
-        Returns:
+        Returns
+        -------
             New key bytes
 
-        Raises:
+        Raises
+        ------
             KeyGenerationError: If key generation fails
         """
         try:
@@ -589,11 +627,17 @@ class TaskEncryptionManager:
                     # Generate Age key
                     return pyage.generate_x25519_key_pair().private_key
                 else:
-                    raise KeyGenerationError("Cannot generate Age key - pyage module not available")
+                    raise KeyGenerationError(
+                        "Cannot generate Age key - pyage module not available"
+                    )
             else:
-                raise KeyGenerationError(f"Cannot generate key for mode: {self._encryption_mode}")
+                raise KeyGenerationError(
+                    f"Cannot generate key for mode: {self._encryption_mode}"
+                )
         except Exception as e:
-            raise KeyGenerationError(f"Failed to generate encryption key: {str(e)}") from e
+            raise KeyGenerationError(
+                f"Failed to generate encryption key: {str(e)}"
+            ) from e
 
     def get_encryption_context(self) -> EncryptionContext:
         """
@@ -602,7 +646,8 @@ class TaskEncryptionManager:
         This method provides a safe way to pass encryption capabilities
         to operations without exposing the raw key.
 
-        Returns:
+        Returns
+        -------
             EncryptionContext with necessary info for operations
         """
         # Ensure encryption is initialized
@@ -613,25 +658,25 @@ class TaskEncryptionManager:
         if self._use_encryption and self._protected_key:
             return EncryptionContext(
                 mode=self._encryption_mode,
-                key_fingerprint=self._protected_key.fingerprint
+                key_fingerprint=self._protected_key.fingerprint,
             )
         else:
-            return EncryptionContext(
-                mode=EncryptionMode.NONE,
-                key_fingerprint="none"
-            )
+            return EncryptionContext(mode=EncryptionMode.NONE, key_fingerprint="none")
 
     def encrypt_data(self, data: bytes) -> bytes:
         """
         Encrypt binary data using the configured encryption method.
 
-        Args:
+        Parameters
+        ----------
             data: Data to encrypt
 
-        Returns:
+        Returns
+        -------
             Encrypted data
 
-        Raises:
+        Raises
+        ------
             EncryptionError: If encryption fails
         """
         # Ensure encryption is initialized
@@ -659,7 +704,9 @@ class TaskEncryptionManager:
                     else:
                         raise EncryptionError("PyAge module not available")
                 else:
-                    raise EncryptionError(f"Unsupported encryption mode: {self._encryption_mode}")
+                    raise EncryptionError(
+                        f"Unsupported encryption mode: {self._encryption_mode}"
+                    )
         except Exception as e:
             if isinstance(e, EncryptionError):
                 raise
@@ -670,13 +717,16 @@ class TaskEncryptionManager:
         """
         Decrypt binary data using the configured encryption method.
 
-        Args:
+        Parameters
+        ----------
             encrypted_data: Data to decrypt
 
-        Returns:
+        Returns
+        -------
             Decrypted data
 
-        Raises:
+        Raises
+        ------
             EncryptionError: If decryption fails
         """
         # Ensure encryption is initialized
@@ -704,7 +754,9 @@ class TaskEncryptionManager:
                     else:
                         raise EncryptionError("PyAge module not available")
                 else:
-                    raise EncryptionError(f"Unsupported encryption mode: {self._encryption_mode}")
+                    raise EncryptionError(
+                        f"Unsupported encryption mode: {self._encryption_mode}"
+                    )
         except Exception as e:
             if isinstance(e, EncryptionError):
                 raise
@@ -715,7 +767,8 @@ class TaskEncryptionManager:
         """
         Add parameter names that should be treated as sensitive.
 
-        Args:
+        Parameters
+        ----------
             param_names: Single name or list of parameter names
         """
         if isinstance(param_names, str):
@@ -728,10 +781,12 @@ class TaskEncryptionManager:
         """
         Check if a parameter name should be treated as sensitive.
 
-        Args:
+        Parameters
+        ----------
             param_name: Parameter name to check
 
-        Returns:
+        Returns
+        -------
             True if parameter is sensitive, False otherwise
         """
         # Check in sensitive parameter set (case-insensitive)
@@ -744,14 +799,17 @@ class TaskEncryptionManager:
         This method recursively processes dictionaries, lists, and other data
         structures to redact sensitive values based on key names.
 
-        Args:
+        Parameters
+        ----------
             data: Data structure to redact
             redact_keys: Whether to redact dictionary keys (default: True)
 
-        Returns:
+        Returns
+        -------
             Redacted copy of the data structure
 
-        Raises:
+        Raises
+        ------
             DataRedactionError: If redaction fails
         """
         try:
@@ -761,7 +819,11 @@ class TaskEncryptionManager:
                 result = {}
                 for key, value in data.items():
                     # Check if key is sensitive
-                    if redact_keys and isinstance(key, str) and self.is_sensitive_param(key):
+                    if (
+                        redact_keys
+                        and isinstance(key, str)
+                        and self.is_sensitive_param(key)
+                    ):
                         # Use redacted key and value
                         redacted_key = f"<redacted:{key[:3]}...>"
                         result[redacted_key] = "<redacted>"
@@ -779,13 +841,19 @@ class TaskEncryptionManager:
                 return [self.redact_sensitive_data(item, redact_keys) for item in data]
             elif isinstance(data, tuple):
                 # Process tuple elements recursively
-                return tuple(self.redact_sensitive_data(item, redact_keys) for item in data)
+                return tuple(
+                    self.redact_sensitive_data(item, redact_keys) for item in data
+                )
             elif isinstance(data, set):
                 # Process set elements recursively
                 return {self.redact_sensitive_data(item, redact_keys) for item in data}
             elif isinstance(data, (str, bytes)) and len(data) > 32:
                 # Potential sensitive string/bytes - check for patterns
-                data_str = data.decode('utf-8', errors='ignore') if isinstance(data, bytes) else data
+                data_str = (
+                    data.decode("utf-8", errors="ignore")
+                    if isinstance(data, bytes)
+                    else data
+                )
                 if self._looks_like_key(data_str):
                     return "<redacted:key-like>"
                 else:
@@ -794,31 +862,35 @@ class TaskEncryptionManager:
                 # Other types returned as-is
                 return data
         except Exception as e:
-            raise DataRedactionError(f"Failed to redact sensitive data: {str(e)}") from e
+            raise DataRedactionError(
+                f"Failed to redact sensitive data: {str(e)}"
+            ) from e
 
     def _looks_like_key(self, text: str) -> bool:
         """
         Check if a string looks like a key or sensitive data.
 
-        Args:
+        Parameters
+        ----------
             text: String to check
 
-        Returns:
+        Returns
+        -------
             True if string looks like a key, False otherwise
         """
         # Simple heuristics to identify potential keys
         # Base64 pattern - lots of alphanumeric with = padding
-        if len(text) >= 32 and text.isalnum() and text.endswith('=='):
+        if len(text) >= 32 and text.isalnum() and text.endswith("=="):
             return True
 
         # Check for common key prefixes
-        key_prefixes = ['key-', 'sk-', 'xkey', 'pk-', 'token-']
+        key_prefixes = ["key-", "sk-", "xkey", "pk-", "token-"]
         for prefix in key_prefixes:
             if text.startswith(prefix) and len(text) > 20:
                 return True
 
         # Check for hex strings (common in fingerprints and keys)
-        if all(c in '0123456789abcdefABCDEF' for c in text) and len(text) >= 32:
+        if all(c in "0123456789abcdefABCDEF" for c in text) and len(text) >= 32:
             return True
 
         return False
@@ -829,10 +901,12 @@ class TaskEncryptionManager:
 
         This is a convenience method specifically for configuration dictionaries.
 
-        Args:
+        Parameters
+        ----------
             config_dict: Configuration dictionary to redact
 
-        Returns:
+        Returns
+        -------
             Redacted copy of the configuration
         """
         return self.redact_sensitive_data(config_dict, redact_keys=False)
@@ -841,7 +915,8 @@ class TaskEncryptionManager:
         """
         Get information about the encryption configuration.
 
-        Returns:
+        Returns
+        -------
             Dictionary with encryption information (no sensitive data)
         """
         # Ensure encryption is initialized
@@ -852,18 +927,22 @@ class TaskEncryptionManager:
             "enabled": self._use_encryption,
             "mode": self._encryption_mode.value,
             "key_available": self._protected_key is not None,
-            "key_fingerprint": self._protected_key.fingerprint if self._protected_key else None,
-            "initialization_error": self._initialization_error
+            "key_fingerprint": (
+                self._protected_key.fingerprint if self._protected_key else None
+            ),
+            "initialization_error": self._initialization_error,
         }
 
     def check_dataset_encryption(self, data_source: Any) -> bool:
         """
         Check if datasets in the data source are encrypted.
 
-        Args:
+        Parameters
+        ----------
             data_source: Data source containing file paths
 
-        Returns:
+        Returns
+        -------
             True if all datasets appear to be properly encrypted (when encryption is enabled)
         """
         # If encryption is disabled, no need to check
@@ -873,44 +952,57 @@ class TaskEncryptionManager:
         # Create a progress tracking context if progress manager is available
         if self.progress_manager:
             # Get number of datasets to check
-            datasets_count = len(data_source.get_file_paths()) if hasattr(data_source, 'get_file_paths') else 0
+            datasets_count = (
+                len(data_source.get_file_paths())
+                if hasattr(data_source, "get_file_paths")
+                else 0
+            )
 
             progress_context = self.progress_manager.create_operation_context(
                 name="check_encryption",
                 total=datasets_count,
-                description="Checking dataset encryption"
+                description="Checking dataset encryption",
             )
         else:
             # Use a dummy context manager if progress manager isn't available
             from contextlib import nullcontext
+
             progress_context = nullcontext()
 
         with progress_context as progress:
             # Get all file paths from data source
-            if hasattr(data_source, 'get_file_paths'):
+            if hasattr(data_source, "get_file_paths"):
                 file_paths = data_source.get_file_paths()
 
                 for i, (name, path) in enumerate(file_paths.items()):
                     try:
                         # Check if file exists
                         if not path.exists():
-                            self.logger.warning(f"Dataset {name} does not exist: {path}")
+                            self.logger.warning(
+                                f"Dataset {name} does not exist: {path}"
+                            )
                             continue
 
                         # Check if file is encrypted
                         encrypted = self.is_file_encrypted(path)
 
                         if not encrypted:
-                            self.logger.warning(f"Dataset {name} appears to be unencrypted: {path}")
+                            self.logger.warning(
+                                f"Dataset {name} appears to be unencrypted: {path}"
+                            )
 
                         # Update progress if available
-                        if hasattr(progress, 'update'):
-                            progress.update(1, {"dataset": name, "encrypted": encrypted})
+                        if hasattr(progress, "update"):
+                            progress.update(
+                                1, {"dataset": name, "encrypted": encrypted}
+                            )
 
                     except Exception as e:
-                        self.logger.error(f"Error checking encryption for dataset {name}: {str(e)}")
+                        self.logger.error(
+                            f"Error checking encryption for dataset {name}: {str(e)}"
+                        )
                         # Update progress if available
-                        if hasattr(progress, 'update'):
+                        if hasattr(progress, "update"):
                             progress.update(1, {"dataset": name, "error": str(e)})
 
         return True
@@ -919,10 +1011,12 @@ class TaskEncryptionManager:
         """
         Check if a file appears to be encrypted.
 
-        Args:
+        Parameters
+        ----------
             file_path: Path to the file to check
 
-        Returns:
+        Returns
+        -------
             True if the file appears to be encrypted, False otherwise
         """
         path_obj = Path(file_path) if isinstance(file_path, str) else file_path
@@ -937,13 +1031,13 @@ class TaskEncryptionManager:
                 return False
 
             # Read the first few bytes of the file
-            with open(path_obj, 'rb') as f:
+            with open(path_obj, "rb") as f:
                 header = f.read(64)  # Read first 64 bytes
 
             # Simple heuristic check for encrypted content
             if self._encryption_mode == EncryptionMode.SIMPLE:
                 # Fernet-encrypted files start with 'gAAAAA'
-                return header.startswith(b'gAAAAA')
+                return header.startswith(b"gAAAAA")
             elif self._encryption_mode == EncryptionMode.AGE:
                 # Age-encrypted files start with "age-encryption.org/"
                 return b"age-encryption.org/" in header
@@ -959,17 +1053,19 @@ class TaskEncryptionManager:
         """
         Check if the requested encryption mode is supported.
 
-        Args:
+        Parameters
+        ----------
             mode: Encryption mode to check
 
-        Returns:
+        Returns
+        -------
             True if mode is supported, False otherwise
         """
         # Convert string to enum if needed
         if isinstance(mode, str):
             try:
                 mode = EncryptionMode.from_string(mode)
-            except ValueError:
+            except (ValidationError, ValueError):
                 return False
 
         # Check if mode is supported based on available libraries
@@ -992,7 +1088,7 @@ class TaskEncryptionManager:
         self._protected_key = None
 
         if self.progress_manager:
-            if hasattr(self.progress_manager, 'log_info'):
+            if hasattr(self.progress_manager, "log_info"):
                 self.progress_manager.log_info("Encryption manager resources released")
 
     def __del__(self):

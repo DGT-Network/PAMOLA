@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Fidelity Metric Operation - KLDivergence
 Package:       pamola_core.metrics.fidelity
 Version:       4.0.0
@@ -34,13 +33,14 @@ from pamola_core.metrics.commons.validation import (
     validate_confidence_level,
     validate_epsilon,
 )
+from pamola_core.errors.exceptions import ValidationError
 
 
 class KLDivergence:
     """
     Enhanced KL Divergence with confidence level and normalization support.
 
-    Parameters:
+    Parameters
     ----------
     key_fields : Optional[List[str]]
         Fields to group the data before calculating distributions.
@@ -93,7 +93,7 @@ class KLDivergence:
         """
         Compute enhanced KL divergence between the original and transformed datasets.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Enhanced results dictionary with:
@@ -122,7 +122,7 @@ class KLDivergence:
             # Simple column-wise probability distribution
             columns = list(set(original_df.columns) & set(transformed_df.columns))
             if not columns:
-                raise ValueError("No common columns to compare.")
+                raise ValidationError("No common columns to compare.")
 
             col = columns[0]
             p_vals, q_vals = self._prepare_distributions(
@@ -157,7 +157,7 @@ class KLDivergence:
         """
         Enhanced KL divergence calculation with normalization support.
 
-        Returns:
+        Returns
         --------
         Tuple[float, float]
             KL divergence and Jensen-Shannon distance
@@ -239,7 +239,6 @@ class KLDivergence:
         q = np.maximum(q, self.epsilon)
 
         return float(np.sum(p * np.log(p / q)))
-
 
     def _jensen_shannon_distance(self, p: np.ndarray, q: np.ndarray) -> float:
         """

@@ -26,7 +26,7 @@ def analyze_categorical_field(
     """
     Analyze a categorical field in the given DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data to analyze
@@ -39,7 +39,7 @@ def analyze_categorical_field(
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The results of the analysis containing statistics and distributions
@@ -132,7 +132,7 @@ def create_value_dictionary(
     """
     Create a frequency dictionary for a categorical field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -141,7 +141,7 @@ def create_value_dictionary(
     min_frequency : int
         Minimum frequency for inclusion in the dictionary
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with frequency data and metadata
@@ -189,7 +189,7 @@ def analyze_distribution_characteristics(
     """
     Analyze the characteristics of a categorical distribution.
 
-    Parameters:
+    Parameters
     -----------
     value_counts : pd.Series
         Series of value counts
@@ -198,7 +198,7 @@ def analyze_distribution_characteristics(
     unique_values : int
         Number of unique values
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with distribution characteristics
@@ -262,7 +262,7 @@ def detect_anomalies(
     """
     Detect potential anomalies in categorical field values.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -273,7 +273,7 @@ def detect_anomalies(
     min_frequency : int
         Minimum frequency for anomaly detection
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with detected anomalies
@@ -325,14 +325,14 @@ def levenshtein_distance(s1: str, s2: str) -> int:
     """
     Calculate the Levenshtein distance between two strings.
 
-    Parameters:
+    Parameters
     -----------
     s1 : str
         First string
     s2 : str
         Second string
 
-    Returns:
+    Returns
     --------
     int
         The Levenshtein distance
@@ -360,14 +360,14 @@ def estimate_resources(df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     """
     Estimate resources needed for analyzing a categorical field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
     field_name : str
         The name of the field to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Estimated resource requirements
@@ -413,7 +413,7 @@ def analyze_multiple_categorical_fields(
     """
     Analyze multiple categorical fields in a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -426,7 +426,7 @@ def analyze_multiple_categorical_fields(
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Dictionary mapping field names to their analysis results

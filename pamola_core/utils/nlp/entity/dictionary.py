@@ -9,14 +9,14 @@ specialized extractors provided in the package.
 import logging
 from typing import Optional
 
-from pamola_core.utils.nlp.entity.base import BaseEntityExtractor, EntityMatchResult
-from pamola_core.utils.nlp.model_manager import NLPModelManager
+from pamola_core.utils.nlp.entity.base import (
+    BaseEntityExtractor,
+    EntityMatchResult,
+)
+from pamola_core.utils.nlp.model_manager import nlp_model_manager
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-# NLP model manager instance
-nlp_model_manager = NLPModelManager()
 
 
 class GenericDictionaryExtractor(BaseEntityExtractor):
@@ -28,7 +28,7 @@ class GenericDictionaryExtractor(BaseEntityExtractor):
         """
         Initialize the generic dictionary extractor.
 
-        Additional parameters:
+        Additional parameters
         -----------
         entity_type : str
             Type of entities to extract (used for dictionary lookup)
@@ -52,7 +52,7 @@ class GenericDictionaryExtractor(BaseEntityExtractor):
         """
         Get the entity type for this extractor.
 
-        Returns:
+        Returns
         --------
         str
             Entity type string
@@ -63,7 +63,7 @@ class GenericDictionaryExtractor(BaseEntityExtractor):
         """
         Find a dictionary file for the current entity type.
 
-        Returns:
+        Returns
         --------
         str or None
             Path to the dictionary file if found, None otherwise
@@ -82,7 +82,7 @@ class GenericDictionaryExtractor(BaseEntityExtractor):
         """
         Extract entities using NER as a fallback.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Original text
@@ -91,7 +91,7 @@ class GenericDictionaryExtractor(BaseEntityExtractor):
         language : str
             Language of the text
 
-        Returns:
+        Returns
         --------
         EntityMatchResult or None
             Match result if found, None otherwise

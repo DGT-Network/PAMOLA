@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Logging Utility
----------------------------------------------------------
 This module provides functionality to save logs.
 
 (C) 2024 Realm Inveo Inc. and DGT Network Inc.
@@ -54,7 +53,7 @@ def save_privacy_logging(
     """
     Save the log to a specified file.
 
-    Parameters:
+    Parameters
     -----------
     - change_log (Dict): Dictionary containing the changes to log.
     - log_str (str): Path to save the log file.
@@ -62,7 +61,7 @@ def save_privacy_logging(
     - log_dir (str): Directory where logs should be stored. Defaults to "logs".
     - **kwargs: Additional parameters.
 
-    Returns:
+    Returns
     --------
     None
     """
@@ -95,7 +94,7 @@ def log_privacy_transformations(
     """
     Logs changes in a structured format, preserving individual change records.
 
-    Parameters:
+    Parameters
     -----------
     - change_log (dict): Dictionary to store change logs.
     - operation_name (str): Name of the operation performed.
@@ -105,7 +104,7 @@ def log_privacy_transformations(
     - modified_values (Union[pd.Series, pd.DataFrame]): Modified values after transformation.
     - fields (list): List of column names affected by the modification.
 
-    Returns:
+    Returns
     --------
     - None: Updates `change_log` in place.
     """

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        LLM Text Preprocessing
 Package:       pamola_core.utils.nlp.llm.preprocessing
 Version:       1.0.0
@@ -62,20 +61,21 @@ TODO:
 
 import logging
 import re
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Pattern, Tuple, Union
 
-import numpy as np
 import pandas as pd
 
 # Import from existing modules for compatibility
-from ..base import DependencyManager
-from .data_contracts import (
+from pamola_core.utils.nlp.base import DependencyManager
+from pamola_core.utils.nlp.llm.data_contracts import (
     PreprocessResult,
     create_failed_preprocess_result,
-    create_successful_preprocess_result
+    create_successful_preprocess_result,
 )
-from .enums import ProcessingStage, TruncationStrategy, TokenEstimationMethod
+from pamola_core.utils.nlp.llm.enums import (
+    TruncationStrategy,
+    TokenEstimationMethod,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)

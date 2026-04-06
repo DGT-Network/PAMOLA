@@ -1,16 +1,23 @@
 """
-PAMOLA.CORE - Common Utilities
-----------------------------------------------------
-This package contains shared utilities used across the PAMOLA.CORE ecosystem.
-It includes helper functions, structured logging, and other common components 
-to support privacy-preserving AI data processing.
-
-Subpackages:
-- helpers: Utility functions for data transformation, profiling, and mathematical operations.
-- logging: Structured logging utilities for tracking anonymization processes.
-
-This module is part of PAMOLA.CORE, supporting privacy-preserving AI data processing.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+This file is part of the PAMOLA ecosystem, a comprehensive suite for
+anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
+foundation for anonymization-preserving data processing.
 
 (C) 2024 Realm Inveo Inc. and DGT Network Inc.
-Licensed under BSD 3-Clause License.
+
+This software is licensed under the BSD 3-Clause License.
+For details, see the LICENSE file or visit:
+
+    https://opensource.org/licenses/BSD-3-Clause
+    https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
+
+Package: pamola_core.common
+Type: Internal (Non-Public API)
+
+Author: Realm Inveo Inc. & DGT Network Inc.
 """
+
+__all__ = []
+
+

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Executor
 Description: Task operation execution with retry capabilities
 Author: PAMOLA Core Team
@@ -19,34 +18,31 @@ Key features:
 - Integration with task reporting
 """
 
+from __future__ import annotations
+
 import logging
 import random
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Dict, Any, List, Optional, Type, Set, Callable
+from typing import TYPE_CHECKING, Dict, Any, List, Optional, Type, Set, Callable
 
-from pamola_core.utils.ops.op_base import BaseOperation
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.base import BasePamolaError
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    ExecutionError,
+    MaxRetriesExceededError,
+    NonRetriableError,
+)
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.tasks.task_reporting import TaskReporter
 
+if TYPE_CHECKING:
+    from pamola_core.utils.ops.op_base import BaseOperation
+    from pamola_core.utils.ops.op_result import OperationResult
+
 # Define a generic exception type for better type annotations
 ExceptionType = Type[BaseException]
-
-
-class ExecutionError(Exception):
-    """Base exception for operation execution errors."""
-    pass
-
-
-class MaxRetriesExceededError(ExecutionError):
-    """Exception raised when maximum retry attempts are reached."""
-    pass
-
-
-class NonRetriableError(ExecutionError):
-    """Exception raised for errors that should not be retried."""
-    pass
 
 
 class TaskOperationExecutor:
@@ -81,19 +77,22 @@ class TaskOperationExecutor:
         ValueError,  # Invalid value
     }
 
-    def __init__(self,
-                 task_config: Any,
-                 logger: logging.Logger,
-                 reporter: Optional[TaskReporter] = None,
-                 default_max_retries: int = 3,
-                 default_backoff_factor: float = 2.0,
-                 default_initial_wait: float = 1.0,
-                 default_max_wait: float = 60.0,
-                 default_jitter: bool = True):
+    def __init__(
+        self,
+        task_config: Any,
+        logger: logging.Logger,
+        reporter: Optional[TaskReporter] = None,
+        default_max_retries: int = 3,
+        default_backoff_factor: float = 2.0,
+        default_initial_wait: float = 1.0,
+        default_max_wait: float = 60.0,
+        default_jitter: bool = True,
+    ):
         """
         Initialize the operation executor.
 
-        Args:
+        Parameters
+        ----------
             task_config: Task configuration object
             logger: Logger for operation execution
             reporter: Task reporter for tracking operation results
@@ -115,7 +114,9 @@ class TaskOperationExecutor:
         self.default_jitter = default_jitter
 
         # Custom retriable exceptions (can be extended)
-        self.retriable_exceptions: Set[ExceptionType] = set(self.DEFAULT_RETRIABLE_EXCEPTIONS)
+        self.retriable_exceptions: Set[ExceptionType] = set(
+            self.DEFAULT_RETRIABLE_EXCEPTIONS
+        )
 
         # Track execution statistics
         self.execution_stats = {
@@ -130,7 +131,8 @@ class TaskOperationExecutor:
         """
         Add an exception type to the set of retriable exceptions.
 
-        Args:
+        Parameters
+        ----------
             exception_type: The exception type to add
         """
         if exception_type in self.NEVER_RETRY_EXCEPTIONS:
@@ -147,21 +149,26 @@ class TaskOperationExecutor:
         """
         Remove an exception type from the set of retriable exceptions.
 
-        Args:
+        Parameters
+        ----------
             exception_type: The exception type to remove
         """
         if exception_type in self.retriable_exceptions:
             self.retriable_exceptions.remove(exception_type)
-            self.logger.debug(f"Removed {exception_type.__name__} from retriable exceptions")
+            self.logger.debug(
+                f"Removed {exception_type.__name__} from retriable exceptions"
+            )
 
     def is_retriable_error(self, exception: Exception) -> bool:
         """
         Determine if an exception should trigger a retry.
 
-        Args:
+        Parameters
+        ----------
             exception: The exception to check
 
-        Returns:
+        Returns
+        -------
             True if the exception is retriable, False otherwise
         """
         # Check if the exception is in the never-retry list
@@ -175,30 +182,37 @@ class TaskOperationExecutor:
                 return True
 
         # Check if the exception has a 'retriable' attribute
-        if hasattr(exception, 'retriable'):
+        if hasattr(exception, "retriable"):
             return bool(exception.retriable)
 
         # Default to non-retriable for unknown exceptions
         return False
 
-    def execute_operation(self,
-                          operation: BaseOperation,
-                          params: Dict[str, Any],
-                          progress_tracker: Optional[HierarchicalProgressTracker] = None) -> OperationResult:
+    def execute_operation(
+        self,
+        operation: BaseOperation,
+        params: Dict[str, Any],
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    ) -> OperationResult:
         """
         Execute a single operation without retry logic.
 
-        Args:
+        Parameters
+        ----------
             operation: The operation to execute
             params: Parameters for the operation
             progress_tracker: Progress tracker for the operation
 
-        Returns:
+        Returns
+        -------
             OperationResult containing the execution result
 
-        Raises:
+        Raises
+        ------
             Exception: Any exception raised by the operation is propagated up
         """
+        from pamola_core.utils.ops.op_result import OperationStatus
+
         operation_name = operation.__class__.__name__
         self.logger.info(f"Executing operation: {operation_name}")
 
@@ -233,50 +247,87 @@ class TaskOperationExecutor:
 
             # For other exceptions, update stats and re-raise
             self.execution_stats["failed_operations"] += 1
-            self.logger.error(f"Operation {operation_name} failed with exception: {str(e)}")
+            self.logger.error(
+                f"Operation {operation_name} failed with exception: {str(e)}"
+            )
             raise
 
-    def _make_error_result(self, exception: Exception, execution_time: float,
-                           additional_message: Optional[str] = None) -> OperationResult:
+    def _make_error_result(
+        self,
+        exception: Exception,
+        execution_time: float,
+        additional_message: Optional[str] = None,
+        operation_name: Optional[str] = None,
+    ) -> OperationResult:
         """
         Create an error OperationResult from an exception.
 
-        Args:
+        Parameters
+        ----------
             exception: The exception that caused the error
             execution_time: Execution time in seconds
             additional_message: Additional message to append to error_message
 
-        Returns:
+        Returns
+        -------
             OperationResult with ERROR status and appropriate error information
         """
+        from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+
         error_message = str(exception)
         if additional_message:
             error_message += f" {additional_message}"
 
         # Format traceback if enabled
-        error_trace = self._format_exception(exception) if getattr(self.config, 'store_traceback', True) else ""
+        error_trace = (
+            self._format_exception(exception)
+            if getattr(self.config, "store_traceback", True)
+            else ""
+        )
 
-        return OperationResult(
+        result = OperationResult(
             status=OperationStatus.ERROR,
             error_message=error_message,
             execution_time=execution_time,
-            error_trace=error_trace
+            error_trace=error_trace,
+            exception=exception,
         )
 
-    def execute_with_retry(self,
-                           operation: BaseOperation,
-                           params: Dict[str, Any],
-                           max_retries: Optional[int] = None,
-                           backoff_factor: Optional[float] = None,
-                           initial_wait: Optional[float] = None,
-                           max_wait: Optional[float] = None,
-                           jitter: Optional[bool] = None,
-                           progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                           on_retry: Optional[Callable[[Exception, int, float], None]] = None) -> OperationResult:
+        # Standardize the result using ErrorHandler
+        self.error_handler = ErrorHandler(
+            logger=self.logger,
+            operation_name=operation_name or "task_operation",
+        )
+
+        error_code = ErrorCode.PROCESSING_FAILED
+        if isinstance(exception, BasePamolaError) and exception.error_code:
+            error_code = exception.error_code
+
+        self.error_handler.standardize_result(
+            result=result,
+            error_code=error_code,
+            message=error_message,
+            context={"operation": operation_name or "task_operation"},
+        )
+        return result
+
+    def execute_with_retry(
+        self,
+        operation: BaseOperation,
+        params: Dict[str, Any],
+        max_retries: Optional[int] = None,
+        backoff_factor: Optional[float] = None,
+        initial_wait: Optional[float] = None,
+        max_wait: Optional[float] = None,
+        jitter: Optional[bool] = None,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        on_retry: Optional[Callable[[Exception, int, float], None]] = None,
+    ) -> OperationResult:
         """
         Execute an operation with retry logic.
 
-        Args:
+        Parameters
+        ----------
             operation: The operation to execute
             params: Parameters for the operation
             max_retries: Maximum number of retry attempts
@@ -287,22 +338,35 @@ class TaskOperationExecutor:
             progress_tracker: Progress tracker for the operation
             on_retry: Callback function called before each retry attempt
 
-        Returns:
+        Returns
+        -------
             OperationResult containing the execution result
 
-        Raises:
+        Raises
+        ------
             MaxRetriesExceededError: If maximum retry attempts are reached
             NonRetriableError: If an exception is raised that should not be retried
             KeyboardInterrupt: If the user interrupts execution with Ctrl+C
 
-        Note:
+        Notes
+        -----
             The execution_time in the returned OperationResult represents the total time
             across all retry attempts, not just the final successful attempt.
         """
+        from pamola_core.utils.ops.op_result import OperationStatus
+
         # Use provided values or defaults
-        max_retries = max_retries if max_retries is not None else self.default_max_retries
-        backoff_factor = backoff_factor if backoff_factor is not None else self.default_backoff_factor
-        initial_wait = initial_wait if initial_wait is not None else self.default_initial_wait
+        max_retries = (
+            max_retries if max_retries is not None else self.default_max_retries
+        )
+        backoff_factor = (
+            backoff_factor
+            if backoff_factor is not None
+            else self.default_backoff_factor
+        )
+        initial_wait = (
+            initial_wait if initial_wait is not None else self.default_initial_wait
+        )
         max_wait = max_wait if max_wait is not None else self.default_max_wait
         jitter = jitter if jitter is not None else self.default_jitter
 
@@ -317,14 +381,16 @@ class TaskOperationExecutor:
                 if attempt == 0:
                     self.logger.info(f"Executing operation: {operation_name}")
                 else:
-                    self.logger.info(f"Retry attempt {attempt}/{max_retries} for operation: {operation_name}")
+                    self.logger.info(
+                        f"Retry attempt {attempt}/{max_retries} for operation: {operation_name}"
+                    )
                     self.execution_stats["total_retries"] += 1
 
                 # Execute the operation
                 result = self.execute_operation(
                     operation=operation,
                     params=params,
-                    progress_tracker=progress_tracker
+                    progress_tracker=progress_tracker,
                 )
 
                 # Add the attempt time to total execution time
@@ -349,13 +415,17 @@ class TaskOperationExecutor:
 
             except KeyboardInterrupt:
                 # Always allow keyboard interrupts to propagate
-                self.logger.info(f"Keyboard interrupt detected during operation: {operation_name}")
+                self.logger.info(
+                    f"Keyboard interrupt detected during operation: {operation_name}"
+                )
                 raise
 
             except Exception as e:
                 # Check for KeyboardInterrupt specifically before general exception handling
                 if isinstance(e, KeyboardInterrupt):
-                    self.logger.info(f"Keyboard interrupt detected during operation: {operation_name}")
+                    self.logger.info(
+                        f"Keyboard interrupt detected during operation: {operation_name}"
+                    )
                     raise
 
                 # Add the attempt time to total execution time
@@ -396,28 +466,36 @@ class TaskOperationExecutor:
 
         # If we somehow reach here - which should be impossible due to the logic above,
         # but static type checkers require explicit return or exception handling
-        raise ExecutionError(f"Retry logic exited unexpectedly for operation {operation_name}")
+        raise ExecutionError(
+            f"Retry logic exited unexpectedly for operation {operation_name}"
+        )
 
-    def execute_operations(self,
-                           operations: List[BaseOperation],
-                           common_params: Dict[str, Any],
-                           progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                           continue_on_error: Optional[bool] = None) -> Dict[str, OperationResult]:
+    def execute_operations(
+        self,
+        operations: List[BaseOperation],
+        common_params: Dict[str, Any],
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        continue_on_error: Optional[bool] = None,
+    ) -> Dict[str, OperationResult]:
         """
         Execute a list of operations sequentially.
 
-        Args:
+        Parameters
+        ----------
             operations: List of operations to execute
             common_params: Common parameters for all operations
             progress_tracker: Progress tracker for all operations
             continue_on_error: Whether to continue executing operations after an error
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping operation names to their results
         """
+        from pamola_core.utils.ops.op_result import OperationStatus
+
         # Use provided value or default from config
         if continue_on_error is None:
-            continue_on_error = getattr(self.config, 'continue_on_error', False)
+            continue_on_error = getattr(self.config, "continue_on_error", False)
 
         results = {}
 
@@ -437,9 +515,10 @@ class TaskOperationExecutor:
             # Create operation-specific progress tracker if main progress is provided
             if operations_progress:
                 operation_progress = operations_progress.create_subtask(
-                    100, description=f"Operation {i + 1}/{len(operations)}: {operation_name}"
+                    100,
+                    description=f"Operation {i + 1}/{len(operations)}: {operation_name}",
                 )
-                operation_params['progress_tracker'] = operation_progress
+                operation_params["progress_tracker"] = operation_progress
             else:
                 operation_progress = None
 
@@ -448,7 +527,7 @@ class TaskOperationExecutor:
                 self.reporter.add_operation(
                     name=f"Start {operation_name}",
                     status="running",
-                    details={"index": i}
+                    details={"index": i},
                 )
 
             # Execute operation with retry
@@ -456,7 +535,7 @@ class TaskOperationExecutor:
                 result = self.execute_with_retry(
                     operation=operation,
                     params=operation_params,
-                    progress_tracker=operation_progress
+                    progress_tracker=operation_progress,
                 )
 
                 # Store the result
@@ -464,17 +543,22 @@ class TaskOperationExecutor:
 
                 # Add operation result to reporter if available
                 if self.reporter:
-                    status_name = result.status.name.lower() if hasattr(result.status, 'name') else str(
-                        result.status).lower()
+                    status_name = (
+                        result.status.name.lower()
+                        if hasattr(result.status, "name")
+                        else str(result.status).lower()
+                    )
                     self.reporter.add_operation(
                         name=f"Complete {operation_name}",
                         status=status_name,
                         details={
                             "execution_time": result.execution_time,
-                            "metrics": result.metrics if hasattr(result, 'metrics') else {},
+                            "metrics": (
+                                result.metrics if hasattr(result, "metrics") else {}
+                            ),
                             "error_message": result.error_message,
-                            "error_trace": result.error_trace
-                        }
+                            "error_trace": result.error_trace,
+                        },
                     )
 
                 # Update progress tracker if provided
@@ -491,7 +575,9 @@ class TaskOperationExecutor:
 
             except KeyboardInterrupt:
                 # Pass through KeyboardInterrupt to terminate execution
-                self.logger.info("Operation execution interrupted by user (KeyboardInterrupt)")
+                self.logger.info(
+                    "Operation execution interrupted by user (KeyboardInterrupt)"
+                )
                 raise
 
             except (NonRetriableError, MaxRetriesExceededError, ExecutionError) as e:
@@ -501,7 +587,11 @@ class TaskOperationExecutor:
 
                 # Create error result with execution time
                 execution_time = 0.0  # We don't have access to execution time here
-                error_result = self._make_error_result(e, execution_time)
+                error_result = self._make_error_result(
+                    e,
+                    execution_time,
+                    operation_name=operation.__class__.__name__,
+                )
 
                 # Store the result
                 results[operation_name] = error_result
@@ -514,8 +604,8 @@ class TaskOperationExecutor:
                         details={
                             "execution_time": error_result.execution_time,
                             "error_message": error_result.error_message,
-                            "error_trace": error_result.error_trace
-                        }
+                            "error_trace": error_result.error_trace,
+                        },
                     )
 
                 # Update progress tracker if provided
@@ -542,7 +632,11 @@ class TaskOperationExecutor:
 
                 # Create error result
                 execution_time = 0.0  # We don't have access to execution time here
-                error_result = self._make_error_result(e, execution_time)
+                error_result = self._make_error_result(
+                    e,
+                    execution_time,
+                    operation_name=operation.__class__.__name__,
+                )
 
                 # Store the result
                 results[operation_name] = error_result
@@ -555,8 +649,8 @@ class TaskOperationExecutor:
                         details={
                             "execution_time": error_result.execution_time,
                             "error_message": error_result.error_message,
-                            "error_trace": error_result.error_trace
-                        }
+                            "error_trace": error_result.error_trace,
+                        },
                     )
 
                 # Update progress tracker if provided
@@ -573,44 +667,53 @@ class TaskOperationExecutor:
 
         return results
 
-    def execute_operations_parallel(self,
-                                    operations: List[BaseOperation],
-                                    common_params: Dict[str, Any],
-                                    max_workers: Optional[int] = None,
-                                    progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                                    continue_on_error: Optional[bool] = None) -> Dict[str, OperationResult]:
+    def execute_operations_parallel(
+        self,
+        operations: List[BaseOperation],
+        common_params: Dict[str, Any],
+        max_workers: Optional[int] = None,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        continue_on_error: Optional[bool] = None,
+    ) -> Dict[str, OperationResult]:
         """
         Execute operations in parallel using multiple processes.
 
-        Args:
+        Parameters
+        ----------
             operations: List of operations to execute
             common_params: Common parameters for all operations
             max_workers: Maximum number of worker processes
             progress_tracker: Progress tracker for all operations
             continue_on_error: Whether to continue executing operations after an error
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping operation names to their results
 
-        Note:
+        Notes
+        -----
             For parallel execution, all BaseOperation instances must be pickleable.
             Progress tracking in parallel mode has limitations due to process separation.
         """
+        from pamola_core.utils.ops.op_result import OperationStatus
+
         # Use provided value or default from config
         if continue_on_error is None:
-            continue_on_error = getattr(self.config, 'continue_on_error', False)
+            continue_on_error = getattr(self.config, "continue_on_error", False)
 
         results = {}
         error_occurred = False
 
         # Determine max workers if not provided
         if max_workers is None:
-            max_workers = getattr(self.config, 'parallel_processes', None)
+            max_workers = getattr(self.config, "parallel_processes", None)
 
         # Create operation dict with names
         named_operations = {op.__class__.__name__: op for op in operations}
 
-        self.logger.info(f"Executing {len(operations)} operations in parallel with {max_workers} workers")
+        self.logger.info(
+            f"Executing {len(operations)} operations in parallel with {max_workers} workers"
+        )
 
         try:
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -623,9 +726,7 @@ class TaskOperationExecutor:
 
                     # Submit the task to the executor
                     future = executor.submit(
-                        self.execute_with_retry,
-                        operation=operation,
-                        params=op_params
+                        self.execute_with_retry, operation=operation, params=op_params
                     )
                     futures_to_names[future] = name
 
@@ -640,13 +741,20 @@ class TaskOperationExecutor:
 
                         # Update statistics and log
                         if result.status == OperationStatus.SUCCESS:
-                            self.logger.info(f"Parallel operation {name} completed successfully")
+                            self.logger.info(
+                                f"Parallel operation {name} completed successfully"
+                            )
                         else:
                             self.logger.warning(
-                                f"Parallel operation {name} completed with status: {result.status.name}")
+                                f"Parallel operation {name} completed with status: {result.status.name}"
+                            )
 
                             # Check if we need to cancel remaining operations
-                            if result.status == OperationStatus.ERROR and not continue_on_error and not error_occurred:
+                            if (
+                                result.status == OperationStatus.ERROR
+                                and not continue_on_error
+                                and not error_occurred
+                            ):
                                 error_occurred = True
                                 self.logger.error(
                                     f"Operation {name} failed and continue_on_error is False. "
@@ -663,7 +771,9 @@ class TaskOperationExecutor:
 
                     except KeyboardInterrupt:
                         # Immediately cancel all tasks and re-raise to terminate
-                        self.logger.info("Parallel execution interrupted by user (KeyboardInterrupt)")
+                        self.logger.info(
+                            "Parallel execution interrupted by user (KeyboardInterrupt)"
+                        )
                         for f in futures_to_names.keys():
                             if not f.done():
                                 f.cancel()
@@ -680,10 +790,16 @@ class TaskOperationExecutor:
                             executor.shutdown(wait=False)
                             raise
 
-                        self.logger.exception(f"Error in parallel operation {name}: {e}")
+                        self.logger.exception(
+                            f"Error in parallel operation {name}: {e}"
+                        )
 
                         # Create error result
-                        error_result = self._make_error_result(e, 0.0)
+                        error_result = self._make_error_result(
+                            e,
+                            0.0,
+                            operation_name=operation.__class__.__name__,
+                        )
                         results[name] = error_result
 
                         # Check if we need to cancel remaining operations
@@ -718,40 +834,47 @@ class TaskOperationExecutor:
             self.logger.exception(f"Error setting up parallel execution: {e}")
 
             # Fall back to sequential execution
-            self.logger.warning("Falling back to sequential execution due to parallel execution error")
+            self.logger.warning(
+                "Falling back to sequential execution due to parallel execution error"
+            )
             return self.execute_operations(
                 operations=operations,
                 common_params=common_params,
                 progress_tracker=progress_tracker,
-                continue_on_error=continue_on_error
+                continue_on_error=continue_on_error,
             )
 
     def get_execution_stats(self) -> Dict[str, Any]:
         """
         Get execution statistics.
 
-        Returns:
+        Returns
+        -------
             Dictionary with execution statistics
         """
         return self.execution_stats.copy()
 
-    def _calculate_wait_time(self,
-                             attempt: int,
-                             backoff_factor: float,
-                             initial_wait: float,
-                             max_wait: float,
-                             jitter: bool) -> float:
+    def _calculate_wait_time(
+        self,
+        attempt: int,
+        backoff_factor: float,
+        initial_wait: float,
+        max_wait: float,
+        jitter: bool,
+    ) -> float:
         """
         Calculate wait time for the next retry attempt.
 
-        Args:
+        Parameters
+        ----------
             attempt: Current attempt number (1-based)
             backoff_factor: Factor for exponential backoff
             initial_wait: Initial wait time in seconds
             max_wait: Maximum wait time in seconds
             jitter: Whether to add jitter to wait times
 
-        Returns:
+        Returns
+        -------
             Wait time in seconds
         """
         # Calculate base wait time with exponential backoff
@@ -773,59 +896,65 @@ class TaskOperationExecutor:
 
         This method masks sensitive information in the traceback if configured.
 
-        Args:
+        Parameters
+        ----------
             exception: The exception to format
 
-        Returns:
+        Returns
+        -------
             Formatted exception string
         """
         import traceback
 
         # Get formatted traceback
-        tb_str = ''.join(traceback.format_exception(
-            type(exception), exception, exception.__traceback__
-        ))
+        tb_str = "".join(
+            traceback.format_exception(
+                type(exception), exception, exception.__traceback__
+            )
+        )
 
         # Check if we should mask sensitive information
-        should_mask = getattr(self.config, 'mask_sensitive_data', False)
+        should_mask = getattr(self.config, "mask_sensitive_data", False)
         if should_mask:
             # Get list of sensitive patterns to mask
-            sensitive_patterns = getattr(self.config, 'sensitive_patterns', [
-                r'password=\S+',
-                r'key=\S+',
-                r'token=\S+',
-                r'secret=\S+',
-                r'pwd=\S+'
-            ])
+            sensitive_patterns = getattr(
+                self.config,
+                "sensitive_patterns",
+                [r"password=\S+", r"key=\S+", r"token=\S+", r"secret=\S+", r"pwd=\S+"],
+            )
 
             # Apply masking
             import re
+
             for pattern in sensitive_patterns:
-                tb_str = re.sub(pattern, lambda m: m.group(0).split('=')[0] + '=****', tb_str)
+                tb_str = re.sub(
+                    pattern, lambda m: m.group(0).split("=")[0] + "=****", tb_str
+                )
 
         return tb_str
 
 
 # Helper function to create an operation executor
-def create_operation_executor(task_config: Any,
-                              logger: logging.Logger,
-                              reporter: Optional[TaskReporter] = None,
-                              **kwargs) -> TaskOperationExecutor:
+def create_operation_executor(
+    task_config: Any,
+    logger: logging.Logger,
+    reporter: Optional[TaskReporter] = None,
+    **kwargs,
+) -> TaskOperationExecutor:
     """
     Create an operation executor for a task.
 
-    Args:
+    Parameters
+    ----------
         task_config: Task configuration object
         logger: Logger for operation execution
         reporter: Task reporter for tracking operation results
         **kwargs: Additional configuration parameters
 
-    Returns:
+    Returns
+    -------
         TaskOperationExecutor instance
     """
     return TaskOperationExecutor(
-        task_config=task_config,
-        logger=logger,
-        reporter=reporter,
-        **kwargs
+        task_config=task_config, logger=logger, reporter=reporter, **kwargs
     )

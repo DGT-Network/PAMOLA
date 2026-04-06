@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Union, Dict, Any, Optional
 
 # Configure logger
-logger = logging.getLogger("pamola_core.utils.crypto_helpers.audit")
+logger = logging.getLogger(__name__)
 
 # Constants
 AUDIT_LOG_PATH = os.environ.get("PAMOLA_AUDIT_LOG_PATH", "logs/crypto_audit.log")
@@ -24,7 +24,7 @@ def setup_audit_logging(log_path: Optional[Union[str, Path]] = None) -> None:
     """
     Set up audit logging for cryptographic operations.
 
-    Parameters:
+    Parameters
     -----------
     log_path : str or Path, optional
         Path to the audit log file. If not provided, uses AUDIT_LOG_PATH env var
@@ -42,30 +42,32 @@ def setup_audit_logging(log_path: Optional[Union[str, Path]] = None) -> None:
     # Configure handler with specific format for audit logs
     handler = logging.FileHandler(log_path)
     formatter = logging.Formatter(
-        '%(asctime)s | %(levelname)s | %(process)d | %(thread)d | %(message)s'
+        "%(asctime)s | %(levelname)s | %(process)d | %(thread)d | %(message)s"
     )
     handler.setFormatter(formatter)
 
     # Set up a specific logger for audit
-    logger = logging.getLogger("pamola_core.utils.crypto_helpers.audit")
+    logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
     logger.info("Audit logging initialized")
 
 
-def log_crypto_operation(operation: str,
-                         mode: str,
-                         status: str,
-                         source: Optional[Union[str, Path]] = None,
-                         destination: Optional[Union[str, Path]] = None,
-                         task_id: Optional[str] = None,
-                         user_id: Optional[str] = None,
-                         metadata: Optional[Dict[str, Any]] = None) -> None:
+def log_crypto_operation(
+    operation: str,
+    mode: str,
+    status: str,
+    source: Optional[Union[str, Path]] = None,
+    destination: Optional[Union[str, Path]] = None,
+    task_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> None:
     """
     Log a cryptographic operation for audit purposes.
 
-    Parameters:
+    Parameters
     -----------
     operation : str
         Type of operation (e.g., 'encrypt', 'decrypt', 'key_generation')
@@ -104,9 +106,14 @@ def log_crypto_operation(operation: str,
         log_data["user_id"] = user_id
     if metadata:
         # Filter out any sensitive information from metadata
-        safe_metadata = {k: v for k, v in metadata.items()
-                         if not any(sensitive in k.lower()
-                                    for sensitive in ["key", "password", "secret", "token"])}
+        safe_metadata = {
+            k: v
+            for k, v in metadata.items()
+            if not any(
+                sensitive in k.lower()
+                for sensitive in ["key", "password", "secret", "token"]
+            )
+        }
         log_data["metadata"] = safe_metadata
 
     # Log the operation
@@ -119,16 +126,18 @@ def log_crypto_operation(operation: str,
     logger.info(message, extra={"audit_data": log_data})
 
 
-def log_key_access(operation: str,
-                   key_id: str,
-                   status: str,
-                   user_id: Optional[str] = None,
-                   task_id: Optional[str] = None,
-                   metadata: Optional[Dict[str, Any]] = None) -> None:
+def log_key_access(
+    operation: str,
+    key_id: str,
+    status: str,
+    user_id: Optional[str] = None,
+    task_id: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> None:
     """
     Log a key access operation for audit purposes.
 
-    Parameters:
+    Parameters
     -----------
     operation : str
         Type of operation (e.g., 'create', 'read', 'update', 'delete')
@@ -150,5 +159,5 @@ def log_key_access(operation: str,
         source=key_id,  # Using key_id as the source
         task_id=task_id,
         user_id=user_id,
-        metadata=metadata
+        metadata=metadata,
     )

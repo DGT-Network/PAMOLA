@@ -17,7 +17,6 @@ import json
 import logging
 from collections import Counter
 from pathlib import Path
-import pickle
 import time
 from typing import Dict, List, Any, Tuple, Optional, Union
 
@@ -26,6 +25,7 @@ import pandas as pd
 
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import plot_value_distribution
+from pamola_core.errors.exceptions import DependencyMissingError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def parse_mvf(
     """
     Parse a multi-valued field value into a list of individual values.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         The MVF value to parse
@@ -57,7 +57,7 @@ def parse_mvf(
     handle_json : bool
         Whether to attempt parsing as JSON
 
-    Returns:
+    Returns
     --------
     List[str]
         List of individual values
@@ -141,7 +141,7 @@ def manual_parse_array_string(value: str, separator: str, quote_char: str) -> Li
     """
     Manually parse a value that looks like an array string, e.g., "['a', 'b']".
 
-    Parameters:
+    Parameters
     -----------
     value : str
         The value to parse
@@ -150,7 +150,7 @@ def manual_parse_array_string(value: str, separator: str, quote_char: str) -> Li
     quote_char : str
         Quote character used for wrapping values
 
-    Returns:
+    Returns
     --------
     List[str]
     """
@@ -181,13 +181,13 @@ def detect_mvf_format(values: List[Any]) -> str:
     """
     Detect the most likely format of MVF values in a sample.
 
-    Parameters:
+    Parameters
     -----------
     values : List[Any]
         A list of sample multi-valued field (MVF) values to analyze.
         Each item can be a string, list, or other serializable format.
 
-    Returns:
+    Returns
     --------
     str
         Detected format of the MVF values. One of:
@@ -216,12 +216,12 @@ def detect_single_format(value: Any) -> str:
     """
     Detect format of a single MVF value.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         A single MVF value to check. Can be string, list, or other.
 
-    Returns:
+    Returns
     --------
     str
         One of: 'json', 'array_string', 'csv', 'list', or 'unknown'
@@ -266,14 +266,14 @@ def standardize_mvf_format(
     """
     Standardize an MVF value to a specified format.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         The MVF value to standardize
     target_format : str
         Target format: 'list', 'json', 'csv', or 'array_string'
 
-    Returns:
+    Returns
     --------
     Union[List[str], str]
         Standardized MVF value
@@ -306,14 +306,14 @@ def _analyze_chunk(
     """
     Analyze a chunk of MVF (multi-valued field) data.
 
-    Parameters:
+    Parameters
     -----------
     chunk : pd.Series
         The chunk of data to analyze
     parse_args : dict
         Additional arguments for the MVF parser
 
-    Returns:
+    Returns
     --------
     Tuple[
         parsed_values: List[str],
@@ -363,7 +363,7 @@ def analyze_mvf_in_chunks(
     """
     Analyze a multi-valued field (MVF) in chunks for large datasets.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data to analyze
@@ -382,7 +382,7 @@ def analyze_mvf_in_chunks(
     task_logger : Optional[logging.Logger]
         Logger to track errors and progress
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The results of the analysis
@@ -528,7 +528,7 @@ def analyze_mvf_field_with_parallel(
     """
     Analyze a multi-valued field in parallel using joblib for chunked processing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -549,7 +549,7 @@ def analyze_mvf_field_with_parallel(
     task_logger : Optional[logging.Logger]
         Logger for task-specific logging
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results
@@ -587,7 +587,7 @@ def analyze_mvf_field_with_parallel(
         )
 
         non_null_series = df[field_name].dropna()
-        
+
         # Split into chunks
         chunks = [
             non_null_series.iloc[i : i + chunk_size].copy(deep=True)
@@ -709,7 +709,7 @@ def analyze_mvf_field_with_dask(
     """
     Analyze a multi-valued field (MVF) using Dask for scalable parallel processing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The input DataFrame containing the data to analyze.
@@ -728,7 +728,7 @@ def analyze_mvf_field_with_dask(
     task_logger : Optional[logging.Logger]
         Logger to track errors and progress.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary with statistical summaries of the multi-valued field, or an error message.
@@ -745,11 +745,11 @@ def analyze_mvf_field_with_dask(
     try:
         try:
             import dask.dataframe as dd
-        except ImportError:
-            raise ImportError(
-                "Dask is required for distributed processing but not installed. "
-                "Install with: pip install dask[dataframe]"
-            )
+        except ImportError as e:
+            raise DependencyMissingError(
+                dependency_name="dask",
+                reason=str(e),
+            ) from e
 
         # Initialize start time for performance tracking
         start_time = time.time()
@@ -832,7 +832,7 @@ def process_mvf_partition(
     """
     Parse and extract information from a multi-valued field in a DataFrame partition.
 
-    Parameters:
+    Parameters
     -----------
     partition : pd.DataFrame
         A partition of the full DataFrame to process (used with Dask).
@@ -843,7 +843,7 @@ def process_mvf_partition(
     parse_args : Optional[Dict[str, Any]]
         Additional keyword arguments to pass to the parse_mvf function.
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         A DataFrame containing parsed values, value counts, combinations, and error flags.
@@ -885,7 +885,7 @@ def aggregate_mvf_analysis(
     """
     Aggregate and analyze parsed MVF results to compute statistics.
 
-    Parameters:
+    Parameters
     -----------
     parsed_df : pd.DataFrame
         The DataFrame resulting from process_mvf_partition, containing parsed details.
@@ -898,7 +898,7 @@ def aggregate_mvf_analysis(
     top_n : int, optional
         Number of top values/combinations to include in the result (default is 20).
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing statistics on the field, such as null rate, unique values,
@@ -967,7 +967,7 @@ def create_value_dictionary(
     """
     Create a dictionary of values with frequencies for an MVF field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -978,7 +978,7 @@ def create_value_dictionary(
     parse_args : Optional[Dict[str, Any]]
         Arguments to pass to parse_mvf
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame with values and frequencies
@@ -1047,7 +1047,7 @@ def create_combinations_dictionary(
     """
     Create a dictionary of value combinations with frequencies for an MVF field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -1058,7 +1058,7 @@ def create_combinations_dictionary(
     parse_args : Optional[Dict[str, Any]]
         Arguments to pass to parse_mvf
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame with combinations and frequencies
@@ -1126,7 +1126,7 @@ def analyze_value_count_distribution(
     """
     Analyze the distribution of value counts per record in an MVF field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -1135,7 +1135,7 @@ def analyze_value_count_distribution(
     parse_args : Dict[str, Any], optional
         Arguments to pass to parse_mvf
 
-    Returns:
+    Returns
     --------
     Dict[str, int]
         Distribution of value counts
@@ -1177,14 +1177,14 @@ def estimate_resources(df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     """
     Estimate resources needed for analyzing an MVF field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
     field_name : str
         The name of the field to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Estimated resource requirements
@@ -1447,10 +1447,12 @@ def normalize_and_sort_value_counts(value_counts: dict) -> dict:
     """
     Normalize the keys of a value_counts dictionary and sort them numerically if possible.
 
-    Args:
+    Parameters
+    ----------
         value_counts (dict): A dictionary where keys are values (may be str or int) and values are their counts.
 
-    Returns:
+    Returns
+    -------
         dict: A new dictionary with normalized keys, sorted by numeric order when applicable.
     """
     # Normalize keys: convert numeric strings like '01' to '1', keep others as str

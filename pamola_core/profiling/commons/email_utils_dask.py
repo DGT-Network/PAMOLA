@@ -38,12 +38,12 @@ def is_valid_email(value) -> bool:
     """
     Validate if a value is a properly formatted email address.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         The value to validate
 
-    Returns:
+    Returns
     --------
     bool
         True if the value is a valid email address, False otherwise
@@ -60,12 +60,12 @@ def extract_email_domain(email: str) -> Optional[str]:
     """
     Extract the domain part from an email address.
 
-    Parameters:
+    Parameters
     -----------
     email : str
         The email address to analyze
 
-    Returns:
+    Returns
     --------
     Optional[str]
         The domain part of the email, or None if invalid format
@@ -88,12 +88,12 @@ def detect_personal_patterns(emails: pd.Series) -> Dict[str, Any]:
     """
     Detect personal patterns in email addresses (name.surname@domain, etc.).
 
-    Parameters:
+    Parameters
     -----------
     emails : pd.Series
         Series containing email addresses to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Statistics about personal patterns
@@ -130,7 +130,7 @@ def _process_with_dask(
     """
     Analyze email field using Dask DataFrame for memory-efficient processing.
 
-    Parameters:
+    Parameters
     -----------
     df : dd.DataFrame
         The Dask DataFrame containing the data to analyze.
@@ -141,7 +141,7 @@ def _process_with_dask(
     current_logger : logging.Logger
         Logger for tracking task progress and debugging.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results containing counts, domains, and patterns.
@@ -228,14 +228,14 @@ def _get_basic_statistics(df: pd.DataFrame, field_name: str) -> Dict[str, int]:
     """
     Compute basic statistics for a DataFrame column: total rows, null count, and non-null count.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data to analyze.
     field_name : str
         The name of the field to analyze.
 
-    Returns:
+    Returns
     --------
     Dict[str, int]
         Dictionary with total_rows, null_count, non_null_count.
@@ -256,7 +256,7 @@ def _process_small_dataset(
     """
     Analyze email field using pandas DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The pandas DataFrame containing the data to analyze.
@@ -266,7 +266,9 @@ def _process_small_dataset(
         Number of top domains to include in the results.    use_vectorization : bool
         Whether to use vectorized operations for processing.
     current_logger : logging.Logger
-        Logger for tracking task progress and debugging.    Returns:
+        Logger for tracking task progress and debugging.    
+    
+    Returns
     --------
     Dict[str, Any]
         Analysis results containing counts, domains, and patterns.
@@ -331,7 +333,7 @@ def _process_with_joblib(
     """
     Analyze email field using joblib for parallel processing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The pandas DataFrame containing the data to analyze.
@@ -346,7 +348,7 @@ def _process_with_joblib(
     current_logger : logging.Logger
         Logger for tracking task progress and debugging.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results containing counts, domains, and patterns.
@@ -429,7 +431,7 @@ def _process_with_chunks(
     """
     Analyze email field using index-based DataFrame chunking for sequential processing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The pandas DataFrame containing the data to analyze.
@@ -442,7 +444,7 @@ def _process_with_chunks(
     current_logger : logging.Logger
         Logger for tracking task progress and debugging.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results containing counts, domains, and patterns.
@@ -536,7 +538,7 @@ def _analyze_email_data(email_series: Union[pd.Series, pd.DataFrame], field_name
     """
     Shared function to analyze emails in a data chunk/partition.
     
-    Parameters:
+    Parameters
     -----------
     email_series : Union[pd.Series, pd.DataFrame]
         Series containing email data to analyze, or DataFrame with email column. 
@@ -544,7 +546,7 @@ def _analyze_email_data(email_series: Union[pd.Series, pd.DataFrame], field_name
     field_name : Optional[str]
         Field name for chunk data access. If None, treats email_series as the email column directly.
         
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results containing valid_count, domains, and pattern_counts.
@@ -595,7 +597,7 @@ def analyze_email_field(
     """
     Analyze an email field in the given DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : Union[pd.DataFrame, dd.DataFrame]
         The DataFrame containing the data to analyze.
@@ -618,7 +620,7 @@ def analyze_email_field(
     task_logger : Optional[logging.Logger]
         Logger for tracking task progress and debugging.    
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The results of the analysis
@@ -705,7 +707,7 @@ def create_domain_dictionary(
     """
     Create a frequency dictionary for email domains.
 
-    Parameters:
+    Parameters
     -----------
     df : Union[pd.DataFrame, dd.DataFrame]
         The DataFrame containing the data
@@ -716,7 +718,7 @@ def create_domain_dictionary(
     **kwargs : dict
         Additional parameters
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with domain frequency data and metadata
@@ -777,14 +779,14 @@ def estimate_resources(df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     """
     Estimate resources needed for analyzing the email field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
     field_name : str
         The name of the field to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Estimated resource requirements

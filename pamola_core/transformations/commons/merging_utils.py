@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Merging Visualization & Utility Functions
 
 This module provides utility functions for:

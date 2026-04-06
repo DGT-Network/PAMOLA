@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Dataset Splitting Utility.
----------------------------------------------------------
 This module provides a function to split a dataset into training and testing sets
 using the `train_test_split` method from scikit-learn.
 
@@ -21,29 +20,33 @@ For details, see the LICENSE file or visit:
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-
 import pandas as pd
 from typing import Tuple
 from sklearn.model_selection import train_test_split
+
+from pamola_core.errors.exceptions import ValidationError, DataFrameProcessingError
+
 
 def split_dataset(
     df: pd.DataFrame,
     feature_cols: list,
     target_cols: list,
     test_size: float = 0.2,
-    random_state: int = 42
+    random_state: int = 42,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Splits a dataset into training and testing sets.
 
-    Parameters:
+    Parameters
+    ----------
         df (pd.DataFrame): The input DataFrame containing the dataset.
         feature_cols (list): List of column names to be used as features (X).
         target_cols (list): List of column names to be used as target labels (y).
         test_size (float): Proportion of the dataset to include in the test split. Default is 0.2.
         random_state (int): Random seed for reproducibility. Default is 42.
 
-    Returns:
+    Returns
+    -------
         Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
             - X_train (pd.DataFrame): Training set features.
             - X_test (pd.DataFrame): Testing set features.
@@ -63,6 +66,9 @@ def split_dataset(
         return X_train, X_test, y_train, y_test
 
     except KeyError as e:
-        raise ValueError(f"Error: Missing columns in the dataset - {e}")
+        raise ValidationError(f"Error: Missing columns in the dataset - {e}")
     except Exception as e:
-        raise RuntimeError(f"Unexpected error while splitting the dataset: {e}")
+        raise DataFrameProcessingError(
+            operation="train_test_split",
+            reason=str(e),
+        ) from e

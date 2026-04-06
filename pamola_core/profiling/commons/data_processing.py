@@ -6,15 +6,14 @@ including handling of missing values, type conversion, and chunked processing.
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Callable
+from typing import Dict, Any, Tuple, Callable
 
 import pandas as pd
-import numpy as np
-from pamola_core.utils.logging import configure_logging
-from pamola_core.utils.progress import ProgressTracker, process_dataframe_in_chunks
+import pamola_core.utils.logging as pamola_logging
+from pamola_core.utils.progress import process_dataframe_in_chunks
 
 # Configure logger using the custom logging utility
-logger = configure_logging(level=logging.INFO)
+logger = pamola_logging.configure_logging(level=logging.INFO)
 
 
 def prepare_numeric_data(
@@ -24,14 +23,14 @@ def prepare_numeric_data(
     """
     Prepare numeric data for analysis, handling conversions and missing values.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
     field_name : str
         Name of the field to prepare
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, int, int]
         Tuple containing:
@@ -66,14 +65,14 @@ def prepare_field_for_analysis(
     """
     Prepare a field for analysis and infer its data type.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
     field_name : str
         Name of the field to prepare
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, str]
         Tuple containing:
@@ -114,7 +113,7 @@ def handle_large_dataframe(
     """
     Handle large dataframes by processing in chunks.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -127,7 +126,7 @@ def handle_large_dataframe(
     **kwargs : dict
         Additional parameters for the operation
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined results of the chunked processing
@@ -141,7 +140,6 @@ def handle_large_dataframe(
     description = f"Processing {field_name} in chunks"
 
     # Get the function from process_dataframe_in_chunks
-    from pamola_core.utils.progress import process_dataframe_in_chunks
 
     chunk_results = process_dataframe_in_chunks(
         field_df,

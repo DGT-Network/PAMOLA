@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Privacy Metric Operation - DistanceToClosestRecord
 Package:       pamola_core.metrics.privacy
 Version:       4.0.0
@@ -30,7 +29,7 @@ Key Features:
     - Seamless integration into PAMOLA.CORE metric pipelines
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 
@@ -39,6 +38,12 @@ from sklearn.metrics import pairwise_distances
 
 from pamola_core.common.enum.distance_metric_type import DistanceMetricType
 from pamola_core.metrics.commons.preprocessing import prepare_data_for_distance_metrics
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    InvalidParameterError,
+    ValidationError,
+)
 
 try:
     import faiss
@@ -57,7 +62,7 @@ class DistanceToClosestRecord:
     which measures how close synthetic records are to the original training data.
     Lower DCR values indicate higher privacy risk.
 
-    Parameters:
+    Parameters
     -----------
     distance_metric : str, default='euclidean'
         Distance metric to use ('euclidean', 'manhattan', 'cosine', 'mahalanobis')
@@ -85,7 +90,7 @@ class DistanceToClosestRecord:
         """
         Initialize DistanceToClosestRecord metric with configuration options.
 
-        Parameters:
+        Parameters
         -----------
         distance_metric : str
             Distance metric to use ('euclidean', 'manhattan', 'cosine', 'mahalanobis').
@@ -116,14 +121,14 @@ class DistanceToClosestRecord:
         Calculate the Distance to Closest Record (DCR) privacy metric and related statistics
         between two datasets (original and synthetic).
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original/real dataset. Each row is a record, columns are features.
         transformed_df : pd.DataFrame
             Transformed/synthetic dataset. Each row is a synthetic record, columns are features.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             - metrics_dict (Dict[str, Any]): Dictionary containing DCR statistics, risk assessment, privacy score, and interpretation.
@@ -188,14 +193,14 @@ class DistanceToClosestRecord:
         Calculate the Distance to Closest Record (DCR) using FAISS for efficient nearest neighbor search
         between two datasets (original and synthetic).
 
-        Parameters:
+        Parameters
         -----------
         orig_data : np.ndarray
             Array of original/real data (n_original, n_features).
         trans_data : np.ndarray
             Array of transformed/synthetic data (n_synthetic, n_features).
 
-        Returns:
+        Returns
         --------
         np.ndarray
             Array of aggregated DCR distances for each synthetic record.
@@ -268,12 +273,12 @@ class DistanceToClosestRecord:
         """
         Provide interpretation and privacy assessment of DCR results.
 
-        Parameters:
+        Parameters
         -----------
         dcr_stats : Dict[str, float]
             Dictionary containing DCR statistics (min, max, mean, percentiles, etc.).
 
-        Returns:
+        Returns
         --------
         str
             Human-readable interpretation and privacy recommendation string.
@@ -329,21 +334,21 @@ class DistanceToClosestRecord:
         Calculate the Distance to Closest Record (DCR) using sklearn pairwise distances
         between two datasets (original and synthetic).
 
-        Parameters:
+        Parameters
         -----------
         orig_data : np.ndarray
             Array of original/real data (n_original, n_features).
         trans_data : np.ndarray
             Array of transformed/synthetic data (n_synthetic, n_features).
 
-        Returns:
+        Returns
         --------
         np.ndarray
             Array of aggregated DCR distances for each synthetic record.
         """
         # Validate data dimensions
         if orig_data.shape[1] != trans_data.shape[1]:
-            raise ValueError(
+            raise ValidationError(
                 f"Feature dimension mismatch: original {orig_data.shape[1]}, "
                 f"transformed {trans_data.shape[1]}"
             )
@@ -354,7 +359,10 @@ class DistanceToClosestRecord:
 
         # If either is empty after removing NaNs, raise error
         if orig_data.shape[0] == 0 or trans_data.shape[0] == 0:
-            raise ValueError("No data left after removing rows with NaN values.")
+            raise DataError(
+                message="No data left after removing rows with NaN values.",
+                error_code=ErrorCode.DATA_EMPTY,
+            )
 
         # Calculate pairwise distances
         distances = pairwise_distances(
@@ -373,7 +381,11 @@ class DistanceToClosestRecord:
             # Use 10th percentile as more robust measure
             dcr_values = np.percentile(distances, 10, axis=1)
         else:
-            raise ValueError(f"Unknown aggregation method: {self.aggregation}")
+            raise InvalidParameterError(
+                param_name="aggregation",
+                param_value=self.aggregation,
+                reason=f"Unknown aggregation method: {self.aggregation}",
+            )
 
         return dcr_values
 
@@ -386,14 +398,14 @@ class DistanceToClosestRecord:
         Convert the DCR distribution to a privacy score in the range [0, 1].
         Higher scores indicate better privacy (synthetic records are farther from original records).
 
-        Parameters:
+        Parameters
         -----------
         dcr_values : np.ndarray
             Array of DCR values for synthetic records.
         columns : Optional[List[str]]
             List of columns used for dimensionality normalization (optional).
 
-        Returns:
+        Returns
         --------
         float
             Privacy score between 0 and 1 (higher = better privacy).

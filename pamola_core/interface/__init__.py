@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,12 +13,10 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Package: pamola_core.interface
-Author: <NAME> <<EMAIL>>
------------------------
-This package defines command-line interfaces (CLI) and API handlers for
-interacting with PAMOLA.CORE, enabling users to process and analyze data efficiently.
-
-
+Type: Internal (Non-Public API)
 
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
+
+__all__ = []
+

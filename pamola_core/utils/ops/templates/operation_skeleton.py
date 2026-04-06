@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: MyOperation
 Description: [REPLACE WITH YOUR OPERATION DESCRIPTION]
 Author: [YOUR NAME]
@@ -17,9 +16,8 @@ Key features:
 
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Union
+from typing import Any, Optional, Union
 
-import pandas as pd
 
 from pamola_core.common.constants import Constants
 from pamola_core.utils.ops.op_base import BaseOperation
@@ -28,7 +26,9 @@ from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register_operation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 
 
 class MyOperationConfig(OperationConfig):
@@ -69,7 +69,7 @@ class MyOperation(BaseOperation):
         """
         Initialize the operation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation
@@ -109,13 +109,13 @@ class MyOperation(BaseOperation):
         data_source: DataSource,
         task_dir: Path,
         reporter: Any,
-        progress_tracker: Optional[ProgressTracker] = None,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
         **kwargs,
     ) -> OperationResult:
         """
         Execute the operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -123,12 +123,12 @@ class MyOperation(BaseOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : ProgressTracker, optional
+        progress_tracker : HierarchicalProgressTracker, optional
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -138,6 +138,13 @@ class MyOperation(BaseOperation):
 
             # 1. Create result and writer objects
             result = OperationResult(status=OperationStatus.PENDING)
+
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.name,
+            )
+
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
@@ -156,10 +163,12 @@ class MyOperation(BaseOperation):
             df, error_info = data_source.get_dataframe("main")
 
             if df is None:
-                error_message = f"Failed to load input data: {error_info['message'] if error_info else 'Unknown error'}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                error_text = error_info["message"] if error_info else "Unknown error"
+                return self.error_handler.handle_error(
+                    error=ValueError(error_text),
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": "main", "operation": self.name},
+                    message_kwargs={"source": "main", "reason": error_text},
                 )
 
             if progress_tracker:
@@ -167,10 +176,16 @@ class MyOperation(BaseOperation):
 
             # 5. Validate inputs
             if self.column_name not in df.columns:
-                error_message = f"Column '{self.column_name}' not found in input data"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                return self.error_handler.handle_error(
+                    error=ValueError(
+                        f"Column '{self.column_name}' not found in input data"
+                    ),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"field": self.column_name, "operation": self.name},
+                    message_kwargs={
+                        "field_name": self.column_name,
+                        "available_fields": ", ".join(df.columns.tolist()),
+                    },
                 )
 
             # 6. Process data - TODO: Replace with your actual processing logic
@@ -242,10 +257,16 @@ class MyOperation(BaseOperation):
             error_message = f"Error in {self.name} operation: {str(e)}"
             self.logger.exception(error_message)
 
-            result.status = OperationStatus.ERROR
-            result.error_message = error_message
-
-            return result
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.column_name},
+                message_kwargs={
+                    "field_name": self.column_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
+            )
 
 
 # Register the operation so it's discoverable

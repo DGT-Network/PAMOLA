@@ -141,7 +141,7 @@ from pamola_core.utils.ops.op_field_utils import (
 )
 
 # Progress tracking
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 ```
 
 ### Privacy-Specific Dependencies
@@ -167,29 +167,17 @@ The main base class for all anonymization operations. **All concrete anonymizati
 ```python
 def __init__(self,
              field_name: str,
-             mode: str = "REPLACE",
-             output_field_name: Optional[str] = None,
-             column_prefix: str = "_",
-             null_strategy: str = "PRESERVE",
-             batch_size: int = 10000,
-             use_cache: bool = True,
-             description: str = "",
-             use_encryption: bool = False,
-             encryption_key: Optional[Union[str, Path]] = None,
-             # Conditional processing parameters
+             # Conditional parameters
              condition_field: Optional[str] = None,
-             condition_values: Optional[List] = None,
+             condition_values: Optional[List[Any]] = None,
              condition_operator: str = "in",
-             # Multi-field conditions
              multi_conditions: Optional[List[Dict[str, Any]]] = None,
-             multi_condition_logic: str = "AND",
-             # K-anonymity integration
+             condition_logic: str = "AND",
+             # Risk-based anonymization
              ka_risk_field: Optional[str] = None,
              risk_threshold: float = 5.0,
              vulnerable_record_strategy: str = "suppress",
-             # Memory optimization
-             optimize_memory: bool = True,
-             adaptive_batch_size: bool = True)
+             **kwargs)
 ```
 
 #### Parameters
@@ -197,25 +185,17 @@ def __init__(self,
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `field_name` | str | Required | Field to anonymize |
-| `mode` | str | "REPLACE" | Processing mode: "REPLACE" or "ENRICH" |
-| `output_field_name` | Optional[str] | None | Custom name for output field (ENRICH mode) |
-| `column_prefix` | str | "_" | Prefix for generated field names |
-| `null_strategy` | str | "PRESERVE" | How to handle nulls: "PRESERVE", "EXCLUDE", "ERROR" |
-| `batch_size` | int | 10000 | Records per processing batch |
-| `use_cache` | bool | True | Enable operation result caching |
-| `description` | str | "" | Operation description |
-| `use_encryption` | bool | False | Encrypt output files |
-| `encryption_key` | Optional[Union[str, Path]] | None | Encryption key or path |
-| `condition_field` | Optional[str] | None | Field for conditional processing |
-| `condition_values` | Optional[List] | None | Values for condition matching |
-| `condition_operator` | str | "in" | Condition operator: "in", "not_in", "gt", "lt", "eq", "range" |
-| `multi_conditions` | Optional[List[Dict]] | None | Multiple condition definitions |
-| `multi_condition_logic` | str | "AND" | Logic for multiple conditions: "AND", "OR" |
-| `ka_risk_field` | Optional[str] | None | Field with k-anonymity risk scores |
-| `risk_threshold` | float | 5.0 | K-anonymity threshold for vulnerable records |
-| `vulnerable_record_strategy` | str | "suppress" | Strategy for vulnerable records |
-| `optimize_memory` | bool | True | Enable memory optimization |
-| `adaptive_batch_size` | bool | True | Adjust batch size based on memory |
+| `condition_field` | Optional[str] | None | Field to apply conditional anonymization |
+| `condition_values` | Optional[List[Any]] | None | Values to filter condition_field by |
+| `condition_operator` | str | "in" | Operator for condition matching ("in", "eq", "gt", "lt", "range", etc.) |
+| `multi_conditions` | Optional[List[Dict]] | None | List of multiple filter conditions |
+| `condition_logic` | str | "AND" | Logic to combine multiple conditions ("AND"/"OR") |
+| `ka_risk_field` | Optional[str] | None | Field containing k-anonymity risk scores |
+| `risk_threshold` | float | 5.0 | Threshold under which records are considered vulnerable |
+| `vulnerable_record_strategy` | str | "suppress" | Strategy for vulnerable records (e.g., "suppress", "mask") |
+| `**kwargs` | dict | - | Additional parameters passed to `FieldOperation` (inherited parent class) |
+
+**Note:** This class inherits from `FieldOperation`, which provides additional parameters for mode selection, output field naming, caching, and encryption. See the parent class documentation for details on those parameters.
 
 ### Abstract Methods (Must Override)
 
@@ -287,30 +267,39 @@ def execute(self,
             data_source: DataSource,
             task_dir: Path,
             reporter: Any,
-            progress_tracker: Optional[ProgressTracker] = None,
+            progress_tracker: Optional[HierarchicalProgressTracker] = None,
             **kwargs) -> OperationResult:
     """
-    Execute the anonymization operation.
-    
-    Parameters:
+    Execute the anonymization operation with enhanced features including Dask support.
+
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operation
     task_dir : Path
         Directory where task artifacts should be saved
     reporter : Any
-        Reporter object for tracking progress
-    progress_tracker : Optional[ProgressTracker]
+        Reporter object for tracking progress and artifacts
+    progress_tracker : Optional[HierarchicalProgressTracker]
         Progress tracker for the operation
     **kwargs : dict
-        Additional parameters including profiling_results
-        
-    Returns:
+        Additional parameters for the operation
+
+    Returns
     --------
     OperationResult
-        Results of the operation with metrics and artifacts
+        Results of the operation
     """
 ```
+
+**Key Features in execute():**
+- Supports both pandas and Dask DataFrames with automatic engine switching
+- Conditional processing based on field values
+- K-anonymity risk-based processing for vulnerable records
+- Memory-efficient chunk-based processing for large datasets
+- Comprehensive metrics collection and visualization generation
+- Secure random generation for reproducible results
+- Progress tracking with hierarchical sub-tasks
 
 ## Usage Guide
 

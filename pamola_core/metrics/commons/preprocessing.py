@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Metric Preprocessing Utilities
 Package:       pamola_core.metrics.commons.preprocessing
 Version:       1.0.0
@@ -33,6 +32,8 @@ Dependencies:
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OrdinalEncoder
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import DataError
 
 
 def prepare_data_for_distance_metrics(df: pd.DataFrame) -> pd.DataFrame:
@@ -40,18 +41,21 @@ def prepare_data_for_distance_metrics(df: pd.DataFrame) -> pd.DataFrame:
     Preprocess the input DataFrame for distance-based metric calculations.
     Converts boolean, datetime, string, and categorical columns to numeric.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Input dataset. Each row is a record, columns are features.
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Preprocessed DataFrame with all features converted to numeric types.
     """
     if df.empty:
-        raise ValueError("Input DataFrame is empty")
+        raise DataError(
+            message="Input DataFrame is empty",
+            error_code=ErrorCode.DATA_EMPTY,
+        )
 
     df_converted = df.copy()
 
@@ -94,6 +98,8 @@ def prepare_data_for_distance_metrics(df: pd.DataFrame) -> pd.DataFrame:
     df_converted = df_converted.dropna()
 
     numeric_cols = df_converted.select_dtypes(include=[np.number]).columns
-    df_converted[numeric_cols] = df_converted[numeric_cols].fillna(df_converted[numeric_cols].median())
+    df_converted[numeric_cols] = df_converted[numeric_cols].fillna(
+        df_converted[numeric_cols].median()
+    )
 
     return df_converted

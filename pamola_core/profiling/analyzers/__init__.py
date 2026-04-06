@@ -1,21 +1,22 @@
 """
-Analyzers for different data types in the profiling package.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+This file is part of the PAMOLA ecosystem, a comprehensive suite for
+anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
+foundation for anonymization-preserving data processing.
 
-This subpackage contains specialized analyzers for different types of data,
-including categorical, numeric, text, and more specialized types.
+(C) 2024 Realm Inveo Inc. and DGT Network Inc.
+
+This software is licensed under the BSD 3-Clause License.
+For details, see the LICENSE file or visit:
+
+    https://opensource.org/licenses/BSD-3-Clause
+    https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
+
+Package: pamola_core.profiling.analyzers
+Type: Internal (Non-Public API)
+
+Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-# Import analyzers as they're implemented
-from pamola_core.profiling.analyzers.categorical import CategoricalAnalyzer, CategoricalOperation, analyze_categorical_fields
-from pamola_core.profiling.analyzers.group import GroupAnalyzerOperation  # noqa: F401
+__all__ = []
 
-# The following imports will be uncommented as the modules are implemented
-# from pamola_core.profiling.analyzers.numeric import NumericAnalyzer, NumericOperation
-# from pamola_core.profiling.analyzers.text import TextAnalyzer, TextOperation
-# from pamola_core.profiling.analyzers.email import EmailAnalyzer, EmailOperation
-# from pamola_core.profiling.analyzers.phone import PhoneAnalyzer, PhoneOperation
-# from pamola_core.profiling.analyzers.date import DateAnalyzer, DateOperation
-# from pamola_core.profiling.analyzers.mvf import MVFAnalyzer, MVFOperation
-# from pamola_core.profiling.analyzers.correlation import CorrelationAnalyzer, CorrelationOperation
-# from pamola_core.profiling.analyzers.group import GroupAnalyzer, GroupAnalyzerOperation
-# from pamola_core.profiling.analyzers.longtext import LongTextAnalyzer, LongTextOperation

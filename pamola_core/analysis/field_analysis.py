@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy Risk Assessment Module
-------------------------------------------------
 Module:        Privacy Risk Assessment
 Package:       pamola_core.analysis
 Version:       1.0.0
@@ -36,10 +35,11 @@ from typing import Any, Dict, Optional
 import pandas as pd
 from pamola_core.analysis.descriptive_stats import analyze_descriptive_stats
 from pamola_core.analysis.distribution import visualize_distribution_df
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
+from pamola_core.utils.paths import get_project_root
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 def analyze_field_level(
@@ -48,7 +48,7 @@ def analyze_field_level(
     """
     Analyze field level of data frame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Data frame for calculate.
@@ -57,7 +57,7 @@ def analyze_field_level(
     viz_dir : Path
         Directory for saving visualizations
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Field-Level analysis.
@@ -77,7 +77,7 @@ def analyze_field_level(
     )
 
     if viz_dir is None:
-        viz_dir = Path.cwd()
+        viz_dir = get_project_root()
 
     field_level_visualization = visualize_distribution_df(
         df=df,

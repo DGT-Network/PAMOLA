@@ -8,16 +8,16 @@ and competencies from text, with special focus on technical and professional ski
 import logging
 from typing import List, Optional, Tuple
 
-from pamola_core.utils.nlp.entity.base import BaseEntityExtractor, EntityMatchResult
-from pamola_core.utils.nlp.model_manager import NLPModelManager
+from pamola_core.utils.nlp.entity.base import (
+    BaseEntityExtractor,
+    EntityMatchResult,
+)
+from pamola_core.utils.nlp.model_manager import nlp_model_manager
 from pamola_core.utils.nlp.tokenization import tokenize
 from pamola_core.utils.nlp.stopwords import remove_stopwords
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-# NLP model manager instance
-nlp_model_manager = NLPModelManager()
 
 
 class SkillExtractor(BaseEntityExtractor):
@@ -29,7 +29,7 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Initialize the skill extractor.
 
-        Additional parameters:
+        Additional parameters
         -----------
         skill_type : str
             Type of skills to extract ('technical', 'soft', 'language', etc.)
@@ -79,7 +79,7 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Get the entity type for this extractor.
 
-        Returns:
+        Returns
         --------
         str
             Entity type string
@@ -90,7 +90,7 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Extract skills using NER models and keyword matching.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Original text
@@ -99,7 +99,7 @@ class SkillExtractor(BaseEntityExtractor):
         language : str
             Language of the text
 
-        Returns:
+        Returns
         --------
         EntityMatchResult or None
             Match result if found, None otherwise
@@ -178,12 +178,12 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Extract skills from text using keyword matching.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Text to extract skills from
 
-        Returns:
+        Returns
         --------
         List[str]
             List of extracted skills
@@ -212,12 +212,12 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Determine the most likely skill category from a list of skills.
 
-        Parameters:
+        Parameters
         -----------
         skills : List[str]
             List of extracted skills
 
-        Returns:
+        Returns
         --------
         Tuple[str, float]
             Category name and confidence score

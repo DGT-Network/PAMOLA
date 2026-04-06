@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Aggregate Records Operation
 Description: Operation for grouping and aggregating records with flexible aggregation functions
 Author: PAMOLA Core Team
@@ -35,6 +34,9 @@ from pamola_core.common.helpers.custom_aggregations_helper import (
     CUSTOM_AGG_FUNCTIONS,
     STANDARD_AGGREGATIONS,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 from pamola_core.transformations.commons.processing_utils import (
     aggregate_dataframe,
 )
@@ -133,7 +135,7 @@ class AggregateRecordsOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -146,7 +148,7 @@ class AggregateRecordsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -154,16 +156,21 @@ class AggregateRecordsOperation(TransformationOperation):
         try:
             # Initialize timing and result
             self.start_time = time.time()
-
-            # Config logger task for operation
             self.logger = kwargs.get("logger", self.logger)
-
             self.logger.info(
-                f"Starting {self.operation_name} operation at {self.start_time}"
+                f"Starting: {self.operation_name} operation at {self.start_time}"
             )
 
-            df = None
             result = OperationResult(status=OperationStatus.PENDING)
+
+            # Initialize dataframe
+            df = None
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -173,6 +180,12 @@ class AggregateRecordsOperation(TransformationOperation):
                 cache_dir=dirs["cache"],
             )
 
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
             # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
@@ -180,9 +193,6 @@ class AggregateRecordsOperation(TransformationOperation):
 
             # Save configuration to task directory
             self.save_config(task_dir)
-
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -241,12 +251,11 @@ class AggregateRecordsOperation(TransformationOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Check Cache (if enabled and not forced to recalculate)
@@ -331,12 +340,15 @@ class AggregateRecordsOperation(TransformationOperation):
                         f"Sample of processed data (first 5 rows): {processed_df.head(5).to_dict(orient='records')}"
                     )
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_label,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 5: Metrics Calculation
@@ -351,9 +363,8 @@ class AggregateRecordsOperation(TransformationOperation):
 
             # Record end time after processing
             self.end_time = time.time()
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             # Initialize metrics in scope
             metrics = {}
@@ -434,12 +445,14 @@ class AggregateRecordsOperation(TransformationOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_label},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -468,11 +481,7 @@ class AggregateRecordsOperation(TransformationOperation):
                 # Create the details dictionary with checks for all values
                 details = {
                     "records_processed": self.process_count,
-                    "execution_time": (
-                        self.end_time - self.start_time
-                        if self.end_time and self.start_time
-                        else None
-                    ),
+                    "execution_time": self.execution_time,
                 }
 
                 # Add the operation to the reporter
@@ -481,20 +490,25 @@ class AggregateRecordsOperation(TransformationOperation):
                     details=details,
                 )
 
-            self.logger.info(
-                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
-            )
-
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            # Handle any unexpected errors
-            error_message = f"Error in transformation operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_label},
+                message_kwargs={
+                    "field_name": self.field_label,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def process_batch(self, batch_df: pd.DataFrame, **kwargs) -> pd.DataFrame:
@@ -669,7 +683,7 @@ class AggregateRecordsOperation(TransformationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for cache key generation
@@ -700,7 +714,7 @@ class AggregateRecordsOperation(TransformationOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original DataFrame before transformation
@@ -754,7 +768,7 @@ class AggregateRecordsOperation(TransformationOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -766,7 +780,7 @@ class AggregateRecordsOperation(TransformationOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -813,10 +827,10 @@ class AggregateRecordsOperation(TransformationOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -870,7 +884,7 @@ class AggregateRecordsOperation(TransformationOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1047,7 +1061,7 @@ class AggregateRecordsOperation(TransformationOperation):
         Validates inputs for a dataset relationship operation.
         """
         if not group_by_fields:
-            raise ValueError("At least one group_by_field must be specified")
+            raise ValidationError("At least one group_by_field must be specified")
 
         # Combine allowed aggregation functions
         allowed_aggs = set(STANDARD_AGGREGATIONS.keys()) | set(
@@ -1057,29 +1071,33 @@ class AggregateRecordsOperation(TransformationOperation):
         # Validate aggregation functions
         if aggregations is not None:
             if not isinstance(aggregations, dict):
-                raise ValueError(
+                raise ValidationError(
                     "aggregations must be a dictionary mapping field names to functions"
                 )
             for field, agg_funcs in aggregations.items():
                 for agg_func in agg_funcs:
                     if agg_func not in allowed_aggs:
-                        raise ValueError(
-                            f"Unsupported aggregation function: {agg_func} for field '{field}'. "
-                            f"Allowed: {sorted(allowed_aggs)}"
+                        raise InvalidParameterError(
+                            param_name="aggregation",
+                            param_value=agg_func,
+                            reason=f"Unsupported aggregation function: {agg_func} for field '{field}'. "
+                            f"Allowed: {sorted(allowed_aggs)}",
                         )
 
         # Validate custom_aggregations: must be dict[str, Callable]
         if custom_aggregations is not None:
             if not isinstance(custom_aggregations, dict):
-                raise ValueError(
+                raise ValidationError(
                     "custom_aggregations must be a dictionary mapping field names to functions"
                 )
             for field, custom_agg_funcs in custom_aggregations.items():
                 for cus_agg_func in custom_agg_funcs:
                     if cus_agg_func not in allowed_aggs:
-                        raise ValueError(
-                            f"Unsupported custom aggregation function: {cus_agg_func} for field '{field}'. "
-                            f"Allowed: {sorted(allowed_aggs)}"
+                        raise InvalidParameterError(
+                            param_name="custom_aggregation",
+                            param_value=cus_agg_func,
+                            reason=f"Unsupported custom aggregation function: {cus_agg_func} for field '{field}'. "
+                            f"Allowed: {sorted(allowed_aggs)}",
                         )
 
     def _update_progress_tracker(
@@ -1111,12 +1129,12 @@ def create_aggregate_records_operation(**kwargs) -> AggregateRecordsOperation:
     """
     Create an aggregate records operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     AggregateRecordsOperation
         Configured aggregate records operation

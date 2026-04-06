@@ -11,9 +11,9 @@ import re
 from typing import Dict, Any, List, Optional
 import pandas as pd
 
-from pamola_core.fake_data.commons import dict_helpers
+import pamola_core.fake_data.commons.dict_helpers as dict_helpers
 from pamola_core.fake_data.commons.prgn import PRNGenerator
-from pamola_core.fake_data.dictionaries import organizations
+import pamola_core.fake_data.dictionaries.organizations as organizations
 from pamola_core.fake_data.generators.base_generator import BaseGenerator
 
 
@@ -30,7 +30,8 @@ class OrganizationGenerator(BaseGenerator):
         """
         Initialize organization generator with configuration.
 
-        Args:
+        Parameters
+        ----------
             config: Configuration parameters including:
                 - organization_type: Type of organization to generate
                 - dictionaries: Paths to dictionaries with organization names
@@ -80,7 +81,8 @@ class OrganizationGenerator(BaseGenerator):
         """
         Load organization names from dictionaries.
 
-        Returns:
+        Returns
+        -------
             Dict with organization names by type and region
         """
         result = {}
@@ -155,7 +157,8 @@ class OrganizationGenerator(BaseGenerator):
         """
         Update dictionary information for metrics.
 
-        Args:
+        Parameters
+        ----------
             loaded_dict: Loaded dictionary data
         """
         self._dictionary_info = {
@@ -178,11 +181,13 @@ class OrganizationGenerator(BaseGenerator):
         """
         Determine region code from organization name.
 
-        Args:
+        Parameters
+        ----------
             name: Organization name
             org_type: Organization type
 
-        Returns:
+        Returns
+        -------
             Region code (e.g., 'en', 'ru')
         """
         # Simple heuristic for determining region from name
@@ -203,7 +208,8 @@ class OrganizationGenerator(BaseGenerator):
         """
         Load organization prefixes.
 
-        Returns:
+        Returns
+        -------
             Dict with prefixes by type and region
         """
         result = {}
@@ -280,7 +286,8 @@ class OrganizationGenerator(BaseGenerator):
         """
         Load organization suffixes.
 
-        Returns:
+        Returns
+        -------
             Dict with suffixes by type and region
         """
         result = {}
@@ -356,7 +363,8 @@ class OrganizationGenerator(BaseGenerator):
         """
         Compile regex patterns for detecting organization types.
 
-        Returns:
+        Returns
+        -------
             Dict of compiled regex patterns
         """
         patterns = {
@@ -382,10 +390,12 @@ class OrganizationGenerator(BaseGenerator):
         """
         Detect organization type from its name.
 
-        Args:
+        Parameters
+        ----------
             org_name: Organization name
 
-        Returns:
+        Returns
+        -------
             Detected organization type
         """
         if not org_name:
@@ -404,11 +414,13 @@ class OrganizationGenerator(BaseGenerator):
         """
         Generate a random organization name.
 
-        Args:
+        Parameters
+        ----------
             org_type: Type of organization to generate
             region: Region code for naming conventions
 
-        Returns:
+        Returns
+        -------
             Generated organization name
         """
         # Use default type if not provided
@@ -462,12 +474,14 @@ class OrganizationGenerator(BaseGenerator):
         """
         Add a prefix to an organization name.
 
-        Args:
+        Parameters
+        ----------
             name: Base organization name
             org_type: Organization type
             region: Region code
 
-        Returns:
+        Returns
+        -------
             Organization name with prefix
         """
         # Use default type if not provided
@@ -525,12 +539,14 @@ class OrganizationGenerator(BaseGenerator):
         """
         Add a suffix to an organization name.
 
-        Args:
+        Parameters
+        ----------
             name: Base organization name
             org_type: Organization type
             region: Region code
 
-        Returns:
+        Returns
+        -------
             Organization name with suffix
         """
         # Use default type if not provided
@@ -587,7 +603,8 @@ class OrganizationGenerator(BaseGenerator):
         """
         Get information about the dictionaries used by the generator.
 
-        Returns:
+        Returns
+        -------
             Dictionary information for metrics
         """
         return self._dictionary_info
@@ -596,10 +613,12 @@ class OrganizationGenerator(BaseGenerator):
         """
         Validate an organization name format.
 
-        Args:
+        Parameters
+        ----------
             name: Organization name to validate
 
-        Returns:
+        Returns
+        -------
             True if valid, False otherwise
         """
         if not name or not isinstance(name, str):
@@ -619,7 +638,8 @@ class OrganizationGenerator(BaseGenerator):
         """
         Generate specified number of synthetic organization names.
 
-        Args:
+        Parameters
+        ----------
             count: Number of names to generate
             **params: Additional parameters including:
                 - organization_type: Type of organization
@@ -627,7 +647,8 @@ class OrganizationGenerator(BaseGenerator):
                 - add_prefix: Whether to add prefix
                 - add_suffix: Whether to add suffix
 
-        Returns:
+        Returns
+        -------
             List of generated organization names
         """
         result = []
@@ -666,11 +687,13 @@ class OrganizationGenerator(BaseGenerator):
         """
         Generate a synthetic organization name similar to the original one.
 
-        Args:
+        Parameters
+        ----------
             original_value: Original organization name
             **params: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Generated organization name
         """
         # ---- 1. # Handle None / NA / NaN / empty ----
@@ -743,11 +766,13 @@ class OrganizationGenerator(BaseGenerator):
         """
         Transform a list of original values into synthetic ones.
 
-        Args:
+        Parameters
+        ----------
             values: List of original values
             **params: Additional parameters for generation
 
-        Returns:
+        Returns
+        -------
             List of transformed values
         """
         return [self.generate_like(value, **params) for value in values]
@@ -756,10 +781,12 @@ class OrganizationGenerator(BaseGenerator):
         """
         Check if a value is a valid organization name.
 
-        Args:
+        Parameters
+        ----------
             value: Value to validate
 
-        Returns:
+        Returns
+        -------
             True if valid, False otherwise
         """
         return self.validate_organization_name(value)

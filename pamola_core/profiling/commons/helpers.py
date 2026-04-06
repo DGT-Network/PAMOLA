@@ -22,6 +22,12 @@ from pamola_core.profiling.commons.data_types import (
     DataTypeDetection,
     ProfilerConfig,
 )
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    InvalidParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Import our custom dtype helpers instead of using pd.api.types directly
 from pamola_core.profiling.commons.dtype_helpers import (
@@ -32,7 +38,7 @@ from pamola_core.profiling.commons.dtype_helpers import (
     is_datetime64_dtype,
     is_categorical_dtype,
 )
-from pamola_core.utils import helpers
+import pamola_core.utils.helpers as helpers
 from pamola_core.utils.io import load_data_operation, write_json
 from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -98,7 +104,11 @@ def save_profiling_result(
         # Convert result to DataFrame and save as CSV
         pd.DataFrame(result).to_csv(file_path, index=False)
     else:
-        raise ValueError(f"Unsupported format: {format}")
+        raise InvalidParameterError(
+            param_name="format",
+            param_value=format,
+            reason=f"Unsupported format: {format}",
+        )
 
     return file_path
 
@@ -107,12 +117,12 @@ def infer_data_type(series: pd.Series) -> DataType:
     """
     Infer the data type of a pandas Series.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to analyze
 
-    Returns:
+    Returns
     -------
     DataType
         The inferred data type
@@ -193,7 +203,7 @@ def infer_data_type(series: pd.Series) -> DataType:
                 pd.to_datetime(sample, format=pattern, errors="raise")
                 date_matches = len(sample)
                 break
-            except (ValueError, TypeError):
+            except (ValidationError, ValueError, TypeError):
                 continue
 
         if date_matches / len(sample) >= 0.8:  # 80% match threshold
@@ -270,20 +280,23 @@ def prepare_field_for_analysis(
     """
     Prepare a field for analysis, handling missing values and type conversion.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the field
     field_name : str
         The name of the field to prepare
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, DataType]
         The prepared series and its inferred data type
     """
     if field_name not in df.columns:
-        raise ValueError(f"Field {field_name} not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=field_name,
+            available_fields=list(df.columns),
+        )
 
     series = df[field_name].copy()
     data_type = infer_data_type(series)
@@ -342,14 +355,14 @@ def parse_multi_valued_field(value: Any, separator: str = None) -> List[str]:
     """
     Parse a multi-valued field into a list of values.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         The value to parse
     separator : str, optional
         The separator character. If None, tries to detect automatically.
 
-    Returns:
+    Returns
     --------
     List[str]
         List of individual values
@@ -382,12 +395,12 @@ def detect_json_field(series: pd.Series) -> bool:
     """
     Detect if a field contains JSON data.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to analyze
 
-    Returns:
+    Returns
     --------
     bool
         True if the field appears to contain JSON data
@@ -421,12 +434,12 @@ def parse_json_field(value: Any) -> Optional[Dict[str, Any]]:
     """
     Parse a JSON field value.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         The value to parse
 
-    Returns:
+    Returns
     --------
     Dict[str, Any] or None
         The parsed JSON, or None if parsing fails
@@ -447,12 +460,12 @@ def detect_array_field(series: pd.Series) -> bool:
     """
     Detect if a field contains array data.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to analyze
 
-    Returns:
+    Returns
     --------
     bool
         True if the field appears to contain array data
@@ -476,14 +489,14 @@ def parse_array_field(value: Any, separator: str = ",") -> List[Any]:
     """
     Parse an array field value.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         The value to parse
     separator : str
         The separator character for array elements
 
-    Returns:
+    Returns
     --------
     List[Any]
         The parsed array elements
@@ -515,12 +528,12 @@ def is_valid_email(email: str) -> bool:
     """
     Check if a string is a valid email address.
 
-    Parameters:
+    Parameters
     -----------
     email : str
         The email address to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the email is valid
@@ -536,12 +549,12 @@ def extract_email_domain(email: str) -> Optional[str]:
     """
     Extract the domain from an email address.
 
-    Parameters:
+    Parameters
     -----------
     email : str
         The email address
 
-    Returns:
+    Returns
     --------
     str or None
         The domain, or None if the email is invalid
@@ -556,12 +569,12 @@ def is_phone_number_format(phone: str) -> bool:
     """
     Check if a string matches the expected phone number format.
 
-    Parameters:
+    Parameters
     -----------
     phone : str
         The phone number to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the phone number format is valid
@@ -577,12 +590,12 @@ def parse_phone_number(phone: str) -> Optional[Dict[str, Any]]:
     """
     Parse a phone number in the format (country_code,operator_code,number,"comment").
 
-    Parameters:
+    Parameters
     -----------
     phone : str
         The phone number to parse
 
-    Returns:
+    Returns
     --------
     Dict[str, Any] or None
         The parsed phone components, or None if parsing fails
@@ -622,7 +635,7 @@ def save_profiling_results(
     """
     Saves profiling results for a specific profile type.
 
-    Parameters:
+    Parameters
     -----------
     result : dict
         Profiling results to save
@@ -635,7 +648,7 @@ def save_profiling_results(
     include_timestamp : bool
         Whether to include a timestamp in the filename (default: True)
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved file as a string
@@ -671,7 +684,7 @@ def cleanup_memory(
     For large datasets, explicitly free memory by deleting
     references and optionally calling garbage collection.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame, optional
         Input DataFrame to clear from memory
@@ -707,7 +720,7 @@ def validate_and_get_dataframe(
     """
     Validate data source and retrieve the main dataframe.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         The data source to validate
@@ -716,12 +729,12 @@ def validate_and_get_dataframe(
     **kwargs : Any
         Additional keyword arguments to pass to the data loading function
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         The validated dataframe
 
-    Raises:
+    Raises
     -------
     ValueError
         If no valid dataframe is found or the field is missing
@@ -729,19 +742,19 @@ def validate_and_get_dataframe(
     # Get DataFrame from the data source
     df = load_data_operation(data_source, dataset_name, **kwargs)
     if df is None:
-        error_message = f"Failed to load input data!"
-        raise ValueError(error_message)
+        error_message = "Failed to load input data!"
+        raise ValidationError(error_message)
 
     # Apply data types from data source
     try:
         df = data_source.apply_data_types(df, dataset_name)
-    except ValueError as e:
+    except (ValidationError, ValueError) as e:
         error_msg = f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
-        raise ValueError(error_msg) from e
+        raise ValidationError(error_msg) from e
 
     except TypeError as e:
         error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
-        raise TypeError(error_msg) from e
+        raise TypeValidationError(error_msg) from e
 
     return df
 
@@ -760,7 +773,7 @@ def save_dtypes_output(
     """
     Saves data types dataframe format to a JSON file.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The dataframe whose dtypes are to be saved

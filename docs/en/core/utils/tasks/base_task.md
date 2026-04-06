@@ -63,10 +63,6 @@ Tasks in the PAMOLA Core framework follow a standard four-phase lifecycle:
 
 ## Exception Classes
 
-### TaskError
-
-Base exception for all task-related errors.
-
 ### TaskInitializationError
 
 Exception raised when task initialization fails due to:
@@ -75,6 +71,7 @@ Exception raised when task initialization fails due to:
 - Logging setup failure
 - Data source initialization problems
 - Path security violations
+- Encryption initialization problems
 
 ### TaskDependencyError
 
@@ -82,6 +79,20 @@ Exception raised when task dependencies are not satisfied, when previous tasks:
 - Have not been executed
 - Failed during execution
 - Did not produce required outputs
+
+### FeatureNotImplementedError
+
+Exception raised when a feature or method is not yet implemented, typically when:
+- A required subclass method is not overridden (e.g., configure_operations in subclass)
+- Functionality is under development or not available in the current version
+
+### ValidationError
+
+Exception raised when configuration or parameter validation fails.
+
+### DependencyMissingError
+
+Exception raised when required dependencies are missing or cannot be satisfied.
 
 ## BaseTask Class
 
@@ -94,18 +105,26 @@ def __init__(
     task_type: str,
     description: str,
     input_datasets: Optional[Dict[str, str]] = None,
+    data_types: Optional[Dict[str, Any]] = None,
     auxiliary_datasets: Optional[Dict[str, str]] = None,
-    version: str = "1.0.0"
+    version: str = "1.0.0",
+    use_encryption: Optional[bool] = False,
+    encryption_keys: Optional[Dict[str, str]] = None,
+    task_dir: Optional[str] = None,
 )
 ```
 
 **Parameters:**
-- `task_id`: Unique identifier for the task
-- `task_type`: Type of task (e.g., profiling, anonymization)
-- `description`: Human-readable description of the task's purpose
-- `input_datasets`: Dictionary mapping dataset names to file paths (primary inputs)
-- `auxiliary_datasets`: Dictionary mapping auxiliary dataset names to file paths (secondary inputs)
-- `version`: Version of the task implementation
+- `task_id`: Unique identifier for the task. Used to locate configuration and create directories.
+- `task_type`: Type of task (e.g., profiling, anonymization). Used for categorization and logging.
+- `description`: Human-readable description of the task's purpose.
+- `input_datasets`: Dictionary mapping dataset names to file paths (primary inputs).
+- `data_types`: Optional dictionary mapping dataset names to their data types for type inference.
+- `auxiliary_datasets`: Dictionary mapping auxiliary dataset names to file paths (secondary inputs like dictionaries or lookup tables).
+- `version`: Version of the task implementation. Used for tracking and compatibility.
+- `use_encryption`: Whether to enable encryption for sensitive data. Defaults to False.
+- `encryption_keys`: Optional dictionary of encryption keys for different modes.
+- `task_dir`: Optional override path for task directory. Useful for testing or custom directory structures.
 
 ### Key Attributes
 
@@ -134,22 +153,61 @@ def __init__(
 
 ### Key Methods
 
+#### get_default_config
+
+```python
+def get_default_config(self) -> Dict[str, Any]
+```
+
+Get default configuration values for this task. This method should be overridden by subclasses to provide default configuration values when no task-specific configuration file exists. The default implementation provides basic values based on task metadata.
+
+**Returns:**
+- Dictionary containing default configuration values
+
+**Default values include:**
+- Task metadata (description, type, version)
+- Dependencies list
+- Encryption settings and key path
+- Logging configuration (level, file paths)
+- Checkpoint settings
+- Data repository and config save directories (if task_dir override is set)
+
+#### create_dependency_manager
+
+```python
+def create_dependency_manager(self) -> TaskDependencyManager
+```
+
+Create and return a TaskDependencyManager instance for this task. This is called during initialization to set up the dependency checking system.
+
+**Returns:**
+- A configured TaskDependencyManager instance
+
 #### initialize
 
 ```python
-def initialize(self, args: Optional[Dict[str, Any]] = None) -> bool
+def initialize(
+    self,
+    args: Optional[Dict[str, Any]] = None,
+    force_restart: bool = False,
+    enable_checkpoints: Optional[bool] = None,
+    force_recreate_config_file: Optional[bool] = False,
+) -> bool
 ```
 
-Initialize the task by loading configuration, creating directories, setting up logging, and checking dependencies.
+Initialize the task by loading configuration, creating directories, setting up logging, and checking dependencies. This is the first phase of the task lifecycle and prepares the environment for task execution.
 
 **Parameters:**
-- `args`: Command line arguments to override configuration
+- `args`: Command line arguments to override configuration. These take highest priority in the configuration cascade.
+- `force_restart`: Whether to ignore existing checkpoints and start fresh. Defaults to False to respect the configuration value.
+- `enable_checkpoints`: Whether to enable checkpoint restoration. If None, uses the value from configuration.
+- `force_recreate_config_file`: Whether to force recreation of the configuration file even if one exists.
 
 **Returns:**
 - `True` if initialization is successful, `False` otherwise
 
 **Raises:**
-- `TaskDependencyError`: If task dependencies are not satisfied
+- `TaskDependencyError`: If task dependencies are not satisfied and continue_on_error is False
 
 #### configure_operations
 
@@ -190,13 +248,20 @@ Finalize the task by releasing resources, closing files, and registering the exe
 #### run
 
 ```python
-def run(self, args: Optional[Dict[str, Any]] = None) -> bool
+def run(
+    self,
+    args: Optional[Dict[str, Any]] = None,
+    force_restart: bool = False,
+    enable_checkpoints: Optional[bool] = None,
+) -> bool
 ```
 
-Run the complete task lifecycle: initialize, configure, execute, finalize. This is the main method that orchestrates the entire task.
+Run the complete task lifecycle: initialize, configure, execute, finalize. This is the main method that orchestrates the entire task and is typically the only method that needs to be called externally to run a task.
 
 **Parameters:**
-- `args`: Command line arguments to override configuration
+- `args`: Command line arguments to override configuration.
+- `force_restart`: If True, ignores existing checkpoints and starts from beginning. Defaults to False to respect the configuration value.
+- `enable_checkpoints`: Whether to enable checkpoint restoration. If None, uses the value from configuration.
 
 **Returns:**
 - `True` if the task executed successfully, `False` otherwise

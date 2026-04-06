@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Language Detection and Processing
 Description: Utilities for language detection, normalization, and multilingual text analysis
 Author: PAMOLA Core Team
@@ -27,7 +26,10 @@ from typing import Dict, List, Optional, Tuple, Any
 
 # Import from base to avoid circular dependencies
 from pamola_core.utils.nlp.base import DependencyManager
-from pamola_core.utils.nlp.cache import get_cache, cache_function
+from pamola_core.utils.nlp.cache import (
+    get_cache,
+    cache_function,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -91,14 +93,14 @@ def normalize_language_code(language_code: str, default_code: str = 'en') -> str
     Handles various input formats including ISO 639-1, ISO 639-2, country-specific
     codes (en-US, fr-CA), and converts them to standard two-letter codes.
 
-    Parameters:
+    Parameters
     -----------
     language_code : str
         Language code to normalize (e.g., 'en-US', 'en_us', 'eng', etc.)
     default_code : str
         Default language code to return if input is invalid
 
-    Returns:
+    Returns
     --------
     str
         Normalized language code (e.g., 'en', 'ru', 'de')
@@ -192,14 +194,14 @@ def detect_language_with_confidence(text: str, default_language: str = 'en') -> 
 
     Uses FastText if available, then langdetect, and falls back to character-based heuristics.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to analyze
     default_language : str
         Default language to return if detection fails
 
-    Returns:
+    Returns
     --------
     Tuple[str, float]
         Detected language code ('en', 'ru', etc.) and confidence score (0-1)
@@ -271,14 +273,14 @@ def detect_language(text: str, default_language: str = 'en') -> str:
     Uses langdetect if available, otherwise falls back to character-based heuristics.
     This is a backward compatible function that maintains the original interface.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to analyze
     default_language : str
         Default language to return if detection fails
 
-    Returns:
+    Returns
     --------
     str
         Detected language code ('en', 'ru', etc.)
@@ -291,14 +293,14 @@ def detect_mixed_language(text: str, min_segment_length: int = 10) -> Dict[str, 
     """
     Analyze text with potentially mixed languages and determine language proportions.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to analyze
     min_segment_length : int
         Minimum length of text segments to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary mapping language codes to their proportions
@@ -341,7 +343,7 @@ def get_primary_language(text: str, threshold: float = 0.6, default_language: st
     """
     Determine primary language of possibly mixed-language text.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to analyze
@@ -350,7 +352,7 @@ def get_primary_language(text: str, threshold: float = 0.6, default_language: st
     default_language : str
         Default language if no language meets the threshold
 
-    Returns:
+    Returns
     --------
     str
         Primary language code
@@ -376,14 +378,14 @@ def is_multilingual(text: str, threshold: float = 0.2) -> bool:
     """
     Determine if text is multilingual.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to analyze
     threshold : float
         Minimum proportion for a language to be considered significant
 
-    Returns:
+    Returns
     --------
     bool
         True if text contains multiple significant languages
@@ -400,12 +402,12 @@ def analyze_language_structure(text: str) -> Dict[str, Any]:
     """
     Perform comprehensive language analysis of text.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Comprehensive language analysis including:
@@ -470,14 +472,14 @@ def get_language_resources_path(language: str, resource_type: str = 'general') -
     """
     Get the path to language-specific resources.
 
-    Parameters:
+    Parameters
     -----------
     language : str
         Language code ('en', 'ru', etc.)
     resource_type : str
         Type of resource ('general', 'stopwords', 'dictionaries', etc.)
 
-    Returns:
+    Returns
     --------
     str or None
         Path to the resource directory or None if not available
@@ -506,7 +508,7 @@ def get_supported_languages() -> List[str]:
     """
     Get list of languages with support in the system.
 
-    Returns:
+    Returns
     --------
     List[str]
         List of supported language codes
@@ -534,12 +536,12 @@ def is_cyrillic(text: str) -> bool:
     """
     Check if text contains Cyrillic characters.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to check
 
-    Returns:
+    Returns
     --------
     bool
         True if text contains Cyrillic characters
@@ -551,12 +553,12 @@ def is_latin(text: str) -> bool:
     """
     Check if text contains Latin characters.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to check
 
-    Returns:
+    Returns
     --------
     bool
         True if text contains Latin characters
@@ -568,12 +570,12 @@ def get_language_from_file(file_path: str) -> str:
     """
     Detect language of a text file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str
         Path to the text file
 
-    Returns:
+    Returns
     --------
     str
         Detected language code
@@ -591,7 +593,7 @@ def detect_languages(texts: List[str], sample_size: int = 100, default_language:
     """
     Detect languages used in a sample of texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to analyze
@@ -600,7 +602,7 @@ def detect_languages(texts: List[str], sample_size: int = 100, default_language:
     default_language : str
         Default language to use if detection fails
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary mapping language codes to their frequencies

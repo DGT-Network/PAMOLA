@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Data Source Helper Functions
 Description: Helper functions for DataSource class
 Author: PAMOLA Core Team
@@ -26,8 +25,7 @@ from typing import Dict, Any, List, Optional, Tuple, Generator, Callable
 import pandas as pd
 import psutil
 
-from pamola_core.utils import logging as custom_logging
-from pamola_core.utils.io import optimize_dataframe_memory
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.progress import track_operation_safely
 
 
@@ -35,7 +33,7 @@ def get_system_memory() -> Dict[str, float]:
     """
     Get system memory information.
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with memory information (total, available, used in GB)
@@ -49,7 +47,7 @@ def get_system_memory() -> Dict[str, float]:
             "percent": memory.percent
         }
     except Exception as e:
-        logger = custom_logging.get_logger("memory_helpers")
+        logger = pamola_logging.getLogger("memory_helpers")
         logger.warning(f"Could not get system memory info: {e}")
         return {
             "total_gb": 0,
@@ -63,7 +61,7 @@ def get_process_memory_usage() -> Dict[str, float]:
     """
     Get current process memory usage.
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with process memory usage (RSS, VMS in MB)
@@ -76,7 +74,7 @@ def get_process_memory_usage() -> Dict[str, float]:
             "vms_mb": memory_info.vms / (1024 * 1024),  # Virtual Memory Size in MB
         }
     except Exception as e:
-        logger = custom_logging.get_logger("memory_helpers")
+        logger = pamola_logging.getLogger("memory_helpers")
         logger.warning(f"Could not get process memory usage: {e}")
         return {
             "rss_mb": 0,
@@ -92,7 +90,7 @@ def validate_schema(
     """
     Validate a DataFrame schema against an expected schema.
 
-    Parameters:
+    Parameters
     -----------
     actual_schema : Dict[str, Any]
         Actual schema to validate
@@ -101,14 +99,14 @@ def validate_schema(
     logger : Logger, optional
         Logger instance
 
-    Returns:
+    Returns
     --------
     Tuple[bool, List[str]]
         (is_valid, error_messages)
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("schema_helpers")
+        logger = pamola_logging.getLogger("schema_helpers")
 
     errors = []
 
@@ -163,14 +161,14 @@ def is_compatible_dtype(actual: str, expected: str) -> bool:
     """
     Check if two data types are compatible with enhanced type handling.
 
-    Parameters:
+    Parameters
     -----------
     actual : str
         Actual data type
     expected : str
         Expected data type
 
-    Returns:
+    Returns
     --------
     bool
         True if compatible, False otherwise
@@ -263,7 +261,7 @@ def generate_dataframe_chunks(
     """
     Generate chunks from a DataFrame for efficient processing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to chunk
@@ -276,20 +274,20 @@ def generate_dataframe_chunks(
     show_progress : bool
         Whether to show progress during chunking
 
-    Yields:
+    Yields
     -------
     pd.DataFrame
         Chunks of the DataFrame
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("chunk_helpers")
+        logger = pamola_logging.getLogger("chunk_helpers")
 
     # Select specific columns if requested
     if columns is not None:
         valid_cols = [col for col in columns if col in df.columns]
         if not valid_cols:
-            logger.error(f"None of the requested columns exist in DataFrame")
+            logger.error("None of the requested columns exist in DataFrame")
             return
         df = df[valid_cols]
         logger.debug(f"Selected {len(valid_cols)} columns for chunking")
@@ -346,7 +344,7 @@ def optimize_memory_usage(
     """
     Analyze and optimize memory usage for multiple DataFrames.
 
-    Parameters:
+    Parameters
     -----------
     dataframes : Dict[str, pd.DataFrame]
         Dictionary of named DataFrames to optimize
@@ -357,14 +355,14 @@ def optimize_memory_usage(
     logger : Logger, optional
         Logger instance
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Memory optimization results
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("memory_helpers")
+        logger = pamola_logging.getLogger("memory_helpers")
 
     # Initialize result dictionary
     result = {
@@ -410,13 +408,15 @@ def optimize_memory_usage(
     # Check if optimization is needed
     if memory_percent is None or memory_percent < threshold_percent:
         logger.debug(
-            f"Memory usage ({memory_percent:.1f if memory_percent else 'unknown'}%) below threshold ({threshold_percent:.1f}%), no optimization needed")
+            f"Memory usage ({f'{memory_percent:.1f}' if memory_percent is not None else 'unknown'}%) below threshold ({threshold_percent:.1f}%), no optimization needed")
         result["final_memory"] = result["initial_memory"]
         return result
 
     # Optimize memory usage
     logger.info(f"Memory usage ({memory_percent:.1f}%) exceeds threshold ({threshold_percent:.1f}%), optimizing")
     optimization_results = {}
+    # import optimize_dataframe_memory
+    from pamola_core.utils.io import optimize_dataframe_memory
 
     # First pass: Optimize all DataFrames in place using io.py
     for name, df in list(dataframes.items()):
@@ -486,21 +486,21 @@ def analyze_dataframe(
     """
     Analyze DataFrame structure and provide insights.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
     logger : Logger, optional
         Logger instance
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with DataFrame analysis results
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("dataframe_helpers")
+        logger = pamola_logging.getLogger("dataframe_helpers")
 
     # Initialize result
     result = {
@@ -618,7 +618,7 @@ def create_sample_dataframe(
     """
     Create a representative sample of a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Source DataFrame
@@ -631,14 +631,14 @@ def create_sample_dataframe(
     logger : Logger, optional
         Logger instance
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Sample DataFrame
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("dataframe_helpers")
+        logger = pamola_logging.getLogger("dataframe_helpers")
 
     if len(df) <= sample_size:
         logger.debug(
@@ -699,5 +699,5 @@ def create_sample_dataframe(
         try:
             return df.sample(n=sample_size, random_state=random_seed).reset_index(drop=True)
         except Exception:
-            logger.warning(f"Error with random sample. Falling back to head.")
+            logger.warning("Error with random sample. Falling back to head.")
             return df.head(sample_size).reset_index(drop=True)

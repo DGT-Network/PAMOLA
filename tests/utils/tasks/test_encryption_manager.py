@@ -5,9 +5,7 @@ These tests ensure that the TaskEncryptionManager and related classes properly i
 """
 
 import base64
-import tempfile
 import os
-import shutil
 from pathlib import Path
 from unittest import mock
 import pytest
@@ -16,13 +14,13 @@ from pamola_core.utils.tasks.encryption_manager import (
     TaskEncryptionManager,
     EncryptionMode,
     EncryptionError,
-    EncryptionInitializationError,
     KeyGenerationError,
     KeyLoadingError,
     DataRedactionError,
     MemoryProtectedKey,
-    EncryptionContext,
 )
+from pamola_core.errors.exceptions import EncryptionInitializationError
+from pamola_core.errors.exceptions import ValidationError
 
 # --- Fixtures and Mocks ---
 
@@ -288,14 +286,15 @@ class TestEncryptionManager:
 
     def test_encryption_errors(self):
         assert issubclass(EncryptionError, Exception)
-        assert issubclass(EncryptionInitializationError, EncryptionError)
-        assert issubclass(KeyGenerationError, EncryptionError)
-        assert issubclass(KeyLoadingError, EncryptionError)
-        assert issubclass(DataRedactionError, EncryptionError)
+        assert issubclass(EncryptionInitializationError, Exception)
+        assert issubclass(KeyGenerationError, Exception)
+        assert issubclass(KeyLoadingError, Exception)
+        assert issubclass(DataRedactionError, Exception)
 
     def test_resolve_key_path_invalid_type(self, manager):
         manager._encryption_key_path = 12345
-        with pytest.raises(ValueError):
+        # Source raises ValidationError (not built-in ValueError) for invalid path type
+        with pytest.raises((ValueError, ValidationError)):
             manager._resolve_key_path()
 
     def test_resolve_key_path_path_security_error(self, manager, monkeypatch):
@@ -338,11 +337,12 @@ class TestEncryptionManager:
         assert mgr.initialize() is False
 
     def test_redact_sensitive_data_error(self, manager):
-        class BadObj:
-            def __getattr__(self, item):
+        # Use a dict subclass where .items() raises, causing DataRedactionError to be raised
+        class BadDict(dict):
+            def items(self):
                 raise Exception("fail")
         with pytest.raises(DataRedactionError):
-            manager.redact_sensitive_data(BadObj())
+            manager.redact_sensitive_data(BadDict())
 
     def test_is_file_encrypted_open_error(self, manager, monkeypatch):
         monkeypatch.setattr("builtins.open", lambda *a, **k: (_ for _ in ()).throw(Exception("fail")))

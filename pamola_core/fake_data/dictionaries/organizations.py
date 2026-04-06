@@ -17,10 +17,12 @@ def get_educational_institutions(country_code: str = "US") -> List[str]:
     """
     Returns educational institution names for a specific country.
 
-    Args:
+    Parameters
+    ----------
         country_code: ISO country code
 
-    Returns:
+    Returns
+    -------
         List[str]: List of educational institution names
     """
     country_code = country_code.upper()
@@ -62,11 +64,13 @@ def get_business_organizations(country_code: str = "US", industry: str = None) -
     """
     Returns business organization names for a specific country and industry.
 
-    Args:
+    Parameters
+    ----------
         country_code: ISO country code
         industry: Industry type (optional)
 
-    Returns:
+    Returns
+    -------
         List[str]: List of business organization names
     """
     country_code = country_code.upper()
@@ -134,10 +138,12 @@ def get_government_organizations(country_code: str = "US") -> List[str]:
     """
     Returns government organization names for a specific country.
 
-    Args:
+    Parameters
+    ----------
         country_code: ISO country code
 
-    Returns:
+    Returns
+    -------
         List[str]: List of government organization names
     """
     country_code = country_code.upper()
@@ -171,12 +177,14 @@ def get_organization_names(country_code: str = "US", org_type: str = "business",
     """
     Returns organization names for a specific country, type, and industry.
 
-    Args:
+    Parameters
+    ----------
         country_code: ISO country code
         org_type: Organization type ("business", "education", "government")
         industry: Industry type for businesses (optional)
 
-    Returns:
+    Returns
+    -------
         List[str]: List of organization names
     """
     country_code = country_code.upper()

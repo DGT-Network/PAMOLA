@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Date Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -36,6 +35,8 @@ from pamola_core.profiling.commons.date_utils import (
     analyze_date_field,
     estimate_resources,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.schemas.date_core_schema import DateOperationConfig
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
@@ -59,7 +60,7 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ class DateAnalyzer:
         """
         Analyze a date field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             The DataFrame to process.
@@ -109,7 +110,7 @@ class DateAnalyzer:
             - id_column: column to use for group analysis
             - uid_column: column to use for UID analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -138,14 +139,14 @@ class DateAnalyzer:
         """
         Estimate resources needed for analyzing the date field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -176,7 +177,7 @@ class DateOperation(FieldOperation):
         """
         Initialize a DateOperation instance.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             The name of the field to analyze
@@ -251,7 +252,7 @@ class DateOperation(FieldOperation):
         """
         Execute the date analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -264,18 +265,22 @@ class DateOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
-
-            if kwargs.get("logger"):
-                self.logger = kwargs["logger"]
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -285,18 +290,20 @@ class DateOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+            visualizations_dir = dirs["visualizations"]
+            dictionaries_dir = dirs["dictionaries"]
+            output_dir = dirs["output"]
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
                 cache_dir=dirs["cache"],
             )
 
-            visualizations_dir = dirs["visualizations"]
-            dictionaries_dir = dirs["dictionaries"]
-            output_dir = dirs["output"]
-
-            # Create the main result object with initial status
-            result = OperationResult(status=OperationStatus.SUCCESS)
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -330,12 +337,11 @@ class DateOperation(FieldOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Check Cache (if enabled and not forced to recalculate)
@@ -365,9 +371,14 @@ class DateOperation(FieldOperation):
 
             # Check if field exists
             if self.field_name not in df.columns:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Field {self.field_name} not found in DataFrame",
+                return self.error_handler.handle_error(
+                    error=ValueError(f"Field {self.field_name} not found in DataFrame"),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Add operation to reporter
@@ -408,9 +419,15 @@ class DateOperation(FieldOperation):
 
             # Check for errors
             if "error" in analysis_results:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=analysis_results["error"],
+                return self.error_handler.handle_error(
+                    error=RuntimeError(analysis_results["error"]),
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": analysis_results["error"],
+                    },
                 )
 
             # Update progress
@@ -565,26 +582,28 @@ class DateOperation(FieldOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            self.logger.exception(f"Error in date operation for {self.field_name}: {e}")
-
-            # Update progress tracker on error
-            if progress_tracker:
-                progress_tracker.update(0, {"step": "Error", "error": str(e)})
-
-            # Add error to reporter
-            reporter.add_operation(
-                f"Error analyzing {self.field_name}",
-                status="error",
-                details={"error": str(e)},
-            )
-
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error analyzing date field {self.field_name}: {str(e)}",
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _generate_visualizations(
@@ -603,7 +622,7 @@ class DateOperation(FieldOperation):
         """
         Generate visualizations for the date field analysis.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -626,7 +645,7 @@ class DateOperation(FieldOperation):
         **kwargs : Any
             Additional keyword arguments for visualization functions.
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -781,7 +800,7 @@ class DateOperation(FieldOperation):
         """
         Save anomalies to CSV file.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -864,12 +883,12 @@ class DateOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -907,7 +926,7 @@ class DateOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -916,7 +935,7 @@ class DateOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -943,9 +962,9 @@ class DateOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -956,7 +975,7 @@ class DateOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -991,7 +1010,7 @@ class DateOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -1014,7 +1033,7 @@ class DateOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1049,7 +1068,7 @@ class DateOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    logger.info(f"[DIAG] Checking context variables...")
+                    logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         logger.info(
@@ -1059,7 +1078,7 @@ class DateOperation(FieldOperation):
                         logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
 
                     # Generate visualizations with visualization context parameters
-                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1106,17 +1125,17 @@ class DateOperation(FieldOperation):
                     logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1162,7 +1181,7 @@ class DateOperation(FieldOperation):
             logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1198,7 +1217,7 @@ def analyze_date_fields(
     """
     Analyze multiple date fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1215,7 +1234,7 @@ def analyze_date_fields(
     **kwargs : dict
         Additional parameters for the operations
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results

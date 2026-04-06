@@ -65,3 +65,7 @@ dmypy.json
 
 # Logs
 *.log
+
+# Sphinx documentation build output
+docs/_build/
+docs/generated/

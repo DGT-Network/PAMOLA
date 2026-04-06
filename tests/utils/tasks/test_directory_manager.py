@@ -4,7 +4,6 @@ Tests for the directory_manager module in the pamola_core/utils/tasks package.
 These tests ensure that the TaskDirectoryManager class properly implements directory creation, path resolution, artifact management, cleanup, and error handling.
 """
 
-import os
 import shutil
 import tempfile
 import pytest

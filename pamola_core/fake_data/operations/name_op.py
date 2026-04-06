@@ -15,7 +15,7 @@ from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.schemas.name_op_core_schema import FakeNameOperationConfig
 from pamola_core.fake_data.commons.prgn import PRNGenerator
 from pamola_core.fake_data.generators.name import NameGenerator
-from pamola_core.utils import io
+import pamola_core.utils.io as io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult
@@ -144,7 +144,7 @@ class FakeNameOperation(GeneratorOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -157,20 +157,11 @@ class FakeNameOperation(GeneratorOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
-        # Config logger task for operation
-        self.logger = kwargs.get("logger", self.logger)
-
-        # Start timing for performance metrics
-        self.start_time = time.time()
-        self.logger.info(
-            f"Starting {self.operation_name} operation at {self.start_time}"
-        )
-
         # Call parent execute method
         result = super().execute(
             data_source, task_dir, reporter, progress_tracker, **kwargs
@@ -190,11 +181,13 @@ class FakeNameOperation(GeneratorOperation):
         """
         Process a batch of data to generate synthetic names.
 
-        Args:
+        Parameters
+        ----------
             batch: DataFrame batch to process
             kwargs: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed DataFrame batch
         """
         # Get the field value series
@@ -259,11 +252,13 @@ class FakeNameOperation(GeneratorOperation):
         """
         Process a single value using the appropriate generation method.
 
-        Args:
+        Parameters
+        ----------
             value: Original value
             **params: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed value
         """
         # If using mapping store, check for existing mapping
@@ -396,10 +391,12 @@ class FakeNameOperation(GeneratorOperation):
         """
         Calculate length statistics for a series of strings.
 
-        Args:
+        Parameters
+        ----------
             series: Series of strings
 
-        Returns:
+        Returns
+        -------
             Dictionary with length statistics
         """
         # Filter out null values
@@ -422,7 +419,7 @@ class FakeNameOperation(GeneratorOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for numeric generalization

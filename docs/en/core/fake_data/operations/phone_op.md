@@ -1,8 +1,8 @@
-# PhoneOperation Module (phone_op.py)
+# FakePhoneOperation Module (phone_op.py)
 
 ## Overview
 
-The `PhoneOperation` module provides a high-level operation for generating synthetic phone numbers in datasets. It processes phone numbers in input data sources, replacing them with synthetic alternatives while preserving country and operator characteristics, collecting metrics, and ensuring consistency across transformations.
+The `FakePhoneOperation` module provides a high-level operation for generating synthetic phone numbers in datasets. It processes phone numbers in input data sources, replacing them with synthetic alternatives while preserving country and operator characteristics, collecting metrics, and enabling deterministic generation through PRGN.
 
 ## Purpose
 
@@ -12,12 +12,13 @@ This module serves as an integral part of the data anonymization framework, spec
 
 - Integration with the operation registry and workflow
 - Batch processing of large datasets
-- Configurable replacement or enrichment modes
+- Country-aware phone generation with configurable country codes
+- Configurable operator code preservation
+- Format control for output phone numbers
 - Comprehensive metrics collection and visualization
-- Support for mapping stores to ensure consistent replacements
 - Error handling with retry mechanisms
-- Detailed quality assessment
-- Country code and formatting preservation options
+- Country code preservation options
+- Deterministic generation through PRGN with context_salt
 - Performance measurement and optimization
 
 ## Architecture
@@ -29,9 +30,8 @@ pamola_core.utils.ops.op_registry
     └── register (Decorator for operation registration)
 
 pamola_core.utils.ops.op_base.BaseOperation
-└── pamola_core.utils.ops.op_base.FieldOperation
     └── pamola_core.fake_data.base_generator_op.GeneratorOperation
-        └── pamola_core.fake_data.operations.phone_op.NameOPhoneOperationperation
+        └── pamola_core.fake_data.operations.phone_op.FakePhoneOperation
 
 pamola_core.fake_data.generators
     └── PhoneGenerator (Generator for phone numbers)

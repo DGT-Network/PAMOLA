@@ -52,7 +52,7 @@ graph TD
         A --> |uses| H(DataSource)
         A --> |registered in| I(op_registry)
         A --> |configures| J(OperationConfig)
-        A --> |reports via| K(ProgressTracker)
+        A --> |reports via| K(HierarchicalProgressTracker)
         A --> |writes files via| R(DataWriter)
     end
     
@@ -207,8 +207,91 @@ A specialized base class for operations that process entire DataFrames, such as:
 | `execute`              | Abstract method to implement operation logic | `data_source`, `task_dir`, `reporter`, `progress_tracker`, `**kwargs`                             | `OperationResult` | -           |
 | `run`                  | Execute with lifecycle management            | `data_source`, `task_dir`, `reporter`, `track_progress`, `parallel_processes`, `**kwargs`         | `OperationResult` | -           |
 | `_prepare_directories` | Create standard directory structure          | `task_dir`                                                                                        | `Dict[str, Path]` | -           |
+| `_log_operation_start` | Log operation start with parameters          | `**kwargs`: Operation parameters to log                                                           | `None`            | -           |
+| `_log_operation_end`   | Log operation completion with results        | `result: OperationResult`                                                                         | `None`            | -           |
+| `_check_dask_availability` | Check if Dask is available for use       | None                                                                                              | `bool`            | -           |
+| `_should_use_dask`     | Determine whether to use Dask for this data  | `data_source`, `dataset_name`                                                                     | `bool`            | -           |
+| `_get_base_parameters` | Get basic parameters for cache key           | None                                                                                              | `Dict[str, str]`  | -           |
+| `_get_cache_parameters` | Get operation-specific cache parameters    | None (override in subclasses)                                                                     | `Dict[str, Any]`  | -           |
+| `_generate_cache_key`  | Generate deterministic cache key             | `df: Union[pd.Series, pd.DataFrame, dd.DataFrame]`                                                | `str`             | -           |
 | `get_execution_time`   | Get last execution duration                  | None                                                                                              | `Optional[float]` | -           |
 | `get_version`          | Get operation version                        | None                                                                                              | `str`             | -           |
+
+### Helper Methods for Lifecycle Management
+
+#### _log_operation_start(\_\_kwargs)
+Logs the start of an operation with parameters. Automatically redacts sensitive parameters like encryption keys and tokens.
+
+```python
+def _log_operation_start(self, **kwargs) -> None:
+    """
+    Log the start of an operation with parameters.
+
+    Logs operation name and all parameters, except sensitive ones.
+    Sensitive parameters: encryption_key, password, token, secret, api_key
+
+    Parameters
+    -----------
+    **kwargs : dict
+        Operation parameters to log (sensitive ones are redacted)
+    """
+```
+
+#### _log_operation_end(result)
+Logs the completion of an operation with its results and execution time.
+
+```python
+def _log_operation_end(self, result: OperationResult) -> None:
+    """
+    Log the end of an operation with results.
+
+    Safely handles missing attributes in result objects.
+
+    Parameters
+    -----------
+    result : OperationResult
+        The operation result to log
+    """
+```
+
+#### _check_dask_availability()
+Checks if Dask is available for use by the operation.
+
+```python
+def _check_dask_availability(self) -> bool:
+    """
+    Check if Dask is available for use.
+
+    Returns
+    --------
+    bool
+        True if Dask is available, False otherwise
+    """
+```
+
+#### _should_use_dask(data_source, dataset_name)
+Determines whether to use Dask based on data size and configuration.
+
+```python
+def _should_use_dask(self, data_source: DataSource, dataset_name: str = "main") -> bool:
+    """
+    Determine whether to use Dask based on data size and configuration.
+
+    Parameters
+    -----------
+    data_source : DataSource
+        Source of data for the operation
+    dataset_name : str, optional
+        Name of the DataFrame
+
+    Returns
+    --------
+    bool
+        True if Dask should be used, False otherwise
+    """
+```
+
+---
 
 ### save_config Method
 
@@ -250,6 +333,79 @@ except ConfigSaveError as e:
     self.logger.error(f"Failed to save configuration: {str(e)}")
     # Continue execution despite config save failure
 ```
+
+---
+
+### Cache Key Generation Methods
+
+#### _get_base_parameters()
+Returns basic parameters for cache key generation.
+
+```python
+def _get_base_parameters(self) -> Dict[str, str]:
+    """
+    Get the basic parameters for cache key generation.
+
+    Returns
+    --------
+    Dict[str, str]
+        Dictionary containing all base operation parameters
+    """
+```
+
+**Returns:** Dictionary with keys including:
+- Identification: `name`, `description`, `version`, `operation_name`
+- Performance: `optimize_memory`, `adaptive_chunk_size`
+- Processing: `mode`, `column_prefix`, `null_strategy`, `engine`
+- Dask: `use_dask`, `npartitions`, `dask_partition_size`
+- Vectorization: `use_vectorization`, `parallel_processes`, `chunk_size`
+- Output: `use_cache`, `output_format`, `visualization_*`
+- Encryption: `use_encryption`, `encryption_mode`, `encryption_key`
+- Control: `force_recalculation`, `generate_visualization`, `save_output`
+
+#### _get_cache_parameters()
+Override this method in subclasses to provide operation-specific cache parameters.
+
+```python
+def _get_cache_parameters(self) -> Dict[str, Any]:
+    """
+    Get operation-specific parameters for cache key generation.
+
+    This method should be overridden by subclasses to provide
+    operation-specific parameters for caching.
+
+    Returns
+    --------
+    Dict[str, Any]
+        Parameters for cache key generation (empty dict in base class)
+    """
+```
+
+#### _generate_cache_key(df)
+Generates a deterministic cache key based on operation parameters and data characteristics.
+
+```python
+def _generate_cache_key(self, df: Union[pd.Series, pd.DataFrame, dd.DataFrame]) -> str:
+    """
+    Generate a deterministic cache key based on operation parameters and data characteristics.
+
+    Parameters
+    -----------
+    df : Union[pd.Series, pd.DataFrame, dd.DataFrame]
+        DataFrame for the operation
+
+    Returns
+    --------
+    str
+        Unique cache key
+    """
+```
+
+**Algorithm:**
+1. Collects all base parameters via `_get_base_parameters()`
+2. Generates data hash via `generate_data_hash(df)` from utils.helpers
+3. Calls `operation_cache.generate_cache_key()` with operation name, parameters, and data hash
+4. Returns deterministic cache key that remains consistent across runs with identical inputs
 
 ## Configuration Parameters
 

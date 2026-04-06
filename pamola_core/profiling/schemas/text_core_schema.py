@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Text Semantic Categorizer Core Schema
 Package:       pamola_core.anonymization.schemas
 Version:       1.0.0

@@ -8,14 +8,14 @@ including companies, educational institutions, government agencies, etc.
 import logging
 from typing import Optional
 
-from pamola_core.utils.nlp.entity.base import BaseEntityExtractor, EntityMatchResult
-from pamola_core.utils.nlp.model_manager import NLPModelManager
+from pamola_core.utils.nlp.entity.base import (
+    BaseEntityExtractor,
+    EntityMatchResult,
+)
+from pamola_core.utils.nlp.model_manager import nlp_model_manager
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-# NLP model manager instance
-nlp_model_manager = NLPModelManager()
 
 
 class OrganizationExtractor(BaseEntityExtractor):
@@ -27,7 +27,7 @@ class OrganizationExtractor(BaseEntityExtractor):
         """
         Initialize the organization extractor.
 
-        Additional parameters:
+        Additional parameters
         -----------
         organization_type : str
             Type of organizations to extract ('company', 'university', 'government', etc.)
@@ -103,7 +103,7 @@ class OrganizationExtractor(BaseEntityExtractor):
         """
         Get the entity type for this extractor.
 
-        Returns:
+        Returns
         --------
         str
             Entity type string
@@ -116,7 +116,7 @@ class OrganizationExtractor(BaseEntityExtractor):
         """
         Extract organization names using NER models.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Original text
@@ -125,7 +125,7 @@ class OrganizationExtractor(BaseEntityExtractor):
         language : str
             Language of the text
 
-        Returns:
+        Returns
         --------
         EntityMatchResult or None
             Match result if found, None otherwise
@@ -214,14 +214,14 @@ class OrganizationExtractor(BaseEntityExtractor):
         """
         Check if an organization name matches a specific type.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Organization name
         org_type : str
             Organization type to check
 
-        Returns:
+        Returns
         --------
         bool
             True if the organization matches the type, False otherwise

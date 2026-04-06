@@ -1,6 +1,5 @@
 """
 AMOLA.CORE - Privacy-Preserving AI Data Processors
-------------------------------------------------------------
 Module:        Category Analysis and Manipulation Utilities
 Package:       pamola_core.anonymization.commons
 Version:       2.1.0
@@ -157,7 +156,7 @@ def analyze_category_distribution(
     Provides metrics essential for understanding privacy risks and planning
     appropriate generalization strategies.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Categorical data to analyze
@@ -174,7 +173,7 @@ def analyze_category_distribution(
     value_counts : Optional[pd.Series], optional
         Pre-computed value counts to avoid recalculation (default: None)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing:
@@ -191,7 +190,7 @@ def analyze_category_distribution(
         - concentration_metrics: Dict[str, float] - CR-5, CR-10, etc.
         - coverage_90_percentile: int - Categories needed for 90% coverage
 
-    Examples:
+    Examples
     ---------
     >>> data = pd.Series(['A', 'B', 'A', 'C', 'B', 'A', None, 'D'] * 100)
     >>> dist = analyze_category_distribution(data)
@@ -315,7 +314,7 @@ def identify_rare_categories(
     Rare categories pose higher re-identification risks and are primary
     candidates for generalization or suppression.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Categorical data to analyze
@@ -332,7 +331,7 @@ def identify_rare_categories(
     value_counts : Optional[pd.Series], optional
         Pre-computed value counts to avoid recalculation (default: None)
 
-    Returns:
+    Returns
     --------
     Tuple[Set[str], Dict[str, RareCategoryInfo]]
         - rare_categories: Set of category names identified as rare
@@ -343,7 +342,7 @@ def identify_rare_categories(
             - below_count_threshold: bool
             - below_percent_threshold: bool
 
-    Examples:
+    Examples
     ---------
     >>> data = pd.Series(['Common'] * 100 + ['Rare1'] * 5 + ['Rare2'] * 3)
     >>> rare_cats, info = identify_rare_categories(data, count_threshold=10)
@@ -437,7 +436,7 @@ def group_rare_categories(
     Essential for achieving k-anonymity by ensuring no category has
     too few members.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Categorical data to process
@@ -462,7 +461,7 @@ def group_rare_categories(
     value_counts : Optional[pd.Series], optional
         Pre-computed value counts to avoid recalculation (default: None)
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, GroupingInfo]
         - grouped_series: Series with rare categories grouped
@@ -473,7 +472,7 @@ def group_rare_categories(
             - reduction_ratio: float - Reduction in unique values
             - categories_grouped: int - Number of categories grouped
 
-    Examples:
+    Examples
     ---------
     >>> data = pd.Series(['A'] * 100 + ['B'] * 50 + ['C'] * 5 + ['D'] * 3)
     >>> grouped, info = group_rare_categories(data, threshold=10)
@@ -638,7 +637,7 @@ def calculate_category_entropy(
     Entropy measures the randomness/unpredictability of categories,
     useful for assessing anonymization effectiveness.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Categorical data
@@ -647,12 +646,12 @@ def calculate_category_entropy(
     normalize : bool, optional
         Whether to normalize by maximum entropy (default: True)
 
-    Returns:
+    Returns
     --------
     float
         Entropy value (normalized to [0, 1] if normalize=True)
 
-    Examples:
+    Examples
     ---------
     >>> data = pd.Series(['A', 'B', 'C', 'D'])  # Maximum entropy
     >>> entropy = calculate_category_entropy(data)
@@ -688,7 +687,7 @@ def validate_category_mapping(
     Ensures that generalizations are applied consistently and no
     data is lost or corrupted during the mapping process.
 
-    Parameters:
+    Parameters
     -----------
     original : pd.Series
         Original categorical data
@@ -699,7 +698,7 @@ def validate_category_mapping(
     coverage_threshold : float, optional
         Threshold for coverage warning (default: 0.95 = 95%)
 
-    Returns:
+    Returns
     --------
     ValidationResult
         Validation results:
@@ -712,7 +711,7 @@ def validate_category_mapping(
         - reduction_ratio: float - Reduction in unique values
         - warnings: List[str] - Non-critical issues
 
-    Examples:
+    Examples
     ---------
     >>> original = pd.Series(['Engineer', 'Manager', 'Director'])
     >>> mapped = pd.Series(['Technical', 'Business', 'Business'])
@@ -842,7 +841,7 @@ def calculate_semantic_diversity_safe(
 
     Wrapper around diversity metrics with privacy-preserving settings.
 
-    Parameters:
+    Parameters
     -----------
     categories : List[str]
         List of category names
@@ -852,7 +851,7 @@ def calculate_semantic_diversity_safe(
         Text normalization level: "basic", "advanced", "none" (default: "basic")
         Use "advanced" for multilingual datasets
 
-    Returns:
+    Returns
     --------
     float
         Diversity score [0, 1]
@@ -946,34 +945,3 @@ def _empty_grouping_result(error: Optional[str] = None) -> GroupingInfo:
     # TypedDict doesn't allow extra keys, so we return as-is without error field
     # If error handling is needed, it should be done at the caller level
     return result
-
-
-# Module metadata
-__version__ = "2.1.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    # Core analysis functions
-    "analyze_category_distribution",
-    "identify_rare_categories",
-    "group_rare_categories",
-    # Metrics functions
-    "calculate_category_entropy",
-    "calculate_semantic_diversity_safe",
-    # Validation functions
-    "validate_category_mapping",
-    # Type definitions
-    "RareCategoryInfo",
-    "GroupingInfo",
-    "ValidationResult",
-    # Constants
-    "DEFAULT_TOP_N",
-    "DEFAULT_RARE_THRESHOLD",
-    "DEFAULT_RARE_PERCENT",
-    "DEFAULT_GROUP_PREFIX",
-    "DEFAULT_OTHER_LABEL",
-    "MAX_GROUPS",
-    "DEFAULT_COVERAGE_WARNING_THRESHOLD",
-]

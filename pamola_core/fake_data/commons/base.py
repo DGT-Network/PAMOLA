@@ -9,12 +9,14 @@ import abc
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Any, Optional, TypeVar, Union, Set, Callable
+from pamola_core.errors.exceptions import MappingError, FeatureNotImplementedError
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ResourceType(Enum):
     """Types of resources that can be estimated for operations."""
+
     MEMORY = "memory_mb"
     TIME = "time_seconds"
     CPU = "cpu_percent"
@@ -23,30 +25,11 @@ class ResourceType(Enum):
 
 class NullStrategy(Enum):
     """Strategies for handling NULL values in data."""
+
     PRESERVE = "preserve"  # Keep NULL values unchanged
     REPLACE = "replace"  # Replace NULL with a default or generated value
     EXCLUDE = "exclude"  # Skip NULL values during processing
     ERROR = "error"  # Raise an error when NULL is encountered
-
-
-class FakeDataError(Exception):
-    """Base exception class for fake_data module errors."""
-    pass
-
-
-class ValidationError(FakeDataError):
-    """Exception raised for validation errors."""
-    pass
-
-
-class ResourceError(FakeDataError):
-    """Exception raised for resource-related errors (memory, disk, etc.)."""
-    pass
-
-
-class MappingError(FakeDataError):
-    """Exception raised for mapping errors."""
-    pass
 
 
 class BaseGenerator(abc.ABC):
@@ -62,7 +45,7 @@ class BaseGenerator(abc.ABC):
         """
         Generates the specified number of fake values.
 
-        Parameters:
+        Parameters
         -----------
         count : int
             Number of values to generate
@@ -73,12 +56,12 @@ class BaseGenerator(abc.ABC):
             - language: language
             - seed: initial value for the random number generator
 
-        Returns:
+        Returns
         --------
         List[Any]
             List of generated values
 
-        Raises:
+        Raises
         -------
         ValidationError
             If parameters are invalid
@@ -92,19 +75,19 @@ class BaseGenerator(abc.ABC):
         """
         Generates a fake value similar to the original.
 
-        Parameters:
+        Parameters
         -----------
         original_value : Any
             Original value to be replaced
         **params : dict
             Additional generation parameters
 
-        Returns:
+        Returns
         --------
         Any
             Generated value
 
-        Raises:
+        Raises
         -------
         ValidationError
             If original value format is invalid or unsupported
@@ -116,12 +99,12 @@ class BaseGenerator(abc.ABC):
         """
         Analyzes the structure and characteristics of a value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Value to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with analysis results containing at minimum:
@@ -138,14 +121,14 @@ class BaseGenerator(abc.ABC):
 
         This implementation provides a basic estimation. Override for more accurate estimates.
 
-        Parameters:
+        Parameters
         -----------
         count : int
             Number of values to generate
         **params : dict
             Additional parameters that may affect resource usage
 
-        Returns:
+        Returns
         --------
         Dict[str, float]
             Dictionary with resource estimates containing at least:
@@ -173,7 +156,7 @@ class BaseMapper(abc.ABC):
         """
         Maps an original value to a fake one.
 
-        Parameters:
+        Parameters
         -----------
         original_value : Any
             Original value to map
@@ -183,12 +166,12 @@ class BaseMapper(abc.ABC):
             - context: contextual information for ensuring consistency
             - preserve_format: preserve the format of the original value
 
-        Returns:
+        Returns
         --------
         Any
             Fake value
 
-        Raises:
+        Raises
         -------
         ValidationError
             If original value cannot be processed
@@ -202,18 +185,18 @@ class BaseMapper(abc.ABC):
         """
         Attempts to restore the original value from a fake one.
 
-        Parameters:
+        Parameters
         -----------
         synthetic_value : Any
             Fake value to restore from
 
-        Returns:
+        Returns
         --------
         Optional[Any]
             Original value if available, None if restoration is not possible
             due to non-reversible mapping or other limitations
 
-        Raises:
+        Raises
         -------
         MappingError
             If restoration encounters conflicts (multiple possible originals)
@@ -221,11 +204,13 @@ class BaseMapper(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def add_mapping(self, original: Any, synthetic: Any, is_transitive: bool = False) -> None:
+    def add_mapping(
+        self, original: Any, synthetic: Any, is_transitive: bool = False
+    ) -> None:
         """
         Adds a new mapping to the mapper.
 
-        Parameters:
+        Parameters
         -----------
         original : Any
             Original value
@@ -234,7 +219,7 @@ class BaseMapper(abc.ABC):
         is_transitive : bool
             Flag indicating whether the mapping is transitive
 
-        Raises:
+        Raises
         -------
         MappingError
             If mapping addition creates conflicts
@@ -246,14 +231,14 @@ class BaseMapper(abc.ABC):
         """
         Checks for possible conflicts when adding a new mapping.
 
-        Parameters:
+        Parameters
         -----------
         original : Any
             Original value
         synthetic : Any
             Fake value
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Information about conflicts:
@@ -271,7 +256,7 @@ class BaseMapper(abc.ABC):
         This method can be used to discover supported strategies for
         resolving mapping conflicts in specific implementations.
 
-        Returns:
+        Returns
         --------
         Dict[str, Callable]
             Dictionary mapping strategy names to handler functions
@@ -305,11 +290,17 @@ class MappingStore:
         # Transitivity markers: {field_name: {original: is_transitive}}
         self.transitivity_markers = {}
 
-    def add_mapping(self, field_name: str, original: Any, synthetic: Any, is_transitive: bool = False) -> None:
+    def add_mapping(
+        self,
+        field_name: str,
+        original: Any,
+        synthetic: Any,
+        is_transitive: bool = False,
+    ) -> None:
         """
         Adds a mapping between original and synthetic values.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
@@ -320,7 +311,7 @@ class MappingStore:
         is_transitive : bool
             Whether the mapping is transitive
 
-        Raises:
+        Raises
         -------
         MappingError
             If mapping creates conflicts that cannot be resolved
@@ -332,13 +323,21 @@ class MappingStore:
             self.transitivity_markers[field_name] = {}
 
         # Check for conflicts
-        if original in self.mappings[field_name] and self.mappings[field_name][original] != synthetic:
+        if (
+            original in self.mappings[field_name]
+            and self.mappings[field_name][original] != synthetic
+        ):
             raise MappingError(
-                f"Conflict: Original value already mapped to a different synthetic value for field {field_name}")
+                f"Conflict: Original value already mapped to a different synthetic value for field {field_name}"
+            )
 
-        if synthetic in self.reverse_mappings[field_name] and self.reverse_mappings[field_name][synthetic] != original:
+        if (
+            synthetic in self.reverse_mappings[field_name]
+            and self.reverse_mappings[field_name][synthetic] != original
+        ):
             raise MappingError(
-                f"Conflict: Synthetic value already mapped from a different original value for field {field_name}")
+                f"Conflict: Synthetic value already mapped from a different original value for field {field_name}"
+            )
 
         # Add direct and reverse mappings
         self.mappings[field_name][original] = synthetic
@@ -351,14 +350,14 @@ class MappingStore:
         """
         Gets the synthetic value for an original value.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
         original : Any
             Original value
 
-        Returns:
+        Returns
         --------
         Optional[Any]
             Synthetic value or None if not found
@@ -372,14 +371,14 @@ class MappingStore:
         """
         Restores the original value from a synthetic one.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
         synthetic : Any
             Synthetic value
 
-        Returns:
+        Returns
         --------
         Optional[Any]
             Original value or None if not found
@@ -388,20 +387,19 @@ class MappingStore:
             return None
 
         return self.reverse_mappings[field_name].get(synthetic)
-    
 
     def is_transitive(self, field_name: str, original: Any) -> bool:
         """
         Checks if a mapping is transitive.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
         original : Any
             Original value
 
-        Returns:
+        Returns
         --------
         bool
             True if the mapping is transitive, False otherwise
@@ -410,18 +408,17 @@ class MappingStore:
             return False
 
         return self.transitivity_markers[field_name].get(original, False)
-    
-    
+
     def get_field_mappings(self, field_name: str) -> Dict[Any, Any]:
         """
         Gets all mappings for a field.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
 
-        Returns:
+        Returns
         --------
         Dict[Any, Any]
             Dictionary of original to synthetic mappings
@@ -431,13 +428,12 @@ class MappingStore:
             return {}
 
         return self.mappings[field_name].copy()
-    
 
     def get_field_names(self) -> Set[str]:
         """
         Gets all field names in the mapping store.
 
-        Returns:
+        Returns
         --------
         Set[str]
             Set of field names with mappings
@@ -448,30 +444,30 @@ class MappingStore:
         """
         Saves the mapping store to a file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to save the mapping store
 
-        Raises:
+        Raises
         -------
         IOError
             If saving fails due to I/O errors
         """
         # This implementation should use appropriate I/O utilities
         # and handle serialization of complex types
-        raise NotImplementedError("Subclasses must implement save method")
+        raise FeatureNotImplementedError("Subclasses must implement save method")
 
     def load(self, path: Union[str, Path]) -> None:
         """
         Loads the mapping store from a file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to load the mapping store from
 
-        Raises:
+        Raises
         -------
         IOError
             If loading fails due to I/O errors
@@ -480,4 +476,4 @@ class MappingStore:
         """
         # This implementation should use appropriate I/O utilities
         # and handle deserialization of complex types
-        raise NotImplementedError("Subclasses must implement load method")
+        raise FeatureNotImplementedError("Subclasses must implement load method")

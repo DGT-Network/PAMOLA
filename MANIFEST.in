@@ -4,6 +4,8 @@ include LICENSE
 
 # Include all files in the resources directory (e.g., JSON, CSV, config)
 recursive-include pamola_core/resources *
+recursive-include pamola_core/errors/context *.yaml
+recursive-include pamola_core/catalogs *.yaml
 
 # If there's sample test data, include it as well (if you want to publish the package with test data)
 recursive-include tests *.csv *.json *.yml *.yaml

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Group Analyzer Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -39,6 +38,9 @@ from pamola_core.profiling.commons.group_utils import (
     analyze_group,
     calculate_field_metrics,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.profiling.schemas.group_core_schema import GroupAnalyzerOperationConfig
 from pamola_core.utils.helpers import (
     build_base_cache,
@@ -56,9 +58,9 @@ from pamola_core.utils.ops.op_result import (
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import create_histogram, create_heatmap
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_settings_operation
 from pamola_core.common.constants import Constants
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -84,7 +86,7 @@ class GroupAnalyzer:
         """
         Analyze grouped data to compute variance and duplication metrics for anonymization.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The input DataFrame to analyze.
@@ -113,7 +115,7 @@ class GroupAnalyzer:
         **kwargs
             Additional keyword arguments passed to downstream utilities.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
         """
@@ -336,7 +338,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Execute the email analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -349,26 +351,22 @@ class GroupAnalyzerOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
-            dirs = self._prepare_directories(task_dir)
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
 
-            # Initialize operation cache
-            self.operation_cache = OperationCache(
-                cache_dir=dirs["cache"],
-            )
-            visualizations_dir = dirs["visualizations"]
+            result = OperationResult(status=OperationStatus.PENDING)
 
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             metrics = None
-
-            if kwargs.get("logger"):
-                self.logger = kwargs["logger"]
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -376,10 +374,19 @@ class GroupAnalyzerOperation(FieldOperation):
             # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
 
-            self.logger.info(f"Starting group analysis for field: {self.field_name}")
+            dirs = self._prepare_directories(task_dir)
+            visualizations_dir = dirs["visualizations"]
 
-            # Initialize result object
-            result = OperationResult(status=OperationStatus.PENDING)
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -388,6 +395,8 @@ class GroupAnalyzerOperation(FieldOperation):
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
+
+            self.logger.info(f"Starting group analysis for field: {self.field_name}")
 
             # Preparation, Cache Check, Data Loading, Grouping, Visualizations, Saving results
             total_steps = 5 + (
@@ -408,20 +417,34 @@ class GroupAnalyzerOperation(FieldOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Loading data"})
 
-            self.logger.info(f"Loading data for: {self.field_name}")
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = helpers.validate_and_get_dataframe(
-                data_source, dataset_name, **settings_operation
-            )
+            try:
+                self.logger.info(f"Loading data for: {self.field_name}")
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
+                )
 
             # Check if field_name exists
             if self.field_name not in df.columns:
                 error_message = f"Field '{self.field_name}' not found in DataFrame"
                 self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                return self.error_handler.handle_error(
+                    error=ValueError(error_message),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Validate fields to analyze exist in the DataFrame
@@ -433,8 +456,14 @@ class GroupAnalyzerOperation(FieldOperation):
             if missing_fields:
                 error_message = f"Fields not found in DataFrame: {missing_fields}"
                 self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                return self.error_handler.handle_error(
+                    error=ValueError(error_message),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": ", ".join(missing_fields),
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Step 3: Check Cache (if enabled and not forced to recalculate)
@@ -458,7 +487,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Clean invalid values (from cache)",
+                            f"{self.operation_name} (from cache)",
                             details={"cached": True},
                         )
                     return cache_result
@@ -522,7 +551,7 @@ class GroupAnalyzerOperation(FieldOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Saving results"})
 
-            self.logger.info(f"Saving metrics")
+            self.logger.info("Saving metrics")
 
             # Save metrics
             metrics_result = writer.write_metrics(
@@ -557,13 +586,6 @@ class GroupAnalyzerOperation(FieldOperation):
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            # Set success status
-            result.status = OperationStatus.SUCCESS
-
-            self.logger.info(
-                f"Group analysis for {self.field_name} completed successfully"
-            )
-
             # Group data by field_name
             grouped = df.groupby(self.field_name)
             group_keys = list(grouped.groups.keys())
@@ -592,25 +614,40 @@ class GroupAnalyzerOperation(FieldOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            error_message = f"Error executing group analysis: {str(e)}"
-            self.logger.error(error_message, exc_info=True)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _calculate_field_variance(self, field_series: pd.Series) -> Tuple[float, float]:
         """
         Calculate the variance and duplication ratio for a single field.
 
-        Parameters:
+        Parameters
         -----------
         field_series : pd.Series
             Series containing values for a single field
 
-        Returns:
+        Returns
         --------
         Tuple[float, float]
             (variance, duplication_ratio)
@@ -641,12 +678,12 @@ class GroupAnalyzerOperation(FieldOperation):
         Get unique values from a field series, handling text and NULL values.
         Improved version with better categorical data handling.
 
-        Parameters:
+        Parameters
         -----------
         field_series : pd.Series
             Series containing values for a single field
 
-        Returns:
+        Returns
         --------
         Tuple[Set[Any], Dict[Any, int]]
             Set of unique values and dictionary with value counts
@@ -770,12 +807,12 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Cluster similar MinHash signature keys.
 
-        Parameters:
+        Parameters
         -----------
         signature_keys : List[str]
             List of MinHash signature keys to cluster
 
-        Returns:
+        Returns
         --------
         List[List[str]]
             List of clusters, where each cluster is a list of similar signature keys
@@ -791,7 +828,7 @@ class GroupAnalyzerOperation(FieldOperation):
                 nums = key.strip("[]").split(",")
                 sig = [int(n.strip()) for n in nums if n.strip()]
                 parsed_signatures.append((key, sig))
-            except (ValueError, AttributeError):
+            except (ValidationError, ValueError, AttributeError):
                 # Skip keys that can't be parsed as signatures
                 continue
 
@@ -830,14 +867,14 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Calculate a simple Jaccard similarity between two signatures.
 
-        Parameters:
+        Parameters
         -----------
         sig1 : List[int]
             First signature
         sig2 : List[int]
             Second signature
 
-        Returns:
+        Returns
         --------
         float
             Jaccard similarity (0-1)
@@ -862,7 +899,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Generate a histogram of variance distribution.
 
-        Parameters:
+        Parameters
         -----------
         variance_distribution : Dict[str, int]
             Dictionary with variance ranges and their counts
@@ -908,7 +945,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     kde=False,
                     **kwargs,
                 )
-            except (TypeError, ValueError) as e:
+            except (ValidationError, TypeError, ValueError):
                 # Fallback to matplotlib for proper histogram
                 plt.figure(figsize=(10, 6))
                 plt.bar(list(data.keys()), list(data.values()), color="skyblue")
@@ -953,7 +990,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Generate a heatmap of field variances.
 
-        Parameters:
+        Parameters
         -----------
         field_metrics : Dict[str, Dict[str, float]]
             Dictionary with metrics for each field
@@ -997,7 +1034,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     annotation_format=".3f",
                     **kwargs,
                 )
-            except (TypeError, ValueError) as e:
+            except (ValidationError, TypeError, ValueError):
                 # Fallback to matplotlib for the heatmap
                 plt.figure(figsize=(12, len(field_names) * 0.8))
                 im = plt.imshow(df_data.values, cmap="viridis")
@@ -1057,12 +1094,12 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -1104,7 +1141,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -1113,7 +1150,7 @@ class GroupAnalyzerOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1140,9 +1177,9 @@ class GroupAnalyzerOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -1153,7 +1190,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -1190,7 +1227,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         threshold_metrics : Dict[str, Any]
             Dictionary containing variance distribution metrics (e.g., group counts by variance range).
@@ -1213,7 +1250,7 @@ class GroupAnalyzerOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1248,7 +1285,7 @@ class GroupAnalyzerOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1260,7 +1297,7 @@ class GroupAnalyzerOperation(FieldOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1312,17 +1349,17 @@ class GroupAnalyzerOperation(FieldOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1368,7 +1405,7 @@ class GroupAnalyzerOperation(FieldOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts

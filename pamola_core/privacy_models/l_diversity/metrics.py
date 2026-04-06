@@ -15,11 +15,10 @@ Licensed under BSD 3-Clause License
 
 import logging
 import math
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from functools import lru_cache
 
 import pandas as pd
-import numpy as np
 
 
 class LDiversityMetricsCalculator:
@@ -34,7 +33,7 @@ class LDiversityMetricsCalculator:
         """
         Initialize Metrics Calculator
 
-        Parameters:
+        Parameters
         -----------
         processor : object, optional
             L-Diversity processor instance for advanced calculations
@@ -53,7 +52,7 @@ class LDiversityMetricsCalculator:
         """
         Comprehensive metrics calculation with caching
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -64,7 +63,7 @@ class LDiversityMetricsCalculator:
         **kwargs : dict
             Additional metrics calculation parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Comprehensive metrics dictionary
@@ -105,14 +104,14 @@ class LDiversityMetricsCalculator:
         """
         Calculate group-level metrics
 
-        Parameters:
+        Parameters
         -----------
         group_diversity : pd.DataFrame
             Grouped diversity information
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Group-level metrics
@@ -141,7 +140,7 @@ class LDiversityMetricsCalculator:
         """
         Calculate information loss metrics
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Original dataset
@@ -150,7 +149,7 @@ class LDiversityMetricsCalculator:
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, float]
             Information loss metrics
@@ -184,14 +183,14 @@ class LDiversityMetricsCalculator:
         """
         Calculate diversity-specific metrics
 
-        Parameters:
+        Parameters
         -----------
         group_diversity : pd.DataFrame
             Grouped diversity information
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Diversity-specific metrics
@@ -213,12 +212,12 @@ class LDiversityMetricsCalculator:
         """
         Calculate Shannon entropy for a series
 
-        Parameters:
+        Parameters
         -----------
         series : pd.Series
             Input series of values
 
-        Returns:
+        Returns
         --------
         float
             Shannon entropy value
@@ -242,7 +241,7 @@ def calculate_information_loss(
     """
     Calculate information loss between original and anonymized datasets
 
-    Parameters:
+    Parameters
     -----------
     original_data : pd.DataFrame
         Original dataset
@@ -253,7 +252,7 @@ def calculate_information_loss(
     sensitive_attributes : List[str]
         Sensitive attribute columns
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Information loss metrics

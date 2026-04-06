@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Task Registry
 Description: In-memory task type registration and discovery
 Author: PAMOLA Core Team
@@ -23,6 +22,7 @@ import logging
 import pkgutil
 from typing import Dict, Any, Optional, List, Type
 
+from pamola_core.errors.exceptions import TaskRegistryError, ValidationError
 from pamola_core.utils.tasks.execution_log import find_latest_execution
 
 # Import BaseTask indirectly to avoid circular imports
@@ -36,29 +36,29 @@ logger = logging.getLogger(__name__)
 _task_classes: Dict[str, Type] = {}
 
 
-class TaskRegistryError(Exception):
-    """Exception raised for task registry errors."""
-    pass
-
-
 def register_task_class(task_id: str, task_class: Type) -> bool:
     """
     Register a task class by ID.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         task_class: Task class to register
 
-    Returns:
+    Returns
+    -------
         True if registration was successful, False otherwise
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If registration fails
     """
     try:
         # Check if class is a valid task class (has required attributes)
         if not _validate_task_class(task_class):
-            logger.warning(f"Invalid task class for {task_id}: missing required attributes")
+            logger.warning(
+                f"Invalid task class for {task_id}: missing required attributes"
+            )
             return False
 
         # Register task class
@@ -75,13 +75,16 @@ def get_task_class(task_id: str) -> Optional[Type]:
     """
     Get a task class by ID.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
 
-    Returns:
+    Returns
+    -------
         Task class or None if not found
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If lookup fails
     """
     try:
@@ -96,10 +99,12 @@ def list_registered_tasks() -> Dict[str, Dict[str, Any]]:
     """
     List all registered task types with their metadata.
 
-    Returns:
+    Returns
+    -------
         Dictionary mapping task IDs to task metadata
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If listing fails
     """
     try:
@@ -117,14 +122,17 @@ def create_task_instance(task_id: str, **kwargs) -> Optional[Any]:
     """
     Create a task instance by ID.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         **kwargs: Arguments to pass to the task constructor
 
-    Returns:
+    Returns
+    -------
         Task instance or None if task class not found
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If instantiation fails
     """
     try:
@@ -144,22 +152,26 @@ def create_task_instance(task_id: str, **kwargs) -> Optional[Any]:
         raise TaskRegistryError(f"Failed to create task instance: {str(e)}")
 
 
-def discover_task_classes(package_paths: Optional[List[str]] = None,
-                          recursive: bool = True) -> Dict[str, Type]:
+def discover_task_classes(
+    package_paths: Optional[List[str]] = None, recursive: bool = True
+) -> Dict[str, Type]:
     """
     Discover task classes in specified packages.
 
     This function scans Python packages for classes that inherit from BaseTask
     and have a task_id attribute.
 
-    Args:
+    Parameters
+    ----------
         package_paths: List of package paths to scan (e.g., ["mypackage.tasks"])
         recursive: Whether to scan subpackages recursively
 
-    Returns:
+    Returns
+    -------
         Dictionary mapping task IDs to task classes
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If discovery fails
     """
     try:
@@ -179,11 +191,15 @@ def discover_task_classes(package_paths: Optional[List[str]] = None,
                 if hasattr(package, "__path__"):
                     package_dir = package.__path__
                 else:
-                    logger.warning(f"Package {package_path} does not have a __path__ attribute")
+                    logger.warning(
+                        f"Package {package_path} does not have a __path__ attribute"
+                    )
                     continue
 
                 # Walk through package
-                for _, module_name, is_pkg in pkgutil.walk_packages(package_dir, package.__name__ + "."):
+                for _, module_name, is_pkg in pkgutil.walk_packages(
+                    package_dir, package.__name__ + "."
+                ):
                     # Skip packages if not recursive
                     if is_pkg and not recursive:
                         continue
@@ -194,18 +210,24 @@ def discover_task_classes(package_paths: Optional[List[str]] = None,
 
                         # Scan module for task classes
                         for name, obj in module.__dict__.items():
-                            if (inspect.isclass(obj) and
-                                    obj.__module__ == module.__name__ and
-                                    _is_task_class(obj)):
+                            if (
+                                inspect.isclass(obj)
+                                and obj.__module__ == module.__name__
+                                and _is_task_class(obj)
+                            ):
 
                                 # Get task ID
                                 task_id = _get_task_id(obj)
                                 if task_id:
                                     discovered_tasks[task_id] = obj
-                                    logger.debug(f"Discovered task class: {task_id} ({obj.__name__})")
+                                    logger.debug(
+                                        f"Discovered task class: {task_id} ({obj.__name__})"
+                                    )
 
                     except (ImportError, AttributeError) as e:
-                        logger.warning(f"Error importing module {module_name}: {str(e)}")
+                        logger.warning(
+                            f"Error importing module {module_name}: {str(e)}"
+                        )
 
             except ImportError as e:
                 logger.warning(f"Error importing package {package_path}: {str(e)}")
@@ -217,19 +239,23 @@ def discover_task_classes(package_paths: Optional[List[str]] = None,
         raise TaskRegistryError(f"Failed to discover task classes: {str(e)}")
 
 
-def register_discovered_tasks(package_paths: Optional[List[str]] = None,
-                              recursive: bool = True) -> int:
+def register_discovered_tasks(
+    package_paths: Optional[List[str]] = None, recursive: bool = True
+) -> int:
     """
     Discover and register task classes in specified packages.
 
-    Args:
+    Parameters
+    ----------
         package_paths: List of package paths to scan
         recursive: Whether to scan subpackages recursively
 
-    Returns:
+    Returns
+    -------
         Number of tasks registered
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If registration fails
     """
     try:
@@ -257,13 +283,16 @@ def get_task_metadata(task_class: Type) -> Dict[str, Any]:
     Extracts metadata without creating an instance of the class to avoid
     expensive initialization.
 
-    Args:
+    Parameters
+    ----------
         task_class: Task class to extract metadata from
 
-    Returns:
+    Returns
+    -------
         Dictionary with task metadata
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If metadata extraction fails
     """
     try:
@@ -279,21 +308,21 @@ def get_task_metadata(task_class: Type) -> Dict[str, Any]:
             "class_name": task_class.__name__,
             "module": task_class.__module__,
             "dependencies": getattr(task_class, "dependencies", []),
-            "author": getattr(task_class, "author", "unknown")
+            "author": getattr(task_class, "author", "unknown"),
         }
 
         # Extract additional metadata from docstring if available
         if task_class.__doc__:
-            doc_lines = task_class.__doc__.strip().split('\n')
+            doc_lines = task_class.__doc__.strip().split("\n")
 
             # Look for metadata in docstring (e.g., @author, @version, etc.)
             for line in doc_lines:
                 line = line.strip()
-                if line.startswith('@'):
+                if line.startswith("@"):
                     try:
-                        tag, value = line[1:].split(':', 1)
+                        tag, value = line[1:].split(":", 1)
                         metadata[tag.strip().lower()] = value.strip()
-                    except ValueError:
+                    except (ValidationError, ValueError):
                         # Skip malformatted tags
                         pass
 
@@ -304,22 +333,27 @@ def get_task_metadata(task_class: Type) -> Dict[str, Any]:
         raise TaskRegistryError(f"Failed to extract task metadata: {str(e)}")
 
 
-def check_task_dependencies(task_id: str, task_type: str, dependencies: List[str]) -> bool:
+def check_task_dependencies(
+    task_id: str, task_type: str, dependencies: List[str]
+) -> bool:
     """
     Check if dependencies for a task are satisfied.
 
     This function checks the execution log to see if all dependency tasks
     have been executed successfully.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         task_type: Type of the task
         dependencies: List of task IDs that this task depends on
 
-    Returns:
+    Returns
+    -------
         True if all dependencies are satisfied, False otherwise
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If dependency check fails
     """
     # If no dependencies, return True
@@ -334,7 +368,9 @@ def check_task_dependencies(task_id: str, task_type: str, dependencies: List[str
 
             # Check if dependency has been executed successfully
             if not latest_execution:
-                logger.warning(f"Dependency task {dep_task_id} has not been executed successfully")
+                logger.warning(
+                    f"Dependency task {dep_task_id} has not been executed successfully"
+                )
                 return False
 
         # All dependencies satisfied
@@ -354,10 +390,12 @@ def _is_task_class(cls: Type) -> bool:
     1. Have a 'task_id' attribute or method to be instantiated with a task_id
     2. Inherit from a class named 'BaseTask'
 
-    Args:
+    Parameters
+    ----------
         cls: Class to check
 
-    Returns:
+    Returns
+    -------
         True if the class is a task class, False otherwise
     """
     # Check for BaseTask in class hierarchy
@@ -371,11 +409,9 @@ def _is_task_class(cls: Type) -> bool:
         params = sig.parameters
 
         # Check for required parameters
-        if ("task_id" in params and
-                "task_type" in params and
-                "description" in params):
+        if "task_id" in params and "task_type" in params and "description" in params:
             return True
-    except (ValueError, TypeError):
+    except (ValidationError, ValueError, TypeError):
         pass
 
     return False
@@ -385,10 +421,12 @@ def _get_task_id(cls: Type) -> Optional[str]:
     """
     Get the task ID from a task class.
 
-    Args:
+    Parameters
+    ----------
         cls: Task class
 
-    Returns:
+    Returns
+    -------
         Task ID or None if not found
     """
     # Check for task_id class attribute
@@ -397,17 +435,18 @@ def _get_task_id(cls: Type) -> Optional[str]:
 
     # Try to extract from class name (e.g., MyTask -> my_task)
     import re
+
     if cls.__name__.endswith("Task"):
         # Extract task name and convert to snake_case
         task_name = cls.__name__[:-4]  # Remove "Task" suffix
 
         # Convert CamelCase to snake_case
-        snake_case = re.sub(r'(?<!^)(?=[A-Z])', '_', task_name).lower()
+        snake_case = re.sub(r"(?<!^)(?=[A-Z])", "_", task_name).lower()
 
         return snake_case
 
     # Check for Task_X pattern in class name
-    match = re.match(r't_\w+', cls.__name__.lower())
+    match = re.match(r"t_\w+", cls.__name__.lower())
     if match:
         return match.group(0)
 
@@ -418,10 +457,12 @@ def _validate_task_class(cls: Type) -> bool:
     """
     Validate that a class meets the requirements for a task class.
 
-    Args:
+    Parameters
+    ----------
         cls: Class to validate
 
-    Returns:
+    Returns
+    -------
         True if the class is valid, False otherwise
     """
     # Check that it's a task class
@@ -438,7 +479,7 @@ def _validate_task_class(cls: Type) -> bool:
         for param in required_params:
             if param not in params:
                 return False
-    except (ValueError, TypeError):
+    except (ValidationError, ValueError, TypeError):
         return False
 
     # Check for required methods more efficiently

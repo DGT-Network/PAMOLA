@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Cryptographic Pseudonymization Utilities
 Package:       pamola_core.utils.crypto_helpers
 Version:       1.1.0
@@ -54,6 +53,13 @@ from datetime import datetime
 from datetime import timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
+from pamola_core.errors.exceptions import (
+    CryptoError,
+    DependencyMissingError,
+    InvalidParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Try to import cryptography for AES-GCM
 try:
@@ -72,7 +78,6 @@ try:
 except ImportError:
     BASE58_AVAILABLE = False
 
-
     # Create stub for static analyzers
     class _Base58Stub:
         """Minimal stub for base58 API to satisfy static analyzers."""
@@ -80,33 +85,17 @@ except ImportError:
         @staticmethod
         def b58encode(data: bytes) -> bytes:
             """Stub for b58encode."""
-            raise ImportError("base58 package required for base58 encoding")
+            raise DependencyMissingError("base58 package required for base58 encoding")
 
         @staticmethod
         def b58decode(data: Union[str, bytes]) -> bytes:
             """Stub for b58decode."""
-            raise ImportError("base58 package required for base58 decoding")
-
+            raise DependencyMissingError("base58 package required for base58 decoding")
 
     base58 = _Base58Stub()  # type: ignore[assignment]
 
 # Configure module logger
 logger = logging.getLogger(__name__)
-
-
-class PseudonymizationError(Exception):
-    """Base exception for pseudonymization errors."""
-    pass
-
-
-class CryptoError(PseudonymizationError):
-    """Exception for cryptographic operation failures."""
-    pass
-
-
-class HashCollisionError(PseudonymizationError):
-    """Exception for hash collision detection."""
-    pass
 
 
 class SecureBytes:
@@ -122,7 +111,8 @@ class SecureBytes:
         """
         Initialize secure bytes container.
 
-        Args:
+        Parameters
+        ----------
             data: Sensitive byte data to protect
         """
         self._data = bytearray(data)
@@ -132,7 +122,8 @@ class SecureBytes:
         """
         Get the byte data.
 
-        Returns:
+        Returns
+        -------
             The protected byte data
         """
         with self._lock:
@@ -180,7 +171,8 @@ class HashGenerator:
         """
         Initialize hash generator.
 
-        Args:
+        Parameters
+        ----------
             algorithm: Hash algorithm to use (default: "sha3_256" for Keccak-256)
         """
         self.algorithm = algorithm
@@ -190,21 +182,23 @@ class HashGenerator:
 
         # Validate algorithm
         if algorithm not in hashlib.algorithms_available:
-            raise ValueError(f"Hash algorithm '{algorithm}' not available")
+            raise ValidationError(f"Hash algorithm '{algorithm}' not available")
 
     def hash_with_salt(self, data: Union[str, bytes], salt: bytes) -> bytes:
         """
         Generate hash with salt.
 
-        Args:
+        Parameters
+        ----------
             data: Data to hash (string or bytes)
             salt: Salt bytes
 
-        Returns:
+        Returns
+        -------
             Hash digest bytes
         """
         if isinstance(data, str):
-            data = data.encode('utf-8')
+            data = data.encode("utf-8")
 
         with self._lock:
             self._hash_count += 1
@@ -216,17 +210,20 @@ class HashGenerator:
 
         return h.digest()
 
-    def hash_with_salt_and_pepper(self, data: Union[str, bytes],
-                                  salt: bytes, pepper: bytes) -> bytes:
+    def hash_with_salt_and_pepper(
+        self, data: Union[str, bytes], salt: bytes, pepper: bytes
+    ) -> bytes:
         """
         Generate two-stage hash with salt and pepper.
 
-        Args:
+        Parameters
+        ----------
             data: Data to hash
             salt: Salt bytes
             pepper: Pepper bytes (session-specific)
 
-        Returns:
+        Returns
+        -------
             Final hash digest bytes
         """
         # Stage 1: Hash with salt
@@ -245,40 +242,53 @@ class HashGenerator:
         """
         Encode data to base58 with availability check.
 
-        Args:
+        Parameters
+        ----------
             data: Data to encode
 
-        Returns:
+        Returns
+        -------
             Base58 encoded string
 
-        Raises:
+        Raises
+        ------
             ImportError: If base58 package not available
         """
         if not BASE58_AVAILABLE:
-            raise ImportError("base58 package required for base58 encoding")
-        return base58.b58encode(data).decode('ascii')
+            raise DependencyMissingError("base58 package required for base58 encoding")
+        return base58.b58encode(data).decode("ascii")
 
-    def format_output(self, hash_bytes: bytes, output_format: str = "hex",
-                      output_length: Optional[int] = None) -> str:
+    def format_output(
+        self,
+        hash_bytes: bytes,
+        output_format: str = "hex",
+        output_length: Optional[int] = None,
+    ) -> str:
         """
         Format hash output according to specification.
 
-        Args:
+        Parameters
+        ----------
             hash_bytes: Raw hash bytes
             output_format: Output format ("hex", "base64", "base58")
             output_length: Optional truncation length
 
-        Returns:
+        Returns
+        -------
             Formatted hash string
         """
         if output_format == "hex":
             output = hash_bytes.hex()
         elif output_format == "base64":
-            output = base64.urlsafe_b64encode(hash_bytes).decode('ascii').rstrip('=')
+            output = base64.urlsafe_b64encode(hash_bytes).decode("ascii").rstrip("=")
         elif output_format == "base58":
             output = self._encode_base58(hash_bytes)
         else:
-            raise ValueError(f"Unknown output format: {output_format}")
+            raise InvalidParameterError(
+                param_name="output_format",
+                param_value=output_format,
+                reason=f"Unknown output format: {output_format}",
+            )
 
         # Truncate if requested
         if output_length and len(output) > output_length:
@@ -291,7 +301,7 @@ class HashGenerator:
         with self._lock:
             return {
                 "total_hashes": self._hash_count,
-                "collisions_detected": self._collision_count
+                "collisions_detected": self._collision_count,
             }
 
 
@@ -309,7 +319,8 @@ class SaltManager:
         """
         Initialize salt manager.
 
-        Args:
+        Parameters
+        ----------
             salts_file: Path to salts storage file (default: salts.json)
         """
         self.salts_file = salts_file or Path("salts.json")
@@ -320,10 +331,12 @@ class SaltManager:
         """
         Generate cryptographically secure salt.
 
-        Args:
+        Parameters
+        ----------
             length: Salt length in bytes (default: 32)
 
-        Returns:
+        Returns
+        -------
             Generated salt bytes
         """
         return secrets.token_bytes(length)
@@ -332,11 +345,13 @@ class SaltManager:
         """
         Get existing salt or create new one for identifier.
 
-        Args:
+        Parameters
+        ----------
             identifier: Salt identifier (e.g., field name)
             length: Salt length for new salts
 
-        Returns:
+        Returns
+        -------
             Salt bytes
         """
         with self._lock:
@@ -363,7 +378,7 @@ class SaltManager:
         """Load salts from file with version check."""
         if self.salts_file.exists():
             try:
-                with open(self.salts_file, 'r') as f:
+                with open(self.salts_file, "r") as f:
                     data = json.load(f)
 
                 # Check file version
@@ -393,12 +408,12 @@ class SaltManager:
             "_version": self.SALT_FILE_VERSION,
             "_updated": datetime.now(timezone.utc).isoformat(),
             "_count": len(salts),
-            "salts": salts
+            "salts": salts,
         }
 
-        temp_file = self.salts_file.with_suffix('.tmp')
+        temp_file = self.salts_file.with_suffix(".tmp")
         try:
-            with open(temp_file, 'w') as f:
+            with open(temp_file, "w") as f:
                 json.dump(data, f, indent=2, sort_keys=True)
                 f.flush()
                 os.fsync(f.fileno())
@@ -429,10 +444,12 @@ class PepperGenerator:
         """
         Generate new pepper for session.
 
-        Args:
+        Parameters
+        ----------
             length: Pepper length in bytes
 
-        Returns:
+        Returns
+        -------
             Generated pepper bytes
         """
         with self._lock:
@@ -475,31 +492,39 @@ class MappingEncryption:
         """
         Initialize mapping encryption.
 
-        Args:
+        Parameters
+        ----------
             key: 256-bit encryption key
 
-        Raises:
+        Raises
+        ------
             ImportError: If cryptography package not available
             ValueError: If key length is invalid
         """
         if not CRYPTOGRAPHY_AVAILABLE:
-            raise ImportError("cryptography package required for mapping encryption")
+            raise DependencyMissingError(
+                "cryptography package required for mapping encryption"
+            )
 
         if len(key) != 32:
-            raise ValueError("Encryption key must be 32 bytes (256 bits)")
+            raise ValidationError("Encryption key must be 32 bytes (256 bits)")
 
         self.cipher = AESGCM(key)
         self._secure_key = SecureBytes(key)
 
-    def encrypt(self, plaintext: bytes, associated_data: Optional[bytes] = None) -> bytes:
+    def encrypt(
+        self, plaintext: bytes, associated_data: Optional[bytes] = None
+    ) -> bytes:
         """
         Encrypt data with AES-256-GCM.
 
-        Args:
+        Parameters
+        ----------
             plaintext: Data to encrypt
             associated_data: Optional authenticated data
 
-        Returns:
+        Returns
+        -------
             Encrypted data with prepended nonce
         """
         # Generate random 96-bit nonce
@@ -511,23 +536,28 @@ class MappingEncryption:
         # Return nonce + ciphertext (includes auth tag)
         return nonce + ciphertext
 
-    def decrypt(self, encrypted: bytes, associated_data: Optional[bytes] = None) -> bytes:
+    def decrypt(
+        self, encrypted: bytes, associated_data: Optional[bytes] = None
+    ) -> bytes:
         """
         Decrypt AES-256-GCM encrypted data.
 
-        Args:
+        Parameters
+        ----------
             encrypted: Encrypted data with prepended nonce
             associated_data: Optional authenticated data
 
-        Returns:
+        Returns
+        -------
             Decrypted plaintext
 
-        Raises:
+        Raises
+        ------
             ValueError: If data format is invalid
             CryptoError: If decryption fails
         """
         if len(encrypted) < 28:  # 12 (nonce) + 16 (min ciphertext + tag)
-            raise ValueError("Invalid encrypted data format")
+            raise ValidationError("Invalid encrypted data format")
 
         # Extract nonce and ciphertext
         nonce = encrypted[:12]
@@ -540,7 +570,7 @@ class MappingEncryption:
 
     def __del__(self):
         """Clear key on deletion."""
-        if hasattr(self, '_secure_key'):
+        if hasattr(self, "_secure_key"):
             self._secure_key.clear()
 
 
@@ -556,7 +586,8 @@ class PseudonymGenerator:
         """
         Initialize pseudonym generator.
 
-        Args:
+        Parameters
+        ----------
             pseudonym_type: Type of pseudonym ("uuid", "sequential", "random_string")
         """
         self.pseudonym_type = pseudonym_type
@@ -566,17 +597,21 @@ class PseudonymGenerator:
         # Validate type
         valid_types = ["uuid", "sequential", "random_string"]
         if pseudonym_type not in valid_types:
-            raise ValueError(f"Invalid pseudonym type. Must be one of: {valid_types}")
+            raise TypeValidationError(
+                message=f"Invalid pseudonym type. Must be one of: {valid_types}",
+            )
 
     def generate(self, prefix: Optional[str] = None, length: int = 36) -> str:
         """
         Generate a new pseudonym.
 
-        Args:
+        Parameters
+        ----------
             prefix: Optional prefix for the pseudonym
             length: Length for random_string type
 
-        Returns:
+        Returns
+        -------
             Generated pseudonym string
         """
         if self.pseudonym_type == "uuid":
@@ -590,10 +625,14 @@ class PseudonymGenerator:
         elif self.pseudonym_type == "random_string":
             # Alphanumeric characters
             chars = string.ascii_letters + string.digits
-            pseudonym = ''.join(secrets.choice(chars) for _ in range(length))
+            pseudonym = "".join(secrets.choice(chars) for _ in range(length))
 
         else:
-            raise ValueError(f"Unknown pseudonym type: {self.pseudonym_type}")
+            raise InvalidParameterError(
+                param_name="pseudonym_type",
+                param_value=self.pseudonym_type,
+                reason=f"Unknown pseudonym type: {self.pseudonym_type}, must be 'uuid', 'sequential', or 'random_string'",
+            )
 
         # Add prefix if provided
         if prefix:
@@ -601,20 +640,24 @@ class PseudonymGenerator:
 
         return pseudonym
 
-    def generate_unique(self, existing: set, prefix: Optional[str] = None,
-                        max_attempts: int = 100) -> str:
+    def generate_unique(
+        self, existing: set, prefix: Optional[str] = None, max_attempts: int = 100
+    ) -> str:
         """
         Generate a unique pseudonym not in existing set.
 
-        Args:
+        Parameters
+        ----------
             existing: Set of existing pseudonyms
             prefix: Optional prefix
             max_attempts: Maximum generation attempts
 
-        Returns:
+        Returns
+        -------
             Unique pseudonym
 
-        Raises:
+        Raises
+        ------
             ValueError: If unique pseudonym cannot be generated
         """
         for attempt in range(max_attempts):
@@ -622,7 +665,9 @@ class PseudonymGenerator:
             if pseudonym not in existing:
                 return pseudonym
 
-        raise ValueError(f"Failed to generate unique pseudonym after {max_attempts} attempts")
+        raise ValidationError(
+            f"Failed to generate unique pseudonym after {max_attempts} attempts"
+        )
 
 
 def constant_time_compare(a: bytes, b: bytes) -> bool:
@@ -632,11 +677,13 @@ def constant_time_compare(a: bytes, b: bytes) -> bool:
     This prevents timing attacks by ensuring comparison time
     doesn't depend on the position of the first difference.
 
-    Args:
+    Parameters
+    ----------
         a: First byte string
         b: Second byte string
 
-    Returns:
+    Returns
+    -------
         True if equal, False otherwise
     """
     if len(a) != len(b):
@@ -653,70 +700,85 @@ def validate_key_size(key: bytes, expected_bits: int = 256) -> None:
     """
     Validate encryption key size.
 
-    Args:
+    Parameters
+    ----------
         key: Key bytes to validate
         expected_bits: Expected key size in bits
 
-    Raises:
+    Raises
+    ------
         ValueError: If key size is invalid
     """
     expected_bytes = expected_bits // 8
     if len(key) != expected_bytes:
-        raise ValueError(f"Key must be {expected_bits} bits ({expected_bytes} bytes), "
-                         f"got {len(key) * 8} bits")
+        raise ValidationError(
+            f"Key must be {expected_bits} bits ({expected_bytes} bytes), "
+            f"got {len(key) * 8} bits"
+        )
 
 
-def derive_key_from_password(password: str, salt: bytes,
-                             iterations: int = 100000,
-                             key_length: int = 32) -> bytes:
+def derive_key_from_password(
+    password: str, salt: bytes, iterations: int = 100000, key_length: int = 32
+) -> bytes:
     """
     Derive encryption key from password using PBKDF2.
 
-    Args:
+    Parameters
+    ----------
         password: Password string
         salt: Salt bytes (should be at least 16 bytes)
         iterations: PBKDF2 iterations (min recommended: 100000)
         key_length: Desired key length in bytes (default: 32 for AES-256)
 
-    Returns:
+    Returns
+    -------
         Derived key bytes
 
-    Raises:
+    Raises
+    ------
         ValueError: If parameters are invalid
     """
     if len(salt) < 16:
-        raise ValueError("Salt must be at least 16 bytes")
+        raise ValidationError("Salt must be at least 16 bytes")
 
     if iterations < 10000:
-        raise ValueError("Iterations should be at least 10000 for security")
+        raise InvalidParameterError(
+            param_name="iterations",
+            param_value=iterations,
+            reason="Iterations should be at least 10000 for security",
+        )
 
     if key_length not in [16, 24, 32]:
-        raise ValueError("Key length must be 16, 24, or 32 bytes")
+        raise ValidationError("Key length must be 16, 24, or 32 bytes")
 
-    return hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'),
-                               salt, iterations, dklen=key_length)
+    return hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, iterations, dklen=key_length
+    )
 
 
-def generate_deterministic_pseudonym(identifier: str, domain: str,
-                                     secret_key: bytes) -> str:
+def generate_deterministic_pseudonym(
+    identifier: str, domain: str, secret_key: bytes
+) -> str:
     """
     Generate deterministic pseudonym using HMAC.
 
     This creates the same pseudonym for the same identifier+domain
     combination, useful for cross-system consistency.
 
-    Args:
+    Parameters
+    ----------
         identifier: Original identifier
         domain: Domain/context for the pseudonym
         secret_key: Secret key for HMAC
 
-    Returns:
+    Returns
+    -------
         Deterministic pseudonym (hex string)
     """
     import hmac
 
     # Create domain-separated message
-    message = f"{domain}:{identifier}".encode('utf-8')
+    message = f"{domain}:{identifier}".encode("utf-8")
 
     # Generate HMAC
     h = hmac.new(secret_key, message, hashlib.sha256)
@@ -737,7 +799,8 @@ class CollisionTracker:
         """
         Initialize collision tracker.
 
-        Args:
+        Parameters
+        ----------
             max_tracked: Maximum number of hashes to track
         """
         self.max_tracked = max_tracked
@@ -749,11 +812,13 @@ class CollisionTracker:
         """
         Check for collision and record mapping.
 
-        Args:
+        Parameters
+        ----------
             pseudonym: Generated pseudonym
             original: Original value
 
-        Returns:
+        Returns
+        -------
             Previous original value if collision detected, None otherwise
         """
         with self._lock:
@@ -783,15 +848,17 @@ class CollisionTracker:
             return {
                 "tracked_hashes": len(self._tracker),
                 "collision_count": self._collision_count,
-                "collision_rate": self._collision_count / len(self._tracker)
-                if self._tracker else 0.0
+                "collision_rate": (
+                    self._collision_count / len(self._tracker) if self._tracker else 0.0
+                ),
             }
 
     def export_collisions(self, output_file: Path) -> None:
         """
         Export collision information for analysis.
 
-        Args:
+        Parameters
+        ----------
             output_file: Path to save collision data
         """
         with self._lock:
@@ -799,8 +866,10 @@ class CollisionTracker:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "total_tracked": len(self._tracker),
                 "collision_count": self._collision_count,
-                "collision_rate": self._collision_count / len(self._tracker) if self._tracker else 0.0,
-                "collisions": []
+                "collision_rate": (
+                    self._collision_count / len(self._tracker) if self._tracker else 0.0
+                ),
+                "collisions": [],
             }
 
             # Find all collisions
@@ -812,45 +881,14 @@ class CollisionTracker:
 
             for pseudonym, originals in pseudonym_to_originals.items():
                 if len(originals) > 1:
-                    collision_data["collisions"].append({
-                        "pseudonym": pseudonym,
-                        "originals": originals,
-                        "count": len(originals)
-                    })
+                    collision_data["collisions"].append(
+                        {
+                            "pseudonym": pseudonym,
+                            "originals": originals,
+                            "count": len(originals),
+                        }
+                    )
 
             # Save to JSON
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(collision_data, f, indent=2)
-
-
-# Module metadata
-__version__ = "1.1.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Define explicit exports
-__all__ = [
-    # Main classes
-    'HashGenerator',
-    'SaltManager',
-    'PepperGenerator',
-    'MappingEncryption',
-    'PseudonymGenerator',
-    'CollisionTracker',
-    'SecureBytes',
-
-    # Utility functions
-    'constant_time_compare',
-    'validate_key_size',
-    'derive_key_from_password',
-    'generate_deterministic_pseudonym',
-
-    # Exceptions
-    'PseudonymizationError',
-    'CryptoError',
-    'HashCollisionError',
-
-    # Constants
-    'CRYPTOGRAPHY_AVAILABLE',
-    'BASE58_AVAILABLE'
-]

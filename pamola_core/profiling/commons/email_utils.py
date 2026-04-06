@@ -33,12 +33,12 @@ def is_valid_email(value) -> bool:
     """
     Validate if a value is a properly formatted email address.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         The value to validate
 
-    Returns:
+    Returns
     --------
     bool
         True if the value is a valid email address, False otherwise
@@ -55,12 +55,12 @@ def extract_email_domain(email: str) -> Optional[str]:
     """
     Extract the domain part from an email address.
 
-    Parameters:
+    Parameters
     -----------
     email : str
         The email address to analyze
 
-    Returns:
+    Returns
     --------
     Optional[str]
         The domain part of the email, or None if invalid format
@@ -83,12 +83,12 @@ def detect_personal_patterns(emails: pd.Series) -> Dict[str, Any]:
     """
     Detect personal patterns in email addresses (name.surname@domain, etc.).
 
-    Parameters:
+    Parameters
     -----------
     emails : pd.Series
         Series containing email addresses to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Statistics about personal patterns
@@ -141,7 +141,7 @@ def analyze_email_field(df: pd.DataFrame,
     """
     Analyze an email field in the given DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data to analyze.
@@ -166,7 +166,7 @@ def analyze_email_field(df: pd.DataFrame,
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The results of the analysis
@@ -247,7 +247,7 @@ def create_domain_dictionary(
     """
     Create a frequency dictionary for email domains.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -258,7 +258,7 @@ def create_domain_dictionary(
     **kwargs : dict
         Additional parameters
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with domain frequency data and metadata
@@ -306,14 +306,14 @@ def estimate_resources(df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     """
     Estimate resources needed for analyzing the email field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
     field_name : str
         The name of the field to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Estimated resource requirements

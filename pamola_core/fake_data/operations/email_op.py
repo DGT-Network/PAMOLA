@@ -15,7 +15,7 @@ import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.email import EmailGenerator
 from pamola_core.fake_data.schemas.email_op_core_schema import FakeEmailOperationConfig
-from pamola_core.utils import io
+import pamola_core.utils.io as io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult
@@ -189,7 +189,7 @@ class FakeEmailOperation(GeneratorOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -202,20 +202,11 @@ class FakeEmailOperation(GeneratorOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
-        # Config logger task for operation
-        self.logger = kwargs.get("logger", self.logger)
-
-        # Start timing for performance metrics
-        self.start_time = time.time()
-        self.logger.info(
-            f"Starting {self.operation_name} operation at {self.start_time}"
-        )
-
         # Call parent execute method
         result = super().execute(
             data_source, task_dir, reporter, progress_tracker, **kwargs
@@ -235,11 +226,13 @@ class FakeEmailOperation(GeneratorOperation):
         """
         Process a batch of data to generate synthetic email addresses.
 
-        Args:
+        Parameters
+        ----------
             batch: DataFrame batch to process
             kwargs: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed DataFrame batch
         """
         # Get the field value series
@@ -322,11 +315,13 @@ class FakeEmailOperation(GeneratorOperation):
         """
         Process a single value using the appropriate generation method with retry logic.
 
-        Args:
+        Parameters
+        ----------
             value: Original value
             **params: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed value
         """
         # Add time for detailed metrics
@@ -448,10 +443,12 @@ class FakeEmailOperation(GeneratorOperation):
         """
         Analyze the distribution of domains in generated emails.
 
-        Args:
+        Parameters
+        ----------
             df: Processed DataFrame
 
-        Returns:
+        Returns
+        -------
             Domain distribution metrics
         """
         # Determine which field to analyze based on mode
@@ -531,10 +528,12 @@ class FakeEmailOperation(GeneratorOperation):
         """
         Categorize domains into business, personal, educational, etc.
 
-        Args:
+        Parameters
+        ----------
             domain_counts: Counter with domain frequencies
 
-        Returns:
+        Returns
+        -------
             Dictionary with domain category distribution
         """
         categories = {"common": 0, "business": 0, "educational": 0, "others": 0}
@@ -544,7 +543,7 @@ class FakeEmailOperation(GeneratorOperation):
             return categories
 
         # Extract domain dictionaries for comparison
-        from pamola_core.fake_data.dictionaries import domains as domain_dicts
+        import pamola_core.fake_data.dictionaries.domains as domain_dicts
 
         try:
             common_domains = set(domain_dicts.get_common_email_domains())
@@ -637,7 +636,8 @@ class FakeEmailOperation(GeneratorOperation):
         """
         Get a list of the most popular domains from the generator's dictionary.
 
-        Returns:
+        Returns
+        -------
             List of the top domains (max 10)
         """
         domains = getattr(self.generator, "_domain_list", [])
@@ -752,11 +752,13 @@ class FakeEmailOperation(GeneratorOperation):
         """
         Calculate quality metrics comparing original and generated email addresses.
 
-        Args:
+        Parameters
+        ----------
             original_series: Series with original emails
             generated_series: Series with generated emails
 
-        Returns:
+        Returns
+        -------
             Dictionary with quality metrics
         """
         metrics = {}
@@ -870,7 +872,7 @@ class FakeEmailOperation(GeneratorOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for numeric generalization

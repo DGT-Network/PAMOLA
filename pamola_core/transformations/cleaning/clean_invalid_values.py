@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Clean Invalid Values Operation
 Description: Operation for nullify values that violate defined constraints.
 Author: PAMOLA Core Team
@@ -42,6 +41,9 @@ from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import FeatureNotImplementedError, ValidationError
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
@@ -71,7 +73,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Initialize the CleanInvalidValuesOperation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation (default: "clean_invalid_values_operation")
@@ -90,7 +92,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         kwargs.setdefault("name", name)
         kwargs.setdefault(
             "description",
-            f"Clean invalid values based on defined constraints.",
+            "Clean invalid values based on defined constraints.",
         )
 
         # --- Build config object ---
@@ -128,7 +130,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -141,7 +143,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -149,19 +151,18 @@ class CleanInvalidValuesOperation(TransformationOperation):
         try:
             # Initialize timing and result
             self.start_time = time.time()
-
-            # Config logger task for operation
             self.logger = kwargs.get("logger", self.logger)
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
+            )
 
             result = OperationResult(status=OperationStatus.PENDING)
 
-            # Create DataWriter for consistent file operations
-            writer = DataWriter(
-                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-            )
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -171,11 +172,19 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 cache_dir=dirs["cache"],
             )
 
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
             # Save configuration to task directory
             self.save_config(task_dir)
-
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -206,12 +215,11 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Check Cache (if enabled and not forced to recalculate)
@@ -235,7 +243,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Clean invalid values (from cache)",
+                            "Clean invalid values (from cache)",
                             details={"cached": True},
                         )
                     return cache_result
@@ -248,7 +256,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             try:
                 if reporter:
                     reporter.add_operation(
-                        f"Clean invalid values",
+                        "Clean invalid values",
                         details={
                             "field_constraints": self.field_constraints,
                             "whitelist_path": self.whitelist_path,
@@ -261,14 +269,15 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 # Get a copy of the original data for metrics calculation
                 original_df = df.copy(deep=True)
 
-                # Validation
             except Exception as e:
-                error_message = f"Validation error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_VALIDATION_ERROR,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "context": "clean_invalid_values",
+                        "reason": str(e),
+                    },
                 )
 
             # Step 4: Processing
@@ -279,12 +288,18 @@ class CleanInvalidValuesOperation(TransformationOperation):
             try:
                 processed_df = self._process_dataframe(df, progress_tracker)
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={
+                        "operation": self.operation_name,
+                        "field": self.field_label,
+                    },
+                    message_kwargs={
+                        "field_name": self.field_label,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 5: Metrics
@@ -359,12 +374,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_label},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -401,7 +418,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
                 # Add the operation to the reporter
                 reporter.add_operation(
-                    f"Clean invalid values completed", details=details
+                    "Clean invalid values completed", details=details
                 )
 
             # Clean up memory AFTER all write operations are complete
@@ -414,26 +431,35 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             # Set success status
             result.status = OperationStatus.SUCCESS
-
+            result.execution_time = self.execution_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
+            )
             return result
+
         except Exception as e:
-            # Handle unexpected errors
-            error_message = f"Error in clean invalid values operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_label},
+                message_kwargs={
+                    "field_name": self.field_label,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             Batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed batch
@@ -457,12 +483,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 if is_numeric_dtype(batch[output_field_name]) or data_type == "numeric":
                     try:
                         min_value = float(field_config.get("min_value"))
-                    except (ValueError, TypeError):
+                    except (ValidationError, ValueError, TypeError):
                         min_value = None
 
                     try:
                         max_value = float(field_config.get("max_value"))
-                    except (ValueError, TypeError):
+                    except (ValidationError, ValueError, TypeError):
                         max_value = None
 
                     # Clean with min_value
@@ -490,7 +516,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
                     # Clean with custom_function
                     if constraint_type == "custom_function":
-                        raise NotImplementedError("Not implement")
+                        raise FeatureNotImplementedError("Not implement")
 
                 if (
                     isinstance(batch[output_field_name].dtype, CategoricalDtype)
@@ -727,25 +753,25 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Process a single value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Value to process
         **params : dict
             Additional parameters for processing
 
-        Returns:
+        Returns
         --------
         Any
             Processed value
         """
-        raise NotImplementedError("Not implement")
+        raise FeatureNotImplementedError("Not implement")
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -766,14 +792,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to process
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The processed dataframe
@@ -803,14 +829,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Calculate all metrics for operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -839,14 +865,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Collect metrics for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -940,7 +966,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
@@ -967,7 +993,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         operation_timestamp : str
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1002,7 +1028,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1014,7 +1040,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1061,17 +1087,17 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1117,7 +1143,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1156,7 +1182,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Generate visualizations for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data before processing
@@ -1177,7 +1203,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         operation_timestamp : str
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1198,10 +1224,10 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
         # Check if visualization should be skipped
         if vis_backend is None:
-            self.logger.info(f"Skipping visualization (backend=None)")
+            self.logger.info("Skipping visualization (backend=None)")
             return visualization_paths
 
-        self.logger.info(f"[VIZ] Starting visualization generation")
+        self.logger.info("[VIZ] Starting visualization generation")
         self.logger.debug(
             f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
         )
@@ -1246,7 +1272,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"invalid_values_count"] = viz_path
+                visualization_paths["invalid_values_count"] = viz_path
 
             # Distribution of invalid values
             viz_data = [
@@ -1280,7 +1306,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"invalid_values_distribution"] = viz_path
+                visualization_paths["invalid_values_distribution"] = viz_path
 
             # Before/after fields
             fields_added = [
@@ -1421,7 +1447,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             self.logger.error(
                 f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}"
             )
-            self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
+            self.logger.debug("[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
 
@@ -1431,12 +1457,12 @@ def create_clean_invalid_values_operation(**kwargs) -> CleanInvalidValuesOperati
     """
     Create clean invalid values operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     CleanInvalidValuesOperation
         Configured clean invalid values operation

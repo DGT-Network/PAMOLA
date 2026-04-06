@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Visualization Base System
 Description: Thread-safe foundation for visualization capabilities
 Author: PAMOLA Core Team
@@ -26,6 +25,7 @@ from typing import Dict, List, Any, Optional, Union, Tuple, Type
 
 import pandas as pd
 import numpy as np
+from pamola_core.errors.exceptions import ValidationError, TypeValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -51,14 +51,14 @@ def set_backend(backend: str, strict: bool = False) -> None:
     are isolated between concurrent execution contexts, preventing
     interference when multiple visualization operations run in parallel.
 
-    Parameters:
+    Parameters
     -----------
     backend : str
         Backend to use: "plotly" or "matplotlib"
     strict : bool
         If True, raise exceptions for invalid backends; otherwise log warnings
 
-    Raises:
+    Raises
     -------
     ValueError
         If strict=True and backend is not supported
@@ -76,7 +76,7 @@ def set_backend(backend: str, strict: bool = False) -> None:
     if backend_lower not in _AVAILABLE_BACKENDS:
         error_msg = f"Unsupported backend: {backend}. Supported backends are: {', '.join(_AVAILABLE_BACKENDS)}"
         if strict:
-            raise ValueError(error_msg)
+            raise ValidationError(error_msg)
         else:
             logger.warning(f"{error_msg} Falling back to plotly.")
             _backend_context.set("plotly")
@@ -89,7 +89,7 @@ def get_backend() -> str:
     """
     Get the current visualization backend for the current execution context.
 
-    Returns:
+    Returns
     --------
     str
         Current backend name
@@ -105,7 +105,7 @@ class BaseFigure(ABC):
         """
         Create and return a figure.
 
-        Returns:
+        Returns
         --------
         Figure object
             Plotly or Matplotlib figure
@@ -117,12 +117,12 @@ class BaseFigure(ABC):
         """
         Update an existing figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : Any
             Figure to update
 
-        Returns:
+        Returns
         --------
         Figure object
             Updated figure
@@ -136,7 +136,7 @@ class BaseFigure(ABC):
         """
         Create an empty figure with an error or info message.
 
-        Parameters:
+        Parameters
         -----------
         title : str
             Figure title
@@ -145,7 +145,7 @@ class BaseFigure(ABC):
         figsize : Tuple[int, int]
             Figure size
 
-        Returns:
+        Returns
         --------
         Figure object
             Plotly or Matplotlib figure with message
@@ -162,7 +162,7 @@ class PlotlyFigure(BaseFigure):
         """
         Create an empty Plotly figure with a message.
 
-        Parameters:
+        Parameters
         -----------
         title : str
             Figure title
@@ -171,7 +171,7 @@ class PlotlyFigure(BaseFigure):
         figsize : Tuple[int, int]
             Figure size (for compatibility, not used directly in Plotly)
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with message
@@ -218,7 +218,7 @@ class MatplotlibFigure(BaseFigure):
         """
         Create an empty Matplotlib figure with a message.
 
-        Parameters:
+        Parameters
         -----------
         title : str
             Figure title
@@ -227,7 +227,7 @@ class MatplotlibFigure(BaseFigure):
         figsize : Tuple[int, int]
             Figure size
 
-        Returns:
+        Returns
         --------
         matplotlib.figure.Figure
             Matplotlib figure with message
@@ -274,7 +274,7 @@ class FigureRegistry:
         """
         Register a figure implementation in a thread-safe manner.
 
-        Parameters:
+        Parameters
         -----------
         figure_type : str
             Type of figure (e.g., "bar", "histogram")
@@ -314,14 +314,14 @@ class FigureRegistry:
         """
         Get figure implementation for a specific type and backend in a thread-safe manner.
 
-        Parameters:
+        Parameters
         -----------
         figure_type : str
             Type of figure
         backend : str
             Backend name
 
-        Returns:
+        Returns
         --------
         Type[BaseFigure]
             Figure implementation class
@@ -378,14 +378,14 @@ class FigureFactory:
         """
         Create a figure instance of the specified type.
 
-        Parameters:
+        Parameters
         -----------
         figure_type : str
             Type of figure to create
         backend : str, optional
             Backend to use (defaults to current context's backend)
 
-        Returns:
+        Returns
         --------
         BaseFigure
             Figure instance
@@ -394,6 +394,15 @@ class FigureFactory:
         backend = backend or get_backend()
 
         try:
+            try:
+                from pamola_core.utils.vis_helpers.registry import (
+                    register_builtin_figures,
+                )
+                register_builtin_figures()
+            except Exception:
+                # If registration fails, fall back to whatever is available
+                pass
+
             # Get the implementation class
             implementation_class = FigureRegistry.get(figure_type, backend)
 
@@ -412,12 +421,12 @@ def ensure_series(
     """
     Ensure data is a pandas Series.
 
-    Parameters:
+    Parameters
     -----------
     data : Union[Dict[str, Any], pd.Series, List, np.ndarray]
         Input data
 
-    Returns:
+    Returns
     --------
     pd.Series
         Data as a pandas Series
@@ -429,7 +438,7 @@ def ensure_series(
     elif isinstance(data, (list, np.ndarray)):
         return pd.Series(data)
     else:
-        raise TypeError(f"Cannot convert {type(data)} to pandas Series")
+        raise TypeValidationError(f"Cannot convert {type(data)} to pandas Series")
 
 
 def sort_series(
@@ -441,7 +450,7 @@ def sort_series(
     """
     Sort a pandas Series safely.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Series to sort.
@@ -452,7 +461,7 @@ def sort_series(
     max_items : int, optional
         Limit number of items in output.
 
-    Returns:
+    Returns
     --------
     pd.Series
         Sorted (or original) series.
@@ -463,7 +472,9 @@ def sort_series(
         elif sort_by == "key":
             sorted_series = series.sort_index(ascending=ascending)
         else:
-            logger.warning(f"Unknown sort_by: {sort_by}. Falling back to sort by 'value'.")
+            logger.warning(
+                f"Unknown sort_by: {sort_by}. Falling back to sort by 'value'."
+            )
             sorted_series = series.sort_values(ascending=ascending)
 
         if max_items is not None and len(sorted_series) > max_items:
@@ -472,7 +483,9 @@ def sort_series(
         return sorted_series
 
     except TypeError as e:
-        logger.warning(f"TypeError during sorting: {e}. Series values might be non-comparable (e.g., dicts).")
+        logger.warning(
+            f"TypeError during sorting: {e}. Series values might be non-comparable (e.g., dicts)."
+        )
         return series
     except Exception as e:
         logger.warning(f"Unexpected error during sorting: {e}.")
@@ -485,14 +498,14 @@ def prepare_dataframe(
     """
     Prepare a DataFrame from various input formats.
 
-    Parameters:
+    Parameters
     -----------
     data : Union[Dict[str, List], pd.DataFrame]
         Input data
     orient : str
         How to interpret the dictionary: "dict" or "records"
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame prepared from input
@@ -508,4 +521,4 @@ def prepare_dataframe(
             logger.warning(f"Unknown orient value: {orient}. Using 'dict'.")
             return pd.DataFrame(data)
     else:
-        raise TypeError(f"Cannot convert {type(data)} to pandas DataFrame")
+        raise TypeValidationError(f"Cannot convert {type(data)} to pandas DataFrame")

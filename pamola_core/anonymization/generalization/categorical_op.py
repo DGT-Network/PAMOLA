@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Categorical Generalization Operation (Facade)
 Package:       pamola_core.anonymization.generalization
 Version:       4.0.0
@@ -66,6 +65,7 @@ from pamola_core.anonymization.commons.categorical_config import (
     DEFAULT_TOP_CATEGORIES_FOR_ANALYSIS,
     MAX_CATEGORIES,
     OPERATION_NAME,
+    STRATEGY_VALUES,
     GeneralizationStrategy,
     GroupRareAs,
     OperationMode,
@@ -107,7 +107,6 @@ from pamola_core.anonymization.commons.privacy_metric_utils import (
 # Validation utilities
 from pamola_core.anonymization.commons.validation_utils import (
     validate_categorical_field,
-    FieldValueError,
 )
 
 # Commons - visualization
@@ -132,6 +131,13 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.helpers import filter_used_kwargs
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    FieldValueError,
+    InvalidStrategyError,
+    ValidationError,
+)
 
 
 @register(version="1.0.0")
@@ -295,7 +301,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -308,7 +314,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -318,12 +324,20 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
             self.logger.info(
-                f"Starting {self.operation_name} operation at {self.start_time}"
+                f"Starting: {self.operation_name} operation at {self.start_time}"
             )
 
-            df = None
             # Initialize result object
             result = OperationResult(status=OperationStatus.PENDING)
+
+            # Initialize dataframe
+            df = None
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -333,16 +347,19 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 cache_dir=dirs["cache"],
             )
 
-            # Create writer for consistent output handling
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
+            # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
             # Save operation configuration
             self.save_config(task_dir)
-
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -418,55 +435,45 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     for warning in validation_details["warnings"]:
                         self.logger.warning(f"Validation warning: {warning}")
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
-                try:
+                if main_progress:
+                    current_steps += 1
+                    main_progress.update(
+                        current_steps,
+                        {"step": "Checking cache", "field": self.field_name},
+                    )
+                # Load data for cache check
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
+
+                if cache_result:
+                    self.logger.info(
+                        f"Using cached result for {self.field_name} generalization"
+                    )
+
+                    # Update progress
                     if main_progress:
-                        current_steps += 1
                         main_progress.update(
                             current_steps,
-                            {"step": "Checking cache", "field": self.field_name},
-                        )
-                    # Load data for cache check
-                    self.logger.info("Checking operation cache...")
-                    cache_result = self._check_cache(df, reporter)
-
-                    if cache_result:
-                        self.logger.info(
-                            f"Using cached result for {self.field_name} generalization"
+                            {"step": "Complete (cached)", "field": self.field_name},
                         )
 
-                        # Update progress
-                        if main_progress:
-                            main_progress.update(
-                                current_steps,
-                                {"step": "Complete (cached)", "field": self.field_name},
-                            )
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Categorical generalization of {self.field_name} (from cache)",
+                            details={"cached": True},
+                        )
 
-                        # Report cache hit to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Categorical generalization of {self.field_name} (from cache)",
-                                details={"cached": True},
-                            )
-
-                        return cache_result
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                    return cache_result
 
             # Step 3: Prepare output field
             if main_progress:
@@ -481,12 +488,15 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 self.logger.info(f"Prepared output_field: '{self.output_field_name}'")
                 self._report_operation_details(reporter, self.output_field_name)
             except Exception as e:
-                error_message = f"Preparing output field error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "prepare_output_field", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 4: Processing
@@ -546,18 +556,21 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     except:
                         pass
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Record end time after processing metrics
             self.end_time = time.time()
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             # Step 5: Metrics Calculation
             if main_progress:
@@ -575,7 +588,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     original_data, anonymized_data, self.filter_mask
                 )
 
-                # Generate metrics file name (in self.name existed field_name)
+                # Generate metrics file name
                 metrics_file_name = f"{self.field_name}_{self.operation_name}_metrics_{operation_timestamp}"
 
                 self._save_metrics(
@@ -675,12 +688,14 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                         **safe_kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_name},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -704,16 +719,13 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 anonymized_data=anonymized_data,
             )
 
-            # Finalize timing
-            self.end_time = time.time()
-
             # Report completion
             if reporter:
                 reporter.add_operation(
                     f"Categorical generalization of {self.field_name} completed",
                     details={
                         "records_processed": self.process_count,
-                        "execution_time": self.end_time - self.start_time,
+                        "execution_time": self.execution_time,
                         "records_filtered": len(filtered_df),
                         "vulnerable_records_handled": metrics.get(
                             "vulnerable_records", 0
@@ -723,18 +735,23 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
             self.logger.info(
-                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
             )
-
             return result
+
         except Exception as e:
-            error_message = f"Error in categorical generalization operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=error_message,
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
         finally:
             # Always reset state after execution
@@ -744,12 +761,12 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         """
         Process a batch of data using the configured strategy.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame batch with generalized values
@@ -779,7 +796,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             # Return everything needed
             return batch
 
-        except Exception as e:
+        except Exception:
             raise
 
     def _prepare_context(
@@ -829,7 +846,11 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             return apply_frequency_based(batch[field_name], strategy_params, context)
 
         else:
-            raise ValueError(f"Unknown strategy: {strategy}")
+            raise InvalidStrategyError(
+                strategy=strategy,
+                valid_strategies=[STRATEGY_VALUES],
+                operation_type=self.operation_name,
+            )
 
     def _update_batch_with_result(
         self, batch: pd.DataFrame, result: pd.Series, context: Dict[str, Any]
@@ -843,12 +864,12 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
-        Parameters:
+        Parameters
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
 
-        Returns:
+        Returns
         --------
         dd.DataFrame
             Processed Dask DataFrame
@@ -1076,7 +1097,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         This is a base implementation that provides a basic distribution comparison.
         Subclasses should override to provide operation-specific visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             Original data before anonymization
@@ -1097,7 +1118,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1257,7 +1278,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for numeric generalization
@@ -1318,7 +1339,9 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
         """
         if not strategy_params.get("external_dictionary_path"):
-            raise ValueError("Hierarchy strategy requires external_dictionary_path")
+            raise ValidationError(
+                "Hierarchy strategy requires external_dictionary_path"
+            )
 
         hierarchy = HierarchyDictionary()
         hierarchy.load_from_file(
@@ -1330,7 +1353,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         # Validate structure
         is_valid, errors = hierarchy.validate_structure()
         if not is_valid:
-            raise ValueError(f"Invalid hierarchy dictionary: {', '.join(errors)}")
+            raise ValidationError(f"Invalid hierarchy dictionary: {', '.join(errors)}")
 
         return hierarchy
 
@@ -1461,14 +1484,14 @@ def create_categorical_generalization_operation(
     """
     Create a categorical generalization operation.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Field to generalize
     **kwargs : dict
         Additional parameters for configuration
 
-    Returns:
+    Returns
     --------
     CategoricalGeneralizationOperation
         Configured operation instance

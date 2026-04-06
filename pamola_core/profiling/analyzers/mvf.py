@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Multi-Valued Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -48,6 +47,8 @@ from pamola_core.profiling.commons.mvf_utils import (
     estimate_resources,
     process_mvf_partition,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.schemas.mvf_core_schema import MVFAnalysisOperationConfig
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
@@ -61,7 +62,7 @@ from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ class MVFAnalyzer:
         """
         Analyze a multi-valued field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -117,7 +118,7 @@ class MVFAnalyzer:
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
             Progress tracker for monitoring the analysis progress
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -257,7 +258,7 @@ class MVFAnalyzer:
         """
         Parse an MVF field and add a new column with parsed values.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -268,7 +269,7 @@ class MVFAnalyzer:
         **kwargs : dict
             Additional parameters to pass to parse_mvf
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             DataFrame with an additional column containing parsed values
@@ -306,7 +307,7 @@ class MVFAnalyzer:
         """
         Create a dictionary of values with frequencies for an MVF field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -317,7 +318,7 @@ class MVFAnalyzer:
         parse_args : Any
             Additional parameters for parsing
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             DataFrame with values and frequencies
@@ -339,7 +340,7 @@ class MVFAnalyzer:
         """
         Create a dictionary of value combinations with frequencies for an MVF field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -350,7 +351,7 @@ class MVFAnalyzer:
         parse_args : dict
             Additional parameters for parsing
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             DataFrame with combinations and frequencies
@@ -369,7 +370,7 @@ class MVFAnalyzer:
         """
         Analyze the distribution of value counts per record in an MVF field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -378,7 +379,7 @@ class MVFAnalyzer:
         **kwargs : dict
             Additional parameters for parsing
 
-        Returns:
+        Returns
         --------
         Dict[str, int]
             Distribution of value counts
@@ -392,14 +393,14 @@ class MVFAnalyzer:
         """
         Estimate resources needed for analyzing an MVF field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -486,7 +487,7 @@ class MVFOperation(FieldOperation):
         """
         Execute the mvf analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -499,24 +500,30 @@ class MVFOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
             values_dict = None
             combinations_dict = None
 
-            # Initialize timing and result
-            self.start_time = time.time()
-            self.logger = kwargs.get("logger", self.logger)
-            self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-            df = None
-            result = OperationResult(status=OperationStatus.PENDING)
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -526,16 +533,19 @@ class MVFOperation(FieldOperation):
                 cache_dir=dirs["cache"],
             )
 
-            # Save configuration to task directory
-            self.save_config(task_dir)
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
+            # Save configuration to task directory
+            self.save_config(task_dir)
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -584,12 +594,11 @@ class MVFOperation(FieldOperation):
                 )
 
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Validation
@@ -601,9 +610,17 @@ class MVFOperation(FieldOperation):
 
             # Check if field exists
             if self.field_name not in df.columns:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Field {self.field_name} not found in DataFrame",
+                return self.error_handler.handle_error(
+                    error=ValueError(f"Field {self.field_name} not found in DataFrame"),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={
+                        "dataset": kwargs.get("dataset_name", "main"),
+                        "operation": self.operation_name,
+                    },
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Add operation to reporter
@@ -692,9 +709,15 @@ class MVFOperation(FieldOperation):
                 # Check for errors
                 if "error" in analysis_results:
                     self.logger.error(analysis_results["error"])
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=analysis_results["error"],
+                    return self.error_handler.handle_error(
+                        error=RuntimeError(analysis_results["error"]),
+                        error_code=ErrorCode.PROCESSING_FAILED,
+                        context={"operation": self.operation_name},
+                        message_kwargs={
+                            "field_name": self.field_name,
+                            "operation": self.operation_name,
+                            "reason": analysis_results["error"],
+                        },
                     )
 
                 # Create and save value dictionary
@@ -732,10 +755,15 @@ class MVFOperation(FieldOperation):
                         f"Sample of processed data (first 5 rows): {df.head(5).to_dict(orient='records')}"
                     )
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 5: Metrics Calculation
@@ -747,9 +775,6 @@ class MVFOperation(FieldOperation):
                     "Metrics Calculation",
                     main_progress,
                 )
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Initialize metrics in scope
             metrics = {}
@@ -864,10 +889,14 @@ class MVFOperation(FieldOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_name},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -901,6 +930,7 @@ class MVFOperation(FieldOperation):
                 reporter.add_operation(
                     f"Analyzing MVF {self.field_name} completed",
                     details={
+                        **details,
                         "unique_values": analysis_results.get("unique_values", 0),
                         "unique_combinations": analysis_results.get(
                             "unique_combinations", 0
@@ -926,15 +956,23 @@ class MVFOperation(FieldOperation):
 
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            # Handle any unexpected errors
-            error_message = f"Error in analyzing MVF operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error analyzing MVF field {self.field_name}: {str(e)}",
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
@@ -944,7 +982,7 @@ class MVFOperation(FieldOperation):
         This method should be overridden by subclasses to provide
         operation-specific parameters for caching.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -969,7 +1007,7 @@ class MVFOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             Original input data
@@ -978,7 +1016,7 @@ class MVFOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1091,7 +1129,7 @@ class MVFOperation(FieldOperation):
         """
         Save the processed output data.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to save
@@ -1120,7 +1158,9 @@ class MVFOperation(FieldOperation):
 
         # Generate standardized output filename with timestamp
         field_name_clean = self.field_name.replace("/", "_").replace("\\", "_")
-        filename = f"{field_name_clean}_{self.operation_name}_{suffix}_output_{timestamp}"
+        filename = (
+            f"{field_name_clean}_{self.operation_name}_{suffix}_output_{timestamp}"
+        )
 
         # Use the DataWriter to save the DataFrame
         output_result = writer.write_dataframe(
@@ -1170,7 +1210,7 @@ class MVFOperation(FieldOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             A dictionary containing various analysis results.
@@ -1222,7 +1262,7 @@ class MVFOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1234,7 +1274,7 @@ class MVFOperation(FieldOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1280,10 +1320,10 @@ class MVFOperation(FieldOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -1337,7 +1377,7 @@ class MVFOperation(FieldOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1491,7 +1531,7 @@ def analyze_mvf_fields(
     """
     Analyze multiple MVF fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1508,7 +1548,7 @@ def analyze_mvf_fields(
         - format_type: str, format type hint for parsing (default: None)
         - parse_kwargs: dict, additional parameters for MVF parsing
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results
@@ -1551,9 +1591,9 @@ def analyze_mvf_fields(
     overall_tracker = None
 
     if track_progress and mvf_fields:
-        from pamola_core.utils.progress import ProgressTracker
+        from pamola_core.utils.progress import HierarchicalProgressTracker
 
-        overall_tracker = ProgressTracker(
+        overall_tracker = HierarchicalProgressTracker(
             total=len(mvf_fields),
             description=f"Analyzing {len(mvf_fields)} MVF fields",
             unit="fields",

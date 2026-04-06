@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: CSV Utilities
 Version: 1.1.0+hotfix.2025.06.03
 Description: Specialized helpers for efficient and safe CSV processing
@@ -30,13 +29,14 @@ from typing import Dict, Any, Union, List, Optional, Tuple, Iterator
 
 import pandas as pd
 
-from pamola_core.utils import logging
-from pamola_core.utils import progress
-from pamola_core.utils.io_helpers import error_utils
-from pamola_core.utils.io_helpers import memory_utils
+from pamola_core.errors.exceptions import PamolaFileNotFoundError
+import logging
+import pamola_core.utils.progress as progress
+import pamola_core.utils.io_helpers.error_utils as error_utils
+import pamola_core.utils.io_helpers.memory_utils as memory_utils
 
 # Configure module logger
-logger = logging.get_logger("pamola_core.utils.io_helpers.csv_utils")
+logger = logging.getLogger(__name__)
 
 
 def estimate_csv_size(
@@ -48,7 +48,7 @@ def estimate_csv_size(
     """
     Estimates the size of a DataFrame when saved as CSV.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to estimate
@@ -59,7 +59,7 @@ def estimate_csv_size(
     encoding : str
         File encoding (default: "utf-8")
 
-    Returns:
+    Returns
     --------
     float
         Estimated size in MB
@@ -96,7 +96,7 @@ def prepare_csv_reader_options(
     """
     Prepares options for CSV reading with enhanced parameter support.
 
-    Parameters:
+    Parameters
     -----------
     encoding : str
         File encoding (default: "utf-8")
@@ -113,7 +113,7 @@ def prepare_csv_reader_options(
     **kwargs
         Additional pandas read_csv options
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with CSV reader options
@@ -157,7 +157,7 @@ def prepare_csv_writer_options(
     """
     Prepares options for CSV writing.
 
-    Parameters:
+    Parameters
     -----------
     encoding : str
         File encoding (default: "utf-8")
@@ -177,7 +177,7 @@ def prepare_csv_writer_options(
     **kwargs
         Additional pandas to_csv options
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with CSV writer options
@@ -206,14 +206,14 @@ def count_csv_lines(file_path: Union[str, Path], encoding: str = "utf-8") -> int
     """
     Counts the number of lines in a CSV file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
     encoding : str
         File encoding (default: "utf-8")
 
-    Returns:
+    Returns
     --------
     int
         Number of lines in the file
@@ -221,7 +221,7 @@ def count_csv_lines(file_path: Union[str, Path], encoding: str = "utf-8") -> int
     file_path = Path(file_path)
 
     if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        raise PamolaFileNotFoundError(str(file_path))
 
     try:
         # First try to count lines with the specified encoding
@@ -248,7 +248,7 @@ def validate_csv_structure(
     """
     Validates the structure of a CSV DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to validate
@@ -257,7 +257,7 @@ def validate_csv_structure(
     column_types : Dict[str, type], optional
         Dictionary mapping column names to expected types
 
-    Returns:
+    Returns
     --------
     Tuple[bool, List[str]]
         (is_valid, list_of_errors)
@@ -310,7 +310,7 @@ def monitor_csv_operation(
     """
     Creates a progress bar for CSV operations.
 
-    Parameters:
+    Parameters
     -----------
     total : int, optional
         Total number of items for the progress bar
@@ -319,7 +319,7 @@ def monitor_csv_operation(
     unit : str
         Unit of measurement
 
-    Returns:
+    Returns
     --------
     progress.ProgressBar
         Progress bar object
@@ -331,7 +331,7 @@ def report_memory_usage() -> Dict[str, Any]:
     """
     Reports current memory usage.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with memory usage information
@@ -345,7 +345,7 @@ def filter_csv_columns(
     """
     Filters DataFrame columns with detailed error handling.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to filter
@@ -354,7 +354,7 @@ def filter_csv_columns(
     strict : bool
         If True, errors if any column is missing
 
-    Returns:
+    Returns
     --------
     Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
         (filtered_df, error_info) - One will be None
@@ -371,7 +371,7 @@ def filter_csv_columns(
     if not valid_columns:
         error_info = error_utils.create_error_info(
             "NoValidColumnsError",
-            f"None of the requested columns exist in the DataFrame",
+            "None of the requested columns exist in the DataFrame",
             "Check column names or DataFrame structure",
             details={
                 "requested_columns": columns,
@@ -407,7 +407,7 @@ def detect_csv_dialect(
     """
     Detects the dialect of a CSV file (delimiter, quotechar, etc.).
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -416,18 +416,19 @@ def detect_csv_dialect(
     encoding : str
         File encoding to try first
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with detected dialect information
     """
-    import csv
 
     file_path = Path(file_path)
 
     if not file_path.exists():
         return error_utils.create_error_info(
-            "FileNotFoundError", f"File not found: {file_path}", "Check the file path"
+            "PamolaFileNotFoundError",
+            f"File not found: {file_path}",
+            "Check the file path",
         )
 
     # Common delimiters to restrict sniffer from guessing random characters
@@ -507,7 +508,7 @@ def get_optimal_csv_chunk_size(
     """
     Calculate optimal chunk size for reading a CSV file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -516,7 +517,7 @@ def get_optimal_csv_chunk_size(
     safety_factor : float
         Memory safety factor (0.0 to 1.0)
 
-    Returns:
+    Returns
     --------
     int
         Optimal chunk size in rows
@@ -540,7 +541,7 @@ def read_csv_in_efficient_chunks(
     """
     Read a CSV file in memory-efficient chunks.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -557,7 +558,7 @@ def read_csv_in_efficient_chunks(
     show_progress : bool
         Whether to show a progress bar
 
-    Yields:
+    Yields
     -------
     pd.DataFrame
         Chunks of the CSV file
@@ -565,7 +566,7 @@ def read_csv_in_efficient_chunks(
     file_path = Path(file_path)
 
     if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        raise PamolaFileNotFoundError(str(file_path))
 
     # Auto-determine chunk size if not specified
     if chunk_size is None:
@@ -624,12 +625,12 @@ def optimize_csv_datatypes(df: pd.DataFrame) -> pd.DataFrame:
     """
     Optimize DataFrame memory usage by converting data types.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to optimize
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Optimized DataFrame
@@ -646,7 +647,7 @@ def validate_csv_file(
     """
     Validate a CSV file against a schema.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -655,7 +656,7 @@ def validate_csv_file(
     max_validation_rows : int
         Maximum number of rows to validate
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results
@@ -664,7 +665,9 @@ def validate_csv_file(
 
     if not file_path.exists():
         return error_utils.create_error_info(
-            "FileNotFoundError", f"File not found: {file_path}", "Check the file path"
+            "PamolaFileNotFoundError",
+            f"File not found: {file_path}",
+            "Check the file path",
         )
 
     try:

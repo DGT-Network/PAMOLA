@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Safe Metric Instantiation
 Package:       pamola_core.metrics.commons.safe_instantiate
 Version:       1.0.0
@@ -38,7 +37,7 @@ def safe_instantiate(metric_class: Type, params: Dict[str, Any]) -> Any:
     """
     Safely instantiate a metric class by filtering out invalid constructor parameters.
 
-    Parameters:
+    Parameters
     -----------
     metric_class : Type
         The class to be instantiated.
@@ -46,7 +45,7 @@ def safe_instantiate(metric_class: Type, params: Dict[str, Any]) -> Any:
     params : Dict[str, Any]
         The raw parameters passed (e.g., from user config or kwargs).
 
-    Returns:
+    Returns
     --------
     Any
         An instance of `metric_class` with only valid constructor arguments.

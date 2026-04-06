@@ -23,6 +23,7 @@ from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.common.regex.patterns import CommonPatterns
 from pamola_core.utils.io_helpers.dask_utils import get_computed_df
 from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.errors.exceptions import FieldNotFoundError, ValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -147,7 +148,7 @@ def prepare_date_data(
     """
     Prepare date data for analysis with enhanced format support.
 
-    Parameters:
+    Parameters
     -----------
     df : Union[pd.DataFrame, dd.DataFrame]
         The DataFrame containing the data to analyze
@@ -156,14 +157,17 @@ def prepare_date_data(
     date_formats : Optional[List[str]]
         List of date formats to try. If None, will use default common formats.
 
-    Returns:
+    Returns
     --------
     Tuple[Union[pd.Series, dd.Series], int, int]
         Tuple containing the prepared date series, null count, and non-null count
     """
     # Check if field exists
     if field_name not in df.columns:
-        raise ValueError(f"Field {field_name} not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=field_name,
+            available_fields=list(df.columns),
+        )
 
     # Default common date formats to try
     date_formats = date_formats or Constants.COMMON_DATE_FORMATS
@@ -178,7 +182,7 @@ def prepare_date_data(
         try:
             dates = convert_to_datetime_flexible(field_data, date_formats, is_dask=True)
         except Exception as e:
-            raise ValueError(
+            raise ValidationError(
                 f"Field '{field_name}' cannot be converted to datetime with any attempted format: {e}"
             )
 
@@ -197,7 +201,7 @@ def prepare_date_data(
                 field_data, date_formats, is_dask=False
             )
         except Exception as e:
-            raise ValueError(
+            raise ValidationError(
                 f"Field '{field_name}' cannot be converted to datetime with any attempted format: {e}"
             )
 
@@ -208,12 +212,12 @@ def calculate_date_stats(dates: pd.Series) -> Dict[str, Any]:
     """
     Calculate basic date statistics, with support for object, datetime, and categorical columns.
 
-    Parameters:
+    Parameters
     -----------
     dates : pd.Series
         Series of date values (can be string, datetime, or categorical)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with basic date stats
@@ -263,12 +267,12 @@ def calculate_distributions(dates: pd.Series) -> Dict[str, Dict[str, int]]:
     """
     Calculate various date distributions (year, decade, month, day of week).
 
-    Parameters:
+    Parameters
     -----------
     dates : pd.Series
         Series of dates to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, int]]
         Dictionary with various date distributions
@@ -329,14 +333,14 @@ def validate_date_format(date_str: str, format_str: Optional[str] = None) -> boo
     """
     Validate a date string using a given format or detect format automatically via regex.
 
-    Parameters:
+    Parameters
     -----------
     date_str : str
         The date string to validate.
     format_str : Optional[str]
         Specific format to validate against. If None, auto-detect using DATE_REGEX_FORMATS.
 
-    Returns:
+    Returns
     --------
     bool
         True if date_str is valid in the given or detected format.
@@ -373,7 +377,7 @@ def detect_date_anomalies(
     """
     Detect anomalies in date fields with support for Dask and Pandas.
 
-    Parameters:
+    Parameters
     ----------
     dates : Union[pd.Series, dd.Series]
         Series of date strings to analyze.
@@ -384,7 +388,7 @@ def detect_date_anomalies(
     sample_limit : int
         Maximum number of sample values to return per anomaly type.
 
-    Returns:
+    Returns
     -------
     Dict[str, List[Any]]
         Dictionary with anomaly categories and examples.
@@ -450,7 +454,7 @@ def detect_date_anomalies_partition(
     """
     Analyze a partition of date strings for anomalies.
 
-    Parameters:
+    Parameters
     ----------
     partition : pd.Series
         Series of date strings.
@@ -459,7 +463,7 @@ def detect_date_anomalies_partition(
     max_year : int
         Maximum acceptable year.
 
-    Returns:
+    Returns
     -------
     Dict[str, List[Any]]
         Dictionary with anomaly categories and example values.
@@ -519,7 +523,7 @@ def detect_date_changes_within_group(
     """
     Detect date changes within groups, supports both Pandas and Dask DataFrames.
 
-    Parameters:
+    Parameters
     ----------
     df : Union[pd.DataFrame, dd.DataFrame]
         The input DataFrame (can be pandas or dask)
@@ -530,7 +534,7 @@ def detect_date_changes_within_group(
     example_limit : int
         Max number of examples to return
 
-    Returns:
+    Returns
     -------
     Dict[str, Any]
     """
@@ -560,7 +564,7 @@ def _detect_date_changes_pandas(
     """
     Internal function to detect changes in date values within groups using Pandas.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The input DataFrame to process.
@@ -571,7 +575,7 @@ def _detect_date_changes_pandas(
     example_limit : int, optional
         The number of example groups to return that show date variation (default is 10).
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary with:
@@ -620,7 +624,7 @@ def _detect_date_changes_dask(
     """
     Internal function to detect changes in date values within groups using Dask and delayed processing.
 
-    Parameters:
+    Parameters
     -----------
     ddf : dd.DataFrame
         The Dask DataFrame to process.
@@ -631,7 +635,7 @@ def _detect_date_changes_dask(
     example_limit : int, optional
         The number of example groups with changes to return (default is 10).
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary with:
@@ -650,12 +654,12 @@ def _detect_date_changes_dask(
         """
         Process a single Pandas partition to detect groups with multiple unique dates.
 
-        Parameters:
+        Parameters
         -----------
         part : pd.DataFrame
             A Pandas DataFrame (a partition from the Dask DataFrame).
 
-        Returns:
+        Returns
         --------
         List[Dict[str, Any]]
             List of groups where the date values differ, including the group_id and unique sorted date values.
@@ -717,7 +721,7 @@ def detect_date_inconsistencies_by_uid(
     """
     Detect date inconsistencies by UID (person identifier) for both Pandas and Dask DataFrames.
 
-    Parameters:
+    Parameters
     -----------
     df : Union[pd.DataFrame, dd.DataFrame]
         The DataFrame to analyze
@@ -728,7 +732,7 @@ def detect_date_inconsistencies_by_uid(
     example_limit : int
         Number of example UIDs to return
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with count of inconsistencies and example UIDs
@@ -762,12 +766,12 @@ def partition_date_stats(partition):
     """
     Calculate date statistics (min, max, valid count) for a partition of date data.
 
-    Parameters:
+    Parameters
     -----------
     partition : pd.Series or array-like
         Partition of date values to analyze.
 
-    Returns:
+    Returns
     --------
     pd.Series
         Series containing:
@@ -796,12 +800,12 @@ def partition_distributions(partition):
     """
     Calculate date distributions (year, month, day of week, decade) for a partition of date data.
 
-    Parameters:
+    Parameters
     -----------
     partition : pd.Series or array-like
         Partition of date values to analyze.
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame with columns:
@@ -847,12 +851,12 @@ def aggregate_distributions_data(
     """
     Aggregate distribution data from Dask partitions into the expected format.
 
-    Parameters:
+    Parameters
     -----------
     distributions_data : pd.DataFrame
         DataFrame with columns ['type', 'key', 'count'] containing distribution data
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, int]]
         Dictionary with aggregated distributions in the expected format
@@ -934,7 +938,7 @@ def process_with_dask(
     large datasets efficiently by processing data across multiple partitions in parallel.
     It uses Dask's lazy evaluation and built-in aggregation functions for optimal performance.
 
-    Parameters:
+    Parameters
     -----------
     ddf : dd.DataFrame
         The DataFrame containing the data to analyze (preferably Dask for large datasets)
@@ -949,7 +953,7 @@ def process_with_dask(
     progress_tracker : Optional[HierarchicalProgressTracker]
         Optional progress tracker for reporting processing status
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing analysis results including:
@@ -957,7 +961,7 @@ def process_with_dask(
         - Date range: min_date, max_date
         - Distributions: year, month, day of week, and decade distributions
 
-    Raises:
+    Raises
     -------
     ImportError
         If Dask is not available, falls back gracefully with warning
@@ -1102,7 +1106,7 @@ def process_with_vectorization(
     This function divides the DataFrame into chunks and processes them in parallel
     using joblib's Parallel execution engine to improve performance on large datasets.
 
-    Parameters:
+    Parameters
     -----------
     df : Union[pd.DataFrame, dd.DataFrame]
         The DataFrame containing the data to analyze
@@ -1123,7 +1127,7 @@ def process_with_vectorization(
     progress_tracker : Optional[HierarchicalProgressTracker]
         Optional progress tracker for reporting processing status
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing aggregated analysis results including:
@@ -1279,7 +1283,7 @@ def process_with_chunks(
             0, {"step": "Chunked processing completed", "total_chunks": total_chunks}
         )
 
-    logger.info(f"Chunked processing completed successfully")
+    logger.info("Chunked processing completed successfully")
 
     return result
 
@@ -1304,7 +1308,7 @@ def analyze_date_field(
     """
     Perform comprehensive analysis of a date field in a DataFrame, including statistics, distributions, anomaly detection, and optional group/UID analysis.
 
-    Parameters:
+    Parameters
     -----------
      df : Union[pd.DataFrame, dd.DataFrame]
         The DataFrame containing the data to analyze.
@@ -1333,7 +1337,7 @@ def analyze_date_field(
     **kwargs : dict
         Additional keyword arguments for advanced configuration (e.g., npartitions for Dask).
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing analysis results, including:
@@ -1476,14 +1480,14 @@ def estimate_resources(df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     """
     Estimate resources needed for date field analysis.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
     field_name : str
         The name of the field to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Estimated resource requirements
@@ -1546,7 +1550,7 @@ def process_date_chunk(
     """
     Process a single chunk of data for date analysis using vectorization.
 
-    Parameters:
+    Parameters
     -----------
     chunk_index : int
         Index of the chunk being processed
@@ -1559,7 +1563,7 @@ def process_date_chunk(
     max_year : int
         Maximum valid year for anomaly detection
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Results from processing this chunk
@@ -1660,12 +1664,12 @@ def aggregate_chunk_results(chunk_results) -> Dict[str, Any]:
     """
     Aggregate results from parallel chunk processing.
 
-    Parameters:
+    Parameters
     -----------
     chunk_results : List[Dict[str, Any]]
         List of results from each processed chunk
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Aggregated results in the expected format
@@ -1792,7 +1796,7 @@ def _calculate_age_distribution_pandas(
     """
     Calculate age distribution using Pandas processing.
 
-    Parameters:
+    Parameters
     ----------
     df : pd.DataFrame
         The input DataFrame
@@ -1801,7 +1805,7 @@ def _calculate_age_distribution_pandas(
     today : date
         Today's date for age calculation
 
-    Returns:
+    Returns
     -------
     Tuple[pd.Series, pd.Series]
         Tuple containing (ages, age_distribution)
@@ -1835,7 +1839,7 @@ def _calculate_age_distribution_dask(
     """
     Calculate age distribution using Dask distributed processing.
 
-    Parameters:
+    Parameters
     ----------
     df : Union[pd.DataFrame, dd.DataFrame]
         The input DataFrame
@@ -1844,7 +1848,7 @@ def _calculate_age_distribution_dask(
     today : date
         Today's date for age calculation
 
-    Returns:
+    Returns
     -------
     Tuple[pd.Series, pd.Series]
         Tuple containing (ages, age_distribution)
@@ -1894,7 +1898,7 @@ def calculate_age_distribution(
     """
     Calculate age distribution from birth dates using Pandas or Dask.
 
-    Parameters:
+    Parameters
     ----------
     df : Union[pd.DataFrame, dd.DataFrame]
         The input DataFrame
@@ -1903,7 +1907,7 @@ def calculate_age_distribution(
     use_dask : bool
         Whether to use Dask for distributed computation
 
-    Returns:
+    Returns
     -------
     Dict[str, Any]
         Dictionary with age distribution and statistics
@@ -1961,7 +1965,7 @@ def calculate_basic_date_stats(
     """
     Calculate basic date field statistics including counts and rates.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data to analyze
@@ -1970,7 +1974,7 @@ def calculate_basic_date_stats(
     total_records : int
         Total number of records in the DataFrame
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing basic statistics:

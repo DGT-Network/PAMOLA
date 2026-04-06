@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Visualization System
 Package:       pamola_core.utils.visualization
 Version:       2.0.0
@@ -88,14 +87,14 @@ def _save_figure(
     """
     Saves a figure using the IO system.
 
-    Parameters:
+    Parameters
     -----------
     fig : Union[plotly.graph_objects.Figure, matplotlib.figure.Figure]
         Figure to save
     output_path : Union[str, Path]
         Path where the file should be saved
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved file or error message
@@ -115,7 +114,9 @@ def _save_figure(
         viz_format = kwargs.get("viz_format", "png")
         use_encryption = kwargs.get("use_encryption", False)
         encryption_key = kwargs.get("encryption_key", None) if use_encryption else None
-        saved_path = save_visualization(fig, output_path, format=viz_format, encryption_key=encryption_key)
+        saved_path = save_visualization(
+            fig, output_path, format=viz_format, encryption_key=encryption_key
+        )
 
         # Close matplotlib figure if it's a matplotlib figure
         # This helps prevent memory leaks
@@ -139,12 +140,12 @@ def _filter_kwargs(**kwargs):
     """
     Filter out unsupported parameters from kwargs.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Keyword arguments passed to the visualization functions.
 
-    Returns:
+    Returns
     --------
     dict
         Filtered kwargs containing only supported parameters.
@@ -155,7 +156,7 @@ def _filter_kwargs(**kwargs):
         "encryption_key",
         "use_encryption",
         "timestamp",
-        "viz_format"
+        "viz_format",
     ]
 
     # Filter kwargs to exclude unsupported keys
@@ -191,7 +192,7 @@ def create_bar_plot(
     """
     Create a bar plot visualization and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, Any] or pd.Series
         Data to visualize
@@ -228,7 +229,7 @@ def create_bar_plot(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -243,7 +244,7 @@ def create_bar_plot(
 
         # Filter unsupported kwargs
         custom_viz_kwargs = _filter_kwargs(**kwargs)
-        
+
         try:
             # Convert pandas Series to dict to avoid ambiguous truth value errors
             plot_data = data.to_dict() if isinstance(data, pd.Series) else data
@@ -292,7 +293,7 @@ def create_histogram(
     """
     Create a histogram visualization and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, int], pd.Series, np.ndarray, or List[float]
         Data to visualize
@@ -319,7 +320,7 @@ def create_histogram(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -380,7 +381,7 @@ def create_scatter_plot(
     """
     Create a scatter plot visualization and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     x_data : list, ndarray, or Series
         Data for the x-axis
@@ -417,7 +418,7 @@ def create_scatter_plot(
     **kwargs:
         Additional customization parameters passed to plotly.graph_objects.Scatter
 
-    Returns:
+    Returns
     --------
     str
         Path to saved PNG file or error message
@@ -486,7 +487,7 @@ def create_boxplot(
     """
     Create a box plot visualization and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, List[float]], pd.DataFrame, or pd.Series
         Data to visualize. Each key/column represents a category.
@@ -528,7 +529,7 @@ def create_boxplot(
         Strict mode for error handling
     **kwargs : additional parameters passed to plotting backend
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -598,7 +599,7 @@ def create_heatmap(
     """
     Create a heatmap visualization and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, Dict[str, float]], pd.DataFrame, or np.ndarray
         Data to visualize
@@ -636,7 +637,7 @@ def create_heatmap(
         Strict mode for error handling
     **kwargs: additional arguments for plotly.graph_objects.Heatmap or ax.imshow
 
-    Returns:
+    Returns
     --------
     str
         Path to saved PNG file or error message
@@ -682,30 +683,30 @@ def create_heatmap(
 
 
 def create_line_plot(
-        data: Union[Dict[str, List[float]], pd.DataFrame, pd.Series],
-        output_path: Union[str, Path],
-        title: str,
-        x_data: Optional[Union[List, np.ndarray, pd.Series]] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        add_markers: bool = True,
-        add_area: bool = False,
-        smooth: bool = False,
-        highlight_regions: Optional[List[Dict[str, Any]]] = None,
-        line_width: float = 2.0,
-        color: Optional[Any] = None,
-        figsize: Optional[Any] = None,
-        theme: Optional[str] = None,
-        backend: Optional[str] = None,
-        strict: bool = False,
-        multi_x_data: bool = False,
-        line_average: bool = False,
-        **kwargs
+    data: Union[Dict[str, List[float]], pd.DataFrame, pd.Series],
+    output_path: Union[str, Path],
+    title: str,
+    x_data: Optional[Union[List, np.ndarray, pd.Series]] = None,
+    x_label: Optional[str] = None,
+    y_label: Optional[str] = None,
+    add_markers: bool = True,
+    add_area: bool = False,
+    smooth: bool = False,
+    highlight_regions: Optional[List[Dict[str, Any]]] = None,
+    line_width: float = 2.0,
+    color: Optional[Any] = None,
+    figsize: Optional[Any] = None,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: bool = False,
+    multi_x_data: bool = False,
+    line_average: bool = False,
+    **kwargs,
 ) -> str:
     """
     Create a line plot visualization and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     data : dict, DataFrame, or Series
         Data to visualize. Keys/columns are series, values are y-values.
@@ -742,7 +743,7 @@ def create_line_plot(
     **kwargs:
         Additional parameters for plotly.graph_objects.Scatter
 
-    Returns:
+    Returns
     --------
     str
         Path to saved PNG file or error message
@@ -997,7 +998,7 @@ def create_venn_diagram(
     """
     Create a Venn diagram visualization and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     set1 : set, list, or pd.Series
         First set of elements.
@@ -1024,7 +1025,7 @@ def create_venn_diagram(
     **kwargs:
         Additional arguments to pass to the underlying plotting function.
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message.
@@ -1171,7 +1172,7 @@ def create_pie_chart(
     """
     Create a pie or donut chart and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, float], pd.Series, or list of float
         Data to visualize
@@ -1210,7 +1211,7 @@ def create_pie_chart(
     **kwargs:
         Other plotly Pie parameters
 
-    Returns:
+    Returns
     --------
     str
         Path to saved PNG or error message
@@ -1371,7 +1372,7 @@ def create_sunburst_chart(
     """
     Create a sunburst chart visualization for hierarchical data and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     data : Union[Dict, pd.DataFrame]
         Data to visualize. If DataFrame, it needs columns for path, values, and optionally colors.
@@ -1401,7 +1402,7 @@ def create_sunburst_chart(
     **kwargs :
         Additional keyword arguments to pass to the plotting backend
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -1539,6 +1540,7 @@ def create_combined_chart(
             logger.error(f"Error creating combined chart: {e}")
             return f"Error creating combined chart: {e}"
 
+
 def create_network_diagram(
     nodes: List[str],
     edges: List[Tuple[str, str]],
@@ -1553,7 +1555,7 @@ def create_network_diagram(
     """
     Create a network diagram visualization and save it as PNG.
 
-    Parameters:
+    Parameters
     -----------
     nodes : List[str]
         List of node names.
@@ -1574,7 +1576,7 @@ def create_network_diagram(
     **kwargs:
         Additional arguments passed to the figure saving function.
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message.
@@ -1609,7 +1611,8 @@ def create_network_diagram(
     except Exception as e:
         logger.error(f"Error creating network diagram: {e}")
         return f"Error creating network diagram: {e}"
-    
+
+
 # ============================================================================
 # Specialized visualization functions for profiling
 # ============================================================================
@@ -1629,7 +1632,7 @@ def plot_completeness(
     """
     Visualize data completeness for each column in a DataFrame and save as PNG.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze
@@ -1650,7 +1653,7 @@ def plot_completeness(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -1703,7 +1706,7 @@ def plot_value_distribution(
     """
     Visualize the distribution of values and save as PNG.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, int]
         Dictionary with values and their counts
@@ -1724,7 +1727,7 @@ def plot_value_distribution(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -1781,7 +1784,7 @@ def plot_numeric_distribution(
     """
     Visualize the distribution of numeric values and save as PNG.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, int], pd.Series, np.ndarray, or List[float]
         Data to visualize
@@ -1802,7 +1805,7 @@ def plot_numeric_distribution(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -1836,7 +1839,7 @@ def plot_date_distribution(
     """
     Visualize the distribution of dates by year and save as PNG.
 
-    Parameters:
+    Parameters
     -----------
     date_stats : Dict[str, Any]
         Dictionary with date statistics, including 'year_distribution'
@@ -1853,7 +1856,7 @@ def plot_date_distribution(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -1908,7 +1911,7 @@ def plot_email_domains(
     """
     Visualize the distribution of email domains and save as PNG.
 
-    Parameters:
+    Parameters
     -----------
     domains : Dict[str, int]
         Dictionary with domain names and their counts
@@ -1927,7 +1930,7 @@ def plot_email_domains(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -1962,7 +1965,7 @@ def plot_phone_distribution(
     """
     Visualize the distribution of phone components and save as PNG.
 
-    Parameters:
+    Parameters
     -----------
     phone_data : Dict[str, int]
         Dictionary with codes and their counts
@@ -1981,7 +1984,7 @@ def plot_phone_distribution(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -2015,7 +2018,7 @@ def plot_text_length_distribution(
     """
     Visualize the distribution of text lengths and save as PNG.
 
-    Parameters:
+    Parameters
     -----------
     length_data : Dict[str, int]
         Dictionary with length ranges and their counts
@@ -2032,7 +2035,7 @@ def plot_text_length_distribution(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -2085,7 +2088,7 @@ def plot_group_variation_distribution(
     """
     Visualize the distribution of group variation values and save as PNG.
 
-    Parameters:
+    Parameters
     -----------
     results : Dict[str, Any]
         Dictionary with group variation results (should include 'variation_distribution')
@@ -2102,7 +2105,7 @@ def plot_group_variation_distribution(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -2154,7 +2157,7 @@ def plot_multiple_fields(
     """
     Create a comparison plot for multiple fields and save as PNG.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -2175,7 +2178,7 @@ def plot_multiple_fields(
     **kwargs:
         Additional arguments to pass to the underlying plotting function
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message
@@ -2260,8 +2263,8 @@ def plot_field_subset_network(
     Create a network diagram showing how fields are distributed across subsets using Plotly or Matplotlib,
     and save it as a PNG file.
 
-    Parameters:
-    ----------- 
+    Parameters
+    -----------
     output_data : Dict[str, pd.DataFrame]
         Dictionary mapping subset names to their corresponding DataFrames.
     output_path : Path
@@ -2277,7 +2280,7 @@ def plot_field_subset_network(
     **kwargs:
         Additional arguments passed to the figure saving function.
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved PNG file or error message.

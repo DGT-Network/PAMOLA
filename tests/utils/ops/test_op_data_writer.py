@@ -15,7 +15,6 @@ import unittest
 from unittest.mock import patch, MagicMock, Mock
 import tempfile
 import os
-import json
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -85,6 +84,7 @@ class TestDataWriter(unittest.TestCase):
         self.assertTrue((self.task_dir / "output").exists())
         self.assertTrue((self.task_dir / "dictionaries").exists())
         self.assertTrue((self.task_dir / "logs").exists())
+        self.assertTrue((self.task_dir / "visualizations").exists())
 
         # Verify the logger and progress tracker are set
         self.assertEqual(self.writer.logger, self.mock_logger)
@@ -425,7 +425,7 @@ class TestDataWriter(unittest.TestCase):
     def test_ensure_directories(self):
         """Test directory creation."""
         # Delete the standard directories
-        for subdir in ["output", "dictionaries", "logs"]:
+        for subdir in ["output", "dictionaries", "logs", "visualizations"]:
             dir_path = self.task_dir / subdir
             if dir_path.exists():
                 os.rmdir(dir_path)
@@ -434,7 +434,7 @@ class TestDataWriter(unittest.TestCase):
         self.writer._ensure_directories()
 
         # Verify the directories were recreated
-        for subdir in ["output", "dictionaries", "logs"]:
+        for subdir in ["output", "dictionaries", "logs", "visualizations"]:
             self.assertTrue((self.task_dir / subdir).exists())
 
     @patch('pamola_core.utils.ops.op_data_writer.write_dataframe_to_csv')

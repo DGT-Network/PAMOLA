@@ -27,6 +27,47 @@ The `NumericGeneralizationOperation` is a privacy-preserving data transformation
 
 This operation is designed for scenarios where exact numeric values pose privacy risks but aggregated or approximate values retain sufficient utility for analysis.
 
+## Constructor Signature
+
+```python
+def __init__(
+    self,
+    field_name: str,
+    strategy: str = "binning",
+    bin_count: int = 10,
+    binning_method: str = "equal_width",
+    precision: int = 0,
+    range_limits: Optional[List[Tuple[float, float]]] = None,
+    quasi_identifiers: Optional[List[str]] = None,
+    **kwargs,
+):
+```
+
+### Key Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Name of the numeric field to generalize |
+| `strategy` | str | "binning" | Generalization strategy: "binning", "rounding", or "range" |
+| `bin_count` | int | 10 | Number of bins for binning strategy |
+| `binning_method` | str | "equal_width" | Binning method: "equal_width", "equal_frequency", or "custom" |
+| `precision` | int | 0 | Decimal precision for rounding strategy |
+| `range_limits` | Optional[List[Tuple]] | None | Range limits for range strategy (list of min/max tuples) |
+| `quasi_identifiers` | Optional[List[str]] | None | Quasi-identifiers for privacy risk evaluation |
+| `**kwargs` | dict | - | Additional parameters passed to `AnonymizationOperation` |
+
+### Generalization Strategies
+
+- **`"binning"`**: Groups numeric values into discrete intervals
+  - `bin_count`: Number of bins to create
+  - `binning_method`: Equal-width, equal-frequency, or custom bins
+
+- **`"rounding"`**: Reduces precision to specified decimal places
+  - `precision`: Number of decimal places to round to
+
+- **`"range"`**: Maps values to predefined ranges with outlier handling
+  - `range_limits`: List of (min, max) tuples defining ranges
+
 ## 2. Architecture
 
 ### 2.1 Architectural Principles
@@ -37,7 +78,7 @@ The module follows several key architectural principles:
 
 2. **Framework Integration**: Fully integrated with PAMOLA.CORE utilities:
    - Uses `DataWriter` for all file operations
-   - Leverages `ProgressTracker` for operation monitoring
+   - Leverages `HierarchicalProgressTracker` for operation monitoring
    - Returns standardized `OperationResult` objects
    - Delegates metrics to commons utilities
 
@@ -72,7 +113,7 @@ The module follows several key architectural principles:
 │                                                 │
 │ Framework Integration:                          │
 │ ├── DataWriter (file operations)               │
-│ ├── ProgressTracker (progress reporting)       │
+│ ├── HierarchicalProgressTracker (progress reporting)       │
 │ ├── OperationResult (result packaging)         │
 │ ├── OperationConfig (configuration)            │
 │ └── Field Utilities (naming, conditions)       │
@@ -273,7 +314,7 @@ def execute(self,
             data_source: DataSource, 
             task_dir: Path, 
             reporter: Any = None, 
-            progress_tracker: Optional[ProgressTracker] = None, 
+            progress_tracker: Optional[HierarchicalProgressTracker] = None, 
             **kwargs) -> OperationResult
 ```
 

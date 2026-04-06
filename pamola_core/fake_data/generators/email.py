@@ -12,9 +12,10 @@ import string
 from typing import Dict, Any, List, Optional
 import pandas as pd
 
-from pamola_core.fake_data.commons import dict_helpers
+import pamola_core.fake_data.commons.dict_helpers as dict_helpers
 from pamola_core.fake_data.commons.prgn import PRNGenerator
 from pamola_core.fake_data.generators.base_generator import BaseGenerator
+from pamola_core.errors.exceptions import ValidationError
 
 
 class EmailGenerator(BaseGenerator):
@@ -29,7 +30,8 @@ class EmailGenerator(BaseGenerator):
         """
         Initialize email generator with configuration.
 
-        Args:
+        Parameters
+        ----------
             config: Configuration parameters including:
                 - domains: List of domains or path to domain dictionary
                 - format: Format for email generation (name_surname, surname_name, nickname, existing_domain)
@@ -50,21 +52,34 @@ class EmailGenerator(BaseGenerator):
         super().__init__(config)
 
         # Store config in attributes for easy access
-        self.domains = self.config.get('domains', [])
-        self.format = self.config.get('format')
-        self.format_ratio = self.config.get('format_ratio', {})
-        self.validate_source = self.config.get('validate_source', True)
-        self.handle_invalid_email = self.config.get('handle_invalid_email', 'generate_new')
-        self.nicknames_dict = self.config.get('nicknames_dict')
-        self.max_length = self.config.get('max_length', 254)  # RFC 5321 SMTP limit
-        self.max_local_part_length = self.config.get('max_local_part_length', 64)  # RFC 5321 limit
-        self.max_domain_length = self.config.get('max_domain_length', 255)  # RFC 1035 limit
+        self.domains = self.config.get("domains", [])
+        self.format = self.config.get("format")
+        self.format_ratio = self.config.get("format_ratio", {})
+        self.validate_source = self.config.get("validate_source", True)
+        self.handle_invalid_email = self.config.get(
+            "handle_invalid_email", "generate_new"
+        )
+        self.nicknames_dict = self.config.get("nicknames_dict")
+        self.max_length = self.config.get("max_length", 254)  # RFC 5321 SMTP limit
+        self.max_local_part_length = self.config.get(
+            "max_local_part_length", 64
+        )  # RFC 5321 limit
+        self.max_domain_length = self.config.get(
+            "max_domain_length", 255
+        )  # RFC 1035 limit
 
         # New configuration parameters
-        self.separator_options = self.config.get('separator_options') or [".", "_", "-", ""]
-        self.number_suffix_probability = self.config.get('number_suffix_probability', 0.4)
-        self.preserve_domain_ratio = self.config.get('preserve_domain_ratio', 0.5)
-        self.business_domain_ratio = self.config.get('business_domain_ratio', 0.2)
+        self.separator_options = self.config.get("separator_options") or [
+            ".",
+            "_",
+            "-",
+            "",
+        ]
+        self.number_suffix_probability = self.config.get(
+            "number_suffix_probability", 0.4
+        )
+        self.preserve_domain_ratio = self.config.get("preserve_domain_ratio", 0.5)
+        self.business_domain_ratio = self.config.get("business_domain_ratio", 0.2)
 
         # Load domains
         self._domain_list = self._load_domains()
@@ -80,21 +95,23 @@ class EmailGenerator(BaseGenerator):
 
         # Set up PRGN generator if needed
         self.prgn_generator = None
-        key = self.config.get('key')
+        key = self.config.get("key")
         if key:
             self.prgn_generator = PRNGenerator(global_seed=key)
 
         # Email validation regex pattern
-        self.email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+        self.email_pattern = re.compile(
+            r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        )
 
         # Allowed characters for local part
-        self.allowed_local_chars = string.ascii_letters + string.digits + '.-_+'
+        self.allowed_local_chars = string.ascii_letters + string.digits + ".-_+"
 
     def _categorize_domains(self):
         """
         Categorize domains into common, business, and educational domains.
         """
-        from pamola_core.fake_data.dictionaries import domains as domain_dicts
+        import pamola_core.fake_data.dictionaries.domains as domain_dicts
 
         # Try to load lists from domains module
         try:
@@ -105,11 +122,24 @@ class EmailGenerator(BaseGenerator):
             # In case of error, use heuristic categorization
             # Categorize domains by their names
             for domain in self._domain_list:
-                if any(business_term in domain for business_term in
-                       ['company', 'corp', 'enterprise', 'business', 'inc', 'llc', 'agency', 'consulting']):
+                if any(
+                    business_term in domain
+                    for business_term in [
+                        "company",
+                        "corp",
+                        "enterprise",
+                        "business",
+                        "inc",
+                        "llc",
+                        "agency",
+                        "consulting",
+                    ]
+                ):
                     self._business_domains.append(domain)
-                elif any(edu_term in domain for edu_term in
-                         ['edu', 'ac.', 'university', 'school', 'college']):
+                elif any(
+                    edu_term in domain
+                    for edu_term in ["edu", "ac.", "university", "school", "college"]
+                ):
                     self._educational_domains.append(domain)
                 else:
                     self._common_domains.append(domain)
@@ -118,7 +148,8 @@ class EmailGenerator(BaseGenerator):
         """
         Load domain list from configuration or default sources.
 
-        Returns:
+        Returns
+        -------
             List[str]: List of domain names
         """
         domains = []
@@ -137,9 +168,7 @@ class EmailGenerator(BaseGenerator):
         if not domains:
             try:
                 domains = dict_helpers.load_multi_dictionary(
-                    "domain",
-                    {"language": "en"},
-                    fallback_to_embedded=True
+                    "domain", {"language": "en"}, fallback_to_embedded=True
                 )
             except Exception as e:
                 print(f"Error loading embedded domains: {e}")
@@ -147,8 +176,14 @@ class EmailGenerator(BaseGenerator):
         # If still no domains, use a minimal default list
         if not domains:
             domains = [
-                "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
-                "mail.com", "example.com", "company.com", "organization.org"
+                "gmail.com",
+                "yahoo.com",
+                "hotmail.com",
+                "outlook.com",
+                "mail.com",
+                "example.com",
+                "company.com",
+                "organization.org",
             ]
 
         return domains
@@ -157,7 +192,8 @@ class EmailGenerator(BaseGenerator):
         """
         Load nicknames from dictionary or generate default ones.
 
-        Returns:
+        Returns
+        -------
             List[str]: List of nicknames
         """
         nicknames = []
@@ -172,14 +208,58 @@ class EmailGenerator(BaseGenerator):
         # If no nicknames loaded, generate some default ones
         if not nicknames:
             # Common prefixes for nicknames
-            prefixes = ['cool', 'super', 'cyber', 'digital', 'tech', 'web', 'net', 'data',
-                        'pro', 'smart', 'bright', 'swift', 'quick', 'fast', 'clever',
-                        'happy', 'jolly', 'sunny', 'star', 'moon', 'sky', 'ocean', 'mountain']
+            prefixes = [
+                "cool",
+                "super",
+                "cyber",
+                "digital",
+                "tech",
+                "web",
+                "net",
+                "data",
+                "pro",
+                "smart",
+                "bright",
+                "swift",
+                "quick",
+                "fast",
+                "clever",
+                "happy",
+                "jolly",
+                "sunny",
+                "star",
+                "moon",
+                "sky",
+                "ocean",
+                "mountain",
+            ]
 
             # Common stems for nicknames
-            stems = ['user', 'person', 'friend', 'buddy', 'pal', 'mate', 'coder', 'dev',
-                     'guru', 'ninja', 'master', 'expert', 'geek', 'nerd', 'fan', 'lover',
-                     'mind', 'thinker', 'brain', 'wizard', 'sage', 'explorer', 'traveler']
+            stems = [
+                "user",
+                "person",
+                "friend",
+                "buddy",
+                "pal",
+                "mate",
+                "coder",
+                "dev",
+                "guru",
+                "ninja",
+                "master",
+                "expert",
+                "geek",
+                "nerd",
+                "fan",
+                "lover",
+                "mind",
+                "thinker",
+                "brain",
+                "wizard",
+                "sage",
+                "explorer",
+                "traveler",
+            ]
 
             # Generate combinations
             for prefix in prefixes:
@@ -187,9 +267,27 @@ class EmailGenerator(BaseGenerator):
                     nicknames.append(f"{prefix}{stem}")
 
             # Add some simple ones
-            nicknames.extend(['user', 'admin', 'info', 'contact', 'support', 'help',
-                              'sales', 'marketing', 'service', 'customer', 'client',
-                              'mailbox', 'inbox', 'mail', 'email', 'account', 'profile'])
+            nicknames.extend(
+                [
+                    "user",
+                    "admin",
+                    "info",
+                    "contact",
+                    "support",
+                    "help",
+                    "sales",
+                    "marketing",
+                    "service",
+                    "customer",
+                    "client",
+                    "mailbox",
+                    "inbox",
+                    "mail",
+                    "email",
+                    "account",
+                    "profile",
+                ]
+            )
 
         return nicknames
 
@@ -197,18 +295,22 @@ class EmailGenerator(BaseGenerator):
         """
         Select a random domain from the available list.
 
-        Args:
+        Parameters
+        ----------
             original_domain: Original domain to avoid (if any)
 
-        Returns:
+        Returns
+        -------
             str: Selected domain
         """
         if not self._domain_list:
-            raise ValueError("No domain list available")
+            raise ValidationError("No domain list available")
 
         # Determine which type of domain to use
         if self.prgn_generator:
-            rng = self.prgn_generator.get_random_by_value(original_domain or "domain", salt="domain-type-selection")
+            rng = self.prgn_generator.get_random_by_value(
+                original_domain or "domain", salt="domain-type-selection"
+            )
             domain_type_value = rng.random()
         else:
             domain_type_value = random.random()
@@ -220,13 +322,23 @@ class EmailGenerator(BaseGenerator):
         # Calculate which type of domain to use
         if domain_type_value < self.business_domain_ratio:
             # Use business domain
-            domain_list = self._business_domains if self._business_domains else self._domain_list
-        elif domain_type_value < self.business_domain_ratio + 0.1:  # 10% for educational domains
+            domain_list = (
+                self._business_domains if self._business_domains else self._domain_list
+            )
+        elif (
+            domain_type_value < self.business_domain_ratio + 0.1
+        ):  # 10% for educational domains
             # Use educational domain
-            domain_list = self._educational_domains if self._educational_domains else self._domain_list
+            domain_list = (
+                self._educational_domains
+                if self._educational_domains
+                else self._domain_list
+            )
         else:
             # Use common domain
-            domain_list = self._common_domains if self._common_domains else self._domain_list
+            domain_list = (
+                self._common_domains if self._common_domains else self._domain_list
+            )
 
         # If the list is empty, use the general list
         if not domain_list:
@@ -240,7 +352,9 @@ class EmailGenerator(BaseGenerator):
         # If using PRGN generator for deterministic selection
         if self.prgn_generator:
             # Use deterministic selection but avoid the original domain
-            rng = self.prgn_generator.get_random_by_value(original_domain or "domain", salt="domain-selection")
+            rng = self.prgn_generator.get_random_by_value(
+                original_domain or "domain", salt="domain-selection"
+            )
             index = rng.randint(0, len(available_domains) - 1)
             return available_domains[index]
 
@@ -251,18 +365,21 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a random nickname.
 
-        Returns:
+        Returns
+        -------
             str: Generated nickname
         """
         if not self._nicknames:
             # Fallback to simple generation if no nicknames available
             letters = string.ascii_lowercase
             length = random.randint(5, 10)
-            return ''.join(random.choice(letters) for _ in range(length))
+            return "".join(random.choice(letters) for _ in range(length))
 
         # If using PRGN generator for deterministic selection
         if self.prgn_generator:
-            rng = self.prgn_generator.get_random_by_value(self.original_value, salt=self.context_salt)
+            rng = self.prgn_generator.get_random_by_value(
+                self.original_value, salt=self.context_salt
+            )
             index = rng.randint(0, len(self._nicknames) - 1)
             return self._nicknames[index]
 
@@ -273,14 +390,17 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a random separator for email parts.
 
-        Returns:
+        Returns
+        -------
             str: Generated separator from configured options
         """
         separators = self.separator_options
 
         # If using PRGN generator for deterministic selection
         if self.prgn_generator:
-            rng = self.prgn_generator.get_random_by_value("separator", salt="separator-selection")
+            rng = self.prgn_generator.get_random_by_value(
+                "separator", salt="separator-selection"
+            )
             index = rng.randint(0, len(separators) - 1)
             return separators[index]
 
@@ -291,62 +411,69 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a random number suffix for email.
 
-        Returns:
+        Returns
+        -------
             str: Generated number as string (or empty string)
         """
         # Check probability to have no number
         probability_threshold = 1.0 - self.number_suffix_probability
 
         if self.prgn_generator:
-            rng = self.prgn_generator.get_random_by_value("number", salt="number-generation")
+            rng = self.prgn_generator.get_random_by_value(
+                "number", salt="number-generation"
+            )
             value = rng.random()
             if value < probability_threshold:
                 return ""
 
             # Generate 1-4 digit number
             digits = rng.randint(1, 4)
-            return str(rng.randint(1, 10 ** digits - 1))
+            return str(rng.randint(1, 10**digits - 1))
         else:
             if random.random() < probability_threshold:
                 return ""
 
             # Generate 1-4 digit number
             digits = random.randint(1, 4)
-            return str(random.randint(1, 10 ** digits - 1))
+            return str(random.randint(1, 10**digits - 1))
 
     def _sanitize_local_part(self, text: str) -> str:
         """
         Sanitize the local part of an email address to ensure it's valid.
 
-        Args:
+        Parameters
+        ----------
             text: Text to sanitize
 
-        Returns:
+        Returns
+        -------
             str: Sanitized text
         """
         # Replace non-ASCII characters
-        sanitized = ''
+        sanitized = ""
         for char in text:
             if char in self.allowed_local_chars:
                 sanitized += char
-            elif char.isalnum():  # Allow other alphanumeric chars but convert to ASCII range
-                sanitized += 'x'
+            elif (
+                char.isalnum()
+            ):  # Allow other alphanumeric chars but convert to ASCII range
+                sanitized += "x"
             else:
-                sanitized += ''  # Remove other characters
+                sanitized += ""  # Remove other characters
 
         # Ensure it's not empty and not too long
         if not sanitized:
             sanitized = "user"
 
         if len(sanitized) > self.max_local_part_length:
-            sanitized = sanitized[:self.max_local_part_length]
+            sanitized = sanitized[: self.max_local_part_length]
 
         # Ensure it doesn't start or end with a dot
-        sanitized = sanitized.strip('.')
+        sanitized = sanitized.strip(".")
 
         # Replace consecutive dots
-        while '..' in sanitized:
-            sanitized = sanitized.replace('..', '.')
+        while ".." in sanitized:
+            sanitized = sanitized.replace("..", ".")
 
         return sanitized
 
@@ -354,10 +481,12 @@ class EmailGenerator(BaseGenerator):
         """
         Validate an email address.
 
-        Args:
+        Parameters
+        ----------
             email: Email address to validate
 
-        Returns:
+        Returns
+        -------
             bool: True if valid, False otherwise
         """
         if not email or not isinstance(email, str):
@@ -372,7 +501,7 @@ class EmailGenerator(BaseGenerator):
             return False
 
         # Check if it has exactly one @ symbol
-        parts = email.split('@')
+        parts = email.split("@")
         if len(parts) != 2:
             return False
 
@@ -387,12 +516,12 @@ class EmailGenerator(BaseGenerator):
             return False
 
         # Check domain format (must have at least one dot)
-        if '.' not in domain:
+        if "." not in domain:
             return False
 
         # Check each domain label doesn't start or end with a dash
-        for label in domain.split('.'):
-            if label.startswith('-') or label.endswith('-'):
+        for label in domain.split("."):
+            if label.startswith("-") or label.endswith("-"):
                 return False
 
         return True
@@ -401,16 +530,18 @@ class EmailGenerator(BaseGenerator):
         """
         Extract domain from an email address.
 
-        Args:
+        Parameters
+        ----------
             email: Email address
 
-        Returns:
+        Returns
+        -------
             Optional[str]: Domain or None if invalid
         """
         if not email or not isinstance(email, str):
             return None
 
-        parts = email.split('@')
+        parts = email.split("@")
         if len(parts) != 2:
             return None
 
@@ -422,26 +553,28 @@ class EmailGenerator(BaseGenerator):
 
         Attempts to identify which format was used to generate the email.
 
-        Args:
+        Parameters
+        ----------
             email: Email address to analyze
 
-        Returns:
+        Returns
+        -------
             str: Determined format (name_surname, surname_name, nickname, existing_domain or unknown)
         """
-        if not email or not isinstance(email, str) or '@' not in email:
+        if not email or not isinstance(email, str) or "@" not in email:
             return "unknown"
 
         # Split email into local part and domain
-        local_part, domain = email.split('@', 1)
+        local_part, domain = email.split("@", 1)
 
         # Check if local part contains a separator
-        has_separator = any(sep in local_part for sep in ['.', '_', '-'])
+        has_separator = any(sep in local_part for sep in [".", "_", "-"])
 
         # If local part has at least one separator, it could be name_surname or surname_name
         if has_separator:
             # Split local part into components
             separator = None
-            for sep in ['.', '_', '-']:
+            for sep in [".", "_", "-"]:
                 if sep in local_part:
                     separator = sep
                     break
@@ -476,17 +609,20 @@ class EmailGenerator(BaseGenerator):
         # If all checks fail, return "unknown"
         return "unknown"
 
-    def _generate_from_name_components(self, first_name: Optional[str], last_name: Optional[str],
-                                       format_type: str) -> str:
+    def _generate_from_name_components(
+        self, first_name: Optional[str], last_name: Optional[str], format_type: str
+    ) -> str:
         """
         Generate email local part from name components.
 
-        Args:
+        Parameters
+        ----------
             first_name: First name
             last_name: Last name
             format_type: Format type (name_surname or surname_name)
 
-        Returns:
+        Returns
+        -------
             str: Generated local part
         """
         # Handle missing components
@@ -511,7 +647,9 @@ class EmailGenerator(BaseGenerator):
 
         # Add random number suffix based on probability
         if self.prgn_generator:
-            rng = self.prgn_generator.get_random_by_value("number_suffix", salt="number-suffix-decision")
+            rng = self.prgn_generator.get_random_by_value(
+                "number_suffix", salt="number-suffix-decision"
+            )
             add_number = rng.random() < self.number_suffix_probability
         else:
             add_number = random.random() < self.number_suffix_probability
@@ -527,7 +665,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate local part using nickname format.
 
-        Returns:
+        Returns
+        -------
             str: Generated local part
         """
         nickname = self._generate_random_nickname()
@@ -535,7 +674,9 @@ class EmailGenerator(BaseGenerator):
 
         # Add number suffix based on probability
         if self.prgn_generator:
-            rng = self.prgn_generator.get_random_by_value("number_suffix", salt="nickname-number-suffix")
+            rng = self.prgn_generator.get_random_by_value(
+                "number_suffix", salt="nickname-number-suffix"
+            )
             add_number = rng.random() < self.number_suffix_probability
         else:
             add_number = random.random() < self.number_suffix_probability
@@ -551,7 +692,8 @@ class EmailGenerator(BaseGenerator):
         """
         Select a format based on configured ratios.
 
-        Returns:
+        Returns
+        -------
             str: Selected format
         """
         # If specific format is set, use it
@@ -572,7 +714,9 @@ class EmailGenerator(BaseGenerator):
             if self.prgn_generator:
                 # Simple weighted selection using PRGN
                 # Fix: use get_random_by_value instead of generate_float
-                rng = self.prgn_generator.get_random_by_value("format_selection", salt="email-format-selection")
+                rng = self.prgn_generator.get_random_by_value(
+                    "format_selection", salt="email-format-selection"
+                )
                 value = rng.random()  # Get random number between 0 and 1
 
                 cumulative = 0
@@ -590,7 +734,9 @@ class EmailGenerator(BaseGenerator):
 
         # If using PRGN generator for deterministic selection
         if self.prgn_generator:
-            rng = self.prgn_generator.get_random_by_value("format_default", salt="format-default-selection")
+            rng = self.prgn_generator.get_random_by_value(
+                "format_default", salt="format-default-selection"
+            )
             index = rng.randint(0, len(default_formats) - 1)
             return default_formats[index]
 
@@ -601,7 +747,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate specified number of synthetic email addresses.
 
-        Args:
+        Parameters
+        ----------
             count: Number of values to generate
             **params: Additional parameters including:
                 - first_name: First name (for name_surname/surname_name formats)
@@ -610,7 +757,8 @@ class EmailGenerator(BaseGenerator):
                 - domain: Specific domain to use
                 - original_email: Original email to extract domain from
 
-        Returns:
+        Returns
+        -------
             List[str]: Generated email addresses
         """
         result = []
@@ -625,7 +773,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a single email address based on parameters.
 
-        Args:
+        Parameters
+        ----------
             **params: Parameters including:
                 - first_name: First name component
                 - last_name: Last name component
@@ -633,7 +782,8 @@ class EmailGenerator(BaseGenerator):
                 - domain: Specific domain to use
                 - original_email: Original email to extract domain from
 
-        Returns:
+        Returns
+        -------
             str: Generated email address
         """
         # Extract parameters
@@ -647,7 +797,9 @@ class EmailGenerator(BaseGenerator):
         local_part = ""
 
         if format_type == "name_surname" or format_type == "surname_name":
-            local_part = self._generate_from_name_components(first_name, last_name, format_type)
+            local_part = self._generate_from_name_components(
+                first_name, last_name, format_type
+            )
         elif format_type == "nickname":
             local_part = self._generate_nickname_format()
         else:
@@ -656,7 +808,7 @@ class EmailGenerator(BaseGenerator):
 
         # Ensure local part doesn't exceed limit
         if len(local_part) > self.max_local_part_length:
-            local_part = local_part[:self.max_local_part_length]
+            local_part = local_part[: self.max_local_part_length]
 
         # Determine domain
         email_domain = domain
@@ -691,7 +843,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a synthetic email address similar to the original one.
 
-        Args:
+        Parameters
+        ----------
             original_value: Original email address
             **params: Additional parameters including:
                 - first_name: First name for name-based formats
@@ -700,7 +853,8 @@ class EmailGenerator(BaseGenerator):
                 - full_name: Full name string to extract components from
                 - name_format: Format of the full_name (FL, FML, LF, etc.)
 
-        Returns:
+        Returns
+        -------
             str: Generated email address
         """
         # ---- 1. # Handle None / NA / NaN / empty ----
@@ -772,15 +926,19 @@ class EmailGenerator(BaseGenerator):
         # ---- 8. Normal generation (valid email OR fallback) ----
         return self._generate_email(**params)
 
-    def _parse_full_name(self, full_name: str, name_format: Optional[str] = None) -> Dict[str, str]:
+    def _parse_full_name(
+        self, full_name: str, name_format: Optional[str] = None
+    ) -> Dict[str, str]:
         """
         Parse a full name into components based on format.
 
-        Args:
+        Parameters
+        ----------
             full_name: Full name string
             name_format: Format code (FL, FML, LF, LFM, etc.)
 
-        Returns:
+        Returns
+        -------
             Dict[str, str]: Name components
         """
         if not full_name:
@@ -790,11 +948,7 @@ class EmailGenerator(BaseGenerator):
         parts = full_name.split()
 
         # Default result with empty components
-        result = {
-            "first_name": "",
-            "middle_name": "",
-            "last_name": ""
-        }
+        result = {"first_name": "", "middle_name": "", "last_name": ""}
 
         # Return empty if no parts
         if not parts:
@@ -849,11 +1003,13 @@ class EmailGenerator(BaseGenerator):
 
         Default implementation calls generate_like for each value.
 
-        Args:
+        Parameters
+        ----------
             values: List of original values
             **params: Additional parameters for generation
 
-        Returns:
+        Returns
+        -------
             List of transformed values
         """
         return [self.generate_like(value, **params) for value in values]
@@ -862,10 +1018,12 @@ class EmailGenerator(BaseGenerator):
         """
         Check if a value is a valid email address.
 
-        Args:
+        Parameters
+        ----------
             value: Value to validate
 
-        Returns:
+        Returns
+        -------
             bool: True if value is a valid email, False otherwise
         """
         return self.validate_email(value)

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Histogram Visualization Implementation
 Description: Thread-safe histogram visualization capabilities
 Author: PAMOLA Core Team
@@ -39,6 +38,7 @@ from pamola_core.utils.vis_helpers.base import (
     MatplotlibFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_plotly_figure,
     apply_theme_to_matplotlib_figure,
@@ -57,12 +57,12 @@ class PlotlyHistogram(PlotlyFigure):
         """
         Check if data contains numeric values.
 
-        Parameters:
+        Parameters
         -----------
         values : np.ndarray
             Array of values to check
 
-        Returns:
+        Returns
         --------
         bool
             True if data is numeric, False otherwise
@@ -72,7 +72,7 @@ class PlotlyHistogram(PlotlyFigure):
             float_values = values.astype(float)
             # Check if conversion was successful (no NaN from string conversion)
             return not np.all(np.isnan(float_values))
-        except (ValueError, TypeError):
+        except (ValidationError, ValueError, TypeError):
             return False
 
     def _prepare_data(
@@ -83,12 +83,12 @@ class PlotlyHistogram(PlotlyFigure):
 
         If input is a dictionary with string keys, it's treated as multiple series for comparison.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any], pd.Series, np.ndarray, or List[float]
             Input data to prepare
 
-        Returns:
+        Returns
         --------
         Union[np.ndarray, Dict[str, np.ndarray]]
             Prepared data without NaN values, or dict of prepared arrays for comparison
@@ -145,7 +145,7 @@ class PlotlyHistogram(PlotlyFigure):
         """
         Calculate Kernel Density Estimation (KDE) for histogram.
 
-        Parameters:
+        Parameters
         -----------
         values : np.ndarray
             Input data values
@@ -154,7 +154,7 @@ class PlotlyHistogram(PlotlyFigure):
         histnorm : str, optional
             Histogram normalization method
 
-        Returns:
+        Returns
         --------
         Tuple[np.ndarray, np.ndarray]
             KDE x and y values
@@ -205,7 +205,7 @@ class PlotlyHistogram(PlotlyFigure):
 
         Supports comparison histograms when data is a dict with string keys.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any], pd.Series, np.ndarray, or List[float]
             Data to visualize. If dict with string keys, creates comparison histogram
@@ -232,7 +232,7 @@ class PlotlyHistogram(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to go.Histogram
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the histogram
@@ -423,7 +423,7 @@ class PlotlyHistogram(PlotlyFigure):
         """
         Update an existing Plotly histogram.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Plotly figure to update
@@ -436,7 +436,7 @@ class PlotlyHistogram(PlotlyFigure):
         **kwargs:
             Parameters to update
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated figure
@@ -560,7 +560,7 @@ class PlotlyHistogram(PlotlyFigure):
         """
         Update or add KDE trace to figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Figure to update
@@ -633,12 +633,12 @@ class MatplotlibHistogram(MatplotlibFigure):
         """
         Check if data contains numeric values.
 
-        Parameters:
+        Parameters
         -----------
         values : np.ndarray
             Array of values to check
 
-        Returns:
+        Returns
         --------
         bool
             True if data is numeric, False otherwise
@@ -648,7 +648,7 @@ class MatplotlibHistogram(MatplotlibFigure):
             float_values = values.astype(float)
             # Check if conversion was successful
             return not np.all(np.isnan(float_values))
-        except (ValueError, TypeError):
+        except (ValidationError, ValueError, TypeError):
             return False
 
     def create(
@@ -672,7 +672,7 @@ class MatplotlibHistogram(MatplotlibFigure):
 
         Supports comparison histograms when data is a dict with string keys.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any], pd.Series, np.ndarray, or List[float]
             Data to visualize. If dict with string keys, creates comparison histogram
@@ -701,7 +701,7 @@ class MatplotlibHistogram(MatplotlibFigure):
         **kwargs:
             Additional arguments to pass to plt.hist
 
-        Returns:
+        Returns
         --------
         matplotlib.figure.Figure
             Matplotlib figure with the histogram
@@ -950,7 +950,7 @@ class MatplotlibHistogram(MatplotlibFigure):
         """
         Update an existing Matplotlib histogram.
 
-        Parameters:
+        Parameters
         -----------
         fig : matplotlib.figure.Figure
             Matplotlib figure to update
@@ -963,7 +963,7 @@ class MatplotlibHistogram(MatplotlibFigure):
         **kwargs:
             Parameters to update
 
-        Returns:
+        Returns
         --------
         matplotlib.figure.Figure
             Updated figure

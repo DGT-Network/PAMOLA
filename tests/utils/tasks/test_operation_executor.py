@@ -7,13 +7,10 @@ retry logic, error handling, progress tracking, and parallel execution.
 
 import pytest
 import logging
-import time
-from unittest import mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from pamola_core.utils.tasks.operation_executor import (
     TaskOperationExecutor,
-    ExecutionError,
     MaxRetriesExceededError,
     NonRetriableError,
     create_operation_executor,
@@ -137,7 +134,9 @@ class TestTaskOperationExecutor:
         assert CustomError not in executor.retriable_exceptions
 
     def test_add_retriable_exception_never_retry(self, executor, caplog):
-        executor.add_retriable_exception(ValueError)
+        import logging as _logging
+        with caplog.at_level(_logging.WARNING):
+            executor.add_retriable_exception(ValueError)
         assert ValueError not in executor.retriable_exceptions
         assert any("NEVER_RETRY_EXCEPTIONS" in m for m in caplog.text.splitlines())
 
@@ -159,6 +158,7 @@ class TestTaskOperationExecutor:
         assert all(r.status == OperationStatus.SUCCESS for r in results.values())
 
     def test_execute_operations_parallel_with_error(self, executor):
+        executor.config.continue_on_error = True
         ops = [DummyOperation(), FailingOperation()]
         results = executor.execute_operations_parallel(ops, common_params={})
         assert len(results) == 2
@@ -171,12 +171,6 @@ class TestTaskOperationExecutor:
         results = executor.execute_operations_parallel(ops, common_params={})
         assert len(results) == 2
         assert any(r.status == OperationStatus.ERROR for r in results.values())
-
-    @pytest.mark.skip(reason="KeyboardInterrupt cannot be reliably propagated in ProcessPoolExecutor.")
-    def test_execute_operations_parallel_keyboard_interrupt(self, executor):
-        ops = [KeyboardInterruptOp()]
-        with pytest.raises(KeyboardInterrupt):
-            executor.execute_operations_parallel(ops, common_params={})
 
     def test_get_execution_stats(self, executor):
         op = DummyOperation()

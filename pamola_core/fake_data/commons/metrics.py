@@ -36,7 +36,7 @@ class MetricsCollector:
         """
         Collects comprehensive metrics about original and generated data.
 
-        Parameters:
+        Parameters
         -----------
         orig_data : pd.Series, optional
             Original data series
@@ -47,7 +47,7 @@ class MetricsCollector:
         operation_params : Dict[str, Any], optional
             Parameters used in the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with collected metrics
@@ -80,12 +80,12 @@ class MetricsCollector:
         """
         Collects basic statistical metrics for a data series.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.Series
             Data series to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with basic statistical metrics
@@ -136,7 +136,7 @@ class MetricsCollector:
         """
         Collect comprehensive metrics about data transformation.
 
-        Parameters:
+        Parameters
         -----------
         orig_data : pd.Series
             Original data series
@@ -145,7 +145,7 @@ class MetricsCollector:
         operation_params : Dict[str, Any], optional
             Parameters used in the transformation operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Transformation metrics
@@ -241,14 +241,14 @@ class MetricsCollector:
         """
         Compares distributions in original and synthetic data.
 
-        Parameters:
+        Parameters
         -----------
         orig_data : pd.Series
             Original data series
         gen_data : pd.Series
             Generated data series
 
-        Returns:
+        Returns
         --------
         Dict[str, float]
             Dictionary with distribution comparison metrics
@@ -312,7 +312,7 @@ class MetricsCollector:
         """
         Creates visualizations for metrics data.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Metrics data to visualize
@@ -323,7 +323,7 @@ class MetricsCollector:
         op_type : str
             Type of operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary mapping visualization names to file paths
@@ -382,7 +382,7 @@ class MetricsCollector:
                         visualizations["value_distribution"] = Path(vis_path)
                     else:
                         logger.warning(
-                            f"Error creating replacement rate visualization: {str(e)}"
+                            f"Error creating value distribution visualization: {vis_path}"
                         )
                 except Exception as e:
                     logger.warning(
@@ -494,7 +494,7 @@ class MetricsCollector:
                         visualizations["replacement_rate"] = Path(vis_path)
                     else:
                         logger.warning(
-                            f"Error creating replacement rate visualization: {str(e)}"
+                            f"Error creating replacement rate visualization: {vis_path}"
                         )
                 except Exception as e:
                     logger.warning(
@@ -509,7 +509,7 @@ def create_metrics_collector() -> MetricsCollector:
     """
     Factory function to create a metrics collector.
 
-    Returns:
+    Returns
     --------
     MetricsCollector
         Instance of a metrics collector
@@ -527,7 +527,7 @@ def generate_metrics_report(
     """
     Generates a markdown report from metrics data.
 
-    Parameters:
+    Parameters
     -----------
     metrics : Dict[str, Any]
         Metrics data to include in the report
@@ -540,7 +540,7 @@ def generate_metrics_report(
     operation_timestamp : str, optional
         Timestamp of the operation
 
-    Returns:
+    Returns
     --------
     str
         Markdown report as a string

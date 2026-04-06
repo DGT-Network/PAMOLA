@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Custom Components
 Package:       pamola_core.common.enum
 Version:       1.0.0

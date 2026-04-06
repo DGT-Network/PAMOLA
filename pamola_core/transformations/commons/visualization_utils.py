@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Transformation Visualization Utilities
 
 This module provides utility functions for visualizing and analyzing the impact of data transformation operations on datasets.
@@ -28,6 +27,7 @@ from pamola_core.utils.visualization import (
     create_histogram,
     create_pie_chart,
 )
+from pamola_core.errors.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def generate_visualization_filename(
     """
     Generate a standardized filename for a visualization.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation creating the visualization
@@ -55,7 +55,7 @@ def generate_visualization_filename(
     include_timestamp : bool, optional
         Timestamp for file naming. If None, current timestamp is used.
 
-    Returns:
+    Returns
     --------
     str
         Standardized filename
@@ -81,13 +81,15 @@ def create_field_count_comparison(
     """
     Generate a comparison of field (column) counts before and after a transformation.
 
-    Parameters:
+    Parameters
+    ----------
         original_df (pd.DataFrame): The original dataset before transformation.
         transformed_df (pd.DataFrame): The dataset after transformation.
         operation_name (str): Name of the transformation operation.
         output_path (Path): Path to save visualizations or reports (not used yet).
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Dictionary with count comparison, added/removed fields,
                         and chart recommendation.
     """
@@ -132,13 +134,15 @@ def create_record_count_comparison(
     Create a record count comparison summary between the original dataset
     and one or more transformed datasets.
 
-    Args:
+    Parameters
+    ----------
         original_df (pd.DataFrame): The original input DataFrame.
         transformed_dfs (Dict[str, pd.DataFrame]): A dictionary mapping output names to transformed DataFrames.
         operation_name (str): The name of the operation being analyzed.
         output_path (Path): Path to where visualizations or logs may be stored (currently unused).
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: A dictionary containing:
             - operation_name (str): Name of the transformation operation.
             - original_record_count (int): Number of records in the original dataset.
@@ -305,7 +309,7 @@ def create_dataset_overview(
     Generate a comprehensive overview of a dataset including statistics
     for different data types and profiling information.
 
-    Parameters:
+    Parameters
     ----------
     df : pd.DataFrame
         The input dataset to be profiled.
@@ -314,7 +318,7 @@ def create_dataset_overview(
     output_path : Path
         The path where any generated reports or visualizations may be saved.
 
-    Returns:
+    Returns
     -------
     Dict[str, Any]
         A dictionary containing:
@@ -420,7 +424,7 @@ def generate_dataset_overview_vis(
     backend: Optional[str] = None,
     strict: bool = False,
     visualization_paths: Optional[Dict[str, Any]] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """
     Generate visualization charts for a dataset overview.
@@ -482,7 +486,7 @@ def generate_dataset_overview_vis(
             theme=theme,
             backend=backend,
             strict=strict,
-            **kwargs
+            **kwargs,
         )
         visualization_paths[f"{dataset_label}_dtype_counts_bar_chart"] = vis_path
 
@@ -511,7 +515,7 @@ def generate_dataset_overview_vis(
             theme=theme,
             backend=backend,
             strict=strict,
-            **kwargs
+            **kwargs,
         )
         visualization_paths[f"{dataset_label}_columns_null_percentage_bar_chart"] = (
             vis_path
@@ -538,7 +542,7 @@ def generate_dataset_overview_vis(
             theme=theme,
             backend=backend,
             strict=strict,
-            **kwargs
+            **kwargs,
         )
         visualization_paths[f"{dataset_label}_columns_cardinality_bar_chart"] = vis_path
 
@@ -567,7 +571,7 @@ def generate_dataset_overview_vis(
                     theme=theme,
                     backend=backend,
                     strict=strict,
-                    **kwargs
+                    **kwargs,
                 )
                 visualization_paths[f"{dataset_label}_numeric_{stat}_bar_chart"] = (
                     vis_path
@@ -603,7 +607,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
-                **kwargs
+                **kwargs,
             )
             visualization_paths[
                 f"{dataset_label}_categorical_top_value_count_bar_chart"
@@ -625,7 +629,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
-                **kwargs
+                **kwargs,
             )
             visualization_paths[
                 f"{dataset_label}_categorical_unique_count_bar_chart"
@@ -661,7 +665,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
-                **kwargs
+                **kwargs,
             )
             visualization_paths[f"{dataset_label}_datetime_min_bar_chart"] = vis_path
 
@@ -681,7 +685,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
-                **kwargs
+                **kwargs,
             )
             visualization_paths[f"{dataset_label}_datetime_max_bar_chart"] = vis_path
 
@@ -715,7 +719,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
-                **kwargs
+                **kwargs,
             )
             visualization_paths[f"{dataset_label}_boolean_true_counts_bar_chart"] = (
                 vis_path
@@ -737,7 +741,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
-                **kwargs
+                **kwargs,
             )
             visualization_paths[f"{dataset_label}_boolean_false_counts_bar_chart"] = (
                 vis_path
@@ -757,7 +761,7 @@ def generate_data_distribution_comparison_vis(
     backend: Optional[str] = None,
     strict: bool = False,
     visualization_paths: Optional[Dict[str, Any]] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """
     Generate distribution comparison visualization for a single field.
@@ -819,7 +823,7 @@ def generate_data_distribution_comparison_vis(
             theme=theme,
             backend=backend,
             strict=strict,
-            **kwargs
+            **kwargs,
         )
         visualization_paths["numeric_comparison_histogram"] = vis_path
 
@@ -840,7 +844,7 @@ def generate_data_distribution_comparison_vis(
             theme=theme,
             backend=backend,
             strict=strict,
-            **kwargs
+            **kwargs,
         )
         visualization_paths["category_comparison_bar_chart"] = vis_path
 
@@ -858,7 +862,7 @@ def generate_record_count_comparison_vis(
     backend: Optional[str] = None,
     strict: bool = False,
     visualization_paths: Optional[Dict[str, Any]] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """
     Generate record count comparison visualization between original and transformed dataset.
@@ -919,7 +923,7 @@ def generate_record_count_comparison_vis(
             theme=theme,
             backend=backend,
             strict=strict,
-            **kwargs
+            **kwargs,
         )
 
         visualization_paths["record_count_distribution_pie_chart"] = (
@@ -948,7 +952,7 @@ def generate_record_count_comparison_vis(
             theme=theme,
             backend=backend,
             strict=strict,
-            **kwargs
+            **kwargs,
         )
 
         visualization_paths["record_count_comparison_bar_chart"] = bar_chart_result_path
@@ -1066,10 +1070,9 @@ def sample_large_dataset(
         Sampled subset of the original data
     """
     if not isinstance(data, (pd.Series, pd.DataFrame)):
-        raise ValueError("Input must be a pandas Series or DataFrame")
+        raise ValidationError("Input must be a pandas Series or DataFrame")
 
     if len(data) <= max_samples:
         return data
 
     return data.sample(n=max_samples, random_state=random_state)
-

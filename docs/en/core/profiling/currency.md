@@ -387,7 +387,7 @@ import pandas as pd
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.task_reporting import TaskReporter
 from pamola_core.profiling.analyzers.currency import CurrencyOperation
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 from pathlib import Path
 
 def profile_large_financial_dataset(csv_path, output_dir):
@@ -395,7 +395,7 @@ def profile_large_financial_dataset(csv_path, output_dir):
     Profile a large financial dataset using Dask for distributed processing.
     """
     # Initialize progress tracking
-    progress = ProgressTracker(
+    progress = HierarchicalProgressTracker(
         total=5,
         description="Profiling large financial dataset",
         unit="steps",

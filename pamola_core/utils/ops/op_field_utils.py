@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Field Utilities
 Package:       pamola_core.utils.ops
 Version:       1.2.0
@@ -44,6 +43,14 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from pamola_core.common.helpers.data_helper import DataHelper
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    FieldNotFoundError,
+    InvalidParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -71,7 +78,7 @@ def generate_output_field_name(
     """
     Generate standardized output field name based on operation mode.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Original field name
@@ -84,17 +91,17 @@ def generate_output_field_name(
     column_prefix : str, optional
         Prefix for generated field names in ENRICH mode (default: "_")
 
-    Returns:
+    Returns
     --------
     str
         Output field name
 
-    Raises:
+    Raises
     -------
     ValueError
         If mode is not "REPLACE" or "ENRICH"
 
-    Examples:
+    Examples
     ---------
     >>> generate_output_field_name("salary", "REPLACE")
     'salary'
@@ -104,7 +111,7 @@ def generate_output_field_name(
     'salary_hidden'
     """
     if mode not in ["REPLACE", "ENRICH"]:
-        raise ValueError(f"Mode must be 'REPLACE' or 'ENRICH', got '{mode}'")
+        raise ValidationError(f"Mode must be 'REPLACE' or 'ENRICH', got '{mode}'")
 
     if mode == "REPLACE":
         return field_name
@@ -128,7 +135,7 @@ def generate_ka_field_name(
     """
     Generate a compact field name for k-anonymity metrics.
 
-    Parameters:
+    Parameters
     -----------
     quasi_identifiers : List[str]
         List of quasi-identifier field names
@@ -139,12 +146,12 @@ def generate_ka_field_name(
     separator : str, optional
         Separator between abbreviated names (default: "_")
 
-    Returns:
+    Returns
     --------
     str
         Generated KA field name, e.g., "KA_age_cit_pos" for ["age", "city", "postal_code"]
 
-    Examples:
+    Examples
     ---------
     >>> generate_ka_field_name(["age", "city", "postal_code"])
     'KA_age_cit_pos'
@@ -152,7 +159,7 @@ def generate_ka_field_name(
     'KA_ed_sa'
     """
     if not quasi_identifiers:
-        raise ValueError("At least one quasi-identifier is required")
+        raise ValidationError("At least one quasi-identifier is required")
 
     # Create abbreviations
     abbreviations = []
@@ -174,7 +181,7 @@ def infer_field_type(
     """
     Infer the semantic type of a field.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Field to analyze
@@ -183,13 +190,13 @@ def infer_field_type(
     sample_size : int, optional
         Number of non-null values to sample for pattern checking (default: 100)
 
-    Returns:
+    Returns
     --------
     str
         Field type: 'numeric', 'categorical', 'string', 'datetime', 'boolean',
         'email', 'phone', 'ipv4', 'url', 'postal_code', or 'unknown'
 
-    Examples:
+    Examples
     ---------
     >>> s = pd.Series(['user@example.com', 'test@domain.org'])
     >>> infer_field_type(s)
@@ -238,7 +245,7 @@ def apply_condition_operator(
     """
     Apply conditional operator to create a boolean mask.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Series to apply condition to
@@ -247,12 +254,12 @@ def apply_condition_operator(
     operator : str
         Operator type: "in", "not_in", "gt", "lt", "eq", "ne", "ge", "le", "range", "all"
 
-    Returns:
+    Returns
     --------
     pd.Series
         Boolean mask series
 
-    Raises:
+    Raises
     -------
     ValueError
         If operator is invalid or condition_values are missing when required
@@ -261,12 +268,12 @@ def apply_condition_operator(
     """
     # Validate input
     if not isinstance(series, pd.Series):
-        raise TypeError("series must be a pandas Series")
+        raise TypeValidationError("series must be a pandas Series")
 
     # Special case: all
     if operator == "all":
         if condition_values is not None and len(condition_values) > 0:
-            raise ValueError("Operator 'all' does not accept condition_values")
+            raise ValidationError("Operator 'all' does not accept condition_values")
         return pd.Series(True, index=series.index)
 
     # Handle empty series
@@ -275,11 +282,14 @@ def apply_condition_operator(
 
     # Validate condition_values
     if condition_values is None:
-        raise ValueError(f"Operator '{operator}' requires condition_values")
+        raise ValidationError(f"Operator '{operator}' requires condition_values")
     if not isinstance(condition_values, list):
-        raise TypeError("condition_values must be a list")
+        raise TypeValidationError("condition_values must be a list")
     if len(condition_values) == 0:
-        raise ValueError(f"Operator '{operator}' requires non-empty condition_values")
+        raise DataError(
+            message=f"Operator '{operator}' requires non-empty condition_values",
+            error_code=ErrorCode.DATA_EMPTY,
+        )
 
     try:
         # Convert condition values if needed for datetime comparisons
@@ -310,7 +320,7 @@ def apply_condition_operator(
 
         elif operator == "range":
             if len(condition_values) < 2:
-                raise ValueError(
+                raise ValidationError(
                     "Operator 'range' requires at least 2 values [min, max]"
                 )
             DataHelper.ensure_comparable(series, condition_values[0], operator)
@@ -318,10 +328,14 @@ def apply_condition_operator(
             return (series >= condition_values[0]) & (series <= condition_values[1])
 
         else:
-            raise ValueError(f"Unknown operator: '{operator}'")
+            raise InvalidParameterError(
+                param_name="operator",
+                param_value=operator,
+                reason=f"Unknown operator: '{operator}'",
+            )
 
     except Exception as e:
-        raise ValueError(f"Error applying operator '{operator}': {str(e)}") from e
+        raise ValidationError(f"Error applying operator '{operator}': {str(e)}") from e
 
 
 def validate_field_compatibility(
@@ -330,7 +344,7 @@ def validate_field_compatibility(
     """
     Validate compatibility between fields for operations.
 
-    Parameters:
+    Parameters
     -----------
     source_field : pd.Series
         Source field
@@ -339,12 +353,12 @@ def validate_field_compatibility(
     operation_type : str
         Type of operation: "merge", "join", "compare", "replace"
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation result with 'compatible' flag and 'issues' list
 
-    Examples:
+    Examples
     ---------
     >>> s1 = pd.Series([1, 2, 3])
     >>> s2 = pd.Series(['a', 'b', 'c'])
@@ -402,19 +416,19 @@ def get_field_statistics(
     """
     Get basic statistics for a field of any type.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Field to analyze
     include_percentiles : bool, optional
         Whether to include percentile information (default: False)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Field statistics including type-appropriate metrics
 
-    Examples:
+    Examples
     ---------
     >>> s = pd.Series([1, 2, 3, 4, 5, None])
     >>> stats = get_field_statistics(s)
@@ -487,7 +501,7 @@ def create_field_mask(
     """
     Create a boolean mask for field processing based on conditions.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -500,12 +514,12 @@ def create_field_mask(
     condition_operator : str, optional
         Operator for condition (default: "in")
 
-    Returns:
+    Returns
     --------
     pd.Series
         Boolean mask
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({'age': [20, 30, 40], 'city': ['NY', 'LA', 'NY']})
     >>> mask = create_field_mask(df, 'age', 'city', ['NY'], 'in')
@@ -516,13 +530,19 @@ def create_field_mask(
     dtype: bool
     """
     if field_name not in df.columns:
-        raise ValueError(f"Field '{field_name}' not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=field_name,
+            available_fields=list(df.columns),
+        )
 
     # Determine which field to apply condition to
     target_field = condition_field if condition_field else field_name
 
     if target_field not in df.columns:
-        raise ValueError(f"Condition field '{target_field}' not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=target_field,
+            available_fields=list(df.columns),
+        )
 
     # If no condition specified, return all True
     if condition_values is None and condition_operator != "all":
@@ -542,7 +562,7 @@ def get_field_name_variants(
     """
     Generate common field name variants for matching.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Base field name
@@ -551,12 +571,12 @@ def get_field_name_variants(
     suffixes : Optional[List[str]], optional
         List of suffixes to try
 
-    Returns:
+    Returns
     --------
     List[str]
         List of field name variants
 
-    Examples:
+    Examples
     ---------
     >>> get_field_name_variants("age", suffixes=["_years", "_months"])
     ['age', 'age_years', 'age_months']
@@ -580,7 +600,7 @@ def generate_privacy_metric_field_name(
     """
     Generate standardized field names for privacy metrics.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Base field name
@@ -589,12 +609,12 @@ def generate_privacy_metric_field_name(
     quasi_identifiers : Optional[List[str]], optional
         List of quasi-identifiers (for k-anonymity metrics)
 
-    Returns:
+    Returns
     --------
     str
         Generated metric field name
 
-    Examples:
+    Examples
     ---------
     >>> generate_privacy_metric_field_name("age", "risk_score")
     'age_risk_score'
@@ -627,7 +647,7 @@ def create_composite_key(
     """
     Create a composite key from multiple fields with optional hashing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -642,12 +662,12 @@ def create_composite_key(
     hash_algorithm : str, optional
         Hash algorithm: "sha256", "sha1", "md5" (default: "sha256")
 
-    Returns:
+    Returns
     --------
     pd.Series
         Composite keys (plain or hashed)
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({'age': [25, 30], 'city': ['NY', 'LA']})
     >>> create_composite_key(df, ['age', 'city'])
@@ -661,12 +681,15 @@ def create_composite_key(
     dtype: object
     """
     if not fields:
-        raise ValueError("At least one field is required")
+        raise ValidationError("At least one field is required")
 
     # Validate all fields exist
     missing = [f for f in fields if f not in df.columns]
     if missing:
-        raise ValueError(f"Fields not found: {missing}")
+        raise FieldNotFoundError(
+            field_name=missing,
+            available_fields=list(df.columns),
+        )
 
     # First create plain composite keys
     if null_handling == "skip":
@@ -689,7 +712,11 @@ def create_composite_key(
         filled_df = df[fields].fillna("NULL")
         result = filled_df.astype(str).apply(lambda row: separator.join(row), axis=1)
     else:
-        raise ValueError(f"Unknown null_handling: {null_handling}")
+        raise InvalidParameterError(
+            param_name="null_handling",
+            param_value=null_handling,
+            reason=f"Unknown null_handling: {null_handling}",
+        )
 
     # Apply hashing if requested
     if hash_key:
@@ -700,7 +727,11 @@ def create_composite_key(
         }
 
         if hash_algorithm not in hash_funcs:
-            raise ValueError(f"Unknown hash algorithm: {hash_algorithm}")
+            raise InvalidParameterError(
+                param_name="hash",
+                param_value=hash_algorithm,
+                reason=f"Unknown hash algorithm: {hash_algorithm}",
+            )
 
         hash_func = hash_funcs[hash_algorithm]
 
@@ -721,7 +752,7 @@ def create_reversible_composite_key(
     """
     Create a reversible composite key with encoding.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -730,12 +761,12 @@ def create_reversible_composite_key(
     encoding : str, optional
         Encoding type: "base64", "hex" (default: "base64")
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, Dict[str, Any]]
         (encoded_keys, decoding_info)
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({'age': [25, 30], 'city': ['NY', 'LA']})
     >>> keys, info = create_reversible_composite_key(df, ['age', 'city'])
@@ -760,7 +791,11 @@ def create_reversible_composite_key(
     elif encoding == "hex":
         encoded = composite.apply(lambda x: x.encode("utf-8").hex())
     else:
-        raise ValueError(f"Unknown encoding: {encoding}")
+        raise InvalidParameterError(
+            param_name="encoding",
+            param_value=encoding,
+            reason=f"Unknown encoding: {encoding}",
+        )
 
     # Store decoding information
     decoding_info = {
@@ -779,7 +814,7 @@ def create_multi_field_mask(
     """
     Create a mask based on conditions across multiple fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -788,12 +823,12 @@ def create_multi_field_mask(
     logic : str, optional
         How to combine conditions: "AND", "OR" (default: "AND")
 
-    Returns:
+    Returns
     --------
     pd.Series
         Boolean mask
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({'age': [25, 35, 45], 'income': [30000, 50000, 70000]})
     >>> conditions = [
@@ -816,7 +851,10 @@ def create_multi_field_mask(
         values = condition.get("values", [])
 
         if field not in df.columns:
-            raise ValueError(f"Field '{field}' not found in DataFrame columns")
+            raise FieldNotFoundError(
+                field_name=field,
+                available_fields=list(df.columns),
+            )
 
         mask = apply_condition_operator(df[field], values, operator)
         masks.append(mask)
@@ -833,7 +871,11 @@ def create_multi_field_mask(
             result = result | mask
         return result
     else:
-        raise ValueError(f"Unknown logic: {logic}. Use 'AND' or 'OR'")
+        raise InvalidParameterError(
+            param_name="logic",
+            param_value=logic,
+            reason=f"Unknown logic: {logic}. Use 'AND' or 'OR'",
+        )
 
 
 def validate_fields_for_operation(
@@ -842,7 +884,7 @@ def validate_fields_for_operation(
     """
     Validate multiple fields for cross-field operations.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -851,7 +893,7 @@ def validate_fields_for_operation(
     operation_type : str
         Type of operation: "microaggregation", "multivariate_generalization", "composite_key"
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with issues and recommendations
@@ -901,27 +943,3 @@ def validate_fields_for_operation(
         "recommendations": recommendations,
         "field_types": field_types,
     }
-
-
-# Module metadata
-__version__ = "1.2.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    "generate_output_field_name",
-    "generate_ka_field_name",
-    "generate_privacy_metric_field_name",
-    "infer_field_type",
-    "apply_condition_operator",
-    "validate_field_compatibility",
-    "get_field_statistics",
-    "create_field_mask",
-    "get_field_name_variants",
-    "create_composite_key",
-    "create_reversible_composite_key",
-    "create_multi_field_mask",
-    "validate_fields_for_operation",
-    "FIELD_PATTERNS",
-]

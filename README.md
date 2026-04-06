@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
-  <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue.svg"></a>
+  <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10--3.12-blue.svg"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-active%20development-orange.svg">
 </p>
 
@@ -112,7 +112,9 @@ PAMOLA.CORE is part of a comprehensive privacy engineering stack:
 
 ---
 
-## Data-Release Attacks
+## Attack Simulation (experimental)
+
+> **⚠️ Experimental:** The `attacks` module is functional but under active development. API may change in future releases.
 
 PAMOLA.CORE tests practical re-identification risk on your **data**:
 
@@ -233,12 +235,58 @@ pip install -e ".[dp]"         # + OpenDP for formal DP guarantees
 pip install -e ".[dev]"        # + pytest, coverage, black, ruff
 ```
 
-**PyPI (coming soon):**
+**From PyPI:**
 
 ```bash
 pip install pamola-core
-pip install pamola-core[fast,ner]
 ```
+
+---
+
+## Supported Python Versions
+
+PAMOLA.CORE supports Python **3.10, 3.11, and 3.12** (`requires-python = ">=3.10,<3.13"`).
+
+| Python Version | Supported |
+|---|---|
+| 3.10 | ✅ |
+| 3.11 | ✅ |
+| 3.12 | ✅ |
+| 3.9 and below | ❌ |
+| 3.13 and above | ❌ (blocked by third-party dependencies) |
+
+---
+
+## Core Dependencies
+
+These packages are declared in `pyproject.toml` under `[project.dependencies]` and are automatically installed with `pip install pamola-core`.
+
+| Package | Version Range | Purpose |
+|---|---|---|
+| **numpy** | `==1.26.4` | Numerical computation and array operations used throughout privacy metrics, attack simulations, and statistical analysis |
+| **pandas** | `==2.2.2` | Tabular data structures and DataFrame processing; the primary data container for all PAMOLA operations |
+| **scikit-learn** | `==1.7.2` | Machine learning utilities used by core operations including nearest-neighbor attacks, classification metrics, and model-based privacy risk assessment |
+
+---
+
+## Versioning
+
+PAMOLA.CORE follows [Semantic Versioning](https://semver.org/) and [PEP 440](https://peps.python.org/pep-0440/).
+
+```python
+import pamola_core
+print(pamola_core.__version__)  # e.g. "1.0.0.dev1"
+```
+
+| Phase | Version | Branch | Tag | Install |
+|-------|---------|--------|-----|---------|
+| Dev | `1.0.0.dev1` | `develop` | `v1.0.0.dev1` | `pip install pamola-core==1.0.0.dev1` |
+| Stable | `1.0.0` | `main` | `v1.0.0` | `pip install pamola-core` |
+
+- **Source of truth:** `pyproject.toml` → `version`
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
+- **CI/CD:** GitHub Actions — lint, test (3.10/3.11/3.12), build, PyPI publish on tag `v*`
+- **Release rules:** Dev tags (`v*dev*`) must be on `develop`, stable tags on `main`
 
 ---
 
@@ -269,6 +317,25 @@ pamola-core schema MaskingOperation
 - **Test before release:** Practical risk via data-release attacks
 - **Noise with transparency:** DP-semantics + detailed reports
 - **Reproducibility by default:** manifest.json tracks everything
+
+---
+
+## API Documentation
+
+The project uses **Sphinx** to generate API reference documentation from Python docstrings.
+
+Build the documentation locally:
+
+```bash
+cd docs
+make html
+```
+
+The generated documentation will be available at:
+
+```
+docs/_build/html/index.html
+```
 
 ---
 

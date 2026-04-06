@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        K-Anonymity Profiler Core Schema
 Package:       pamola_core.profiling.schemas
 Version:       1.0.0
@@ -27,7 +26,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of k-anonymity profiler core schema
 """
 
-from pamola_core.profiling.analyzers.anonymity import AnalysisMode
+from pamola_core.common.enum.analysis_mode_enum import AnalysisMode
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.schemas.base_op_core_schema import BaseOperationConfig
 

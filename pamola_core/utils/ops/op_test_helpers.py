@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Testing Helpers
 Description: Test utilities for operation unit testing
 Author: PAMOLA Core Team
@@ -22,12 +21,19 @@ from typing import Dict, Any, Optional, List, Tuple, TypeVar, NamedTuple
 
 import pandas as pd
 
-from pamola_core.utils import logging as custom_logging
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    PathValidationError,
+    DataWriteError,
+    FileValidationError,
+    ValidationError,
+)
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.io import ensure_directory
-from pamola_core.utils.ops.op_data_writer import WriterResult, DataWriteError
+from pamola_core.utils.ops.op_data_writer import WriterResult
 
 # Type variable for DataFrames
-DataFrameType = TypeVar('DataFrameType', bound=pd.DataFrame)
+DataFrameType = TypeVar("DataFrameType", bound=pd.DataFrame)
 
 
 class MockDataSource:
@@ -42,28 +48,28 @@ class MockDataSource:
         """
         Initialize a MockDataSource with optional in-memory DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         dataframes : Dict[str, pd.DataFrame], optional
             Dictionary mapping dataset names to pandas DataFrames
         """
         self.dataframes = dataframes or {}
-        self.logger = custom_logging.get_logger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = pamola_logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.logger.debug("Initializing MockDataSource")
 
     @classmethod
-    def from_dataframe(cls, df: pd.DataFrame, name: str = "main") -> 'MockDataSource':
+    def from_dataframe(cls, df: pd.DataFrame, name: str = "main") -> "MockDataSource":
         """
         Create a MockDataSource from a single DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame to use
         name : str
             Name for the DataFrame (default: "main")
 
-        Returns:
+        Returns
         --------
         MockDataSource
             Initialized MockDataSource with the DataFrame
@@ -74,7 +80,7 @@ class MockDataSource:
         """
         Add a DataFrame to the MockDataSource.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name for the DataFrame
@@ -84,18 +90,20 @@ class MockDataSource:
         self.dataframes[name] = df
         self.logger.debug(f"Added DataFrame '{name}' with {len(df)} rows")
 
-    def get_dataframe(self, name: str, **kwargs) -> Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]:
+    def get_dataframe(
+        self, name: str, **kwargs
+    ) -> Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]:
         """
         Get a DataFrame by name.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame to retrieve
         **kwargs : dict
             Additional parameters (ignored in the mock)
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -106,7 +114,7 @@ class MockDataSource:
             error_info = {
                 "error_type": "KeyError",
                 "message": f"DataFrame '{name}' not found in MockDataSource",
-                "resolution": "Check the dataset name or add it to the MockDataSource"
+                "resolution": "Check the dataset name or add it to the MockDataSource",
             }
             self.logger.error(error_info["message"])
             return None, error_info
@@ -115,12 +123,12 @@ class MockDataSource:
         """
         Get basic schema information for a DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with schema information or None if not found
@@ -134,7 +142,7 @@ class MockDataSource:
         schema = {
             "columns": list(df.columns),
             "dtypes": {col: str(df[col].dtype) for col in df.columns},
-            "row_count": len(df)
+            "row_count": len(df),
         }
 
         return schema
@@ -143,12 +151,12 @@ class MockDataSource:
         """
         Check if a DataFrame exists by name.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name to check
 
-        Returns:
+        Returns
         --------
         bool
             True if the DataFrame exists, False otherwise
@@ -167,6 +175,7 @@ class MockDataSource:
 
 class CallRecord(NamedTuple):
     """Record of a method call with parameters and result."""
+
     method: str
     params: Dict[str, Any]
     result: Any
@@ -185,7 +194,7 @@ class StubDataWriter:
         """
         Initialize a StubDataWriter.
 
-        Parameters:
+        Parameters
         -----------
         task_dir : Path, optional
             Base directory for task outputs and artifacts.
@@ -202,7 +211,9 @@ class StubDataWriter:
             self.task_dir = Path(task_dir) if isinstance(task_dir, str) else task_dir
 
         # Initialize logger
-        self.logger = logger or custom_logging.get_logger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = logger or pamola_logging.getLogger(
+            f"{__name__}.{self.__class__.__name__}"
+        )
         self.logger.debug(f"Initializing StubDataWriter for task_dir: {self.task_dir}")
 
         # Record of all calls made to this stub
@@ -227,7 +238,7 @@ class StubDataWriter:
         """
         Record a method call for later inspection.
 
-        Parameters:
+        Parameters
         -----------
         method : str
             Name of the method called
@@ -237,22 +248,21 @@ class StubDataWriter:
             Result returned by the method
         """
         call = CallRecord(
-            method=method,
-            params=params,
-            result=result,
-            timestamp=datetime.now()
+            method=method, params=params, result=result, timestamp=datetime.now()
         )
         self.calls.append(call)
 
-    def _get_output_path(self,
-                         name: str,
-                         extension: str,
-                         subdir: Optional[str] = None,
-                         timestamp_in_name: bool = False) -> Path:
+    def _get_output_path(
+        self,
+        name: str,
+        extension: str,
+        subdir: Optional[str] = None,
+        timestamp_in_name: bool = False,
+    ) -> Path:
         """
         Generate the complete output path for a file.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Base name for the output file (without extension)
@@ -263,13 +273,13 @@ class StubDataWriter:
         timestamp_in_name : bool
             Whether to include a timestamp in the filename
 
-        Returns:
+        Returns
         --------
         Path
             Complete path for the output file
         """
         # Ensure extension starts with a dot
-        if not extension.startswith('.'):
+        if not extension.startswith("."):
             extension = f".{extension}"
 
         # Add timestamp if requested
@@ -289,19 +299,21 @@ class StubDataWriter:
 
         return base_dir / filename
 
-    def write_dataframe(self,
-                        df: pd.DataFrame,
-                        name: str,
-                        format: str = "csv",
-                        subdir: str = "output",
-                        timestamp_in_name: bool = False,
-                        encryption_key: Optional[str] = None,
-                        overwrite: bool = True,
-                        **kwargs) -> WriterResult:
+    def write_dataframe(
+        self,
+        df: pd.DataFrame,
+        name: str,
+        format: str = "csv",
+        subdir: str = "output",
+        timestamp_in_name: bool = False,
+        encryption_key: Optional[str] = None,
+        overwrite: bool = True,
+        **kwargs,
+    ) -> WriterResult:
         """
         Write a DataFrame to a file within the task directory structure.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame to be written
@@ -320,22 +332,21 @@ class StubDataWriter:
         **kwargs
             Additional arguments for the specific writer function
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
         """
         # Get the output path
         output_path = self._get_output_path(
-            name,
-            extension=format,
-            subdir=subdir,
-            timestamp_in_name=timestamp_in_name
+            name, extension=format, subdir=subdir, timestamp_in_name=timestamp_in_name
         )
 
         # Check if file exists and we're not overwriting
         if output_path.exists() and not overwrite:
-            raise DataWriteError(f"File {output_path} already exists and overwrite=False")
+            raise DataWriteError(
+                f"File {output_path} already exists and overwrite=False"
+            )
 
         # Log writing operation
         self.logger.info(f"[STUB] Writing {format.upper()} data to {output_path}")
@@ -348,6 +359,7 @@ class StubDataWriter:
                 # Check if pyarrow is available
                 try:
                     import pyarrow
+
                     df.to_parquet(output_path, **kwargs)
                 except ImportError:
                     # Fallback to CSV if pyarrow not available
@@ -365,7 +377,7 @@ class StubDataWriter:
                 path=output_path,
                 size_bytes=file_size,
                 timestamp=timestamp,
-                format=format.lower()
+                format=format.lower(),
             )
 
             # Record the call
@@ -380,9 +392,9 @@ class StubDataWriter:
                     "overwrite": overwrite,
                     "kwargs": kwargs,
                     "df_shape": df.shape,
-                    "df_columns": list(df.columns)
+                    "df_columns": list(df.columns),
                 },
-                result=result
+                result=result,
             )
 
             return result
@@ -402,27 +414,29 @@ class StubDataWriter:
                     "has_encryption_key": encryption_key is not None,
                     "overwrite": overwrite,
                     "df_shape": df.shape,
-                    "error": str(e)
+                    "error": str(e),
                 },
-                result=None
+                result=None,
             )
 
             # Re-raise
             raise DataWriteError(f"[STUB] Failed to write DataFrame: {str(e)}") from e
 
-    def write_json(self,
-                   data: Dict[str, Any],
-                   name: str,
-                   subdir: Optional[str] = None,
-                   timestamp_in_name: bool = False,
-                   encryption_key: Optional[str] = None,
-                   pretty: bool = True,
-                   overwrite: bool = True,
-                   **kwargs) -> WriterResult:
+    def write_json(
+        self,
+        data: Dict[str, Any],
+        name: str,
+        subdir: Optional[str] = None,
+        timestamp_in_name: bool = False,
+        encryption_key: Optional[str] = None,
+        pretty: bool = True,
+        overwrite: bool = True,
+        **kwargs,
+    ) -> WriterResult:
         """
         Write a JSON object to a file within the task directory structure.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             JSON-serializable data to write
@@ -441,22 +455,21 @@ class StubDataWriter:
         **kwargs
             Additional arguments for the json writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
         """
         # Get the output path
         output_path = self._get_output_path(
-            name,
-            extension="json",
-            subdir=subdir,
-            timestamp_in_name=timestamp_in_name
+            name, extension="json", subdir=subdir, timestamp_in_name=timestamp_in_name
         )
 
         # Check if file exists and we're not overwriting
         if output_path.exists() and not overwrite:
-            raise DataWriteError(f"File {output_path} already exists and overwrite=False")
+            raise DataWriteError(
+                f"File {output_path} already exists and overwrite=False"
+            )
 
         # Log writing operation
         self.logger.info(f"[STUB] Writing JSON data to {output_path}")
@@ -466,8 +479,8 @@ class StubDataWriter:
             indent = 2 if pretty else None
 
             # Write JSON file
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=indent, **kwargs) # type: ignore
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=indent, **kwargs)  # type: ignore
 
             # Get file stats
             file_size = output_path.stat().st_size
@@ -477,7 +490,7 @@ class StubDataWriter:
                 path=output_path,
                 size_bytes=file_size,
                 timestamp=timestamp,
-                format="json"
+                format="json",
             )
 
             # Record the call
@@ -491,9 +504,9 @@ class StubDataWriter:
                     "pretty": pretty,
                     "overwrite": overwrite,
                     "kwargs": kwargs,
-                    "data_keys": list(data.keys() if isinstance(data, dict) else [])
+                    "data_keys": list(data.keys() if isinstance(data, dict) else []),
                 },
-                result=result
+                result=result,
             )
 
             return result
@@ -512,25 +525,27 @@ class StubDataWriter:
                     "has_encryption_key": encryption_key is not None,
                     "pretty": pretty,
                     "overwrite": overwrite,
-                    "error": str(e)
+                    "error": str(e),
                 },
-                result=None
+                result=None,
             )
 
             # Re-raise
             raise DataWriteError(f"[STUB] Failed to write JSON: {str(e)}") from e
 
-    def write_metrics(self,
-                      metrics: Dict[str, Any],
-                      name: str,
-                      timestamp_in_name: bool = True,
-                      encryption_key: Optional[str] = None,
-                      overwrite: bool = True,
-                      **kwargs) -> WriterResult:
+    def write_metrics(
+        self,
+        metrics: Dict[str, Any],
+        name: str,
+        timestamp_in_name: bool = True,
+        encryption_key: Optional[str] = None,
+        overwrite: bool = True,
+        **kwargs,
+    ) -> WriterResult:
         """
         Save metrics to the root task directory.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Metrics data to save
@@ -545,7 +560,7 @@ class StubDataWriter:
         **kwargs
             Additional arguments for the writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
@@ -555,9 +570,9 @@ class StubDataWriter:
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
                 "name": name,
-                "stub": True
+                "stub": True,
             },
-            "metrics": metrics
+            "metrics": metrics,
         }
 
         # Write to the root directory
@@ -569,21 +584,23 @@ class StubDataWriter:
             encryption_key=encryption_key,
             overwrite=overwrite,
             pretty=True,
-            **kwargs
+            **kwargs,
         )
 
-    def write_dictionary(self,
-                         data: Dict[str, Any],
-                         name: str,
-                         timestamp_in_name: bool = False,
-                         encryption_key: Optional[str] = None,
-                         overwrite: bool = True,
-                         format: str = "json",
-                         **kwargs) -> WriterResult:
+    def write_dictionary(
+        self,
+        data: Dict[str, Any],
+        name: str,
+        timestamp_in_name: bool = False,
+        encryption_key: Optional[str] = None,
+        overwrite: bool = True,
+        format: str = "json",
+        **kwargs,
+    ) -> WriterResult:
         """
         Save a dictionary to the dictionaries subdirectory.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Dictionary to save
@@ -600,7 +617,7 @@ class StubDataWriter:
         **kwargs
             Additional arguments for the writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
@@ -614,7 +631,7 @@ class StubDataWriter:
                 timestamp_in_name=timestamp_in_name,
                 encryption_key=encryption_key,
                 overwrite=overwrite,
-                **kwargs
+                **kwargs,
             )
         elif format.lower() in ("csv", "parquet", "pq"):
             # Convert dictionary to DataFrame
@@ -625,12 +642,14 @@ class StubDataWriter:
                     df = pd.DataFrame(data)
                 elif all(isinstance(v, dict) for v in data.values()):
                     # Dict of dicts -> DataFrame with index
-                    df = pd.DataFrame.from_dict(data, orient='index')
+                    df = pd.DataFrame.from_dict(data, orient="index")
                 else:
                     # Simple dict -> single row DataFrame
                     df = pd.DataFrame([data])
             else:
-                raise DataWriteError(f"Cannot convert {type(data).__name__} to DataFrame")
+                raise DataWriteError(
+                    f"Cannot convert {type(data).__name__} to DataFrame"
+                )
 
             # Write the DataFrame
             return self.write_dataframe(
@@ -641,7 +660,7 @@ class StubDataWriter:
                 timestamp_in_name=timestamp_in_name,
                 encryption_key=encryption_key,
                 overwrite=overwrite,
-                **kwargs
+                **kwargs,
             )
         else:
             raise DataWriteError(f"Unsupported format for dictionaries: {format}")
@@ -650,7 +669,7 @@ class StubDataWriter:
         """
         Get the output directory path.
 
-        Returns:
+        Returns
         --------
         Path
             Path to the output directory
@@ -661,7 +680,7 @@ class StubDataWriter:
         """
         Get the dictionaries directory path.
 
-        Returns:
+        Returns
         --------
         Path
             Path to the dictionaries directory
@@ -672,7 +691,7 @@ class StubDataWriter:
         """
         Get the temporary directory (if created).
 
-        Returns:
+        Returns
         --------
         tempfile.TemporaryDirectory or None
             Temporary directory if one was created
@@ -683,12 +702,12 @@ class StubDataWriter:
         """
         Get recorded calls, optionally filtered by method name.
 
-        Parameters:
+        Parameters
         -----------
         method_name : str, optional
             Method name to filter by
 
-        Returns:
+        Returns
         --------
         List[CallRecord]
             List of matching call records
@@ -716,7 +735,7 @@ def assert_artifact_exists(task_dir: Path, subdir: str, filename_pattern: str) -
     """
     Assert that a file matching the given pattern exists in the specified directory.
 
-    Parameters:
+    Parameters
     -----------
     task_dir : Path
         Base task directory
@@ -725,12 +744,12 @@ def assert_artifact_exists(task_dir: Path, subdir: str, filename_pattern: str) -
     filename_pattern : str
         Regex pattern to match filenames
 
-    Returns:
+    Returns
     --------
     Path
         Path to the matched file
 
-    Raises:
+    Raises
     -------
     AssertionError
         If no matching file is found
@@ -743,7 +762,10 @@ def assert_artifact_exists(task_dir: Path, subdir: str, filename_pattern: str) -
 
     # Check if directory exists
     if not dir_path.exists() or not dir_path.is_dir():
-        raise AssertionError(f"Directory does not exist: {dir_path}")
+        raise PathValidationError(
+            path=str(dir_path),
+            reason="Directory does not exist",
+        )
 
     # Look for matching files
     matches = []
@@ -753,9 +775,13 @@ def assert_artifact_exists(task_dir: Path, subdir: str, filename_pattern: str) -
 
     # Assert that we found at least one match
     if not matches:
-        raise AssertionError(
-            f"No file matching pattern '{filename_pattern}' found in {dir_path}.\n"
-            f"Directory contains: {[f.name for f in dir_path.iterdir() if f.is_file()]}"
+        raise FileValidationError(
+            file_path=str(dir_path),
+            reason=(
+                f"No file matching pattern '{filename_pattern}' found. "
+                f"Directory contains: {[f.name for f in dir_path.iterdir() if f.is_file()]}"
+            ),
+            error_type=ErrorCode.FILE_NOT_FOUND,
         )
 
     # If multiple matches, return the most recent one
@@ -765,26 +791,28 @@ def assert_artifact_exists(task_dir: Path, subdir: str, filename_pattern: str) -
     return matches[0]
 
 
-def assert_metrics_content(task_dir: Path, expected_metrics: Dict[str, Any]) -> Dict[str, Any]:
+def assert_metrics_content(
+    task_dir: Path, expected_metrics: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Assert that metrics file contains the expected metrics.
 
     This performs a partial match, ensuring all keys in expected_metrics
     exist and match, while allowing extra fields.
 
-    Parameters:
+    Parameters
     -----------
     task_dir : Path
         Base task directory
     expected_metrics : Dict[str, Any]
         Dictionary with expected metrics
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The full metrics content
 
-    Raises:
+    Raises
     -------
     AssertionError
         If metrics file is not found or content doesn't match expectations
@@ -796,7 +824,11 @@ def assert_metrics_content(task_dir: Path, expected_metrics: Dict[str, Any]) -> 
     metrics_files = [f for f in metrics_files if "metrics" in f.name.lower()]
 
     if not metrics_files:
-        raise AssertionError(f"No metrics file found in {task_dir}")
+        raise FileValidationError(
+            file_path=str(task_dir),
+            reason="No metrics file found",
+            error_type=ErrorCode.FILE_NOT_FOUND,
+        )
 
     # Sort by modification time to get the most recent
     metrics_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
@@ -804,10 +836,14 @@ def assert_metrics_content(task_dir: Path, expected_metrics: Dict[str, Any]) -> 
 
     # Load the metrics file
     try:
-        with open(metrics_file, 'r', encoding='utf-8') as f:
+        with open(metrics_file, "r", encoding="utf-8") as f:
             metrics_content = json.load(f)
     except Exception as e:
-        raise AssertionError(f"Error loading metrics file {metrics_file}: {str(e)}")
+        raise FileValidationError(
+            file_path=str(metrics_file),
+            reason=f"Error loading metrics file: {str(e)}",
+            error_type=ErrorCode.FILE_ERROR,
+        ) from e
 
     # If metrics are nested under a 'metrics' key, use that
     if "metrics" in metrics_content and isinstance(metrics_content["metrics"], dict):
@@ -850,24 +886,26 @@ def assert_metrics_content(task_dir: Path, expected_metrics: Dict[str, Any]) -> 
             for path, expected, actual in mismatched_values:
                 message += f"  {path}: expected {expected}, got {actual}\n"
 
-        raise AssertionError(message)
+        raise ValidationError(message)
 
     return metrics_content
 
 
-def create_test_operation_env(tmp_path: Path, config_overrides: Optional[Dict[str, Any]] = None) -> Tuple[Path, Any]:
+def create_test_operation_env(
+    tmp_path: Path, config_overrides: Optional[Dict[str, Any]] = None
+) -> Tuple[Path, Any]:
     """
     Create a test environment for operations with a temporary task directory
     and a minimal OperationConfig.
 
-    Parameters:
+    Parameters
     -----------
     tmp_path : Path
         Base path for creating the test environment
     config_overrides : Dict[str, Any], optional
         Overrides for the default configuration
 
-    Returns:
+    Returns
     --------
     Tuple[Path, Any]
         Tuple containing (task_dir, operation_config)
@@ -883,8 +921,11 @@ def create_test_operation_env(tmp_path: Path, config_overrides: Optional[Dict[st
                     setattr(self, key, value)
 
             def to_dict(self):
-                return {key: getattr(self, key) for key in dir(self)
-                        if not key.startswith('_') and not callable(getattr(self, key))}
+                return {
+                    key: getattr(self, key)
+                    for key in dir(self)
+                    if not key.startswith("_") and not callable(getattr(self, key))
+                }
 
         OperationConfig = MockOperationConfig
 
@@ -902,10 +943,7 @@ def create_test_operation_env(tmp_path: Path, config_overrides: Optional[Dict[st
         "operation_name": "test_operation",
         "version": "1.0.0",
         "description": "Test operation for unit testing",
-        "parameters": {
-            "field_name": "test_field",
-            "threshold": 0.5
-        }
+        "parameters": {"field_name": "test_field", "threshold": 0.5},
     }
 
     # Apply overrides if provided
@@ -913,7 +951,11 @@ def create_test_operation_env(tmp_path: Path, config_overrides: Optional[Dict[st
         # Handle nested dictionaries correctly
         def deep_update(source, overrides):
             for key, value in overrides.items():
-                if isinstance(value, dict) and key in source and isinstance(source[key], dict):
+                if (
+                    isinstance(value, dict)
+                    and key in source
+                    and isinstance(source[key], dict)
+                ):
                     deep_update(source[key], value)
                 else:
                     source[key] = value
@@ -922,8 +964,8 @@ def create_test_operation_env(tmp_path: Path, config_overrides: Optional[Dict[st
 
     # Write config.json
     config_path = task_dir / "config.json"
-    with open(config_path, 'w', encoding='utf-8') as f:
-        json.dump(default_config, f, indent=2) # type: ignore
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(default_config, f, indent=2)  # type: ignore
 
     # Create OperationConfig instance
     op_config = OperationConfig(**default_config)

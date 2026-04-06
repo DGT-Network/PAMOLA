@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Fidelity Metric Operation - KolmogorovSmirnovTest
 Package:       pamola_core.metrics.fidelity
 Version:       4.0.0
@@ -31,13 +30,14 @@ from scipy import stats
 from pamola_core.metrics.commons.aggregation import create_value_dictionary
 from pamola_core.metrics.commons.normalize import normalize_array_sklearn
 from pamola_core.metrics.commons.validation import validate_confidence_level
+from pamola_core.errors.exceptions import ValidationError
 
 
 class KolmogorovSmirnovTest:
     """
     Enhanced Kolmogorov-Smirnov (KS) test with confidence level and normalization support.
 
-    Parameters:
+    Parameters
     ----------
     key_fields : Optional[List[str]]
         List of columns used to group the dataset before comparing.
@@ -83,7 +83,7 @@ class KolmogorovSmirnovTest:
         """
         Calculate the KS statistic between the original and transformed datasets.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Enhanced results dictionary with:
@@ -111,7 +111,7 @@ class KolmogorovSmirnovTest:
             # Fallback to standard KS test (1D distributions)
             columns = list(set(original_df.columns) & set(transformed_df.columns))
             if not columns:
-                raise ValueError("No common columns to compare.")
+                raise ValidationError("No common columns to compare.")
 
             col = columns[0]
             orig_data = original_df[col].dropna().values
@@ -224,14 +224,14 @@ class KolmogorovSmirnovTest:
         """
         Calculate effect size interpretation based on KS statistic.
 
-        Parameters:
+        Parameters
         ----------
         ks_stat : float
             KS statistic value
         n : int
             Effective sample size
 
-        Returns:
+        Returns
         --------
         str
             Effect size interpretation
@@ -262,14 +262,14 @@ class KolmogorovSmirnovTest:
         """
         Calculate confidence interval for the KS statistic.
 
-        Parameters:
+        Parameters
         ----------
         ks_stat : float
             KS statistic value
         n : int
             Effective sample size
 
-        Returns:
+        Returns
         --------
         Tuple[float, float]
             Lower and upper bounds of confidence interval
@@ -301,12 +301,12 @@ class KolmogorovSmirnovTest:
         """
         Enhanced interpretation of KS test results based on confidence level.
 
-        Parameters:
+        Parameters
         ----------
         p_value : float
             The p-value from the KS test
 
-        Returns:
+        Returns
         --------
         str
             Detailed interpretation with confidence level context

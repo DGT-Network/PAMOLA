@@ -12,14 +12,14 @@ from typing import Dict, List, Any, Optional
 from pamola_core.utils.nlp.cache import cache_function
 from pamola_core.utils.nlp.entity import (
     create_entity_extractor,
-    extract_entities as entity_extract_entities
+    extract_entities as entity_extract_entities,
 )
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 
-@cache_function(ttl=3600, cache_type='memory')
+@cache_function(ttl=3600, cache_type="memory")
 def extract_entities(
     texts: List[str],
     entity_type: str = "generic",
@@ -29,7 +29,7 @@ def extract_entities(
     use_ner: bool = True,
     record_ids: Optional[List[str]] = None,
     show_progress: bool = False,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     High-level function to extract entities from texts.
@@ -37,7 +37,7 @@ def extract_entities(
     This function serves as the main entry point for entity extraction,
     delegating to specialized extractors based on the entity type.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -58,7 +58,7 @@ def extract_entities(
     **kwargs
         Additional parameters for specific extractors
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results containing entities, categories, and statistics
@@ -72,7 +72,7 @@ def extract_entities(
         use_ner=use_ner,
         record_ids=record_ids,
         show_progress=show_progress,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -82,12 +82,12 @@ def extract_job_positions(
     dictionary_path: Optional[str] = None,
     use_ner: bool = True,
     seniority_detection: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract job positions from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -102,7 +102,7 @@ def extract_job_positions(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -114,7 +114,7 @@ def extract_job_positions(
         dictionary_path=dictionary_path,
         use_ner=use_ner,
         seniority_detection=seniority_detection,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -124,12 +124,12 @@ def extract_organizations(
     dictionary_path: Optional[str] = None,
     organization_type: str = "any",
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract organization names from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -144,7 +144,7 @@ def extract_organizations(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -156,7 +156,7 @@ def extract_organizations(
         dictionary_path=dictionary_path,
         use_ner=use_ner,
         organization_type=organization_type,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -165,12 +165,12 @@ def extract_universities(
     language: str = "auto",
     dictionary_path: Optional[str] = None,
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract university and educational institution names from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -183,7 +183,7 @@ def extract_universities(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -195,7 +195,7 @@ def extract_universities(
         dictionary_path=dictionary_path,
         use_ner=use_ner,
         organization_type="university",
-        **kwargs
+        **kwargs,
     )
 
 
@@ -205,12 +205,12 @@ def extract_skills(
     dictionary_path: Optional[str] = None,
     skill_type: str = "technical",
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract skills from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -225,7 +225,7 @@ def extract_skills(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -237,7 +237,7 @@ def extract_skills(
         dictionary_path=dictionary_path,
         use_ner=use_ner,
         skill_type=skill_type,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -246,12 +246,12 @@ def extract_transaction_purposes(
     language: str = "auto",
     dictionary_path: Optional[str] = None,
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract transaction purposes from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -264,7 +264,7 @@ def extract_transaction_purposes(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -275,7 +275,7 @@ def extract_transaction_purposes(
         language=language,
         dictionary_path=dictionary_path,
         use_ner=use_ner,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -285,12 +285,12 @@ def create_custom_entity_extractor(
     dictionary_path: Optional[str] = None,
     match_strategy: str = "specific_first",
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Any:
     """
     Create a custom entity extractor for a specific use case.
 
-    Parameters:
+    Parameters
     -----------
     entity_type : str
         Type of entities to extract
@@ -305,7 +305,7 @@ def create_custom_entity_extractor(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     BaseEntityExtractor
         An entity extractor instance
@@ -316,5 +316,5 @@ def create_custom_entity_extractor(
         dictionary_path=dictionary_path,
         match_strategy=match_strategy,
         use_ner=use_ner,
-        **kwargs
+        **kwargs,
     )

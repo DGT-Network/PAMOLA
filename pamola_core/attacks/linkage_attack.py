@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: Attack Simulation
------------------------
 This module provides an abstract base class for attack simulation feature
 in PAMOLA.CORE. It defines the general structure and required methods for
 implementing specific attack simulation
@@ -24,17 +22,17 @@ NOTE: This module requires 'numpy', 'pandas', 'recordlinkage' and 'scikit-learn'
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-from typing import Optional
 import numpy as np
 import pandas as pd
 import recordlinkage
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 from pamola_core.attacks.preprocess_data import PreprocessData
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
+from pamola_core.errors.exceptions import ValidationError
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 class LinkageAttack(PreprocessData):
@@ -47,7 +45,7 @@ class LinkageAttack(PreprocessData):
         """
         The constructor of the LinkageAttack class
 
-        Parameters:
+        Parameters
         -----------
         fs_threshold: Threshold used for Fellegi-Sunter model (probabilistic_linkage_attack)
         n_components: Dimensionality reduction using PCA (cluster_vector_linkage_attack)
@@ -60,19 +58,19 @@ class LinkageAttack(PreprocessData):
         """
         The record linkage attack function uses directly compare common columns of 2 datasets to find pairs of match records
 
-        Parameters:
+        Parameters
         -----------
         data1: First dataset
         data2: Second dataset
         linkage_keys: List of properties to compare
 
-        Returns:
+        Returns
         -----------
         DataFrame contains pairs of records that matching between two datasets
         """
 
         if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
 
         # Reset index cleanly to avoid index column collision
         df1 = data1.reset_index(drop=True)
@@ -104,18 +102,18 @@ class LinkageAttack(PreprocessData):
         """
         The probabilistic linkage attack function uses the Fellegi-Sunter model to compare and link records from two datasets
 
-        Parameters:
+        Parameters
         -----------
         data1: First dataset
         data2: Second dataset
         keys: List of properties use to compare
 
-        Returns:
+        Returns
         -----------
         - DataFrame containing pairs of records matching the Fellegi-Sunter score between two datasets
         """
         if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
 
         # Determine keys if not provided
         if keys is None:
@@ -193,7 +191,7 @@ class LinkageAttack(PreprocessData):
         """
         # --- 1. Validate input ---
         if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
         if data1.empty or data2.empty:
             return pd.DataFrame(columns=["ID_DF1", "ID_DF2", "Score"])
 

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        LLM Client Interface
 Package:       pamola_core.utils.nlp.llm.client
 Version:       1.1.0
@@ -59,8 +58,11 @@ from urllib.parse import urlparse, urlunparse
 # Import error classes from base module to avoid duplication
 from pamola_core.utils.nlp.base import (
     DependencyManager,
+)
+from pamola_core.errors.exceptions import (
+    InvalidParameterError,
     LLMConnectionError,
-    LLMResponseError
+    LLMResponseError,
 )
 
 # Configure logger
@@ -96,6 +98,7 @@ class LLMProtocol(Protocol):
 @dataclass
 class LLMGenerationParams:
     """Parameters for text generation."""
+
     temperature: float = 0.7
     top_p: float = 0.95
     top_k: int = 40
@@ -103,8 +106,6 @@ class LLMGenerationParams:
     repeat_penalty: float = 1.0
     stop_sequences: Optional[List[str]] = None
     stream: bool = False
-
-
 
     def to_dict(self) -> Dict[str, Any]:
         params: Dict[str, Any] = {
@@ -123,6 +124,7 @@ class LLMGenerationParams:
 @dataclass
 class LLMResponse:
     """Structured response from LLM."""
+
     text: str
     raw_response: Any
     model_name: str
@@ -138,13 +140,13 @@ class BaseLLMClient(ABC):
     """Abstract base class for LLM client implementations."""
 
     def __init__(
-            self,
-            model_name: str,
-            timeout: int = DEFAULT_TIMEOUT,
-            max_retries: int = DEFAULT_MAX_RETRIES,
-            retry_delay: float = DEFAULT_RETRY_DELAY,
-            debug_logging: bool = False,
-            debug_log_file: Optional[Union[str, Path]] = None
+        self,
+        model_name: str,
+        timeout: int = DEFAULT_TIMEOUT,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        retry_delay: float = DEFAULT_RETRY_DELAY,
+        debug_logging: bool = False,
+        debug_log_file: Optional[Union[str, Path]] = None,
     ):
         """
         Initialize base LLM client.
@@ -182,7 +184,9 @@ class BaseLLMClient(ABC):
         # Streaming support flag (to be set by subclasses)
         self._supports_streaming = False
 
-    def _setup_debug_logging(self, debug_log_file: Optional[Union[str, Path]] = None) -> None:
+    def _setup_debug_logging(
+        self, debug_log_file: Optional[Union[str, Path]] = None
+    ) -> None:
         """Set up debug logging for requests and responses."""
         self._debug_logger = logging.getLogger(f"{__name__}.debug")
         self._debug_logger.setLevel(logging.DEBUG)
@@ -198,13 +202,13 @@ class BaseLLMClient(ABC):
             log_path = log_dir / f"llm_debug_{timestamp}.log"
 
         # Create file handler
-        handler = logging.FileHandler(log_path, mode='w', encoding='utf-8')
+        handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
         handler.setLevel(logging.DEBUG)
 
         # Create formatter
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
         handler.setFormatter(formatter)
 
@@ -212,8 +216,12 @@ class BaseLLMClient(ABC):
         self._debug_logger.addHandler(handler)
         self._debug_logger.info(f"Debug logging initialized. Log file: {log_path}")
 
-    def _log_debug(self, request_type: str, content: str,
-                   additional_info: Optional[Dict[str, Any]] = None) -> None:
+    def _log_debug(
+        self,
+        request_type: str,
+        content: str,
+        additional_info: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Log debug information for requests and responses."""
         if self._debug_logger:
             self._debug_logger.debug(f"\n{'=' * 60}")
@@ -256,7 +264,9 @@ class BaseLLMClient(ABC):
         """Send request to LLM service (implementation-specific)."""
         pass
 
-    def generate(self, prompt: str, params: Optional[LLMGenerationParams] = None) -> LLMResponse:
+    def generate(
+        self, prompt: str, params: Optional[LLMGenerationParams] = None
+    ) -> LLMResponse:
         """
         Generate text from prompt with retry logic.
 
@@ -282,10 +292,11 @@ class BaseLLMClient(ABC):
 
         # Log request if debug enabled
         if self._debug_logger:
-            self._log_debug("REQUEST", prompt, {
-                "model": self.model_name,
-                "parameters": params.to_dict()
-            })
+            self._log_debug(
+                "REQUEST",
+                prompt,
+                {"model": self.model_name, "parameters": params.to_dict()},
+            )
 
         last_error: Optional[Exception] = None
 
@@ -308,16 +319,20 @@ class BaseLLMClient(ABC):
 
                 # Log response if debug enabled
                 if self._debug_logger:
-                    self._log_debug("RESPONSE", response.text, {
-                        "model": response.model_name,
-                        "response_time": f"{response_time:.3f}s",
-                        "tokens": {
-                            "prompt": response.prompt_tokens,
-                            "completion": response.completion_tokens,
-                            "total": response.total_tokens
+                    self._log_debug(
+                        "RESPONSE",
+                        response.text,
+                        {
+                            "model": response.model_name,
+                            "response_time": f"{response_time:.3f}s",
+                            "tokens": {
+                                "prompt": response.prompt_tokens,
+                                "completion": response.completion_tokens,
+                                "total": response.total_tokens,
+                            },
+                            "metadata": response.metadata,
                         },
-                        "metadata": response.metadata
-                    })
+                    )
 
                 return response
 
@@ -327,7 +342,7 @@ class BaseLLMClient(ABC):
 
                 if attempt < self.max_retries - 1:
                     # Exponential backoff
-                    delay = self.retry_delay * (2 ** attempt)
+                    delay = self.retry_delay * (2**attempt)
                     time.sleep(delay)
 
                     # Try to reconnect
@@ -346,7 +361,8 @@ class BaseLLMClient(ABC):
         """Get client statistics."""
         avg_response_time = (
             self._total_response_time / self._request_count
-            if self._request_count > 0 else 0
+            if self._request_count > 0
+            else 0
         )
 
         return {
@@ -355,7 +371,7 @@ class BaseLLMClient(ABC):
             "slow_request_count": self._slow_request_count,
             "average_response_time": avg_response_time,
             "slow_request_threshold": SLOW_REQUEST_THRESHOLD,
-            "supports_streaming": self._supports_streaming
+            "supports_streaming": self._supports_streaming,
         }
 
     def close(self) -> None:
@@ -377,12 +393,12 @@ class LMStudioClient(BaseLLMClient):
     """Client for LM Studio WebSocket API."""
 
     def __init__(
-            self,
-            websocket_url: str,
-            model_name: str,
-            api_key: Optional[str] = None,
-            ttl: int = 86400,
-            **kwargs
+        self,
+        websocket_url: str,
+        model_name: str,
+        api_key: Optional[str] = None,
+        ttl: int = 86400,
+        **kwargs,
     ):
         """
         Initialize LM Studio client.
@@ -415,20 +431,20 @@ class LMStudioClient(BaseLLMClient):
         parsed = urlparse(url)
 
         # Convert scheme
-        if parsed.scheme == 'http':
-            parsed = parsed._replace(scheme='ws')
-        elif parsed.scheme == 'https':
-            parsed = parsed._replace(scheme='wss')
-        elif parsed.scheme in ('ws', 'wss'):
+        if parsed.scheme == "http":
+            parsed = parsed._replace(scheme="ws")
+        elif parsed.scheme == "https":
+            parsed = parsed._replace(scheme="wss")
+        elif parsed.scheme in ("ws", "wss"):
             return url
 
         # Convert path if needed
-        if '/v1' in parsed.path:
-            new_path = parsed.path.replace('/v1', '/llm')
+        if "/v1" in parsed.path:
+            new_path = parsed.path.replace("/v1", "/llm")
             parsed = parsed._replace(path=new_path)
-        elif not parsed.path.endswith('/llm'):
+        elif not parsed.path.endswith("/llm"):
             # Ensure path ends with /llm
-            new_path = parsed.path.rstrip('/') + '/llm'
+            new_path = parsed.path.rstrip("/") + "/llm"
             parsed = parsed._replace(path=new_path)
 
         return cast(str, urlunparse(parsed))
@@ -440,14 +456,14 @@ class LMStudioClient(BaseLLMClient):
 
         try:
             # Check for _client attribute (LM Studio specific)
-            if hasattr(self.model, '_client'):
-                client = getattr(self.model, '_client')
-                if hasattr(client, 'stream_supported'):
-                    return bool(getattr(client, 'stream_supported'))
+            if hasattr(self.model, "_client"):
+                client = getattr(self.model, "_client")
+                if hasattr(client, "stream_supported"):
+                    return bool(getattr(client, "stream_supported"))
 
             # Check for stream_supported directly on model
-            if hasattr(self.model, 'stream_supported'):
-                return bool(getattr(self.model, 'stream_supported'))
+            if hasattr(self.model, "stream_supported"):
+                return bool(getattr(self.model, "stream_supported"))
 
             return False
         except Exception as e:
@@ -456,14 +472,18 @@ class LMStudioClient(BaseLLMClient):
 
     def connect(self) -> None:
         """Connect to LM Studio."""
-        lms = DependencyManager.get_module('lmstudio')
+        lms = DependencyManager.get_module("lmstudio")
         if lms is None:
             raise LLMConnectionError("lmstudio package not available")
 
         try:
             # Store original environment variables
-            self._original_env['LM_STUDIO_WEBSOCKET_URL'] = os.environ.get('LM_STUDIO_WEBSOCKET_URL')
-            self._original_env['LM_STUDIO_API_KEY'] = os.environ.get('LM_STUDIO_API_KEY')
+            self._original_env["LM_STUDIO_WEBSOCKET_URL"] = os.environ.get(
+                "LM_STUDIO_WEBSOCKET_URL"
+            )
+            self._original_env["LM_STUDIO_API_KEY"] = os.environ.get(
+                "LM_STUDIO_API_KEY"
+            )
 
             # Set environment variables
             os.environ["LM_STUDIO_WEBSOCKET_URL"] = self.websocket_url
@@ -497,9 +517,9 @@ class LMStudioClient(BaseLLMClient):
         """Disconnect from LM Studio."""
         if self.model is not None:
             try:
-                if hasattr(self.model, 'close'):
+                if hasattr(self.model, "close"):
                     self.model.close()
-                elif hasattr(self.model, 'shutdown'):
+                elif hasattr(self.model, "shutdown"):
                     self.model.shutdown()
             except Exception as e:
                 logger.warning(f"Error closing LM Studio connection: {e}")
@@ -524,15 +544,15 @@ class LMStudioClient(BaseLLMClient):
             return response.strip()
 
         # Try common attribute names
-        for attr in ['text', 'content', 'result', 'message', 'output', 'response']:
+        for attr in ["text", "content", "result", "message", "output", "response"]:
             if hasattr(response, attr):
                 value = getattr(response, attr)
                 if value is not None:
                     return str(value).strip()
 
         # Try dictionary access
-        if hasattr(response, '__getitem__'):
-            for key in ['text', 'content', 'result', 'message', 'output', 'response']:
+        if hasattr(response, "__getitem__"):
+            for key in ["text", "content", "result", "message", "output", "response"]:
                 try:
                     value = response[key]
                     if value is not None:
@@ -543,7 +563,7 @@ class LMStudioClient(BaseLLMClient):
         # Last resort: convert to string
         try:
             text = str(response)
-            if not text.startswith('<') and not text.startswith('object at'):
+            if not text.startswith("<") and not text.startswith("object at"):
                 return text.strip()
         except Exception:
             pass
@@ -561,8 +581,8 @@ class LMStudioClient(BaseLLMClient):
         api_params = params.to_dict()
 
         # Remove stream parameter if not supported
-        if not self._supports_streaming and 'stream' in api_params:
-            api_params.pop('stream')
+        if not self._supports_streaming and "stream" in api_params:
+            api_params.pop("stream")
 
         # Try to call model with parameters
         raw_response = None
@@ -571,11 +591,11 @@ class LMStudioClient(BaseLLMClient):
 
         try:
             # Determine which method to use
-            if hasattr(self.model, 'respond'):
-                method_used = 'respond'
+            if hasattr(self.model, "respond"):
+                method_used = "respond"
                 raw_response = self.model.respond(prompt, **api_params)
-            elif hasattr(self.model, 'generate'):
-                method_used = 'generate'
+            elif hasattr(self.model, "generate"):
+                method_used = "generate"
                 raw_response = self.model.generate(prompt, **api_params)
             else:
                 raise AttributeError("Model has no 'respond' or 'generate' method")
@@ -586,20 +606,22 @@ class LMStudioClient(BaseLLMClient):
             params_accepted = False
 
             try:
-                if method_used == 'respond':
+                if method_used == "respond":
                     raw_response = self.model.respond(prompt)
-                elif method_used == 'generate':
+                elif method_used == "generate":
                     raw_response = self.model.generate(prompt)
                 else:
                     # Try both methods without parameters
-                    if hasattr(self.model, 'respond'):
-                        method_used = 'respond'
+                    if hasattr(self.model, "respond"):
+                        method_used = "respond"
                         raw_response = self.model.respond(prompt)
-                    elif hasattr(self.model, 'generate'):
-                        method_used = 'generate'
+                    elif hasattr(self.model, "generate"):
+                        method_used = "generate"
                         raw_response = self.model.generate(prompt)
                     else:
-                        raise AttributeError("Model has no 'respond' or 'generate' method")
+                        raise AttributeError(
+                            "Model has no 'respond' or 'generate' method"
+                        )
             except Exception as e:
                 raise LLMConnectionError(f"Failed to call model method: {e}")
 
@@ -614,17 +636,14 @@ class LMStudioClient(BaseLLMClient):
             response_time=0.0,  # Will be set by caller
             finish_reason=method_used,
             metadata={
-                'method_used': method_used,
-                'params_accepted': params_accepted,
-                'streaming_enabled': self._supports_streaming
-            }
+                "method_used": method_used,
+                "params_accepted": params_accepted,
+                "streaming_enabled": self._supports_streaming,
+            },
         )
 
 
-def create_llm_client(
-        provider: str,
-        **kwargs
-) -> BaseLLMClient:
+def create_llm_client(provider: str, **kwargs) -> BaseLLMClient:
     """
     Factory function to create LLM client.
 
@@ -647,11 +666,15 @@ def create_llm_client(
     """
     provider = provider.lower()
 
-    if provider == 'lmstudio':
-        required = ['websocket_url', 'model_name']
+    if provider == "lmstudio":
+        required = ["websocket_url", "model_name"]
         for param in required:
             if param not in kwargs:
-                raise ValueError(f"Missing required parameter for LM Studio: {param}")
+                raise InvalidParameterError(
+                    param_name="param",
+                    param_value=param,
+                    reason=f"Missing required parameter for LM Studio: {param}",
+                )
         return LMStudioClient(**kwargs)
 
     # Add other providers here as they are implemented
@@ -661,8 +684,10 @@ def create_llm_client(
     #     return AnthropicClient(**kwargs)
 
     else:
-        supported = ['lmstudio']  # Add more as implemented
-        raise ValueError(
-            f"Unsupported LLM provider: {provider}. "
-            f"Supported providers: {', '.join(supported)}"
+        supported = ["lmstudio"]  # Add more as implemented
+        raise InvalidParameterError(
+            param_name="llm",
+            param_value=provider,
+            reason=f"Unsupported LLM provider: {provider}. "
+            f"Supported providers: {', '.join(supported)}",
         )

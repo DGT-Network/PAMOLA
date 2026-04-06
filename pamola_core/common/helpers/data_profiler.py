@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - A utility class for analyzing data distributions.
----------------------------------------------------------
 This module provides functions for computing Shannon entropy to measure 
 the uncertainty or randomness in a given dataset.
 
@@ -26,6 +25,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 import logging
 from scipy.stats import entropy
+from pamola_core.errors.exceptions import TypeValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -36,20 +36,20 @@ class DataProfiler:
         """
         Compute the Shannon entropy of a Pandas Series.
 
-        Parameters:
+        Parameters
         -----------
         column : pd.Series
             The input data column for entropy calculation.
         base : int, optional (default=2)
             The logarithm base used for entropy computation (e.g., 2 for bits, e for nats).
 
-        Returns:
+        Returns
         --------
         float
             The calculated Shannon entropy value. Returns 0.0 if the input column is empty.
         """
         if not isinstance(column, pd.Series):
-            raise TypeError("Input must be a Pandas Series.")
+            raise TypeValidationError("Input must be a Pandas Series.")
 
         # Remove NaN values
         column_clean = column.dropna()

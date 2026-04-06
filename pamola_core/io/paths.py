@@ -21,10 +21,11 @@
 """
 
 from pathlib import Path
+from pamola_core.utils.paths import get_project_root
 
 class PathManager:
     def __init__(self, root_dir = None):
-        self.root_dir = Path(root_dir) if root_dir else Path.cwd()
+        self.root_dir = Path(root_dir) if root_dir else get_project_root()
 
     def __getitem__(self, key):
         return getattr(self, key) if hasattr(self, key) else None

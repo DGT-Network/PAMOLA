@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Shared Pseudonymization Utilities
 Package:       pamola_core.anonymization.commons
 Version:       1.0.0
@@ -44,8 +43,13 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from pamola_core.utils.crypto_helpers.pseudonymization import (
-    SecureBytes
+from pamola_core.utils.crypto_helpers.pseudonymization import SecureBytes
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    InvalidParameterError,
+    MissingParameterError,
+    PamolaFileNotFoundError,
+    ValidationError,
 )
 
 # Configure module logger
@@ -60,7 +64,8 @@ class PseudonymizationCache:
     recomputing expensive cryptographic operations. It uses an LRU eviction
     policy to maintain a bounded memory footprint.
 
-    Attributes:
+    Attributes
+    ----------
         max_size: Maximum number of entries to cache
 
     Thread Safety:
@@ -71,7 +76,8 @@ class PseudonymizationCache:
         """
         Initialize the pseudonymization cache.
 
-        Args:
+        Parameters
+        ----------
             max_size: Maximum number of entries to cache (default: 100000)
         """
         self.max_size = max_size
@@ -86,10 +92,12 @@ class PseudonymizationCache:
         """
         Get pseudonym from cache.
 
-        Args:
+        Parameters
+        ----------
             key: Original value to look up
 
-        Returns:
+        Returns
+        -------
             Cached pseudonym if found, None otherwise
         """
         with self._lock:
@@ -106,7 +114,8 @@ class PseudonymizationCache:
         """
         Add pseudonym to cache.
 
-        Args:
+        Parameters
+        ----------
             key: Original value
             value: Pseudonymized value
         """
@@ -134,7 +143,8 @@ class PseudonymizationCache:
         """
         Get cache statistics.
 
-        Returns:
+        Returns
+        -------
             Dictionary containing:
                 - size: Current number of cached entries
                 - max_size: Maximum cache size
@@ -150,7 +160,7 @@ class PseudonymizationCache:
                 "hits": self._hits,
                 "misses": self._misses,
                 "hit_rate": self._hits / total_requests if total_requests > 0 else 0.0,
-                "total_requests": total_requests
+                "total_requests": total_requests,
             }
 
     def __len__(self) -> int:
@@ -162,8 +172,9 @@ class PseudonymizationCache:
         return key in self._cache
 
 
-def load_salt_configuration(config: Dict[str, Any],
-                            salt_file: Optional[Path] = None) -> bytes:
+def load_salt_configuration(
+    config: Dict[str, Any], salt_file: Optional[Path] = None
+) -> bytes:
     """
     Load salt based on configuration.
 
@@ -171,26 +182,32 @@ def load_salt_configuration(config: Dict[str, Any],
     1. Parameter: Salt provided directly as hex string or bytes
     2. File: Salt loaded from a JSON file with field-specific salts
 
-    Args:
+    Parameters
+    ----------
         config: Salt configuration dictionary with:
             - source: "parameter" or "file"
             - value: Salt value (for parameter source)
             - field_name: Field name (for file source)
         salt_file: Optional path to salts file (required for file source)
 
-    Returns:
+    Returns
+    -------
         Salt as bytes
 
-    Raises:
+    Raises
+    ------
         ValueError: If configuration is invalid or salt cannot be loaded
     """
-    source = config.get('source', 'parameter')
+    source = config.get("source", "parameter")
 
-    if source == 'parameter':
+    if source == "parameter":
         # Salt provided directly
-        salt_value = config.get('value')
+        salt_value = config.get("value")
         if not salt_value:
-            raise ValueError("salt_value required when source is 'parameter'")
+            raise MissingParameterError(
+                param_name="salt_value",
+                operation="load_salt_configuration",
+            )
 
         if isinstance(salt_value, str):
             # Assume hex encoded
@@ -198,42 +215,48 @@ def load_salt_configuration(config: Dict[str, Any],
                 salt_bytes = bytes.fromhex(salt_value)
                 logger.debug(f"Loaded {len(salt_bytes)}-byte salt from parameter")
                 return salt_bytes
-            except ValueError as e:
-                raise ValueError(f"Invalid hex salt value: {e}")
+            except (ValidationError, ValueError) as e:
+                raise ValidationError(f"Invalid hex salt value: {e}")
         elif isinstance(salt_value, bytes):
             logger.debug(f"Loaded {len(salt_value)}-byte salt from parameter")
             return salt_value
         else:
-            raise ValueError("salt_value must be hex string or bytes")
+            raise ValidationError("salt_value must be hex string or bytes")
 
-    elif source == 'file':
+    elif source == "file":
         # Load from JSON file
         if not salt_file:
-            raise ValueError("salt_file required when source is 'file'")
+            raise ValidationError("salt_file required when source is 'file'")
 
         if not salt_file.exists():
-            raise ValueError(f"Salt file not found: {salt_file}")
+            raise PamolaFileNotFoundError(str(salt_file))
 
         try:
-            with open(salt_file, 'r') as f:
+            with open(salt_file, "r") as f:
                 data = json.load(f)
 
             # Support both versioned and legacy formats
             if isinstance(data, dict) and "salts" in data:
                 # Versioned format
                 salts = data["salts"]
-                logger.debug(f"Loading from versioned salt file (v{data.get('_version', 'unknown')})")
+                logger.debug(
+                    f"Loading from versioned salt file (v{data.get('_version', 'unknown')})"
+                )
             else:
                 # Legacy format
                 salts = data
                 logger.debug("Loading from legacy salt file format")
 
-            field_name = config.get('field_name')
+            field_name = config.get("field_name")
             if not field_name:
-                raise ValueError("field_name required when loading salt from file")
+                raise ValidationError("field_name required when loading salt from file")
 
             if field_name not in salts:
-                raise ValueError(f"Salt for field '{field_name}' not found in {salt_file}")
+                raise FieldNotFoundError(
+                    field_name=field_name,
+                    available_fields=list(salts.keys()),
+                    dataset_name=str(salt_file),
+                )
 
             salt_hex = salts[field_name]
             salt_bytes = bytes.fromhex(salt_hex)
@@ -241,12 +264,20 @@ def load_salt_configuration(config: Dict[str, Any],
             return salt_bytes
 
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in salt file {salt_file}: {e}")
+            raise InvalidParameterError(
+                param_name="salt_file",
+                param_value=salt_file,
+                reason=f"Invalid JSON in salt file {salt_file}: {e}",
+            )
         except Exception as e:
-            raise ValueError(f"Error loading salt from file {salt_file}: {e}")
+            raise ValidationError(f"Error loading salt from file {salt_file}: {e}")
 
     else:
-        raise ValueError(f"Unknown salt source: {source}. Must be 'parameter' or 'file'")
+        raise InvalidParameterError(
+            param_name="salt",
+            param_value=source,
+            reason=f"Unknown salt source: {source}. Must be 'parameter' or 'file'",
+        )
 
 
 def generate_session_pepper(length: int = 32) -> SecureBytes:
@@ -257,43 +288,51 @@ def generate_session_pepper(length: int = 32) -> SecureBytes:
     automatically cleared from memory when no longer needed. The pepper
     provides an additional layer of security beyond salting.
 
-    Args:
+    Parameters
+    ----------
         length: Pepper length in bytes (default: 32)
 
-    Returns:
+    Returns
+    -------
         SecureBytes containing pepper
 
-    Raises:
+    Raises
+    ------
         ValueError: If length is not positive
     """
     if length <= 0:
-        raise ValueError("Pepper length must be positive")
+        raise ValidationError("Pepper length must be positive")
 
     pepper = secrets.token_bytes(length)
     logger.info(f"Generated {length}-byte session pepper")
     return SecureBytes(pepper)
 
 
-def format_pseudonym_output(pseudonym: str,
-                            prefix: Optional[str] = None,
-                            suffix: Optional[str] = None,
-                            separator: str = "") -> str:
+def format_pseudonym_output(
+    pseudonym: str,
+    prefix: Optional[str] = None,
+    suffix: Optional[str] = None,
+    separator: str = "",
+) -> str:
     """
     Format pseudonym with optional prefix/suffix.
 
     This function adds optional prefix and/or suffix to a pseudonym,
     useful for creating domain-specific or type-indicated pseudonyms.
 
-    Args:
+    Parameters
+    ----------
         pseudonym: Base pseudonym value
         prefix: Optional prefix to prepend
         suffix: Optional suffix to append
         separator: Separator between prefix/suffix and pseudonym (default: "")
 
-    Returns:
+    Returns
+    -------
         Formatted pseudonym string
 
-    Examples:
+    Examples
+    --------
         >>> format_pseudonym_output("abc123", prefix="USER_")
         "USER_abc123"
 
@@ -310,18 +349,20 @@ def format_pseudonym_output(pseudonym: str,
     return result
 
 
-def validate_pseudonym_format(pseudonym: str,
-                              expected_format: str,
-                              expected_length: Optional[int] = None) -> bool:
+def validate_pseudonym_format(
+    pseudonym: str, expected_format: str, expected_length: Optional[int] = None
+) -> bool:
     """
     Validate that a pseudonym matches expected format.
 
-    Args:
+    Parameters
+    ----------
         pseudonym: Pseudonym to validate
         expected_format: Expected format ("hex", "base64", "base58", "uuid", "alphanumeric")
         expected_length: Expected length (optional)
 
-    Returns:
+    Returns
+    -------
         True if pseudonym matches expected format
     """
     if expected_length and len(pseudonym) != expected_length:
@@ -331,11 +372,12 @@ def validate_pseudonym_format(pseudonym: str,
         try:
             int(pseudonym, 16)
             return True
-        except ValueError:
+        except (ValidationError, ValueError):
             return False
 
     elif expected_format == "base64":
         import base64
+
         try:
             # URL-safe base64 without padding
             base64.urlsafe_b64decode(pseudonym + "==")
@@ -346,15 +388,17 @@ def validate_pseudonym_format(pseudonym: str,
     elif expected_format == "base58":
         # Base58 uses alphanumeric minus confusing characters (0, O, I, l)
         import string
+
         base58_chars = set(string.ascii_letters + string.digits) - set("0OIl")
         return all(c in base58_chars for c in pseudonym)
 
     elif expected_format == "uuid":
         import uuid
+
         try:
             uuid.UUID(pseudonym)
             return True
-        except ValueError:
+        except (ValidationError, ValueError):
             return False
 
     elif expected_format == "alphanumeric":
@@ -365,16 +409,17 @@ def validate_pseudonym_format(pseudonym: str,
         return False
 
 
-def create_compound_identifier(values: Dict[str, Any],
-                               separator: str = "|",
-                               null_handling: str = "skip") -> str:
+def create_compound_identifier(
+    values: Dict[str, Any], separator: str = "|", null_handling: str = "skip"
+) -> str:
     """
     Create a compound identifier from multiple values.
 
     This is useful for pseudonymizing combinations of fields that together
     form a unique identifier (e.g., first_name + last_name + birthdate).
 
-    Args:
+    Parameters
+    ----------
         values: Dictionary of field names to values
         separator: Separator between values (default: "|")
         null_handling: How to handle null values:
@@ -382,10 +427,12 @@ def create_compound_identifier(values: Dict[str, Any],
             - "empty": Use empty string for nulls
             - "null": Use string "NULL" for nulls
 
-    Returns:
+    Returns
+    -------
         Compound identifier string
 
-    Example:
+    Examples
+    --------
         >>> create_compound_identifier({"first": "John", "last": "Doe", "id": None})
         "John|Doe"
     """
@@ -400,23 +447,28 @@ def create_compound_identifier(values: Dict[str, Any],
             elif null_handling == "null":
                 parts.append("NULL")
             else:
-                raise ValueError(f"Unknown null_handling: {null_handling}")
+                raise InvalidParameterError(
+                    param_name="null_handling",
+                    param_value=null_handling,
+                    reason=f"Unknown null_handling: {null_handling}",
+                )
         else:
             parts.append(str(value))
 
     return separator.join(parts)
 
 
-def estimate_collision_probability(n_values: int,
-                                   hash_bits: int = 256) -> float:
+def estimate_collision_probability(n_values: int, hash_bits: int = 256) -> float:
     """
     Estimate hash collision probability using birthday paradox.
 
-    Args:
+    Parameters
+    ----------
         n_values: Number of unique values to be hashed
         hash_bits: Number of bits in hash output (default: 256 for SHA3-256)
 
-    Returns:
+    Returns
+    -------
         Estimated collision probability (0.0 to 1.0)
     """
     import math
@@ -427,29 +479,12 @@ def estimate_collision_probability(n_values: int,
     if n_values <= 0:
         return 0.0
 
-    hash_space = 2 ** hash_bits
+    hash_space = 2**hash_bits
     if n_values >= hash_space:
         return 1.0
 
     # For better precision with large numbers
-    exponent = -(n_values ** 2) / (2 * hash_space)
+    exponent = -(n_values**2) / (2 * hash_space)
     probability = 1 - math.exp(exponent)
 
     return probability
-
-
-# Module metadata
-__version__ = "1.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Define explicit exports
-__all__ = [
-    'PseudonymizationCache',
-    'load_salt_configuration',
-    'generate_session_pepper',
-    'format_pseudonym_output',
-    'validate_pseudonym_format',
-    'create_compound_identifier',
-    'estimate_collision_probability'
-]

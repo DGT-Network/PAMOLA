@@ -1,3 +1,4 @@
+# Runtime dependencies (mirrors pyproject.toml [project.dependencies])
 python-decouple==3.8
 pydantic[email]==2.12.4
 matplotlib==3.8.2
@@ -9,7 +10,7 @@ deepdiff==8.6.1
 diff-match-patch==20241021
 sdv==1.18.0
 faker==33.3.1
-scipy==1.16.3
+scipy==1.15.3
 uvicorn[standard]==0.38.0
 openpyxl==3.1.5
 xlrd==2.0.1
@@ -40,3 +41,6 @@ spacy==3.8.9
 phonenumbers==9.0.10
 base58==2.1.1
 cryptography==46.0.3
+PyYAML==6.0.2
+typer[all]==0.24.1
+jsonschema==4.25.1

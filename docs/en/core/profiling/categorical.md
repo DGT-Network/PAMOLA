@@ -4,9 +4,8 @@
 
 The PAMOLA.CORE Categorical Analysis module provides functionality for analyzing categorical fields in datasets. It is part of the PAMOLA.CORE (Privacy-Preserving AI Data Processors) project's profiling system and follows the new operation architecture. The module is designed to identify patterns, distributions, and anomalies in categorical data, supporting the profiling and anonymization processes.
 
-The module consists of two main components:
-1. `categorical_utils.py` - Pamola Core analytical functions
-2. `categorical.py` - Operation implementation integrating with the PAMOLA.CORE system
+The module consists of a single main component:
+- `categorical.py` - Contains both `CategoricalAnalyzer` and `CategoricalOperation`
 
 ## Features
 
@@ -152,7 +151,7 @@ def execute(self,
             data_source: DataSource,
             task_dir: Path,
             reporter: Any,
-            progress_tracker: Optional[ProgressTracker] = None,
+            progress_tracker: Optional[HierarchicalProgressTracker] = None,
             **kwargs) -> OperationResult:
 ```
 
@@ -358,7 +357,7 @@ The categorical analysis module integrates with:
    - Uses `plot_value_distribution` for creating standardized visualizations
 
 3. **Progress Tracking** (`pamola_core.utils.progress`)
-   - Uses `ProgressTracker` for monitoring operation progress
+   - Uses `HierarchicalProgressTracker` for monitoring operation progress
 
 4. **Logging System** (`pamola_core.utils.logging`)
    - Uses standardized logging throughout the module

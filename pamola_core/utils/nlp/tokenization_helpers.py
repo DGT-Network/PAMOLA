@@ -11,14 +11,10 @@ import os
 from typing import Dict, List, Set, Any, Optional, Union, Callable
 
 from pamola_core.utils.nlp.base import TOKENIZATION_DIR
-from pamola_core.utils.nlp.cache import get_cache, cache_function
+from pamola_core.utils.nlp.cache import cache_function
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-# Get caches
-file_cache = get_cache('file')
-memory_cache = get_cache('memory')
 
 
 @cache_function(ttl=3600, cache_type='file')

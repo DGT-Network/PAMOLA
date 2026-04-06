@@ -132,7 +132,7 @@ if result.status.name == "SUCCESS":
 | `data_source` | DataSource | Yes | - | Source of data for the operation |
 | `task_dir` | Path | Yes | - | Directory for saving artifacts |
 | `reporter` | Any | Yes | - | Reporter object for tracking artifacts |
-| `progress_tracker` | ProgressTracker | No | None | Progress tracking object |
+| `progress_tracker` | HierarchicalProgressTracker | No | None | Progress tracking object |
 | `near_zero_threshold` | float | No | 1e-10 | Threshold for near-zero detection |
 | `generate_visualization` | bool | No | True | Whether to create visualizations |
 | `include_timestamp` | bool | No | True | Whether to include timestamps in filenames |

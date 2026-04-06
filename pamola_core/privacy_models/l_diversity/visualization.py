@@ -46,7 +46,7 @@ class LDiversityVisualizer:
         """
         Initialize visualizer with processor for cache access
 
-        Parameters:
+        Parameters
         -----------
         processor : object, optional
             L-Diversity processor instance for cached calculations
@@ -76,7 +76,7 @@ class LDiversityVisualizer:
         """
         Visualize l-diversity distribution using cached calculations if available
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -93,7 +93,7 @@ class LDiversityVisualizer:
         **kwargs : dict
             Additional visualization parameters
 
-        Returns:
+        Returns
         --------
         Tuple[plt.Figure, Optional[str]]
             Figure and optional saved path
@@ -260,7 +260,7 @@ class LDiversityVisualizer:
         """
         Visualize distribution of sensitive attribute values
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -275,7 +275,7 @@ class LDiversityVisualizer:
         **kwargs : dict
             Additional visualization parameters
 
-        Returns:
+        Returns
         --------
         Tuple[plt.Figure, Optional[str]]
             Figure and optional saved path
@@ -424,7 +424,7 @@ class LDiversityVisualizer:
         """
         Create risk heatmap visualization using cached risk assessments
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -437,7 +437,7 @@ class LDiversityVisualizer:
         **kwargs : dict
             Additional visualization parameters
 
-        Returns:
+        Returns
         --------
         Tuple[plt.Figure, Optional[str]]
             Figure and optional saved path
@@ -580,7 +580,7 @@ class LDiversityVisualizer:
         """
         Visualize disclosure risk for sensitive attributes
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -593,7 +593,7 @@ class LDiversityVisualizer:
         **kwargs : dict
             Additional visualization parameters
 
-        Returns:
+        Returns
         --------
         Tuple[plt.Figure, Optional[str]]
             Figure and optional saved path
@@ -775,7 +775,7 @@ class LDiversityVisualizer:
         """
         Calculate group diversity metrics directly when processor cache unavailable
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -786,7 +786,7 @@ class LDiversityVisualizer:
         diversity_type : str, optional
             Type of diversity to calculate
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Group diversity metrics
@@ -851,7 +851,7 @@ def visualize_l_diversity(
     """
     Quick utility function for l-diversity visualization without requiring a processor
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -868,7 +868,7 @@ def visualize_l_diversity(
     **kwargs : dict
         Additional visualization parameters
 
-    Returns:
+    Returns
     --------
     Tuple[plt.Figure, Optional[str]]
         Figure and optional saved path
@@ -895,7 +895,7 @@ def visualize_attribute_distributions(
     """
     Generate visualizations for all sensitive attributes
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -908,7 +908,7 @@ def visualize_attribute_distributions(
     **kwargs : dict
         Additional visualization parameters
 
-    Returns:
+    Returns
     --------
     List[Tuple[plt.Figure, Optional[str]]]
         List of figure and saved path tuples
@@ -948,7 +948,7 @@ def visualize_risk_dashboard(
     """
     Create a comprehensive risk dashboard with multiple visualizations
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -963,7 +963,7 @@ def visualize_risk_dashboard(
     **kwargs : dict
         Additional visualization parameters
 
-    Returns:
+    Returns
     --------
     Tuple[plt.Figure, Optional[str]]
         Figure and optional saved path

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: processing_utils.py
 Description: Utility functions for efficient and scalable DataFrame processing.
 
@@ -198,7 +197,7 @@ def process_dataframe_using_joblib(
             try:
                 processed_chunk = process_function(chunk)
                 return processed_chunk
-            except Exception as e:
+            except Exception:
                 return None
 
         # Update progress tracker for each chunk

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Base Reporting Utilities for Privacy Models
----------------------------------------------------------
 This module provides the foundation for generating reports about
 anonymization transformations. It contains common infrastructure and
 utilities that can be used across different anonymization models such as
@@ -34,11 +33,16 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Dict, List, Any
 
-from pamola_core import configs
 from pamola_core.utils.io import write_json
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def _get_pamola_version() -> str:
+    import pamola_core.configs.settings as config_settings
+
+    return getattr(config_settings, "PAMOLA_VERSION", "unknown")
 
 
 class PrivacyReport(ABC):
@@ -54,7 +58,7 @@ class PrivacyReport(ABC):
         """
         Initialize a anonymization report.
 
-        Parameters:
+        Parameters
         -----------
         report_data : dict
             Dictionary containing the report data.
@@ -65,7 +69,7 @@ class PrivacyReport(ABC):
         self.report_type = report_type
         self.metadata = {
             "creation_time": datetime.now().isoformat(),
-            "pamola_version": getattr(configs, "PAMOLA_VERSION", "unknown"),
+            "pamola_version": _get_pamola_version(),
             "report_type": report_type
         }
 
@@ -74,12 +78,12 @@ class PrivacyReport(ABC):
         """
         Generate the report.
 
-        Parameters:
+        Parameters
         -----------
         include_visualizations : bool, optional
             Whether to include visualization paths in the report.
 
-        Returns:
+        Returns
         --------
         dict
             The compiled report.
@@ -90,14 +94,14 @@ class PrivacyReport(ABC):
         """
         Save the report to a file.
 
-        Parameters:
+        Parameters
         -----------
         output_path : str
             Path where to save the report.
         format : str, optional
             Report format: 'json', 'html', or 'text' (default: 'json').
 
-        Returns:
+        Returns
         --------
         str
             Path to the saved report.
@@ -126,7 +130,7 @@ class PrivacyReport(ABC):
         """
         Generate a concise summary of the report.
 
-        Returns:
+        Returns
         --------
         str
             A summary of key information from the report.
@@ -149,7 +153,7 @@ def save_json_report(report: Dict[str, Any], output_path: str) -> None:
     """
     Saves a report in JSON format using the centralized file IO utility.
 
-    Parameters:
+    Parameters
     -----------
     report : dict
         The report data.
@@ -164,7 +168,7 @@ def save_html_report(report: Dict[str, Any], output_path: str) -> None:
     """
     Saves a report in HTML format.
 
-    Parameters:
+    Parameters
     -----------
     report : dict
         The report data.
@@ -254,7 +258,7 @@ def save_text_report(report: Dict[str, Any], output_path: str) -> None:
     """
     Saves a report in plain text format.
 
-    Parameters:
+    Parameters
     -----------
     report : dict
         The report data.
@@ -301,12 +305,12 @@ def load_report(input_path: str) -> Dict[str, Any]:
     """
     Load a previously saved report.
 
-    Parameters:
+    Parameters
     -----------
     input_path : str
         Path to the report file.
 
-    Returns:
+    Returns
     --------
     dict
         The loaded report data.
@@ -327,14 +331,14 @@ def merge_reports(reports: List[Dict[str, Any]], title: str = "Merged Privacy Re
     """
     Merge multiple reports into a single comprehensive report.
 
-    Parameters:
+    Parameters
     -----------
     reports : list of dict
         List of reports to merge.
     title : str, optional
         Title for the merged report.
 
-    Returns:
+    Returns
     --------
     dict
         The merged report.
@@ -345,7 +349,7 @@ def merge_reports(reports: List[Dict[str, Any]], title: str = "Merged Privacy Re
     merged = {
         "report_metadata": {
             "creation_time": datetime.now().isoformat(),
-            "pamola_version": getattr(configs, "PAMOLA_VERSION", "unknown"),
+            "pamola_version": _get_pamola_version(),
             "report_type": title,
             "merged_from": len(reports)
         }

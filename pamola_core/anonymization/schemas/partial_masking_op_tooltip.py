@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Partial Masking Operation Tooltips
 Package:       pamola_core.anonymization.schemas
 Version:       1.0.0
@@ -103,7 +102,7 @@ class PartialMaskingOpTooltip:
 
     preserve_pattern = (
         "What it does: Any part of the text that matches this regular expression will be preserved, and everything else will be masked.\n"
-        "• Example: To keep only the domain of a URL, you could use the pattern `@[\w.-]+`.\n"
+        "• Example: To keep only the domain of a URL, you could use the pattern `@[\\w.-]+`.\n"
         "• Impact: This is the inverse of Mask Pattern."
     )
 

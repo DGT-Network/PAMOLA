@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: Attack Simulation
------------------------
 This module provides an abstract base class for attack simulation feature
 in PAMOLA.CORE. It defines the general structure and required methods for
 implementing specific attack simulation
@@ -28,6 +26,7 @@ import numpy as np
 import pandas as pd
 from scipy.spatial import KDTree, distance
 from pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 
 
 class DistanceToClosestRecord(PreprocessData):
@@ -70,7 +69,7 @@ class DistanceToClosestRecord(PreprocessData):
         """
         # --- 1. Input validation ---
         if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
         if data1.empty or data2.empty:
             return np.array([])
 
@@ -85,8 +84,10 @@ class DistanceToClosestRecord(PreprocessData):
             distances = distance.cdist(data2_vec, data1_vec, metric=metric)
             dcr_values = np.min(distances, axis=1)
         else:
-            raise ValueError(
-                f"Unknown DCR method: {method}. Must be 'kdtree' or 'cdist'."
+            raise InvalidParameterError(
+                param_name="method",
+                param_value=method,
+                reason=f"Unknown DCR method: {method}. Must be 'kdtree' or 'cdist'.",
             )
 
         return dcr_values

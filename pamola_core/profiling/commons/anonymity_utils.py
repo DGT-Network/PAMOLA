@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from pamola_core.utils.io import write_json, write_dataframe_to_csv
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure logger
@@ -29,7 +29,7 @@ def generate_ka_index(
     """
     Generate a KA index name from field names.
 
-    Parameters:
+    Parameters
     -----------
     fields : List[str]
         List of field names
@@ -40,7 +40,7 @@ def generate_ka_index(
     existing_indices : Set[str], optional
         Set of existing indices to avoid collisions
 
-    Returns:
+    Returns
     --------
     str
         Generated KA index name
@@ -90,7 +90,7 @@ def get_field_combinations(
     """
     Generate all combinations of fields within given size range.
 
-    Parameters:
+    Parameters
     -----------
     fields : List[str]
         List of fields to combine
@@ -101,7 +101,7 @@ def get_field_combinations(
     excluded_combinations : List[List[str]], optional
         List of specific combinations to exclude
 
-    Returns:
+    Returns
     --------
     List[List[str]]
         List of field combinations
@@ -130,12 +130,12 @@ def create_ka_index_map(field_combinations: List[List[str]]) -> Dict[str, List[s
     """
     Create a mapping between KA indices and their corresponding field combinations.
 
-    Parameters:
+    Parameters
     -----------
     field_combinations : List[List[str]]
         List of field combinations
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Mapping from KA indices to field lists
@@ -154,21 +154,21 @@ def create_ka_index_map(field_combinations: List[List[str]]) -> Dict[str, List[s
 def calculate_k_anonymity(
     df: pd.DataFrame,
     fields: List[str],
-    progress_tracker: Optional[ProgressTracker] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
 ) -> Dict[str, Any]:
     """
     Calculate k-anonymity metrics for a set of fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
     fields : List[str]
         List of fields (quasi-identifiers)
-    progress_tracker : ProgressTracker, optional
+    progress_tracker : HierarchicalProgressTracker, optional
         Progress tracker for operations
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         K-anonymity metrics
@@ -303,14 +303,14 @@ def calculate_shannon_entropy(df: pd.DataFrame, fields: List[str]) -> float:
     H(X) = -∑(p(x) * log2(p(x)))
     where p(x) is the probability of a specific combination of values.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
     fields : List[str]
         List of fields to calculate entropy for
 
-    Returns:
+    Returns
     --------
     float
         Entropy value in bits
@@ -339,14 +339,14 @@ def normalize_entropy(entropy: float, unique_values_count: int) -> float:
     H_norm(X) = H(X) / log2(n)
     where n is the number of unique values.
 
-    Parameters:
+    Parameters
     -----------
     entropy : float
         Raw entropy value
     unique_values_count : int
         Number of unique values/groups
 
-    Returns:
+    Returns
     --------
     float
         Normalized entropy value
@@ -377,7 +377,7 @@ def find_vulnerable_records(
     """
     Find and return information about vulnerable records (with k < threshold).
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
@@ -390,7 +390,7 @@ def find_vulnerable_records(
     id_field : str, optional
         Field containing record IDs
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Information about vulnerable records
@@ -442,12 +442,12 @@ def prepare_metrics_for_spider_chart(
     """
     Prepare metrics data for spider chart visualization.
 
-    Parameters:
+    Parameters
     -----------
     ka_metrics : Dict[str, Dict[str, Any]]
         Dictionary mapping KA indices to their metrics
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, float]]
         Data formatted for spider chart
@@ -476,14 +476,14 @@ def prepare_field_uniqueness_data(
     """
     Prepare data about the uniqueness of individual fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
     fields : List[str]
         List of fields to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Data about field uniqueness
@@ -525,14 +525,14 @@ def save_ka_index_map(
     """
     Save KA index mapping to a CSV file.
 
-    Parameters:
+    Parameters
     -----------
     ka_index_map : Dict[str, List[str]]
         Mapping from KA indices to field lists
     output_path : str
         Path to save the CSV file
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved file
@@ -569,7 +569,7 @@ def save_ka_metrics(
     """
     Save K-anonymity metrics to a CSV file.
 
-    Parameters:
+    Parameters
     -----------
     ka_metrics : Dict[str, Dict[str, Any]]
         Dictionary of KA metrics
@@ -578,7 +578,7 @@ def save_ka_metrics(
     ka_index_map : Dict[str, List[str]]
         Mapping from KA indices to field lists
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved file
@@ -635,14 +635,14 @@ def save_vulnerable_records(
     """
     Save information about vulnerable records to a JSON file.
 
-    Parameters:
+    Parameters
     -----------
     vulnerable_records : Dict[str, Dict[str, Any]]
         Dictionary mapping KA indices to vulnerable record information
     output_path : str
         Path to save the JSON file
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved file

@@ -1,8 +1,8 @@
-# NameOperation Module Documentation
+# FakeNameOperation Module Documentation
 
 ## Overview
 
-The `name_op.py` module provides the `NameOperation` class, which integrates the name generation functionality into the PAMOLA.CORE operations framework. It processes DataFrame fields containing personal names, replacing them with synthetic alternatives while preserving gender, language, and format characteristics. The operation supports both replacement and enrichment modes, batch processing, progress reporting, and comprehensive metrics collection.
+The `name_op.py` module provides the `FakeNameOperation` class for synthetic name generation in the PAMOLA.CORE operations framework. It processes DataFrame fields containing personal names, replacing them with synthetic alternatives while preserving gender, language, and format characteristics. The operation supports batch processing, progress reporting, and comprehensive metrics collection.
 
 ## Module Location
 
@@ -13,6 +13,7 @@ pamola_core/fake_data/
 │   ├── name_op.py           <- This module
 │   ├── email_op.py
 │   ├── phone_op.py
+│   ├── organization_op.py
 │   └── ...
 ```
 
@@ -20,9 +21,8 @@ pamola_core/fake_data/
 
 ```
 pamola_core.utils.ops.op_base.BaseOperation
-    └── pamola_core.utils.ops.op_base.FieldOperation
-            └── pamola_core.fake_data.base_generator_op.GeneratorOperation
-                └── pamola_core.fake_data.operations.name_op.NameOperation
+    └── pamola_core.fake_data.base_generator_op.GeneratorOperation
+        └── pamola_core.fake_data.operations.name_op.FakeNameOperation
 ```
 
 ## Data Flow
@@ -67,17 +67,20 @@ flowchart TD
     W --> A
 ```
 
-## NameOperation Class
+## FakeNameOperation Class
 
-The `NameOperation` class is registered in the operations registry and provides functionality for processing and replacing personal names in datasets.
+The `FakeNameOperation` class is registered in the operations registry and provides functionality for processing and replacing personal names in datasets.
 
 ### Key Features
 
 - Integrated with PAMOLA operation framework
 - Batch processing for large datasets
-- Two modes: REPLACE and ENRICH
-- Support for consistent mappings (1-to-1)
-- Deterministic generation through PRGN
+- Support for multiple languages (en, fr, de, ru, es, etc.)
+- Gender-aware name generation with configurable F/M ratio
+- Format control (FML, FL, LF, LFM, F_L, L_F, etc.)
+- Deterministic generation through PRGN with context_salt
+- Support for gender inference from names
+- Case formatting control (title, upper, lower)
 - Gender-aware name generation
 - Multi-language support
 - Comprehensive metrics and visualizations

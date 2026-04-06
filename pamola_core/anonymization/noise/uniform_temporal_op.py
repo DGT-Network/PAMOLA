@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Uniform Temporal Noise Operation
 Package:       pamola_core.anonymization.noise
 Version:       1.0.0
@@ -38,7 +37,7 @@ Framework Integration:
    - Integrates with validation_utils for parameter validation
    - Uses metric_utils and statistical_utils for metrics
    - Supports DataWriter for output and metrics
-   - Compatible with ProgressTracker for monitoring
+   - Compatible with HierarchicalProgressTracker for monitoring
 
 Changelog:
    1.0.0 (2025-06-15):
@@ -48,7 +47,6 @@ Changelog:
       - Comprehensive metrics and validation
 """
 
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
@@ -70,10 +68,10 @@ from pamola_core.anonymization.commons.statistical_utils import (
 )
 
 # Import validation utilities
-from pamola_core.anonymization.commons.validation import (
-    InvalidParameterError,
+from pamola_core.anonymization.commons.validation.field_validators import (
     DateTimeFieldValidator,
 )
+from pamola_core.errors.exceptions import ValidationError, InvalidParameterError
 from pamola_core.anonymization.schemas.uniform_temporal_op_core_schema import (
     UniformTemporalNoiseConfig,
 )
@@ -255,7 +253,8 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         Validate temporal noise parameters.
 
-        Args:
+        Parameters
+        ----------
             days: Days component
             hours: Hours component
             minutes: Minutes component
@@ -263,7 +262,8 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
             direction: Shift direction
             granularity: Output granularity
 
-        Raises:
+        Raises
+        ------
             InvalidParameterError: If parameters are invalid
         """
         # At least one time component must be specified
@@ -315,7 +315,8 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         Calculate total shift range in seconds.
 
-        Returns:
+        Returns
+        -------
             Total shift range in seconds
         """
         total = 0.0
@@ -333,10 +334,12 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         Generate random time shifts.
 
-        Args:
+        Parameters
+        ----------
             size: Number of shifts to generate
 
-        Returns:
+        Returns
+        -------
             TimedeltaIndex with random shifts
         """
         # Get parameters from self
@@ -372,11 +375,13 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         Apply noise with temporal constraints.
 
-        Args:
+        Parameters
+        ----------
             timestamps: Original timestamps
             shifts: Time shifts to apply
 
-        Returns:
+        Returns
+        -------
             Series with shifted timestamps
         """
         # Get parameters from self
@@ -438,13 +443,15 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         Adjust shifts to preserve weekend/weekday status.
 
-        Args:
+        Parameters
+        ----------
             original: Original timestamps
             noisy: Shifted timestamps
             min_datetime: Minimum allowed datetime
             max_datetime: Maximum allowed datetime
 
-        Returns:
+        Returns
+        -------
             Adjusted timestamps preserving weekend status
         """
         # Get day of week (0=Monday, 6=Sunday)
@@ -490,11 +497,13 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         Round timestamps to specified granularity.
 
-        Args:
+        Parameters
+        ----------
             timestamps: Timestamps to round
             output_granularity: Granularity to apply ('day', 'hour', 'minute', 'second')
 
-        Returns:
+        Returns
+        -------
             Rounded timestamps
         """
         if output_granularity == "day":
@@ -513,12 +522,12 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         Process a batch of data by adding temporal noise.
 
-        Parameters:
+        Parameters
         -----------
             batch : pd.DataFrame
                 DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame with generalized datetimes
@@ -539,7 +548,7 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
                 datetime_series = DataHelper.convert_to_datetime(batch[field_name])
                 result[field_name] = datetime_series
             except Exception as e:
-                raise ValueError(
+                raise ValidationError(
                     f"Field '{field_name}' cannot be converted to datetime: {e}"
                 )
         else:
@@ -548,7 +557,9 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         # Validate the datetime series
         validation_result = validator.validate(datetime_series, field_name=field_name)
         if not validation_result.is_valid:
-            raise ValueError(f"Datetime validation failed: {validation_result.errors}")
+            raise ValidationError(
+                f"Datetime validation failed: {validation_result.errors}"
+            )
 
         # Handle nulls
         non_null_mask = datetime_series.notna()
@@ -577,11 +588,13 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         Collect temporal noise specific metrics.
 
-        Args:
+        Parameters
+        ----------
             original_data: Original datetime series
             anonymized_data: Datetime series after noise addition
 
-        Returns:
+        Returns
+        -------
             Dictionary of temporal-specific metrics
         """
         # Ensure datetime types
@@ -658,7 +671,8 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
+        -------
             Dictionary of parameters affecting the operation output
         """
 

@@ -15,22 +15,18 @@ Test Architecture:
 """
 
 import json
-import os
 import pandas as pd
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any, List
+from unittest.mock import Mock, patch
 import tempfile
-import numpy as np
 
 # Import the operation and related classes
 from pamola_core.anonymization.suppression.attribute_op import AttributeSuppressionOperation
-from pamola_core.anonymization.commons.validation.exceptions import FieldNotFoundError
+from pamola_core.errors.exceptions import FieldNotFoundError, ValidationError
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.utils.ops.op_result import OperationStatus
 
 
 class TestAttributeSuppressionOperation:
@@ -96,7 +92,7 @@ class TestAttributeSuppressionOperation:
         op = AttributeSuppressionOperation(**config)
         
         assert op.field_name == "sensitive_field"
-        assert op.mode == "REMOVE"
+        assert op.suppression_mode == "REMOVE"
         assert op.save_suppressed_schema == True
         assert op.additional_fields == []
         assert op._suppression_count == 0
@@ -110,17 +106,17 @@ class TestAttributeSuppressionOperation:
         
         assert op.field_name == "primary_field"
         assert op.additional_fields == ["secondary_field", "tertiary_field"]
-        assert op.mode == "REMOVE"
+        assert op.suppression_mode == "REMOVE"
         assert op.save_suppressed_schema == True
 
     def test_invalid_mode(self, test_config_data):
-        """Test that invalid mode raises ValueError."""
+        """Test that invalid suppression_mode raises ValidationError."""
         config = test_config_data["invalid_mode"]["config"]
-        
-        with pytest.raises(ValueError) as excinfo:
+
+        with pytest.raises(ValidationError) as excinfo:
             AttributeSuppressionOperation(**config)
-        
-        assert "only supports mode='REMOVE'" in str(excinfo.value)
+
+        assert "only supports" in str(excinfo.value) and "REMOVE" in str(excinfo.value)
 
     def test_config_access_methods(self, test_config_data):
         """Test configuration access methods."""
@@ -137,35 +133,23 @@ class TestAttributeSuppressionOperation:
     def test_basic_suppression(self, test_config_data):
         """Test basic attribute suppression functionality."""
         config = test_config_data["basic_attribute_suppression"]["config"]
-        
+
         op = AttributeSuppressionOperation(**config)
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             task_dir = Path(temp_dir)
-            
-            # Create a mock data source with get_settings method
+
+            # Create a mock data source with required attributes
             mock_data_source = Mock()
-            mock_data_source.get_settings.return_value = {}
-            
-            # Mock the execute method components
-            with patch.object(op, '_handle_preparation') as mock_prep, \
-                 patch.object(op, '_load_data_and_validate_input_parameters') as mock_load, \
-                 patch.object(op, '_get_cache', return_value=None), \
-                 patch.object(op, '_handle_metrics'), \
-                 patch.object(op, '_save_output'), \
-                 patch.object(op, '_handle_visualizations'), \
-                 patch.object(op, '_save_cache'):
-                
-                # Configure mocks
-                mock_prep.return_value = {"task_dir": task_dir}
-                df = self.get_fresh_suppression_df()
-                mock_load.return_value = (df, True)
-                
+            mock_data_source.encryption_keys = {}
+            mock_data_source.encryption_modes = {}
+            df = self.get_fresh_suppression_df()
+
+            # Mock _validate_and_get_dataframe to bypass data loading pipeline
+            with patch.object(op, '_validate_and_get_dataframe', return_value=df):
                 result = op.execute(mock_data_source, task_dir)
-                
+
                 assert result.status == OperationStatus.SUCCESS
-                assert mock_prep.called
-                assert mock_load.called
 
     def test_multiple_fields_suppression(self, test_config_data):
         """Test suppression of multiple fields."""
@@ -240,7 +224,7 @@ class TestAttributeSuppressionOperation:
         """Test handling of non-existent fields."""
         op = AttributeSuppressionOperation(
             field_name="non_existent_field",
-            mode="REMOVE"
+            suppression_mode="REMOVE"
         )
         
         df = self.get_fresh_suppression_df()
@@ -300,16 +284,15 @@ class TestAttributeSuppressionOperation:
         assert op.dask_partition_size == "100MB"
         
         # Test Dask processing logic (mocked)
-        with patch('pamola_core.anonymization.suppression.attribute_op.DASK_AVAILABLE', True):
-            with patch('pamola_core.anonymization.suppression.attribute_op.dd') as mock_dd:
-                mock_ddf = Mock()
-                mock_ddf.columns = ['distributed_field', 'other_field']
-                mock_ddf.drop.return_value = mock_ddf
-                
-                result = op._process_batch_dask(mock_ddf)
-                
-                assert result is not None
-                mock_ddf.drop.assert_called_once_with(columns=['distributed_field'])
+        with patch('pamola_core.anonymization.suppression.attribute_op.dd') as mock_dd:
+            mock_ddf = Mock()
+            mock_ddf.columns = ['distributed_field', 'other_field']
+            mock_ddf.drop.return_value = mock_ddf
+
+            result = op._process_batch_dask(mock_ddf)
+
+            assert result is not None
+            mock_ddf.drop.assert_called_once_with(columns=['distributed_field'])
 
     def test_advanced_data_writer_integration(self, test_config_data):
         """Test advanced DataWriter integration with multiple formats."""
@@ -318,7 +301,6 @@ class TestAttributeSuppressionOperation:
         op = AttributeSuppressionOperation(**config)
         
         assert op.use_encryption == True
-        assert op.encryption_mode == "AES"
         assert op.save_output == True
         assert op.output_format == "csv"
 
@@ -409,7 +391,7 @@ class TestAttributeSuppressionOperation:
         op = AttributeSuppressionOperation(**config)
         
         assert op.field_name == "minimal_field"
-        assert op.mode == "REMOVE"
+        assert op.suppression_mode == "REMOVE"
         assert op.additional_fields == []
         assert op.save_suppressed_schema == True  # Default value
 
@@ -418,7 +400,7 @@ class TestAttributeSuppressionOperation:
         op = AttributeSuppressionOperation(
             field_name="sensitive_field",
             additional_fields=["sensitive_field", "primary_field", "primary_field"],
-            mode="REMOVE"
+            suppression_mode="REMOVE"
         )
         
         df = self.get_fresh_suppression_df()
@@ -435,7 +417,7 @@ class TestAttributeSuppressionOperation:
         """Test handling of empty DataFrames."""
         op = AttributeSuppressionOperation(
             field_name="sensitive_field",
-            mode="REMOVE"
+            suppression_mode="REMOVE"
         )
         
         # Create empty DataFrame with columns
@@ -467,13 +449,8 @@ class TestAttributeSuppressionOperation:
         
         op = AttributeSuppressionOperation(**config)
         
-        # Test with various configurations
-        steps = op._compute_total_steps(
-            use_cache=True,
-            force_recalculation=False,
-            save_output=True,
-            generate_visualization=True
-        )
+        # Test with various configurations (uses op's own attributes)
+        steps = op._compute_total_steps()
         
         assert steps >= 5  # At least preparation, load, process, metrics, and cache steps
 
@@ -481,7 +458,7 @@ class TestAttributeSuppressionOperation:
         """Test error handling during metadata collection."""
         op = AttributeSuppressionOperation(
             field_name="sensitive_field",
-            mode="REMOVE"
+            suppression_mode="REMOVE"
         )
         
         df = self.get_fresh_suppression_df()

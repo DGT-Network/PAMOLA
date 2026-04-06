@@ -15,7 +15,7 @@ import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.organization import OrganizationGenerator
 from pamola_core.fake_data.schemas.organization_op_core_schema import FakeOrganizationOperationConfig
-from pamola_core.utils import io
+import pamola_core.utils.io as io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult
@@ -186,7 +186,7 @@ class FakeOrganizationOperation(GeneratorOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -199,20 +199,11 @@ class FakeOrganizationOperation(GeneratorOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
-        # Config logger task for operation
-        self.logger = kwargs.get("logger", self.logger)
-
-        # Start timing for performance metrics
-        self.start_time = time.time()
-        self.logger.info(
-            f"Starting {self.operation_name} operation at {self.start_time}"
-        )
-
         # Call parent execute method
         result = super().execute(
             data_source, task_dir, reporter, progress_tracker, **kwargs
@@ -232,11 +223,13 @@ class FakeOrganizationOperation(GeneratorOperation):
         """
         Process a batch of data to generate synthetic organization names.
 
-        Args:
+        Parameters
+        ----------
             batch: DataFrame batch to process
             kwargs: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed DataFrame batch
         """
         # Get the field value series
@@ -306,11 +299,13 @@ class FakeOrganizationOperation(GeneratorOperation):
         """
         Process a single value using the appropriate generation method with retry logic.
 
-        Args:
+        Parameters
+        ----------
             value: Original value
             **params: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed value
         """
         # Add time for detailed metrics
@@ -446,10 +441,12 @@ class FakeOrganizationOperation(GeneratorOperation):
         """
         Analyze the distribution of organization types in generated names.
 
-        Args:
+        Parameters
+        ----------
             df: Processed DataFrame
 
-        Returns:
+        Returns
+        -------
             Organization type distribution metrics
         """
         # Determine which field to analyze based on mode
@@ -514,10 +511,12 @@ class FakeOrganizationOperation(GeneratorOperation):
         """
         Analyze the distribution of regions in generated organization names.
 
-        Args:
+        Parameters
+        ----------
             df: Processed DataFrame
 
-        Returns:
+        Returns
+        -------
             Region distribution metrics
         """
         # Determine which field to analyze based on mode
@@ -577,10 +576,12 @@ class FakeOrganizationOperation(GeneratorOperation):
         """
         Analyze the distribution of prefixes and suffixes in generated names.
 
-        Args:
+        Parameters
+        ----------
             df: Processed DataFrame
 
-        Returns:
+        Returns
+        -------
             Prefix/suffix distribution metrics
         """
         # If we have detailed metrics and they're already collected, use them
@@ -706,11 +707,13 @@ class FakeOrganizationOperation(GeneratorOperation):
         """
         Calculate quality metrics comparing original and generated organization names.
 
-        Args:
+        Parameters
+        ----------
             original_series: Series with original organization names
             generated_series: Series with generated organization names
 
-        Returns:
+        Returns
+        -------
             Dictionary with quality metrics
         """
         metrics = {}
@@ -778,7 +781,7 @@ class FakeOrganizationOperation(GeneratorOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for numeric generalization

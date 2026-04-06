@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Cryptographic Provider Interface
 Description: Abstract interface for pluggable cryptographic providers in the PAMOLA system
 Author: PAMOLA Core Team
@@ -43,7 +42,7 @@ class CryptoProvider(ABC):
         """
         Encrypt a file and save it to a new location.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the file to encrypt
@@ -54,12 +53,12 @@ class CryptoProvider(ABC):
         **kwargs : dict
             Additional provider-specific parameters
 
-        Returns:
+        Returns
         --------
         Path
             Path to the encrypted file
 
-        Raises:
+        Raises
         -------
         EncryptionError
             If encryption fails
@@ -75,7 +74,7 @@ class CryptoProvider(ABC):
         """
         Decrypt a file and save it to a new location.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the encrypted file
@@ -86,12 +85,12 @@ class CryptoProvider(ABC):
         **kwargs : dict
             Additional provider-specific parameters
 
-        Returns:
+        Returns
         --------
         Path
             Path to the decrypted file
 
-        Raises:
+        Raises
         -------
         DecryptionError
             If decryption fails
@@ -106,7 +105,7 @@ class CryptoProvider(ABC):
         """
         Encrypt data in memory.
 
-        Parameters:
+        Parameters
         -----------
         data : str or bytes
             Data to encrypt
@@ -115,12 +114,12 @@ class CryptoProvider(ABC):
         **kwargs : dict
             Additional provider-specific parameters
 
-        Returns:
+        Returns
         --------
         Union[str, bytes, Dict[str, Any]]
             Encrypted data, possibly with metadata
 
-        Raises:
+        Raises
         -------
         EncryptionError
             If encryption fails
@@ -135,7 +134,7 @@ class CryptoProvider(ABC):
         """
         Decrypt data in memory.
 
-        Parameters:
+        Parameters
         -----------
         data : str, bytes, or Dict[str, Any]
             Data to decrypt, possibly with metadata
@@ -144,12 +143,12 @@ class CryptoProvider(ABC):
         **kwargs : dict
             Additional provider-specific parameters
 
-        Returns:
+        Returns
         --------
         Union[str, bytes]
             Decrypted data
 
-        Raises:
+        Raises
         -------
         DecryptionError
             If decryption fails
@@ -162,12 +161,12 @@ class CryptoProvider(ABC):
         """
         Check if this provider can decrypt the given file.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the file to check
 
-        Returns:
+        Returns
         --------
         bool
             True if this provider can decrypt the file, False otherwise

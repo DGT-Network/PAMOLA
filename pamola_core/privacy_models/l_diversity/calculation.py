@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - L-Diversity Processor
-----------------------------------------------------
 Advanced processor for l-diversity anonymization, ensuring compliance with privacy-preserving techniques.
 Designed for scalable, efficient anonymization with modular architecture.
 
@@ -35,7 +34,6 @@ Provides flexible and performance-optimized data privacy transformations with a 
 - Implement additional compliance audit mechanisms.
 """
 
-
 import logging
 from typing import Dict, List, Tuple, Optional, Any, Union
 
@@ -43,13 +41,12 @@ import numpy as np
 import pandas as pd
 from dask import dataframe as dd
 
-from pamola_core.configs.config_variables import L_DIVERSITY_DEFAULTS
 # PAMOLA pamola core imports
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
-from pamola_core.utils import progress
-from pamola_core.utils.group_processing import (
-    validate_anonymity_inputs
-)
+import pamola_core.utils.progress as progress
+from pamola_core.utils.group_processing import validate_anonymity_inputs
+from pamola_core.errors.exceptions import TypeValidationError, ValidationError
+
 
 class LDiversityCalculator(BasePrivacyModelProcessor):
     """
@@ -57,19 +54,21 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
     """
 
     def __init__(
-            self,
-            l: int = 3,
-            diversity_type: str = 'distinct',
-            c_value: float = 1.0,
-            k: int = 2,
-            config_override: Optional[Dict[str, Any]] = None,
-            use_dask: bool = False,
-            log_level: str = 'INFO',
-            adaptive_l: Optional[Dict[Tuple, int]] = None
+        self,
+        l: int = 3,
+        diversity_type: str = "distinct",
+        c_value: float = 1.0,
+        k: int = 2,
+        config_override: Optional[Dict[str, Any]] = None,
+        use_dask: bool = False,
+        log_level: str = "INFO",
+        adaptive_l: Optional[Dict[Tuple, int]] = None,
     ):
         """
         Initialize L-Diversity Processor
         """
+        from pamola_core.configs.config_variables import L_DIVERSITY_DEFAULTS
+
         # Initialize configuration
         self.config = dict(L_DIVERSITY_DEFAULTS)
         if config_override:
@@ -98,14 +97,14 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         Configure logging with flexible verbosity
 
-        Parameters:
+        Parameters
         -----------
         log_level : str
             Logging level (e.g., 'INFO', 'DEBUG', 'WARNING')
         """
         logging.basicConfig(
             level=getattr(logging, log_level.upper()),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
         self.logger = logging.getLogger(__name__)
 
@@ -113,45 +112,51 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         Validate configuration parameters
 
-        Raises:
+        Raises
         -------
         ValueError
             If configuration parameters are invalid
         """
-        valid_types = ['distinct', 'entropy', 'recursive']
+        valid_types = ["distinct", "entropy", "recursive"]
         if self.diversity_type not in valid_types:
-            raise ValueError(f"Invalid diversity type. Must be one of {valid_types}")
+            raise TypeValidationError(
+                message=f"Invalid diversity type. Must be one of {valid_types}",
+            )
 
         if self.l < 1 or self.k < 1:
-            raise ValueError("l and k values must be at least 1")
+            raise ValidationError("l and k values must be at least 1")
 
     def _get_adaptive_l(self, group_key: Tuple) -> int:
         """
         Retrieve adaptive l-level for specific group
 
-        Parameters:
+        Parameters
         -----------
         group_key : Tuple
             Quasi-identifier group key
 
-        Returns:
+        Returns
         --------
         int
             Adaptive l-level (falls back to default if not specified)
         """
         return self.adaptive_l.get(group_key, self.l)
 
+    def process(self, data):
+        """Process the input data."""
+        return None
+
     def calculate_group_diversity(
-            self,
-            data: Union[pd.DataFrame, dd.DataFrame],
-            quasi_identifiers: List[str],
-            sensitive_attributes: List[str],
-            force_recalculate: bool = False
+        self,
+        data: Union[pd.DataFrame, dd.DataFrame],
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str],
+        force_recalculate: bool = False,
     ) -> pd.DataFrame:
         """
         Calculate diversity metrics with centralized caching
 
-        Parameters:
+        Parameters
         -----------
         data : Union[pd.DataFrame, dd.DataFrame]
             Input dataset
@@ -162,7 +167,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         force_recalculate : bool, optional
             Force recalculation even if results exist in cache
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Group diversity metrics
@@ -172,7 +177,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         cache_key = (
             tuple(quasi_identifiers),
             tuple(sensitive_attributes),
-            self.diversity_type
+            self.diversity_type,
         )
 
         # Check cached results
@@ -195,13 +200,15 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         try:
             progress_bar = progress.ProgressBar(
                 total=len(grouped),
-                description=f"Calculating Group Diversity",
+                description="Calculating Group Diversity",
                 unit="grouped",
             )
             for group_name, group_data in grouped:
                 try:
                     # Use adaptive l-level
-                    group_key = (group_name if isinstance(group_name, tuple) else (group_name,))
+                    group_key = (
+                        group_name if isinstance(group_name, tuple) else (group_name,)
+                    )
                     adaptive_l = self._get_adaptive_l(group_key)
 
                     # Process group with NumPy-optimized calculations
@@ -210,7 +217,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
                         group_data,
                         quasi_identifiers,
                         sensitive_attributes,
-                        adaptive_l
+                        adaptive_l,
                     )
                     diversity_metrics.append(group_metrics)
                     progress_bar.update(1)
@@ -231,15 +238,20 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         return result
 
     # Redirecting methods to dedicated modules
-    def evaluate_privacy(self, data: pd.DataFrame, quasi_identifiers: List[str],
-                         sensitive_attributes: List[str] = None, **kwargs) -> Dict[str, Any]:
+    def evaluate_privacy(
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Evaluates privacy risks for the dataset using l-diversity principles.
 
         This method redirects to the privacy module while providing cached
         diversity calculations for efficiency.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -250,7 +262,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         **kwargs : dict
             Additional risk assessment parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Comprehensive privacy risk metrics
@@ -264,37 +276,45 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         # Ensure sensitive_attributes is a list
         if sensitive_attributes is None:
             # Try to find potential sensitive attributes (non-quasi-identifiers)
-            sensitive_attributes = [col for col in data.columns if col not in quasi_identifiers]
+            sensitive_attributes = [
+                col for col in data.columns if col not in quasi_identifiers
+            ]
 
         # Assess privacy risks using cached diversity calculations
         return risk_assessor.assess_privacy_risks(
-            data, quasi_identifiers, sensitive_attributes,
+            data,
+            quasi_identifiers,
+            sensitive_attributes,
             diversity_type=self.diversity_type,
             l_threshold=self.l,
             c_value=self.c_value,
-            **kwargs
+            **kwargs,
         )
 
-    def apply_model(self, data: pd.DataFrame, quasi_identifiers: List[str], suppression: bool = True,
-                    **kwargs) -> pd.DataFrame:
+    def apply_model(
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        suppression: bool = True,
+        **kwargs,
+    ) -> pd.DataFrame:
         """
         Redirects to the actual model application implementation.
         """
-        from pamola_core.privacy_models.l_diversity.apply_model import apply_model_impl
         return apply_model_impl(data, quasi_identifiers, suppression, **kwargs)
 
     def _process_group_diversity_vectorized(
-            self,
-            group_name: Union[Tuple, Any],
-            group_data: Union[pd.DataFrame, dd.DataFrame],
-            quasi_identifiers: List[str],
-            sensitive_attributes: List[str],
-            adaptive_l: int
+        self,
+        group_name: Union[Tuple, Any],
+        group_data: Union[pd.DataFrame, dd.DataFrame],
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str],
+        adaptive_l: int,
     ) -> Dict[str, Any]:
         """
         Vectorized group diversity processing with NumPy
 
-        Parameters:
+        Parameters
         -----------
         adaptive_l : int
             Adaptive l-level for this specific group
@@ -304,8 +324,10 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
 
         # Add quasi-identifier values
         group_metrics.update(
-            {qi: group_name[i] if isinstance(group_name, tuple) else group_name
-             for i, qi in enumerate(quasi_identifiers)}
+            {
+                qi: group_name[i] if isinstance(group_name, tuple) else group_name
+                for i, qi in enumerate(quasi_identifiers)
+            }
         )
 
         # NumPy-optimized calculations for each sensitive attribute
@@ -318,38 +340,37 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
             group_metrics[f"{sa}_distinct"] = distinct_values
 
             # Entropy calculation
-            if self.diversity_type == 'entropy':
+            if self.diversity_type == "entropy":
                 unique_values, counts = np.unique(sa_values, return_counts=True)
                 probabilities = counts / len(sa_values)
                 entropy = -np.sum(probabilities * np.log(probabilities + 1e-10))
                 group_metrics[f"{sa}_entropy"] = entropy
 
             # Recursive diversity
-            if self.diversity_type == 'recursive':
+            if self.diversity_type == "recursive":
                 unique_values, counts = np.unique(sa_values, return_counts=True)
                 # Sort in descending order and take top adaptive_l
                 sorted_indices = np.argsort(counts)[::-1]
                 top_counts = counts[sorted_indices[:adaptive_l]]
 
                 group_metrics[f"{sa}_recursive"] = (
-                    self._check_recursive_diversity_numpy(top_counts, self.c_value, adaptive_l)
+                    self._check_recursive_diversity_numpy(
+                        top_counts, self.c_value, adaptive_l
+                    )
                 )
 
         # Add group size
-        group_metrics['group_size'] = len(group_data)
+        group_metrics["group_size"] = len(group_data)
 
         return group_metrics
 
     def _check_recursive_diversity_numpy(
-            self,
-            value_counts: np.ndarray,
-            c_value: float,
-            l_threshold: int
+        self, value_counts: np.ndarray, c_value: float, l_threshold: int
     ) -> bool:
         """
         NumPy-optimized recursive diversity check
 
-        Parameters:
+        Parameters
         -----------
         value_counts : np.ndarray
             Counts of top values
@@ -358,7 +379,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         l_threshold : int
             Minimum threshold for diversity
 
-        Returns:
+        Returns
         --------
         bool
             Whether the group satisfies recursive diversity
@@ -370,3 +391,46 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         least_frequent_sum = np.sum(value_counts[1:])
 
         return most_frequent <= c_value * least_frequent_sum
+
+
+def apply_model_impl(
+    data: pd.DataFrame,
+    quasi_identifiers: List[str],
+    suppression: bool = True,
+    k: int = 3,
+    **kwargs,
+) -> pd.DataFrame:
+    """
+    Apply a simple k-anonymity-like model to the dataset.
+
+    Parameters
+    ----------
+        data: The input DataFrame.
+        quasi_identifiers: List of QI columns.
+        suppression: If True, suppress rows that don't satisfy k-anonymity.
+        k: The minimum group size required for anonymity.
+        kwargs: Additional parameters (e.g., generalization maps, config).
+
+    Returns
+    -------
+        Transformed DataFrame satisfying the privacy model.
+    """
+    if not quasi_identifiers:
+        raise ValidationError("At least one quasi-identifier must be provided.")
+
+    # Group by QI columns and count group sizes
+    group_sizes = data.groupby(quasi_identifiers).size().reset_index(name="group_size")
+
+    # Merge back group sizes into original data
+    merged_data = pd.merge(data, group_sizes, on=quasi_identifiers)
+
+    if suppression:
+        # Keep only rows in groups that meet the k threshold
+        anonymized_data = merged_data[merged_data["group_size"] >= k].drop(
+            columns="group_size"
+        )
+    else:
+        # Optionally you could generalize instead of suppressing
+        anonymized_data = merged_data.drop(columns="group_size")
+
+    return anonymized_data

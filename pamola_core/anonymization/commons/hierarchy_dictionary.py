@@ -1,6 +1,5 @@
 """
 AMOLA.CORE - Privacy-Preserving AI Data Processors
-------------------------------------------------------------
 Module:        Hierarchy Dictionary Management for Categorical Generalization
 Package:       pamola_core.anonymization.commons
 Version:       2.0.0
@@ -65,6 +64,11 @@ from pamola_core.anonymization.commons.text_processing_utils import normalize_te
 
 # Import core utilities
 from pamola_core.utils.io import read_json, read_full_csv, get_file_metadata
+from pamola_core.errors.exceptions import (
+    InvalidParameterError,
+    PamolaFileNotFoundError,
+    ValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +90,8 @@ class HierarchyDictionary:
 
     Thread-safe implementation with LRU caching for improved performance.
 
-    Attributes:
+    Attributes
+    ----------
         _data: Main storage mapping values to hierarchy information
         _format: Source file format ('json' or 'csv')
         _metadata: Dictionary metadata (version, type, etc.)
@@ -129,7 +134,7 @@ class HierarchyDictionary:
 
         Thread-safe method that loads and indexes hierarchy data.
 
-        Parameters:
+        Parameters
         -----------
         filepath : Union[str, Path]
             Path to dictionary file
@@ -138,7 +143,7 @@ class HierarchyDictionary:
         encryption_key : Optional[str]
             Encryption key if file is encrypted
 
-        Raises:
+        Raises
         -------
         ValueError
             If file format is unsupported or file is too large
@@ -151,13 +156,13 @@ class HierarchyDictionary:
 
             # Check file exists
             if not filepath.exists():
-                raise FileNotFoundError(f"Dictionary file not found: {filepath}")
+                raise PamolaFileNotFoundError(str(filepath))
 
             # Check file size
             file_info = get_file_metadata(filepath)
             size_mb = file_info.get("size_mb", 0)
             if size_mb > MAX_DICTIONARY_SIZE_MB:
-                raise ValueError(
+                raise ValidationError(
                     f"Dictionary file too large ({size_mb:.1f}MB). "
                     f"Maximum supported size is {MAX_DICTIONARY_SIZE_MB}MB"
                 )
@@ -170,9 +175,11 @@ class HierarchyDictionary:
                 format_type = self._detect_format(filepath)
 
             if format_type not in SUPPORTED_FORMATS:
-                raise ValueError(
-                    f"Unsupported format '{format_type}'. "
-                    f"Supported formats: {SUPPORTED_FORMATS}"
+                raise InvalidParameterError(
+                    param_name="format",
+                    param_value=format_type,
+                    reason=f"Unsupported format '{format_type}'. "
+                    f"Supported formats: {SUPPORTED_FORMATS}",
                 )
 
             self._format = format_type
@@ -212,7 +219,7 @@ class HierarchyDictionary:
 
         Thread-safe method for loading pre-processed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame with hierarchy data
@@ -231,7 +238,7 @@ class HierarchyDictionary:
 
         Thread-safe method for loading pre-processed dictionaries.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Dictionary with hierarchy data
@@ -253,7 +260,7 @@ class HierarchyDictionary:
 
         Cached method for improved performance on repeated lookups.
 
-        Parameters:
+        Parameters
         -----------
         value : str
             Value to look up
@@ -262,7 +269,7 @@ class HierarchyDictionary:
         normalize : bool
             Whether to normalize the lookup value
 
-        Returns:
+        Returns
         --------
         Optional[str]
             Generalized value or None if not found
@@ -311,7 +318,7 @@ class HierarchyDictionary:
 
         Public method for cache key generation.
 
-        Returns:
+        Returns
         --------
         Optional[str]
             SHA256 hash of the file or None if no file loaded
@@ -324,7 +331,7 @@ class HierarchyDictionary:
 
         Thread-safe validation of the loaded hierarchy.
 
-        Returns:
+        Returns
         --------
         Tuple[bool, List[str]]
             (is_valid, list_of_issues)
@@ -393,14 +400,14 @@ class HierarchyDictionary:
 
         Thread-safe coverage calculation.
 
-        Parameters:
+        Parameters
         -----------
         values : List[str]
             Values to check coverage for
         normalize : bool
             Whether to normalize values before checking
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Coverage statistics including percentage and missing values
@@ -436,12 +443,12 @@ class HierarchyDictionary:
         Get all unique values at a specific hierarchy level.
         Level 0 => return all key_column values.
 
-        Parameters:
+        Parameters
         -----------
         level : int
             Hierarchy level (1-based)
 
-        Returns:
+        Returns
         --------
         Set[str]
             Unique values at that level
@@ -464,12 +471,12 @@ class HierarchyDictionary:
         """
         Calculate SHA256 hash of file.
 
-        Parameters:
+        Parameters
         -----------
         filepath : Path
             Path to file
 
-        Returns:
+        Returns
         --------
         str
             Hexadecimal hash string
@@ -493,7 +500,7 @@ class HierarchyDictionary:
         elif suffix == ".csv":
             return "csv"
         else:
-            raise ValueError(f"Cannot detect format from extension: {suffix}")
+            raise ValidationError(f"Cannot detect format from extension: {suffix}")
 
     def _parse_json_hierarchy(self, data: Dict[str, Any]) -> None:
         """Parse JSON hierarchy format."""
@@ -553,7 +560,7 @@ class HierarchyDictionary:
 
         # First column is the key
         if not columns:
-            raise ValueError("CSV file has no columns")
+            raise ValidationError("CSV file has no columns")
 
         key_column = columns[0]
 
@@ -671,12 +678,3 @@ class HierarchyDictionary:
                     return True
 
         return False
-
-
-# Module metadata
-__version__ = "2.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main class
-__all__ = ["HierarchyDictionary"]

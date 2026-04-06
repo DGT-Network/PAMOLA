@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Add Or Modify Fields Operation
 Description: Operation for add/modify field based on lookups or conditions.
 Author: PAMOLA Core Team
@@ -39,6 +38,9 @@ from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import ValidationError, FeatureNotImplementedError
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
@@ -67,21 +69,22 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Initialize operation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation (default: "add_modify_fields_operation")
         field_operations : dict, optional
             Fields operations
         lookup_tables : dict, optional
-        **kwargs: dict
+            Lookup tables keyed by name.
+        **kwargs : dict
             Additional keyword arguments passed to TransformationOperation.
         """
         # Ensure default metadata
         kwargs.setdefault("name", name)
         kwargs.setdefault(
             "description",
-            f"Add or modify fields based on lookups or conditions.",
+            "Add or modify fields based on lookups or conditions.",
         )
 
         # --- Build config object ---
@@ -117,7 +120,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -130,7 +133,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -138,19 +141,18 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         try:
             # Initialize timing and result
             self.start_time = time.time()
-
-            # Config logger task for operations
             self.logger = kwargs.get("logger", self.logger)
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
+            )
 
             result = OperationResult(status=OperationStatus.PENDING)
 
-            # Create DataWriter for consistent file operations
-            writer = DataWriter(
-                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-            )
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -160,11 +162,19 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 cache_dir=dirs["cache"],
             )
 
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
             # Save configuration to task directory
             self.save_config(task_dir)
-
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -193,12 +203,11 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Validation
@@ -208,7 +217,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             try:
                 if reporter:
                     reporter.add_operation(
-                        name=f"Add/modify fields",
+                        name="Add/modify fields",
                         details={
                             "operation_type": self.operation_name,
                             "field_operations": self.field_operations,
@@ -216,7 +225,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         },
                     )
 
-                # Validation
                 # Get a copy of the original data for metrics calculation
                 original_df = (
                     df.map_partitions(lambda partition: partition.copy(deep=True))
@@ -224,12 +232,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     else df.copy(deep=True)
                 )
             except Exception as e:
-                error_message = f"Validation error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_VALIDATION_ERROR,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "context": "add_field_operations",
+                        "reason": str(e),
+                    },
                 )
 
             # Step 3: Check Cache (if enabled and not forced to recalculate)
@@ -252,7 +262,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Add/modify fields (from cache)", details={"cached": True}
+                            "Add/modify fields (from cache)", details={"cached": True}
                         )
                     return cache_result
 
@@ -263,12 +273,18 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             try:
                 processed_df = self._process_dataframe(df, progress_tracker)
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={
+                        "operation": self.operation_name,
+                        "field": self.field_label,
+                    },
+                    message_kwargs={
+                        "field_name": self.field_label,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 5: Metrics
@@ -341,12 +357,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_label},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -382,7 +400,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         details["generalization_ratio"] = generalization_ratio
 
                 # Add the operation to the reporter
-                reporter.add_operation(f"Add/modify fields completed", details=details)
+                reporter.add_operation("Add/modify fields completed", details=details)
 
             self.logger.info("Cleaning up memory after all file operations")
             self._cleanup_memory(
@@ -393,26 +411,35 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
             # Set success status
             result.status = OperationStatus.SUCCESS
-
+            result.execution_time = self.execution_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
+            )
             return result
+
         except Exception as e:
-            # Handle unexpected errors
-            error_message = f"Error in add/modify fields operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_label},
+                message_kwargs={
+                    "field_name": self.field_label,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             Batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed batch
@@ -551,25 +578,25 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Process a single value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Value to process
         **params : dict
             Additional parameters for processing
 
-        Returns:
+        Returns
         --------
         Any
             Processed value
         """
-        raise NotImplementedError("Not implement")
+        raise FeatureNotImplementedError("Not implement")
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Operation parameters
@@ -590,14 +617,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Union[pd.DataFrame, dd.DataFrame]
             Processed DataFrame
@@ -840,7 +867,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             processed_partitions = df.map_partitions(process_partition)
 
             return processed_partitions, True
-        except Exception as e:
+        except Exception:
             return df, False
 
     def _process_dataframe_using_joblib(
@@ -886,7 +913,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 try:
                     processed_chunk = process_function(chunk)
                     return processed_chunk
-                except Exception as e:
+                except Exception:
                     return None
 
             # Directly use the generator to iterate through chunks
@@ -908,7 +935,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 return df, False
 
             return pd.concat(processed_chunks, ignore_index=True), True
-        except Exception as e:
+        except Exception:
             return df, False
 
     def _process_dataframe_using_chunk(
@@ -959,7 +986,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
                     # Accumulate the results
                     processed_chunks.append(processed_chunk)
-                except Exception as e:
+                except Exception:
                     # Log any error encountered while processing the chunk
                     processed_chunks.append(None)
                     continue  # Continue with the next chunk even if an error occurs
@@ -969,7 +996,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 return df, False
 
             return pd.concat(processed_chunks, ignore_index=True), True
-        except Exception as e:
+        except Exception:
             return df, False
 
     def _calculate_all_metrics(
@@ -980,14 +1007,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Calculate all metrics for operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original data
         processed_df : Union[pd.DataFrame, dd.DataFrame]
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -1018,14 +1045,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Collect metrics for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original data
         processed_df : Union[pd.DataFrame, dd.DataFrame]
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -1126,20 +1153,20 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Calculate metrics comparing two datasets.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original DataFrame before transformation.
         transformed_df : Union[pd.DataFrame, dd.DataFrame]
             The transformed DataFrame after processing.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing comparison metrics.
         """
         if original_df is None or transformed_df is None:
-            raise ValueError("Both DataFrames must be provided")
+            raise ValidationError("Both DataFrames must be provided")
 
         start_time = time.time()
 
@@ -1172,7 +1199,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             elapsed_time = time.time() - start_time
 
             return result
-        except Exception as e:
+        except Exception:
             raise
 
     def _compare_row_counts(
@@ -1183,14 +1210,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Compare the row counts between the original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original DataFrame.
         transformed_df : Union[pd.DataFrame, dd.DataFrame]
             The transformed DataFrame.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing row count differences and percentage change.
@@ -1226,14 +1253,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Compare the column counts between the original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original DataFrame.
         transformed_df : pd.DataFrame
             The transformed DataFrame.
 
-        Returns:
+        Returns
         --------
         Tuple containing:
             - Dict with column count differences and percentage change.
@@ -1272,14 +1299,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Compare values and nulls in common columns between the original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original DataFrame.
         transformed_df : Union[pd.DataFrame, dd.DataFrame]
             The transformed DataFrame.
 
-        Returns:
+        Returns
         --------
         Tuple containing:
             - Dictionary of value changes for common columns.
@@ -1358,14 +1385,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Count the value changes between the original and transformed columns.
 
-        Parameters:
+        Parameters
         -----------
         original_col : pd.Series
             The original column values.
         transformed_col : pd.Series
             The transformed column values.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing the number of changes and the percentage change.
@@ -1394,14 +1421,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Count the null value changes between the original and transformed columns.
 
-        Parameters:
+        Parameters
         -----------
         original_col : pd.Series
             The original column values.
         transformed_col : pd.Series
             The transformed column values.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing the number of null changes and the percentage change.
@@ -1428,14 +1455,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Compare the memory usage between the original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original DataFrame.
         transformed_df : Union[pd.DataFrame, dd.DataFrame]
             The transformed DataFrame.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing memory usage comparison.
@@ -1490,7 +1517,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original data
@@ -1517,7 +1544,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         operation_timestamp : str, optional
             Timestamp of the operation, if any  (default: None)
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1552,7 +1579,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1564,7 +1591,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1611,17 +1638,17 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1667,7 +1694,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1706,7 +1733,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Generate visualizations for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original data before processing
@@ -1727,7 +1754,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         operation_timestamp : str, optional
             Timestamp of the operation, if any  (default: None)
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1742,10 +1769,10 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
         # Check if visualization should be skipped
         if vis_backend is None:
-            self.logger.info(f"Skipping visualization (backend=None)")
+            self.logger.info("Skipping visualization (backend=None)")
             return visualization_paths
 
-        self.logger.info(f"[VIZ] Starting visualization generation")
+        self.logger.info("[VIZ] Starting visualization generation")
         self.logger.debug(
             f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
         )
@@ -1816,7 +1843,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             if viz_result.startswith("Error"):
                 self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                visualization_paths[f"fields_count_comparison"] = viz_path
+                visualization_paths["fields_count_comparison"] = viz_path
 
             # Distribution statistics for new/modified fields
             distribution_stats = metrics.get("distribution_statistics", {})
@@ -1824,7 +1851,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             if distribution_stats:
                 for field, distribution_statistic in distribution_stats.items():
                     viz_data = distribution_statistic
-                    
+
                     # Check if viz_data is not empty before creating visualization
                     if viz_data and len(viz_data) > 0:
                         viz_path = (
@@ -1845,13 +1872,21 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         )
 
                         if viz_result.startswith("Error"):
-                            self.logger.error(f"Failed to create visualization for field '{field}': {viz_result}")
+                            self.logger.error(
+                                f"Failed to create visualization for field '{field}': {viz_result}"
+                            )
                         else:
-                            visualization_paths[f"distribution_statistic_{field.lower()}"] = viz_path
+                            visualization_paths[
+                                f"distribution_statistic_{field.lower()}"
+                            ] = viz_path
                     else:
-                        self.logger.warning(f"No distribution statistics data for field '{field}' - skipping visualization")
+                        self.logger.warning(
+                            f"No distribution statistics data for field '{field}' - skipping visualization"
+                        )
             else:
-                self.logger.info("No distribution statistics available - skipping all distribution visualizations")
+                self.logger.info(
+                    "No distribution statistics available - skipping all distribution visualizations"
+                )
 
             # Correlation between original and modified fields
             viz_data = metrics["correlations"]
@@ -1866,7 +1901,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 viz_result = create_bar_plot(
                     data=viz_data,
                     output_path=viz_path,
-                    title=f"Correlations",
+                    title="Correlations",
                     x_label="Field",
                     y_label="Correlation",
                     sort_by="key",
@@ -1878,7 +1913,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 if viz_result.startswith("Error"):
                     self.logger.error(f"Failed to create visualization: {viz_result}")
                 else:
-                    visualization_paths[f"correlations"] = viz_path
+                    visualization_paths["correlations"] = viz_path
 
             self.logger.info(
                 f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations"
@@ -1890,7 +1925,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             self.logger.error(
                 f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}"
             )
-            self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
+            self.logger.debug("[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
 
@@ -1900,12 +1935,12 @@ def create_add_modify_fields_operation(**kwargs) -> AddOrModifyFieldsOperation:
     """
     Create add or modify fields operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     AddOrModifyFieldsOperation
         Configured add or modify fields operation

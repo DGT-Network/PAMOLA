@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        DataFrame Utilities for NLP
 Package:       pamola_core.utils.nlp.dataframe_utils
 Version:       1.1.1
@@ -63,28 +62,10 @@ import logging
 from typing import Union, Optional, Tuple, List, TypedDict
 
 import pandas as pd
+from pamola_core.errors.exceptions import ColumnNotFoundError, MarkerValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-
-# Custom exceptions
-class DataFrameProcessingError(Exception):
-    """Base exception for DataFrame processing errors."""
-
-    pass
-
-
-class ColumnNotFoundError(DataFrameProcessingError):
-    """Raised when required column is not found."""
-
-    pass
-
-
-class MarkerValidationError(DataFrameProcessingError):
-    """Raised when marker validation fails."""
-
-    pass
 
 
 # Type definitions
@@ -255,8 +236,8 @@ def prepare_marked_column(
     # Validate source column exists
     if source not in df.columns:
         raise ColumnNotFoundError(
-            f"Source column '{source}' not found. "
-            f"Available columns: {', '.join(df.columns[:10])}..."
+            column_name=source,
+            available_columns=list(df.columns),
         )
 
     if clear_target:
@@ -437,8 +418,8 @@ def create_column_backup(
     """
     if source_column not in df.columns:
         raise ColumnNotFoundError(
-            f"Source column '{source_column}' not found. "
-            f"Available columns: {', '.join(df.columns[:10])}..."
+            column_name=source_column,
+            available_columns=list(df.columns),
         )
 
     backup_column = f"{source_column}{backup_suffix}"
@@ -669,8 +650,8 @@ def compare_columns(
 
     if missing_cols:
         raise ColumnNotFoundError(
-            f"Column(s) not found: {', '.join(missing_cols)}. "
-            f"Available columns: {', '.join(df.columns[:10])}..."
+            column_name=missing_cols,
+            available_columns=list(df.columns),
         )
 
     # For small DataFrames or when chunksize not specified, process all at once

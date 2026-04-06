@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Metric Normalization Utilities
 Package:       pamola_core.metrics.commons.normalize
 Version:       1.0.0
@@ -33,6 +32,7 @@ Dependencies:
 from typing import Any, Dict, Tuple
 import numpy as np
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from pamola_core.errors.exceptions import InvalidParameterError
 
 
 def normalize_metric_value(
@@ -113,7 +113,11 @@ def normalize_array_np(values: np.ndarray, method: str = "minmax") -> np.ndarray
         return (values - mean) / std
 
     else:
-        raise ValueError(f"Unsupported normalization method: {method}")
+        raise InvalidParameterError(
+            param_name="method",
+            param_value=method,
+            reason=f"Unsupported normalization method: {method}",
+        )
 
 
 def normalize_array_sklearn(data: np.ndarray, method: str = "zscore") -> np.ndarray:
@@ -164,21 +168,25 @@ def normalize_array_sklearn(data: np.ndarray, method: str = "zscore") -> np.ndar
         return data / total if total > 0 else data
 
     else:
-        raise ValueError(f"Unknown normalization method: {method}")
+        raise InvalidParameterError(
+            param_name="method",
+            param_value=method,
+            reason=f"Unknown normalization method: {method}",
+        )
 
 
 def round_metric_values(metrics: Dict[str, Any], decimals: int = 2) -> Dict[str, Any]:
     """
     Round numeric values in a metrics dictionary for better readability.
 
-    Parameters:
+    Parameters
     -----------
     metrics : dict
         Dictionary containing metric values.
     decimals : int, optional
         Number of decimal places to round to (default: 2).
 
-    Returns:
+    Returns
     --------
     dict
         Dictionary with rounded metric values.

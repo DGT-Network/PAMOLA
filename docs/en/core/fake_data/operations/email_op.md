@@ -1,48 +1,48 @@
-# EmailOperation Documentation
+# FakeEmailOperation Documentation
 
 ## Purpose
 
-The `EmailOperation` is a specialized operation class in the fake data generation system designed to process email addresses in datasets. It replaces original email addresses with synthetic alternatives while preserving statistical properties, domain characteristics, and maintaining consistency across the dataset.
+The `FakeEmailOperation` is a specialized operation class in the fake data generation system designed to process email addresses in datasets. It replaces original email addresses with synthetic alternatives while preserving statistical properties, domain characteristics, and maintaining consistency across the dataset.
 
 ## Features
 
 - Batch processing of email fields in datasets
-- Support for both enrichment (adding new columns) and replacement modes
-- Utilization of name fields to generate more realistic email addresses
-- Configurable strategies for handling null values
-- Consistent mapping between original and synthetic emails
-- Retry mechanism for error handling
+- Support for format control (name_surname, surname_name, nickname, existing_domain)
+- Utilization of name fields to generate realistic email addresses
+- Domain preservation and business domain controls
+- Configurable strategies for invalid email handling
+- Numeric suffix probability control
+- Retry mechanism for generation failures
 - Detailed metrics collection and visualization
 - Domain distribution and format analytics
-- Quality assessment of generated emails
+- PRGN-based consistency mechanism
 
 ## Architecture
 
 ### Module Position
 
-The `EmailOperation` is part of the `pamola_core.fake_data.operations` package in the PAMOLA CORE framework:
+The `FakeEmailOperation` is part of the `pamola_core.fake_data.operations` package in the PAMOLA CORE framework:
 
 ```
 pamola_core/fake_data/
 ├── __init__.py
 ├── operations/
 │   ├── __init__.py
-│   └── email_op.py        # EmailOperation implementation
-├── commons/
-│   ├── metrics.py         # Metrics utilities used by operation
-│   └── operations.py      # Base operation classes
+│   └── email_op.py        # FakeEmailOperation implementation
 ├── generators/
 │   └── email.py           # EmailGenerator used by operation
-└── mapping_store.py       # Mapping storage used by operation
+├── schemas/
+│   └── email_op_core_schema.py  # FakeEmailOperationConfig
+└── base_generator_op.py   # GeneratorOperation base class
 ```
 
 ### Dependencies
 
 - `GeneratorOperation` - Parent class providing base operation functionality
-- `EmailGenerator` - Pamola Core generator for email addresses
-- `PRNGenerator` - For deterministic generation
-- `MappingStore` - For storing mappings between original and synthetic data
-- `metrics` - For collecting and analyzing operation results
+- `EmailGenerator` - Generator for synthetic email addresses
+- PRGN (Pseudo-Random Number Generator) - For deterministic generation with context_salt
+- Configuration schema: `FakeEmailOperationConfig` - For validation
+- `io` utilities - For data reading/writing
 
 ### Data Flow
 
@@ -80,30 +80,26 @@ graph TD
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
 | `field_name` | str | Field to process (containing email addresses) | Required |
-| `mode` | str | Operation mode (REPLACE or ENRICH) | `"ENRICH"` |
-| `output_field_name` | Optional[str] | Name for the output field (if mode=ENRICH) | `None` |
 | `domains` | Optional[Union[List[str], str]] | List of domains or path to domain dictionary | `None` |
-| `format` | Optional[str] | Format for email generation | `None` |
+| `format` | Optional[str] | Email format (name_surname, surname_name, nickname, existing_domain) | `None` |
 | `format_ratio` | Optional[Dict[str, float]] | Distribution of format usage | `None` |
 | `first_name_field` | Optional[str] | Field containing first names | `None` |
 | `last_name_field` | Optional[str] | Field containing last names | `None` |
 | `full_name_field` | Optional[str] | Field containing full names | `None` |
 | `name_format` | Optional[str] | Format of full names (FL, FML, LF, etc.) | `None` |
 | `validate_source` | bool | Whether to validate source email addresses | `True` |
-| `handle_invalid_email` | str | How to handle invalid emails | `"generate_new"` |
-| `batch_size` | int | Number of records to process in one batch | `10000` |
-| `null_strategy` | str | Strategy for handling NULL values | `"PRESERVE"` |
-| `consistency_mechanism` | str | Method for ensuring consistency | `"prgn"` |
-| `mapping_store_path` | Optional[str] | Path to store mappings | `None` |
-| `key` | Optional[str] | Key for encryption/PRGN | `None` |
-| `save_mapping` | bool | Whether to save mapping to file | `False` |
-| `separator_options` | Optional[List[str]] | List of separators to use | `None` |
+| `handle_invalid_email` | str | How to handle invalid emails (generate_new, keep_empty, etc.) | `"generate_new"` |
+| `nicknames_dict` | Optional[str] | Path to nickname mapping file | `None` |
+| `max_length` | int | Maximum email length | `254` |
+| `separator_options` | Optional[List[str]] | List of separators to use | `['.', '_', '']` |
 | `number_suffix_probability` | float | Probability of adding number suffix | `0.4` |
 | `preserve_domain_ratio` | float | Probability of preserving original domain | `0.5` |
 | `business_domain_ratio` | float | Probability of using business domains | `0.2` |
 | `detailed_metrics` | bool | Whether to collect detailed metrics | `False` |
-| `error_logging_level` | str | Level for error logging | `"WARNING"` |
 | `max_retries` | int | Maximum number of retries for generation on error | `3` |
+| `key` | Optional[str] | Key for PRGN consistency | `None` |
+| `context_salt` | Optional[str] | Additional context salt for PRGN to enhance uniqueness | `None` |
+| `**kwargs` | dict | Additional BaseOperation parameters (chunk_size, etc.) | - |
 
 ### Main Methods
 
@@ -141,108 +137,109 @@ graph TD
 ### Basic Usage
 
 ```python
-from pamola_core.fake_data.operations.email_op import EmailOperation
+from pamola_core.fake_data.operations.email_op import FakeEmailOperation
+from pamola_core.utils.ops.op_data_source import DataSource
 from pathlib import Path
-from pamola_core.utils.task_reporting import Reporter
 
-# Create an email operation for enrichment mode
-email_op = EmailOperation(
+# Create a data source
+data_source = DataSource.from_file_path("data.csv", load=True)
+
+# Create an email operation
+email_op = FakeEmailOperation(
     field_name="email",
-    mode="ENRICH"
+    format="name_surname"
 )
 
 # Execute operation
-reporter = Reporter()
 result = email_op.execute(
-    data_source="path/to/data.csv",
-    task_dir=Path("./task_directory"),
-    reporter=reporter
+    data_source=data_source,
+    task_dir=Path("./output"),
+    reporter=None
 )
 
 # Check result
-if result.success:
-    print(f"Processing completed. Results saved to {result.output_path}")
+if result.status == "success":
+    print(f"Processing completed")
+    print(f"Output shape: {result.data.shape}")
 else:
-    print(f"Processing failed: {result.error_message}")
+    print(f"Processing failed: {result.error}")
 ```
 
 ### Advanced Configuration with Name Fields
 
 ```python
-from pamola_core.fake_data.operations.email_op import EmailOperation
-import pandas as pd
+from pamola_core.fake_data.operations.email_op import FakeEmailOperation
+from pamola_core.utils.ops.op_data_source import DataSource
 from pathlib import Path
-from pamola_core.utils.task_reporting import Reporter
 
-# Create a DataFrame with name fields
-df = pd.DataFrame({
-    'first_name': ['John', 'Jane', 'Robert'],
-    'last_name': ['Smith', 'Doe', 'Johnson'],
-    'email': ['john.smith@example.com', 'jane.doe@company.org', 'robert.johnson@gmail.com']
-})
+# Create a data source with name fields
+data_source = DataSource.from_file_path("data.csv", load=True)
 
-# Create a configured email operation
-email_op = EmailOperation(
+# Create a configured email operation with name-based generation
+email_op = FakeEmailOperation(
     field_name="email",
-    mode="REPLACE",
     first_name_field="first_name",
     last_name_field="last_name",
     format="name_surname",
+    format_ratio={"name_surname": 0.6, "surname_name": 0.4},
     domains=["newdomain.com", "synthetic.org"],
-    consistency_mechanism="mapping",
-    mapping_store_path="./mappings/email_mappings.json",
-    save_mapping=True,
-    detailed_metrics=True
+    preserve_domain_ratio=0.3,
+    business_domain_ratio=0.2,
+    separator_options=[".", "_"],
+    number_suffix_probability=0.5,
+    detailed_metrics=True,
+    key="consistent_key",
+    context_salt="salt123"
 )
 
 # Execute operation
-reporter = Reporter()
 result = email_op.execute(
-    data_source=df,
-    task_dir=Path("./task_directory"),
-    reporter=reporter
+    data_source=data_source,
+    task_dir=Path("./output"),
+    reporter=None
 )
 
 # Display processed data
 print(result.data.head())
+print(f"Metrics: {result.metrics}")
 ```
 
-### Batch Processing with Metrics
+### Configuration with Detailed Metrics
 
 ```python
-from pamola_core.fake_data.operations.email_op import EmailOperation
-import pandas as pd
+from pamola_core.fake_data.operations.email_op import FakeEmailOperation
+from pamola_core.utils.ops.op_data_source import DataSource
 from pathlib import Path
-import json
-from pamola_core.utils.task_reporting import Reporter
 
-# Create operation with detailed metrics
-email_op = EmailOperation(
+# Create data source
+data_source = DataSource.from_file_path("large_dataset.csv", load=True)
+
+# Create operation with detailed metrics and error handling
+email_op = FakeEmailOperation(
     field_name="contact_email",
-    mode="ENRICH",
-    output_field_name="synthetic_email",
-    batch_size=5000,
-    null_strategy="REPLACE",
+    format="name_surname",
+    validate_source=True,
+    handle_invalid_email="generate_new",
     detailed_metrics=True,
-    error_logging_level="INFO",
-    max_retries=5
+    max_retries=5,
+    number_suffix_probability=0.3,
+    preserve_domain_ratio=0.4,
+    business_domain_ratio=0.3,
+    chunk_size=5000  # BaseOperation parameter for large dataset handling
 )
 
 # Execute operation
-reporter = Reporter()
 result = email_op.execute(
-    data_source="path/to/large_dataset.csv",
-    task_dir=Path("./output_directory"),
-    reporter=reporter
+    data_source=data_source,
+    task_dir=Path("./output"),
+    reporter=None
 )
 
 # Analyze metrics
-with open(result.metrics_path, 'r') as f:
-    metrics = json.load(f)
-
-print(f"Total emails processed: {metrics['original_data']['total_records']}")
-print(f"Domain preservation ratio: {metrics['quality_metrics'].get('domain_preservation_ratio', 'N/A')}")
-print(f"Emails generated per second: {metrics['performance']['records_per_second']}")
+if result.metrics:
+    print(f"Total emails processed: {result.metrics.get('total_records', 'N/A')}")
+    print(f"Success rate: {result.metrics.get('success_rate', 'N/A')}")
+    print(f"Generation time: {result.metrics.get('execution_time', 'N/A')}")
 ```
 
 ## Limitations

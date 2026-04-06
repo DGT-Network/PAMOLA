@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Numeric Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -46,6 +45,8 @@ from pamola_core.profiling.commons.numeric_utils import (
     process_with_dask,
     process_with_joblib,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.schemas.numeric_core_schema import NumericOperationConfig
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
@@ -66,7 +67,7 @@ from pamola_core.utils.visualization import (
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ class NumericAnalyzer:
         """
         Analyze a numeric field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -128,7 +129,7 @@ class NumericAnalyzer:
             - chunk_size: size of chunks for processing (default: 10000)
             - normality_test_method: method for normality testing (default: 'all')
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -267,7 +268,7 @@ class NumericAnalyzer:
                 flag_processed = False
 
             if not flag_processed:
-                logger.exception(f"Error in processing")
+                logger.exception("Error in processing")
 
             if progress:
                 progress.update(
@@ -383,14 +384,14 @@ class NumericAnalyzer:
         """
         Estimate resources needed for analyzing the numeric field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -530,7 +531,7 @@ class NumericOperation(FieldOperation):
         """
         Execute the numeric analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -543,45 +544,54 @@ class NumericOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
             global logger
             if kwargs.get("logger"):
                 logger = kwargs.get("logger")
+            logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
 
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
 
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            # Save configuration
-            self.save_config(task_dir)
-
-            # Initialize timing and result
-            self.start_time = time.time()
-            result = OperationResult(status=OperationStatus.SUCCESS)
-
-            logger.info(
-                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
-                f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
-            )
-
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+            output_dir = dirs["output"]
+            visualizations_dir = dirs["visualizations"]
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
                 cache_dir=dirs["cache"],
             )
 
-            output_dir = dirs["output"]
-            visualizations_dir = dirs["visualizations"]
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=logger,
+                operation_name=self.operation_name,
+            )
+
+            # Save configuration
+            self.save_config(task_dir)
+
+            logger.info(
+                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
+                f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
+            )
 
             # Update progress if tracker provided
             if progress_tracker:
@@ -590,7 +600,6 @@ class NumericOperation(FieldOperation):
                 )
 
             # Get DataFrame from data source
-            dataset_name = kwargs.get("dataset_name", "main")
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
             )
@@ -600,19 +609,23 @@ class NumericOperation(FieldOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Check if field exists
             if self.field_name not in df.columns:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Field {self.field_name} not found in DataFrame",
+                return self.error_handler.handle_error(
+                    error=ValueError(f"Field {self.field_name} not found in DataFrame"),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Add operation to reporter
@@ -629,6 +642,7 @@ class NumericOperation(FieldOperation):
 
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
+                logger.info("Checking operation cache...")
                 cached_result = self._check_cache(df)
                 if cached_result:
                     logger.info(f"Using cached results for {self.field_name}")
@@ -669,9 +683,15 @@ class NumericOperation(FieldOperation):
             artifacts = []
             # Check for errors
             if "error" in analysis_results:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=analysis_results["error"],
+                return self.error_handler.handle_error(
+                    error=RuntimeError(analysis_results["error"]),
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": analysis_results["error"],
+                    },
                 )
 
             # Update progress
@@ -818,25 +838,25 @@ class NumericOperation(FieldOperation):
                 instance=self,
             )
 
-            return result
-        except Exception as e:
-            logger.exception(f"Error in numeric operation for {self.field_name}: {e}")
-
-            # Update progress tracker on error
-            if progress_tracker:
-                progress_tracker.update(0, {"step": "Error", "error": str(e)})
-
-            # Add error to reporter
-            reporter.add_operation(
-                f"Error analyzing {self.field_name}",
-                status="error",
-                details={"error": str(e)},
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
             )
+            return result
 
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error analyzing numeric field {self.field_name}: {str(e)}",
-                exception=e,
+        except Exception as e:
+            logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _generate_visualizations(
@@ -853,7 +873,7 @@ class NumericOperation(FieldOperation):
         """
         Generate visualizations for the numeric field analysis.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -874,7 +894,7 @@ class NumericOperation(FieldOperation):
         operation_timestamp : str
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         List[Dict[str, str]]
             Information of visualizations
@@ -1018,12 +1038,12 @@ class NumericOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -1037,13 +1057,13 @@ class NumericOperation(FieldOperation):
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
+            logger.debug(f"Checking cache for key: {cache_key}")
             cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
             if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
+                logger.info("No cached result found, proceeding with operation")
                 return None
 
             result = get_cache_result(cached_result)
@@ -1062,7 +1082,7 @@ class NumericOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
@@ -1073,7 +1093,7 @@ class NumericOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1106,9 +1126,9 @@ class NumericOperation(FieldOperation):
             )
 
             if success:
-                logger.info(f"Successfully saved results to cache")
+                logger.info("Successfully saved results to cache")
             else:
-                logger.warning(f"Failed to save results to cache")
+                logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -1119,7 +1139,7 @@ class NumericOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -1153,7 +1173,7 @@ class NumericOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -1178,7 +1198,7 @@ class NumericOperation(FieldOperation):
         operation_timestamp : str
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         List[Dict[str, str]]
             Dictionary with visualization types and paths
@@ -1213,7 +1233,7 @@ class NumericOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    logger.info(f"[DIAG] Checking context variables...")
+                    logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         logger.info(
@@ -1223,7 +1243,7 @@ class NumericOperation(FieldOperation):
                         logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
 
                     # Generate visualizations with visualization context parameters
-                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1268,17 +1288,17 @@ class NumericOperation(FieldOperation):
                     logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1324,7 +1344,7 @@ class NumericOperation(FieldOperation):
             logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = []
 
         # Register visualization artifacts
@@ -1360,7 +1380,7 @@ def analyze_numeric_fields(
     """
     Analyze multiple numeric fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1373,7 +1393,7 @@ def analyze_numeric_fields(
     **kwargs : dict
         Additional parameters for the operations
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results

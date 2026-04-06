@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Correlation Analysis Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -29,13 +28,16 @@ from datetime import datetime
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Optional
 import pandas as pd
 from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation,
     analyze_correlation_matrix,
     estimate_resources,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import FieldNotFoundError
 from pamola_core.profiling.schemas.correlation_core_schema import (
     CorrelationOperationConfig,
 )
@@ -45,11 +47,10 @@ from pamola_core.profiling.schemas.correlation_matrix_core_schema import (
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
-    load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.progress import ProgressTracker, HierarchicalProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation, BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -65,7 +66,7 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 
 class CorrelationAnalyzer:
@@ -91,7 +92,7 @@ class CorrelationAnalyzer:
         """
         Analyze the correlation between two fields in a DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The input DataFrame containing the data.
@@ -108,7 +109,7 @@ class CorrelationAnalyzer:
         **kwargs : dict
             Additional keyword arguments for correlation analysis.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing the results of the correlation analysis, including method, coefficient, p-value, and plot data.
@@ -134,7 +135,7 @@ class CorrelationAnalyzer:
         """
         Create a correlation matrix for multiple fields.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -145,7 +146,7 @@ class CorrelationAnalyzer:
         **kwargs : dict
             Additional parameters for analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with correlation matrix and supporting information
@@ -161,7 +162,7 @@ class CorrelationAnalyzer:
         """
         Estimate resources needed for correlation analysis.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -170,7 +171,7 @@ class CorrelationAnalyzer:
         field2 : str
             Name of the second field
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -256,7 +257,7 @@ class CorrelationOperation(FieldOperation):
         """
         Execute the correlation analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -269,21 +270,41 @@ class CorrelationOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
 
-            # Set logger if provided in kwargs
-            self.logger = kwargs.get("logger", self.logger)
-
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Set up directories
+            dirs = self._prepare_directories(task_dir)
+            visualizations_dir = dirs["visualizations"]
+            output_dir = dirs["output"]
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -299,17 +320,6 @@ class CorrelationOperation(FieldOperation):
                         "operation": self.operation_name,
                     },
                 )
-
-            # Set up directories
-            dirs = self._prepare_directories(task_dir)
-
-            # Initialize operation cache
-            self.operation_cache = OperationCache(
-                cache_dir=dirs["cache"],
-            )
-
-            visualizations_dir = dirs["visualizations"]
-            output_dir = dirs["output"]
 
             if reporter:
                 reporter.add_operation(
@@ -341,7 +351,7 @@ class CorrelationOperation(FieldOperation):
                     data_source, dataset_name, **kwargs
                 )
 
-                self.logger.info(f"Loading data'")
+                self.logger.info("Loading data'")
 
                 df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
@@ -349,69 +359,48 @@ class CorrelationOperation(FieldOperation):
 
                 is_valid = self._validate_input_parameters(df)
                 if not is_valid:
-                    raise ValueError("Missing fields in DataFrame.")
+                    missing_fields = [
+                        field
+                        for field in [self.field1, self.field2]
+                        if field not in df.columns
+                    ]
+                    raise FieldNotFoundError(
+                        field_name=missing_fields,
+                        available_fields=list(df.columns),
+                    )
 
                 self._original_df = df.copy(deep=True)
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
-                self.logger.info(
-                    f"Operation: {self.operation_name}, Load result from cache"
-                )
                 if progress_tracker:
-                    progress_tracker.update(
-                        1,
-                        {
-                            "step": "Load result from cache",
-                            "operation": self.operation_name,
-                        },
-                    )
+                    progress_tracker.total += 1
+                    progress_tracker.update(1, {"step": "Checking Cache"})
 
-                try:
-                    cached_result = self._check_cache(df)
-                except Exception as e:
-                    error_message = f"Check cache error: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df=df)
 
-                if cached_result is not None and isinstance(
-                    cached_result, OperationResult
-                ):
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(1, {"step": "Complete (cached)"})
+
+                    # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Operation {self.operation_name}",
-                            status="info",
-                            details={
-                                "step": "Load result from cache",
-                                "message": "Load result from cache successfully",
-                            },
+                            f"{self.operation_name} (from cache)",
+                            details={"cached": True},
                         )
-                    return cached_result
-                else:
-                    self.logger.info(
-                        f"Operation: {self.operation_name}, Load result from cache failed — proceeding with execution."
-                    )
-                    if reporter:
-                        reporter.add_operation(
-                            f"Operation {self.operation_name}",
-                            status="info",
-                            details={
-                                "step": "Load result from cache",
-                                "message": "Load result from cache failed - proceeding with execution",
-                            },
-                        )
+                    return cache_result
 
             # Analyzing correlation
             self.logger.info(f"Operation: {self.operation_name}, Analyzing correlation")
@@ -447,9 +436,20 @@ class CorrelationOperation(FieldOperation):
                             "operation_type": "correlation_analysis",
                         },
                     )
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=analysis_results["error"],
+                return self.error_handler.handle_error(
+                    error=RuntimeError(analysis_results["error"]),
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={
+                        "operation": self.operation_name,
+                        "field1": self.field1,
+                        "field2": self.field2,
+                        "method": self.method,
+                    },
+                    message_kwargs={
+                        "field_name": f"{self.field1},{self.field2}",
+                        "operation": self.operation_name,
+                        "reason": analysis_results["error"],
+                    },
                 )
             else:
                 if reporter:
@@ -473,8 +473,6 @@ class CorrelationOperation(FieldOperation):
                 progress_tracker.update(
                     1, {"step": "Collect metric", "operation": self.operation_name}
                 )
-
-            result = OperationResult(status=OperationStatus.SUCCESS)
 
             self._collect_metrics(analysis_results, result)
 
@@ -605,24 +603,28 @@ class CorrelationOperation(FieldOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            self.logger.error(f"Operation: {self.operation_name}, error occurred: {e}")
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": "Exception",
-                        "message": "Operation failed due to an exception",
-                        "error": str(e),
-                    },
-                )
-
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=str(e), exception=e
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": f"{self.field1},{self.field2}",
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _collect_metrics(self, analysis_results: dict, result: OperationResult) -> None:
@@ -876,7 +878,7 @@ class CorrelationOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -901,7 +903,7 @@ class CorrelationOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -936,7 +938,7 @@ class CorrelationOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -948,7 +950,7 @@ class CorrelationOperation(FieldOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -993,17 +995,17 @@ class CorrelationOperation(FieldOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1049,7 +1051,7 @@ class CorrelationOperation(FieldOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = []
 
         # Register visualization artifacts
@@ -1083,7 +1085,7 @@ class CorrelationOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -1092,7 +1094,7 @@ class CorrelationOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1119,9 +1121,9 @@ class CorrelationOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -1135,12 +1137,12 @@ class CorrelationOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -1195,12 +1197,12 @@ class CorrelationOperation(FieldOperation):
         Validate that all specified fields in field_groups exist in the DataFrame.
         Optionally check if the ID field exists.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input dataset to validate.
 
-        Returns:
+        Returns
         --------
         bool
             True if all fields are valid; False otherwise.
@@ -1310,7 +1312,7 @@ class CorrelationMatrixOperation(BaseOperation):
         """
         Execute the correlation matrix analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -1323,15 +1325,18 @@ class CorrelationMatrixOperation(BaseOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
-            # Set logger if provided in kwargs
+            # Initialize timing and result
+            self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
-            self.logger.info(f"Starting operation: {self.operation_name}")
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1341,8 +1346,11 @@ class CorrelationMatrixOperation(BaseOperation):
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
 
-            # Create the main result object with initial status
-            result = OperationResult(status=OperationStatus.SUCCESS)
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -1372,27 +1380,31 @@ class CorrelationMatrixOperation(BaseOperation):
                     data_source, dataset_name, **kwargs
                 )
 
-                self.logger.info(f"Loading data'")
+                self.logger.info("Loading data'")
 
                 df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
 
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Check if fields exist
             missing_fields = [field for field in self.fields if field not in df.columns]
             if missing_fields:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Fields not found: {', '.join(missing_fields)}",
+                return self.error_handler.handle_error(
+                    error=ValueError(f"Fields not found: {', '.join(missing_fields)}"),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": ", ".join(missing_fields),
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Add operation to reporter
@@ -1428,9 +1440,15 @@ class CorrelationMatrixOperation(BaseOperation):
 
             # Check for errors
             if "error" in analysis_results:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=analysis_results["error"],
+                return self.error_handler.handle_error(
+                    error=RuntimeError(analysis_results["error"]),
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": ",".join(self.fields),
+                        "operation": self.operation_name,
+                        "reason": analysis_results["error"],
+                    },
                 )
 
             # Update progress
@@ -1519,7 +1537,7 @@ class CorrelationMatrixOperation(BaseOperation):
             )
             if reporter:
                 reporter.add_operation(
-                    f"Correlation matrix analysis completed",
+                    "Correlation matrix analysis completed",
                     details={
                         "fields_analyzed": len(self.fields),
                         "significant_correlations": significant_count,
@@ -1535,226 +1553,26 @@ class CorrelationMatrixOperation(BaseOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            self.logger.exception(f"Error in correlation matrix operation: {e}")
-
-            # Update progress tracker on error
-            if progress_tracker:
-                progress_tracker.update(0, {"step": "Error", "error": str(e)})
-
-            # Add error to reporter
-            if reporter:
-                reporter.add_operation(
-                    f"Error creating correlation matrix",
-                    status="error",
-                    details={"error": str(e)},
-                )
-
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error creating correlation matrix: {str(e)}",
-                exception=e,
-            )
-
-
-def analyze_correlations(
-    data_source: DataSource,
-    task_dir: Path,
-    reporter: Any,
-    pairs: List[Tuple[str, str]],
-    **kwargs,
-) -> Dict[str, OperationResult]:
-    """
-    Analyze correlations between multiple pairs of fields.
-
-    Parameters:
-    -----------
-    data_source : DataSource
-        Source of data for the operations
-    task_dir : Path
-        Directory where task artifacts should be saved
-    reporter : Any
-        Reporter object for tracking progress and artifacts
-    pairs : List[Tuple[str, str]]
-        List of field pairs to analyze as tuples (field1, field2)
-    **kwargs : dict
-        Additional parameters for the operations:
-        - methods: dict, mapping of field pairs to correlation methods
-        - null_handling: str, method for handling nulls (default: 'drop')
-        - generate_visualization: bool, whether to generate visualization (default: True)
-
-    Returns:
-    --------
-    Dict[str, OperationResult]
-        Dictionary mapping pair names to their operation results
-    """
-    # Get DataFrame from data source to check fields
-    dataset_name = kwargs.get("dataset_name", "main")
-    df = load_data_operation(data_source, dataset_name)
-    if df is None:
-        if reporter:
-            reporter.add_operation(
-                "Correlation analysis",
-                status="error",
-                details={"error": "No valid DataFrame found in data source"},
-            )
-        return {}
-
-    # Extract parameters from kwargs
-    methods = kwargs.get("methods", {})
-    null_handling = kwargs.get("null_handling", "drop")
-    generate_visualization = kwargs.get("generate_visualization", True)
-
-    # Report on field pairs to be analyzed
-    if reporter:
-        reporter.add_operation(
-            "Correlation analysis",
-            details={
-                "pairs_count": len(pairs),
-                "pairs": [f"{field1}_{field2}" for field1, field2 in pairs],
-                "null_handling": null_handling,
-                "parameters": {
-                    k: v
-                    for k, v in kwargs.items()
-                    if isinstance(v, (str, int, float, bool))
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": ",".join(self.fields),
+                    "operation": self.operation_name,
+                    "reason": str(e),
                 },
-            },
-        )
-
-    # Track progress if enabled
-    track_progress = kwargs.get("track_progress", True)
-    overall_tracker = None
-
-    if track_progress and pairs:
-        overall_tracker = ProgressTracker(
-            total=len(pairs),
-            description=f"Analyzing {len(pairs)} field correlations",
-            unit="pairs",
-            track_memory=True,
-        )
-
-    # Initialize results dictionary
-    results = {}
-
-    # Process each field pair
-    for i, (field1, field2) in enumerate(pairs):
-        # Validate fields existence
-        if field1 not in df.columns or field2 not in df.columns:
-            missing_fields = []
-            if field1 not in df.columns:
-                missing_fields.append(field1)
-            if field2 not in df.columns:
-                missing_fields.append(field2)
-
-            error_msg = f"Fields not found: {', '.join(missing_fields)}"
-            if reporter:
-                reporter.add_operation(
-                    f"Correlation Analysis: {field1} vs {field2}",
-                    status="error",
-                    details={"error": error_msg},
-                )
-
-            # Create an error result
-            error_result = OperationResult(
-                status=OperationStatus.ERROR, error_message=error_msg
             )
-            results[f"{field1}_{field2}"] = error_result
-
-            # Update overall tracker if present
-            if overall_tracker:
-                overall_tracker.update(
-                    1, {"pair": f"{field1}_{field2}", "status": "error"}
-                )
-
-            continue
-
-        try:
-            # Update overall progress tracker
-            if overall_tracker:
-                overall_tracker.update(
-                    0,
-                    {"pair": f"{field1}_{field2}", "progress": f"{i + 1}/{len(pairs)}"},
-                )
-
-            print(f"Analyzing correlation between {field1} and {field2}")
-
-            # Get method if specified
-            method = methods.get(f"{field1}_{field2}")
-
-            # Create and execute operation
-            operation = CorrelationOperation(
-                field1=field1, field2=field2, method=method
-            )
-            result = operation.execute(
-                data_source,
-                task_dir,
-                reporter,
-                null_handling=null_handling,
-                generate_visualization=generate_visualization,
-                **kwargs,
-            )
-
-            # Store result
-            results[f"{field1}_{field2}"] = result
-
-            # Update overall tracker after successful analysis
-            if overall_tracker:
-                if result.status == OperationStatus.SUCCESS:
-                    overall_tracker.update(
-                        1, {"pair": f"{field1}_{field2}", "status": "completed"}
-                    )
-                else:
-                    overall_tracker.update(
-                        1,
-                        {
-                            "pair": f"{field1}_{field2}",
-                            "status": "error",
-                            "error": result.error_message,
-                        },
-                    )
-
-        except Exception as e:
-            print(f"Error analyzing correlation between {field1} and {field2}: {e}")
-
-            if reporter:
-                reporter.add_operation(
-                    f"Analyzing correlation between {field1} and {field2}",
-                    status="error",
-                    details={"error": str(e)},
-                )
-
-            # Create an error result
-            error_result = OperationResult(
-                status=OperationStatus.ERROR, error_message=str(e)
-            )
-            results[f"{field1}_{field2}"] = error_result
-
-            # Update overall tracker in case of error
-            if overall_tracker:
-                overall_tracker.update(
-                    1, {"pair": f"{field1}_{field2}", "status": "error"}
-                )
-
-    # Close overall progress tracker
-    if overall_tracker:
-        overall_tracker.close()
-
-    # Report summary
-    success_count = sum(
-        1 for r in results.values() if r.status == OperationStatus.SUCCESS
-    )
-    error_count = sum(1 for r in results.values() if r.status == OperationStatus.ERROR)
-
-    if reporter:
-        reporter.add_operation(
-            "Correlation analysis completed",
-            details={
-                "pairs_analyzed": len(results),
-                "successful": success_count,
-                "failed": error_count,
-            },
-        )
-
-    return results

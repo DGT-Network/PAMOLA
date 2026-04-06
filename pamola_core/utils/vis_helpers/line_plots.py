@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Line Plot Visualization
 Description: Thread-safe line plot visualization capabilities
 Author: PAMOLA Core Team
@@ -37,6 +36,7 @@ from pamola_core.utils.vis_helpers.base import (
     PlotlyFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
     apply_theme_to_plotly_figure,
@@ -55,14 +55,14 @@ def prepare_data_for_lineplot(
     """
     Prepare data for line plot visualization.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, List[float]], pd.DataFrame, or pd.Series
         Data to prepare
     x_data : List, np.ndarray, or pd.Series, optional
         Data for the x-axis. If None, indices are used.
 
-    Returns:
+    Returns
     --------
     Tuple[pd.DataFrame, Union[List, np.ndarray, pd.Series], List[str]]
         Tuple containing (processed_data, x_values, series_names)
@@ -82,7 +82,9 @@ def prepare_data_for_lineplot(
             df = data
             series_names = list(df.columns)
         else:
-            raise TypeError(f"Unsupported data type for line plot: {type(data)}")
+            raise TypeValidationError(
+                f"Unsupported data type for line plot: {type(data)}"
+            )
 
         # Determine x values
         if x_data is not None:
@@ -128,7 +130,7 @@ class PlotlyLinePlot(PlotlyFigure):
         """
         Create a line plot using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, List[float]], pd.DataFrame, or pd.Series
             Data to visualize. If Dict, keys are series names and values are y values.
@@ -160,7 +162,7 @@ class PlotlyLinePlot(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to go.Scatter
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the line plot
@@ -235,7 +237,7 @@ class PlotlyLinePlot(PlotlyFigure):
         """
         Update an existing Plotly line plot.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Plotly figure to update
@@ -248,7 +250,7 @@ class PlotlyLinePlot(PlotlyFigure):
         **kwargs:
             Parameters to update
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated figure
@@ -376,7 +378,7 @@ class PlotlyLinePlot(PlotlyFigure):
         """
         Add data traces to the figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : go.Figure
             Figure to add traces to
@@ -397,7 +399,7 @@ class PlotlyLinePlot(PlotlyFigure):
         **kwargs:
             Additional arguments
 
-        Returns:
+        Returns
         --------
         go.Figure
             Figure with traces added
@@ -439,7 +441,12 @@ class PlotlyLinePlot(PlotlyFigure):
                     "y": processed_data[column],
                     "mode": mode,
                     "name": series_names[i],
-                    "line": {"width": line_width, "color": color, "shape": line_shape, "dash": line_dash},
+                    "line": {
+                        "width": line_width,
+                        "color": color,
+                        "shape": line_shape,
+                        "dash": line_dash,
+                    },
                     "connectgaps": kwargs.get(
                         "connectgaps", True
                     ),  # Connect gaps from missing values
@@ -478,14 +485,14 @@ class PlotlyLinePlot(PlotlyFigure):
         """
         Add highlighted regions to the figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : go.Figure
             Figure to add regions to
         highlight_regions : List[Dict[str, Any]]
             List of regions to highlight. Each dict should have 'start', 'end', 'color', and 'label' keys.
 
-        Returns:
+        Returns
         --------
         go.Figure
             Figure with highlight regions added
@@ -547,7 +554,7 @@ class PlotlyLinePlot(PlotlyFigure):
         """
         Configure figure layout.
 
-        Parameters:
+        Parameters
         -----------
         fig : go.Figure
             Figure to configure
@@ -560,7 +567,7 @@ class PlotlyLinePlot(PlotlyFigure):
         series_count : int
             Number of data series
 
-        Returns:
+        Returns
         --------
         go.Figure
             Figure with layout configured
@@ -684,7 +691,9 @@ class MatplotlibLinePlot(MatplotlibFigure):
                         if len(df.columns) == len(data_x):
                             x = data_x[i]
 
-                    linestyle = "--" if multi_x_data and line_average and i == 0 else None
+                    linestyle = (
+                        "--" if multi_x_data and line_average and i == 0 else None
+                    )
 
                     y = df[column]
                     color = kwargs.get(
@@ -694,7 +703,7 @@ class MatplotlibLinePlot(MatplotlibFigure):
                         "label": series_names[i],
                         "color": color,
                         "linewidth": line_width,
-                        "linestyle": linestyle
+                        "linestyle": linestyle,
                     }
                     if add_markers:
                         plot_args["marker"] = "o"

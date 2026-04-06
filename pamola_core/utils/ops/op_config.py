@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Configuration
 Description: Configuration management for operations
 Author: PAMOLA Core Team
@@ -22,7 +21,7 @@ REQ-OPS-004: Supports serialization of configuration to JSON.
 
 TODO:
 - Fully migrate JSON schema validation to pamola_core.utils.io_helpers.json_utils.validate_json_schema()
-- Consider standardizing error classes with OpsError base class
+- Consider standardizing error classes with BasePamolaError base class
 """
 
 from enum import Enum
@@ -30,24 +29,13 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Type, TypeVar, Generic, Union
+from pamola_core.errors.exceptions import ConfigurationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 # Type variable for configuration classes
 T = TypeVar("T")
-
-
-class OpsError(Exception):
-    """Base class for all operation-related errors."""
-
-    pass
-
-
-class ConfigError(OpsError):
-    """Error related to configuration operations."""
-
-    pass
 
 
 class OperationConfig(Generic[T]):
@@ -67,7 +55,7 @@ class OperationConfig(Generic[T]):
         """
         Initialize configuration with parameters.
 
-        Parameters:
+        Parameters
         -----------
         **kwargs : dict
             Configuration parameters
@@ -79,35 +67,35 @@ class OperationConfig(Generic[T]):
         """
         Validate parameters against the schema.
 
-        Parameters:
+        Parameters
         -----------
         params : Dict[str, Any]
             Parameters to validate
 
-        Raises:
+        Raises
         -------
-        ConfigError
+        ConfigurationError
             If parameters don't conform to schema.
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-002: Provides schema validation for operation parameters.
         """
         # Use the helper function from json_utils for validation
         from pamola_core.utils.io_helpers.json_utils import validate_json_schema
 
-        validate_json_schema(params, self.schema, ConfigError)
+        validate_json_schema(params, self.schema, ConfigurationError)
 
     def save(self, path: Union[str, Path]) -> None:
         """
         Save configuration to a JSON file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to save the configuration file
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-004: Supports saving configuration to JSON.
         """
@@ -120,22 +108,22 @@ class OperationConfig(Generic[T]):
         """
         Load configuration from a JSON file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to the configuration file
 
-        Returns:
+        Returns
         --------
         OperationConfig
             Loaded configuration
 
-        Raises:
+        Raises
         -------
-        ConfigError
+        ConfigurationError
             If the loaded data doesn't conform to schema.
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-004: Supports loading configuration from JSON.
         """
@@ -148,14 +136,14 @@ class OperationConfig(Generic[T]):
         """
         Get a configuration parameter.
 
-        Parameters:
+        Parameters
         -----------
         key : str
             Parameter name
         default : Any, optional
             Default value if parameter is not found
 
-        Returns:
+        Returns
         --------
         Any
             Parameter value or default
@@ -174,7 +162,7 @@ class OperationConfig(Generic[T]):
         """
         Convert configuration to dictionary.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary representation of the configuration
@@ -185,14 +173,14 @@ class OperationConfig(Generic[T]):
         """
         Update configuration parameters.
 
-        Parameters:
+        Parameters
         -----------
         **kwargs : dict
             Parameters to update
 
-        Raises:
+        Raises
         -------
-        ConfigError
+        ConfigurationError
             If the updated parameters don't conform to schema.
         """
         # Validate new parameters
@@ -239,7 +227,7 @@ class OperationConfigRegistry:
         """
         Register a configuration class for an operation type.
 
-        Parameters:
+        Parameters
         -----------
         operation_type : str
             Operation type identifier
@@ -256,12 +244,12 @@ class OperationConfigRegistry:
         """
         Get the configuration class for an operation type.
 
-        Parameters:
+        Parameters
         -----------
         operation_type : str
             Operation type identifier
 
-        Returns:
+        Returns
         --------
         Type[OperationConfig] or None
             Configuration class, or None if not found
@@ -273,14 +261,14 @@ class OperationConfigRegistry:
         """
         Create a configuration instance for an operation type.
 
-        Parameters:
+        Parameters
         -----------
         operation_type : str
             Operation type identifier
         **kwargs : dict
             Configuration parameters
 
-        Returns:
+        Returns
         --------
         OperationConfig or None
             Configuration instance, or None if operation type not found

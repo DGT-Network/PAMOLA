@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Utility Functions for Data Processing
----------------------------------------------------------
 This module provides a set of utility functions for handling numerical operations,
 data cleaning, and DataFrame manipulations using NumPy and Pandas.
 
@@ -33,10 +32,12 @@ def replace_special_floats(obj):
     """
     Recursively replace NaN and Inf values with None in dictionaries, lists, and float values.
 
-    Args:
+    Parameters
+    ----------
         obj (dict, list, float, or any type): The input object to process.
 
-    Returns:
+    Returns
+    -------
         dict, list, float, or any type: The processed object with NaN and Inf replaced by None.
     """
     if isinstance(obj, dict):
@@ -71,11 +72,13 @@ def sum_column(df, col_name):
     """
     Calculate the sum of values in a column of the DataFrame.
 
-    Args:
+    Parameters
+    ----------
         df (pd.DataFrame): Input DataFrame.
         col_name (str): Name of the column to sum.
 
-    Returns:
+    Returns
+    -------
         float: Sum of the column values.
     """
     return df[col_name].sum()
@@ -85,11 +88,13 @@ def min_column(df, col_name):
     """
     Find the minimum value in a column of the DataFrame.
 
-    Args:
+    Parameters
+    ----------
         df (pd.DataFrame): Input DataFrame.
         col_name (str): Name of the column to find the minimum value.
 
-    Returns:
+    Returns
+    -------
         float: The minimum value in the column.
     """
     return df[col_name].min()
@@ -99,11 +104,13 @@ def max_column(df, col_name):
     """
     Find the maximum value in a column of the DataFrame.
 
-    Args:
+    Parameters
+    ----------
         df (pd.DataFrame): Input DataFrame.
         col_name (str): Name of the column to find the maximum value.
 
-    Returns:
+    Returns
+    -------
         float: The maximum value in the column.
     """
     return df[col_name].max()
@@ -118,11 +125,13 @@ def group_by_dataframe(df: pd.DataFrame, group_by_columns: list):
     """
     Perform group-by operation on a DataFrame.
 
-    Parameters:
+    Parameters
+    ----------
         df (pd.DataFrame): The input DataFrame.
         group_by_columns (list): List of columns to group by.
 
-    Returns:
+    Returns
+    -------
         pd.pamola_core.groupby.DataFrameGroupBy: Grouped DataFrame.
     """
     if not isinstance(df, pd.DataFrame):
@@ -137,14 +146,16 @@ def describe_dataframe(df, include="all"):
     """
     Generate descriptive statistics for a Pandas DataFrame.
 
-    Args:
+    Parameters
+    ----------
         df (pd.DataFrame): The input DataFrame.
         include (str or list, optional):
             - "number": Describes only numeric columns.
             - "all": Describes both numeric and non-numeric columns.
             - A list of data types (e.g., ["object", "category"]) to describe specific column types.
 
-    Returns:
+    Returns
+    -------
         pd.DataFrame: A DataFrame containing summary statistics.
     """
     return df.describe(include=include)

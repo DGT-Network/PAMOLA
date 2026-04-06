@@ -5,7 +5,7 @@ This module contains unit tests for the abstract base classes and concrete
 implementations in the compatibility.py module.
 """
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Import the module you're testing
 from pamola_core.utils.nlp.compatibility import (
@@ -14,8 +14,7 @@ from pamola_core.utils.nlp.compatibility import (
     dependency_info,
     get_best_available_module,
     clear_dependency_cache,
-    check_nlp_requirements,
-    setup_nlp_resources
+    check_nlp_requirements
 )
 
 class TestNLPCompatibilityUtils(unittest.TestCase):

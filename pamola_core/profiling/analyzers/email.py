@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Email Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -35,6 +34,8 @@ from pamola_core.profiling.commons.email_utils import (
     create_domain_dictionary,
     estimate_resources,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.schemas.email_core_schema import EmailOperationConfig
 from pamola_core.utils.io import (
     write_json,
@@ -58,7 +59,7 @@ from pamola_core.utils.helpers import (
     filter_used_kwargs,
     get_cache_result,
 )
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ class EmailAnalyzer:
         """
         Analyze an email field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -100,7 +101,7 @@ class EmailAnalyzer:
         **kwargs : dict
             Additional parameters for the analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -126,7 +127,7 @@ class EmailAnalyzer:
         """
         Create a frequency dictionary for email domains.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -137,7 +138,7 @@ class EmailAnalyzer:
         **kwargs : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with domain frequency data and metadata
@@ -151,14 +152,14 @@ class EmailAnalyzer:
         """
         Estimate resources needed for analyzing the email field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -242,7 +243,7 @@ class EmailOperation(FieldOperation):
         """
         Execute the email analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -255,18 +256,22 @@ class EmailOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
-
-            if kwargs.get("logger"):
-                self.logger = kwargs["logger"]
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -276,18 +281,20 @@ class EmailOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+            output_dir = dirs["output"]
+            visualizations_dir = dirs["visualizations"]
+            dictionaries_dir = dirs["dictionaries"]
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
                 cache_dir=dirs["cache"],
             )
 
-            output_dir = dirs["output"]
-            visualizations_dir = dirs["visualizations"]
-            dictionaries_dir = dirs["dictionaries"]
-
-            # Create the main result object with initial status
-            result = OperationResult(status=OperationStatus.SUCCESS)
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -313,19 +320,33 @@ class EmailOperation(FieldOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Data Loading"})
 
-            # Get DataFrame from data source
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = helpers.validate_and_get_dataframe(
-                data_source, dataset_name, **settings_operation
-            )
+            try:
+                # Get DataFrame from data source
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+            except Exception as e:
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
+                )
 
             # Check if field exists
             if self.field_name not in df.columns:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Field {self.field_name} not found in DataFrame",
+                return self.error_handler.handle_error(
+                    error=ValueError(f"Field {self.field_name} not found in DataFrame"),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Add operation to reporter
@@ -361,7 +382,7 @@ class EmailOperation(FieldOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Clean invalid values (from cache)",
+                            f"{self.operation_name} (from cache)",
                             details={"cached": True},
                         )
                     return cache_result
@@ -390,9 +411,15 @@ class EmailOperation(FieldOperation):
 
             # Check for errors
             if "error" in analysis_results:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=analysis_results["error"],
+                return self.error_handler.handle_error(
+                    error=RuntimeError(analysis_results["error"]),
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": analysis_results["error"],
+                    },
                 )
 
             # Update progress
@@ -622,28 +649,28 @@ class EmailOperation(FieldOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            self.logger.exception(
-                f"Error in email operation for {self.field_name}: {e}"
-            )
-
-            # Update progress tracker on error
-            if progress_tracker:
-                progress_tracker.update(0, {"step": "Error", "error": str(e)})
-
-            # Add error to reporter
-            reporter.add_operation(
-                f"Error analyzing {self.field_name}",
-                status="error",
-                details={"error": str(e)},
-            )
-
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error analyzing email field {self.field_name}: {str(e)}",
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _assess_privacy_risk(
@@ -652,14 +679,14 @@ class EmailOperation(FieldOperation):
         """
         Assess privacy risk based on email uniqueness.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the email field
 
-        Returns:
+        Returns
         --------
         Optional[Dict[str, Any]]
             Privacy risk assessment results or None if assessment cannot be performed
@@ -742,7 +769,7 @@ class EmailOperation(FieldOperation):
         """
         Create visualizations for k-anonymity metrics.
 
-        Parameters:
+        Parameters
         -----------
         ka_metrics : Dict[str, Dict[str, Any]]
             Dictionary mapping KA indices to their computed metrics.
@@ -819,7 +846,7 @@ class EmailOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Data source for the operation
@@ -828,7 +855,7 @@ class EmailOperation(FieldOperation):
         data_source_name: str
             Dataset name
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -870,7 +897,7 @@ class EmailOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -879,7 +906,7 @@ class EmailOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -906,9 +933,9 @@ class EmailOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -919,7 +946,7 @@ class EmailOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -931,9 +958,6 @@ class EmailOperation(FieldOperation):
             "profile_type": self.profile_type,
             "analyze_privacy_risk": self.analyze_privacy_risk,
         }
-
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
 
         return parameters
 
@@ -954,7 +978,7 @@ class EmailOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -977,7 +1001,7 @@ class EmailOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1012,7 +1036,7 @@ class EmailOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         self.logger.info(
@@ -1024,7 +1048,7 @@ class EmailOperation(FieldOperation):
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1070,17 +1094,17 @@ class EmailOperation(FieldOperation):
                     self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1126,7 +1150,7 @@ class EmailOperation(FieldOperation):
             self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1160,7 +1184,7 @@ def analyze_email_fields(
     """
     Analyze multiple email fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1177,7 +1201,7 @@ def analyze_email_fields(
         - generate_visualization: bool, whether to generate visualization (default: True)
         - profile_type: str, type of profiling for organizing artifacts (default: 'email')
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results

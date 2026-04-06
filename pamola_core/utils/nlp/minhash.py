@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: MinHash Signature Generator
 Description: Module for computing MinHash signatures for text fields to enable fast similarity comparison
 Author: PAMOLA Core Team
@@ -37,6 +36,7 @@ from datasketch import MinHash
 from pamola_core.utils.nlp.stopwords import get_stopwords
 from pamola_core.utils.ops.op_cache import operation_cache
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.errors.exceptions import ValidationError
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ def compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2) -> Li
     """
     Compute a MinHash signature for the given text.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         The input string to compute a signature for
@@ -55,7 +55,7 @@ def compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2) -> Li
     shingle_size : int, optional
         Size of n-grams (shingles); typical values: 2 (bigrams), 3 (trigrams)
 
-    Returns:
+    Returns
     --------
     List[int]
         A list of integers representing the MinHash signature
@@ -71,7 +71,7 @@ def compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2) -> Li
 
     # Update MinHash with shingles
     for shingle in shingles:
-        minhash.update(shingle.encode('utf-8'))
+        minhash.update(shingle.encode("utf-8"))
 
     # Convert datasketch's hashvalues to standard Python integers
     # Avoiding direct iteration which can cause type errors with some versions
@@ -82,15 +82,18 @@ def compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2) -> Li
     return result
 
 
-def preprocess_text(text: str, lowercase: bool = True,
-                    remove_punctuation: bool = True,
-                    remove_extra_spaces: bool = True,
-                    remove_stopwords: bool = False,
-                    languages: Optional[List[str]] = None) -> str:
+def preprocess_text(
+    text: str,
+    lowercase: bool = True,
+    remove_punctuation: bool = True,
+    remove_extra_spaces: bool = True,
+    remove_stopwords: bool = False,
+    languages: Optional[List[str]] = None,
+) -> str:
     """
     Preprocess text for MinHash computation.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Input text to preprocess
@@ -105,7 +108,7 @@ def preprocess_text(text: str, lowercase: bool = True,
     languages : List[str], optional
         Languages for stopword removal, defaults to ['en', 'ru'] if None
 
-    Returns:
+    Returns
     --------
     str
         Preprocessed text
@@ -124,16 +127,16 @@ def preprocess_text(text: str, lowercase: bool = True,
     # Remove punctuation if requested
     if remove_punctuation:
         # Unicode-aware punctuation removal that preserves word boundaries
-        text = re.sub(r'[\p{P}\p{S}]+', ' ', text, flags=re.UNICODE)
+        text = re.sub(r"[\p{P}\p{S}]+", " ", text, flags=re.UNICODE)
 
     # Remove extra whitespace if requested
     if remove_extra_spaces:
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r"\s+", " ", text).strip()
 
     # Remove stopwords if requested
     if remove_stopwords:
         if languages is None:
-            languages = ['en', 'ru']  # Default languages
+            languages = ["en", "ru"]  # Default languages
 
         # Get stopwords for the specified languages
         stop_words = get_stopwords(languages=languages)
@@ -141,17 +144,18 @@ def preprocess_text(text: str, lowercase: bool = True,
         # Tokenize and filter out stopwords
         words = text.split()
         filtered_words = [word for word in words if word.lower() not in stop_words]
-        text = ' '.join(filtered_words)
+        text = " ".join(filtered_words)
 
     return text
 
 
-def create_shingles(text: str, shingle_size: int = 2,
-                    method: str = 'character') -> Set[str]:
+def create_shingles(
+    text: str, shingle_size: int = 2, method: str = "character"
+) -> Set[str]:
     """
     Create shingles (n-grams) from the input text.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Input text to create shingles from
@@ -160,7 +164,7 @@ def create_shingles(text: str, shingle_size: int = 2,
     method : str, optional
         Shingling method: 'character', 'word', or 'unicode'
 
-    Returns:
+    Returns
     --------
     Set[str]
         Set of shingles
@@ -170,29 +174,29 @@ def create_shingles(text: str, shingle_size: int = 2,
 
     shingles = set()
 
-    if method == 'word':
+    if method == "word":
         # Word-based shingling
         words = text.split()
         for i in range(len(words) - shingle_size + 1):
-            shingle = ' '.join(words[i:i + shingle_size])
+            shingle = " ".join(words[i : i + shingle_size])
             shingles.add(shingle)
 
-    elif method == 'unicode':
+    elif method == "unicode":
         # Unicode-aware character shingling (considers grapheme clusters)
         # This is especially important for languages with complex characters
         import unicodedata
 
         # Normalize to composed form (NFC)
-        text = unicodedata.normalize('NFC', text)
+        text = unicodedata.normalize("NFC", text)
 
         # Now create character shingles
         for i in range(len(text) - shingle_size + 1):
-            shingle = text[i:i + shingle_size]
+            shingle = text[i : i + shingle_size]
             shingles.add(shingle)
 
     else:  # Default to character shingling
         for i in range(len(text) - shingle_size + 1):
-            shingle = text[i:i + shingle_size]
+            shingle = text[i : i + shingle_size]
             shingles.add(shingle)
 
     return shingles
@@ -202,14 +206,14 @@ def serialize_signature(signature: List[int], delimiter: str = ";") -> str:
     """
     Convert a signature vector into a string for storage.
 
-    Parameters:
+    Parameters
     -----------
     signature : List[int]
         MinHash signature as list of integers
     delimiter : str, optional
         Delimiter character for joining values
 
-    Returns:
+    Returns
     --------
     str
         Serialized signature string
@@ -221,14 +225,14 @@ def deserialize_signature(signature_str: str, delimiter: str = ";") -> List[int]
     """
     Convert a serialized signature string back into a list of integers.
 
-    Parameters:
+    Parameters
     -----------
     signature_str : str
         Serialized signature string
     delimiter : str, optional
         Delimiter character used in the serialized string
 
-    Returns:
+    Returns
     --------
     List[int]
         MinHash signature as list of integers
@@ -238,7 +242,7 @@ def deserialize_signature(signature_str: str, delimiter: str = ";") -> List[int]
 
     try:
         return [int(val) for val in signature_str.split(delimiter)]
-    except ValueError as e:
+    except (ValidationError, ValueError) as e:
         logger.error(f"Error deserializing signature: {e}")
         return []
 
@@ -247,14 +251,14 @@ def calculate_jaccard_similarity(signature1: List[int], signature2: List[int]) -
     """
     Calculate Jaccard similarity between two MinHash signatures.
 
-    Parameters:
+    Parameters
     -----------
     signature1 : List[int]
         First MinHash signature
     signature2 : List[int]
         Second MinHash signature
 
-    Returns:
+    Returns
     --------
     float
         Estimated Jaccard similarity (0-1 range)
@@ -263,7 +267,9 @@ def calculate_jaccard_similarity(signature1: List[int], signature2: List[int]) -
         return 0.0
 
     if len(signature1) != len(signature2):
-        logger.warning("Signatures have different lengths, similarity may be inaccurate")
+        logger.warning(
+            "Signatures have different lengths, similarity may be inaccurate"
+        )
         min_len = min(len(signature1), len(signature2))
         signature1 = signature1[:min_len]
         signature2 = signature2[:min_len]
@@ -275,13 +281,20 @@ def calculate_jaccard_similarity(signature1: List[int], signature2: List[int]) -
     return matches / len(signature1)
 
 
-def process_csv_file(input_path: str, output_path: str, field_name: str,
-                     id_field: str, num_perm: int = 128, shingle_size: int = 2,
-                     batch_size: int = 1000, preprocessing_params: Optional[Dict] = None) -> OperationResult:
+def process_csv_file(
+    input_path: str,
+    output_path: str,
+    field_name: str,
+    id_field: str,
+    num_perm: int = 128,
+    shingle_size: int = 2,
+    batch_size: int = 1000,
+    preprocessing_params: Optional[Dict] = None,
+) -> OperationResult:
     """
     Process a CSV file, computing MinHash signatures for a specified field.
 
-    Parameters:
+    Parameters
     -----------
     input_path : str
         Path to input CSV file
@@ -300,7 +313,7 @@ def process_csv_file(input_path: str, output_path: str, field_name: str,
     preprocessing_params : Dict, optional
         Parameters for text preprocessing
 
-    Returns:
+    Returns
     --------
     OperationResult
         Result of the operation
@@ -314,11 +327,11 @@ def process_csv_file(input_path: str, output_path: str, field_name: str,
         # Default preprocessing parameters if none provided
         if preprocessing_params is None:
             preprocessing_params = {
-                'lowercase': True,
-                'remove_punctuation': True,
-                'remove_extra_spaces': True,
-                'remove_stopwords': False,
-                'languages': ['en', 'ru']
+                "lowercase": True,
+                "remove_punctuation": True,
+                "remove_extra_spaces": True,
+                "remove_stopwords": False,
+                "languages": ["en", "ru"],
             }
 
         # Initialize counters
@@ -327,9 +340,9 @@ def process_csv_file(input_path: str, output_path: str, field_name: str,
         error_records = 0
 
         # Open output file and write header
-        with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+        with open(output_path, "w", newline="", encoding="utf-8") as outfile:
             writer = csv.writer(outfile)
-            writer.writerow([id_field, 'minhash_signature'])
+            writer.writerow([id_field, "minhash_signature"])
 
             # Process input file in batches
             for i, chunk in enumerate(pd.read_csv(input_path, chunksize=batch_size)):
@@ -351,9 +364,7 @@ def process_csv_file(input_path: str, output_path: str, field_name: str,
 
                         # Compute MinHash signature
                         signature = compute_minhash(
-                            text=text,
-                            num_perm=num_perm,
-                            shingle_size=shingle_size
+                            text=text, num_perm=num_perm, shingle_size=shingle_size
                         )
 
                         # Serialize signature for storage
@@ -364,7 +375,9 @@ def process_csv_file(input_path: str, output_path: str, field_name: str,
                         processed_records += 1
 
                     except Exception as e:
-                        logger.error(f"Error processing record {row.get(id_field, 'unknown')}: {e}")
+                        logger.error(
+                            f"Error processing record {row.get(id_field, 'unknown')}: {e}"
+                        )
                         error_records += 1
 
                 # Write batch results to output file
@@ -378,9 +391,14 @@ def process_csv_file(input_path: str, output_path: str, field_name: str,
         result.add_metric("total_records", total_records)
         result.add_metric("processed_records", processed_records)
         result.add_metric("error_records", error_records)
-        result.add_metric("success_rate", processed_records / total_records if total_records > 0 else 0)
+        result.add_metric(
+            "success_rate",
+            processed_records / total_records if total_records > 0 else 0,
+        )
 
-        logger.info(f"MinHash generation complete. Processed {processed_records} records.")
+        logger.info(
+            f"MinHash generation complete. Processed {processed_records} records."
+        )
         return result
 
     except Exception as e:
@@ -395,18 +413,18 @@ def estimate_optimal_num_perm(desired_error: float = 0.05) -> int:
     """
     Estimate the optimal number of permutations for a desired error level.
 
-    Parameters:
+    Parameters
     -----------
     desired_error : float, optional
         Desired error level (e.g., 0.05 for 5% error)
 
-    Returns:
+    Returns
     --------
     int
         Recommended number of permutations
     """
     # Based on the formula: error ≈ 1/sqrt(num_perm)
-    num_perm = int(1 / (desired_error ** 2))
+    num_perm = int(1 / (desired_error**2))
 
     # Round to nearest standard value (multiple of 32 for efficiency)
     standard_values = [32, 64, 128, 256, 512]
@@ -422,7 +440,7 @@ def get_cache_key(text: str, num_perm: int, shingle_size: int) -> str:
     """
     Generate a cache key for a MinHash computation.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Input text
@@ -431,23 +449,24 @@ def get_cache_key(text: str, num_perm: int, shingle_size: int) -> str:
     shingle_size : int
         Shingle size
 
-    Returns:
+    Returns
     --------
     str
         Cache key string
     """
     # Create a hash of the text and parameters
-    text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
+    text_hash = hashlib.md5(text.encode("utf-8")).hexdigest()
     return f"minhash_{text_hash}_{num_perm}_{shingle_size}"
 
 
 # Function with caching support
-def cached_compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2,
-                           use_cache: bool = True) -> List[int]:
+def cached_compute_minhash(
+    text: str, num_perm: int = 128, shingle_size: int = 2, use_cache: bool = True
+) -> List[int]:
     """
     Compute MinHash with caching support.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Input text
@@ -458,7 +477,7 @@ def cached_compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2
     use_cache : bool, optional
         Whether to use caching
 
-    Returns:
+    Returns
     --------
     List[int]
         MinHash signature
@@ -471,8 +490,7 @@ def cached_compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2
 
     # Check cache
     cached_result = operation_cache.get_cache(
-        cache_key=cache_key,
-        operation_type="MinHash"
+        cache_key=cache_key, operation_type="MinHash"
     )
 
     if cached_result:
@@ -484,20 +502,19 @@ def cached_compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2
 
     # Cache the result
     operation_cache.save_cache(
-        data={"signature": signature},
-        cache_key=cache_key,
-        operation_type="MinHash"
+        data={"signature": signature}, cache_key=cache_key, operation_type="MinHash"
     )
 
     return signature
 
 
-def batch_compute_minhash(texts: List[str], num_perm: int = 128,
-                          shingle_size: int = 2) -> List[List[int]]:
+def batch_compute_minhash(
+    texts: List[str], num_perm: int = 128, shingle_size: int = 2
+) -> List[List[int]]:
     """
     Compute MinHash signatures for a batch of texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of input strings
@@ -506,7 +523,7 @@ def batch_compute_minhash(texts: List[str], num_perm: int = 128,
     shingle_size : int, optional
         Shingle size
 
-    Returns:
+    Returns
     --------
     List[List[int]]
         List of MinHash signatures
@@ -518,7 +535,7 @@ def create_minhash_generator():
     """
     Create and return a function to generate MinHash signatures with reasonable defaults.
 
-    Returns:
+    Returns
     --------
     Callable
         Function for generating MinHash signatures

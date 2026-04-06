@@ -911,7 +911,7 @@ Determine if an exception should trigger a retry.
 def execute_operation(self,
                       operation: BaseOperation,
                       params: Dict[str, Any],
-                      progress_tracker: Optional[ProgressTracker] = None) -> OperationResult
+                      progress_tracker: Optional[HierarchicalProgressTracker] = None) -> OperationResult
 ```
 Execute a single operation without retry logic.
 
@@ -924,7 +924,7 @@ def execute_with_retry(self,
                        initial_wait: Optional[float] = None,
                        max_wait: Optional[float] = None,
                        jitter: Optional[bool] = None,
-                       progress_tracker: Optional[ProgressTracker] = None,
+                       progress_tracker: Optional[HierarchicalProgressTracker] = None,
                        on_retry: Optional[Callable[[Exception, int, float], None]] = None) -> OperationResult
 ```
 Execute an operation with retry logic.
@@ -933,7 +933,7 @@ Execute an operation with retry logic.
 def execute_operations(self,
                        operations: List[BaseOperation],
                        common_params: Dict[str, Any],
-                       progress_tracker: Optional[ProgressTracker] = None,
+                       progress_tracker: Optional[HierarchicalProgressTracker] = None,
                        continue_on_error: Optional[bool] = None) -> Dict[str, OperationResult]
 ```
 Execute a list of operations sequentially.
@@ -943,7 +943,7 @@ def execute_operations_parallel(self,
                                 operations: List[BaseOperation],
                                 common_params: Dict[str, Any],
                                 max_workers: Optional[int] = None,
-                                progress_tracker: Optional[ProgressTracker] = None,
+                                progress_tracker: Optional[HierarchicalProgressTracker] = None,
                                 continue_on_error: Optional[bool] = None) -> Dict[str, OperationResult]
 ```
 Execute operations in parallel using multiple processes.

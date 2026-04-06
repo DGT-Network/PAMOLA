@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Group Processing Utilities for Anonymization
----------------------------------------------------------
 This module provides utility functions for processing and analyzing groups
 in datasets for anonymization techniques such as k-anonymity, l-diversity,
 and t-closeness.
@@ -31,12 +30,20 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 from dask import dataframe as dd
+from pamola_core.errors.exceptions import (
+    ColumnNotFoundError,
+    InvalidParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-def compute_group_sizes(data: pd.DataFrame, quasi_identifiers: List[str], use_dask: bool = False) -> pd.Series:
+def compute_group_sizes(
+    data: pd.DataFrame, quasi_identifiers: List[str], use_dask: bool = False
+) -> pd.Series:
     """
     Computes the size of each unique group based on quasi-identifiers.
 
@@ -44,7 +51,7 @@ def compute_group_sizes(data: pd.DataFrame, quasi_identifiers: List[str], use_da
     as it determines how many records share the same combination of
     quasi-identifier values.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset containing quasi-identifiers.
@@ -53,7 +60,7 @@ def compute_group_sizes(data: pd.DataFrame, quasi_identifiers: List[str], use_da
     use_dask : bool, optional
         If True, enables parallel processing with Dask (default: False).
 
-    Returns:
+    Returns
     --------
     pd.Series
         A series mapping each group to its size.
@@ -70,14 +77,16 @@ def compute_group_sizes(data: pd.DataFrame, quasi_identifiers: List[str], use_da
     return data.groupby(quasi_identifiers).size()
 
 
-def adaptive_k_lookup(group_sizes: pd.Series, default_k: int, adaptive_k: Dict = None) -> pd.Series:
+def adaptive_k_lookup(
+    group_sizes: pd.Series, default_k: int, adaptive_k: Dict = None
+) -> pd.Series:
     """
     Adjusts k-threshold dynamically for different quasi-identifier groups.
 
     This allows for varying levels of anonymity based on the sensitivity
     or characteristics of different groups in the dataset.
 
-    Parameters:
+    Parameters
     -----------
     group_sizes : pd.Series
         Series mapping each group to its count.
@@ -86,7 +95,7 @@ def adaptive_k_lookup(group_sizes: pd.Series, default_k: int, adaptive_k: Dict =
     adaptive_k : dict, optional
         Dictionary defining custom k-values for specific groups.
 
-    Returns:
+    Returns
     --------
     pd.Series
         A series mapping each group to its adaptive k-value.
@@ -94,10 +103,14 @@ def adaptive_k_lookup(group_sizes: pd.Series, default_k: int, adaptive_k: Dict =
     if adaptive_k is None:
         return pd.Series(default_k, index=group_sizes.index)
 
-    return group_sizes.index.to_frame().apply(lambda row: adaptive_k.get(tuple(row), default_k), axis=1)
+    return group_sizes.index.to_frame().apply(
+        lambda row: adaptive_k.get(tuple(row), default_k), axis=1
+    )
 
 
-def validate_anonymity_inputs(data: pd.DataFrame, quasi_identifiers: List[str], k: int) -> None:
+def validate_anonymity_inputs(
+    data: pd.DataFrame, quasi_identifiers: List[str], k: int
+) -> None:
     """
     Validates input data and parameters for anonymity operations.
 
@@ -105,7 +118,7 @@ def validate_anonymity_inputs(data: pd.DataFrame, quasi_identifiers: List[str], 
     to anonymization functions are valid, helping to prevent errors
     and provide clear error messages.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset to validate.
@@ -114,7 +127,7 @@ def validate_anonymity_inputs(data: pd.DataFrame, quasi_identifiers: List[str], 
     k : int
         The k value to validate.
 
-    Raises:
+    Raises
     -------
     TypeError
         If data is not a pandas DataFrame or dask DataFrame.
@@ -124,43 +137,54 @@ def validate_anonymity_inputs(data: pd.DataFrame, quasi_identifiers: List[str], 
     """
     # Check if inputs are None
     if data is None:
-        raise ValueError("Input data cannot be None")
+        raise ValidationError("Input data cannot be None")
     if quasi_identifiers is None:
-        raise ValueError("Quasi-identifiers list cannot be None")
+        raise ValidationError("Quasi-identifiers list cannot be None")
 
     # Check data type
     if not isinstance(data, pd.DataFrame) and not isinstance(data, dd.DataFrame):
-        raise TypeError("Input data must be a pandas DataFrame or dask DataFrame")
+        raise TypeValidationError(
+            "Input data must be a pandas DataFrame or dask DataFrame"
+        )
 
     # Check quasi-identifiers
     if not quasi_identifiers:
-        raise ValueError("At least one quasi-identifier must be provided")
+        raise ValidationError("At least one quasi-identifier must be provided")
 
     # Check if all quasi-identifiers exist in data
     missing_columns = [col for col in quasi_identifiers if col not in data.columns]
     if missing_columns:
-        raise ValueError(f"Quasi-identifiers not found in data: {missing_columns}")
+        raise ColumnNotFoundError(
+            column_name=missing_columns,
+            available_columns=list(data.columns),
+        )
 
     # Check if k is valid
     if k < 1:
-        raise ValueError(f"k must be at least 1, got {k}")
+        raise InvalidParameterError(
+            param_name="k",
+            param_value=k,
+            reason=f"k must be at least 1, got {k}",
+        )
 
 
-def optimize_memory_usage(data: pd.DataFrame, quasi_identifiers: List[str]) -> pd.DataFrame:
+def optimize_memory_usage(
+    data: pd.DataFrame, quasi_identifiers: List[str]
+) -> pd.DataFrame:
     """
     Optimizes memory usage by converting appropriate columns to more efficient types.
 
     This is particularly useful for large datasets where memory optimization
     can significantly improve performance.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset to optimize.
     quasi_identifiers : list[str]
         List of quasi-identifiers to focus on for optimization.
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         The memory-optimized dataset.
@@ -172,29 +196,32 @@ def optimize_memory_usage(data: pd.DataFrame, quasi_identifiers: List[str]) -> p
         if col in result.columns:
             # Convert string columns to categorical
             if pd.api.types.is_string_dtype(result[col]):
-                result[col] = result[col].astype('category')
+                result[col] = result[col].astype("category")
 
             # Downcast integer columns where possible
             elif pd.api.types.is_integer_dtype(result[col].dtype):
-                result[col] = pd.to_numeric(result[col], downcast='integer')
+                result[col] = pd.to_numeric(result[col], downcast="integer")
 
             # Downcast float columns where possible
             elif pd.api.types.is_float_dtype(result[col].dtype):
-                result[col] = pd.to_numeric(result[col], downcast='float')
+                result[col] = pd.to_numeric(result[col], downcast="float")
 
     logger.info(
-        f"Memory usage optimized: {data.memory_usage().sum() / 1e6:.2f} MB → {result.memory_usage().sum() / 1e6:.2f} MB")
+        f"Memory usage optimized: {data.memory_usage().sum() / 1e6:.2f} MB → {result.memory_usage().sum() / 1e6:.2f} MB"
+    )
     return result
 
 
-def identify_unique_groups(data: pd.DataFrame, quasi_identifiers: List[str], max_groups: int = 100) -> Dict[Tuple, int]:
+def identify_unique_groups(
+    data: pd.DataFrame, quasi_identifiers: List[str], max_groups: int = 100
+) -> Dict[Tuple, int]:
     """
     Identifies and returns the most common unique groups based on quasi-identifiers.
 
     This is useful for analyzing the distribution of quasi-identifier combinations
     and understanding potential privacy risks.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset to analyze.
@@ -203,7 +230,7 @@ def identify_unique_groups(data: pd.DataFrame, quasi_identifiers: List[str], max
     max_groups : int, optional
         Maximum number of groups to return (default: 100).
 
-    Returns:
+    Returns
     --------
     dict
         Dictionary mapping group values to counts, sorted by count (descending).
@@ -215,7 +242,10 @@ def identify_unique_groups(data: pd.DataFrame, quasi_identifiers: List[str], max
     group_counts = data.groupby(quasi_identifiers).size().sort_values(ascending=False)
 
     # Convert to dictionary, limiting to max_groups
-    result = {tuple(idx): count for idx, count in zip(group_counts.index.to_frame().values, group_counts.values)}
+    result = {
+        tuple(idx): count
+        for idx, count in zip(group_counts.index.to_frame().values, group_counts.values)
+    }
 
     # Trim to maximum number of groups
     if len(result) > max_groups:

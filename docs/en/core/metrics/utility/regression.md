@@ -25,6 +25,10 @@ Provides a unified interface for evaluating the utility of data transformations 
   - class RegressionUtility
     - __init__
     - calculate_metric
+    - _calculate_model_based
+    - _calculate_model
+    - _calculate_grouped_r2
+    - _create_value_dictionary
 
 ## 3. Architecture & Data Flow
 - Used by operation wrappers to evaluate regression utility
@@ -38,8 +42,12 @@ Provides a unified interface for evaluating the utility of data transformations 
 ## 5. API Reference & Key Methods
 | Method | Description |
 |--------|-------------|
-| `__init__(models, metrics, cv_folds, test_size)` | Constructor |
+| `__init__(models, test_size, random_state)` | Constructor |
 | `calculate_metric(original_df, transformed_df, value_field, key_fields, aggregation)` | Computes utility metrics |
+| `_calculate_model_based(...)` | Calculates model-based regression metrics |
+| `_calculate_model(...)` | Trains and evaluates regression models |
+| `_calculate_grouped_r2(...)` | Calculates R2 for grouped data |
+| `_create_value_dictionary(...)` | Creates value dictionaries for metrics |
 
 ## 6. Usage Examples
 ```python

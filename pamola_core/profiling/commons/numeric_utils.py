@@ -8,28 +8,31 @@ to perform numeric analysis.
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, List, Any, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+from pamola_core.errors.exceptions import ValidationError
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
 
 
-def calculate_skewness(data: Union[pd.Series, List, np.ndarray], min_samples: int = 3) -> float:
+def calculate_skewness(
+    data: Union[pd.Series, List, np.ndarray], min_samples: int = 3
+) -> float:
     """
     Safely calculate skewness for a numeric dataset.
 
-    Parameters:
+    Parameters
     -----------
     data : array-like
         Numeric data to calculate skewness
     min_samples : int
         Minimum number of samples required for calculation
 
-    Returns:
+    Returns
     --------
     float
         Skewness value or 0.0 if calculation fails
@@ -51,54 +54,58 @@ def calculate_skewness(data: Union[pd.Series, List, np.ndarray], min_samples: in
                 return 0.0
 
             # Calculate the third moment
-            m3 = np.sum(deviation ** 3) / n
+            m3 = np.sum(deviation**3) / n
 
             # Unbiased skewness formula
             skewness = m3 / (variance ** (3 / 2)) * np.sqrt(n * (n - 1)) / (n - 2)
 
             return float(skewness)
         return 0.0
-    except (TypeError, ValueError, ZeroDivisionError) as e:
+    except (ValidationError, TypeError, ValueError, ZeroDivisionError) as e:
         logger.warning(f"Error calculating skewness: {e}")
         # Return 0.0 for any calculation errors
         return 0.0
 
 
-def calculate_kurtosis(data: Union[pd.Series, List, np.ndarray], min_samples: int = 4) -> float:
+def calculate_kurtosis(
+    data: Union[pd.Series, List, np.ndarray], min_samples: int = 4
+) -> float:
     """
     Safely calculate kurtosis for a numeric dataset.
 
-    Parameters:
+    Parameters
     -----------
     data : array-like
         Numeric data to calculate kurtosis
     min_samples : int
         Minimum number of samples required for calculation
 
-    Returns:
+    Returns
     --------
     float
         Kurtosis value or 0.0 if calculation fails
     """
     try:
         # Convert to a plain Python list to avoid type issues with scipy.stats
-        if hasattr(data, 'tolist'):
+        if hasattr(data, "tolist"):
             data = data.tolist()
 
         # Check if we have enough data and it's all numeric
         if len(data) > min_samples and all(isinstance(x, (int, float)) for x in data):
             return float(stats.kurtosis(data))
         return 0.0
-    except (TypeError, ValueError) as e:
+    except (ValidationError, TypeError, ValueError) as e:
         logger.warning(f"Error calculating kurtosis: {e}")
         return 0.0
 
 
-def count_values_by_condition(data: pd.Series, condition_type: str, near_zero_threshold: float = 1e-10) -> int:
+def count_values_by_condition(
+    data: pd.Series, condition_type: str, near_zero_threshold: float = 1e-10
+) -> int:
     """
     Safely count values in a dataset based on specified condition.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Numeric data to apply condition
@@ -107,7 +114,7 @@ def count_values_by_condition(data: pd.Series, condition_type: str, near_zero_th
     near_zero_threshold : float, optional
         Threshold for near-zero detection
 
-    Returns:
+    Returns
     --------
     int
         Count of values meeting the condition
@@ -121,18 +128,18 @@ def count_values_by_condition(data: pd.Series, condition_type: str, near_zero_th
                 return 0
 
         # Apply appropriate condition with explicit conversion
-        if condition_type == 'zero':
+        if condition_type == "zero":
             mask = data == 0
-            return int(mask.sum()) if hasattr(mask, 'sum') else 0
-        elif condition_type == 'positive':
+            return int(mask.sum()) if hasattr(mask, "sum") else 0
+        elif condition_type == "positive":
             mask = data > 0
-            return int(mask.sum()) if hasattr(mask, 'sum') else 0
-        elif condition_type == 'negative':
+            return int(mask.sum()) if hasattr(mask, "sum") else 0
+        elif condition_type == "negative":
             mask = data < 0
-            return int(mask.sum()) if hasattr(mask, 'sum') else 0
-        elif condition_type == 'near_zero':
+            return int(mask.sum()) if hasattr(mask, "sum") else 0
+        elif condition_type == "near_zero":
             mask = (data.abs() > 0) & (data.abs() < near_zero_threshold)
-            return int(mask.sum()) if hasattr(mask, 'sum') else 0
+            return int(mask.sum()) if hasattr(mask, "sum") else 0
         else:
             return 0
     except Exception as e:
@@ -144,56 +151,60 @@ def calculate_basic_stats(data: pd.Series) -> Dict[str, Any]:
     """
     Calculate basic statistics for numeric data in a single pass.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary of basic statistics
     """
     try:
         # Use agg for efficient single-pass calculation
-        stats_dict = data.agg(['min', 'max', 'mean', 'median', 'std', 'var', 'sum']).to_dict()
+        stats_dict = data.agg(
+            ["min", "max", "mean", "median", "std", "var", "sum"]
+        ).to_dict()
 
         # Ensure proper types
         result = {
-            'min': float(stats_dict['min']),
-            'max': float(stats_dict['max']),
-            'mean': float(stats_dict['mean']),
-            'median': float(stats_dict['median']),
-            'std': float(stats_dict['std']),
-            'variance': float(stats_dict['var']),
-            'sum': float(stats_dict['sum'])
+            "min": float(stats_dict["min"]),
+            "max": float(stats_dict["max"]),
+            "mean": float(stats_dict["mean"]),
+            "median": float(stats_dict["median"]),
+            "std": float(stats_dict["std"]),
+            "variance": float(stats_dict["var"]),
+            "sum": float(stats_dict["sum"]),
         }
         return result
     except Exception as e:
         logger.warning(f"Error calculating basic statistics: {e}")
         return {
-            'min': None,
-            'max': None,
-            'mean': None,
-            'median': None,
-            'std': None,
-            'variance': None,
-            'sum': None
+            "min": None,
+            "max": None,
+            "mean": None,
+            "median": None,
+            "std": None,
+            "variance": None,
+            "sum": None,
         }
 
 
-def calculate_extended_stats(data: pd.Series, near_zero_threshold: float = 1e-10) -> Dict[str, Any]:
+def calculate_extended_stats(
+    data: pd.Series, near_zero_threshold: float = 1e-10
+) -> Dict[str, Any]:
     """
     Calculate extended statistics for numeric data including percentiles and value counts.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     near_zero_threshold : float
         Threshold for near-zero detection
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary of extended statistics
@@ -210,24 +221,42 @@ def calculate_extended_stats(data: pd.Series, near_zero_threshold: float = 1e-10
         kurtosis = calculate_kurtosis(data)
 
         # Value counts
-        zero_count = count_values_by_condition(data, 'zero')
-        near_zero_count = count_values_by_condition(data, 'near_zero', near_zero_threshold)
-        negative_count = count_values_by_condition(data, 'negative')
-        positive_count = count_values_by_condition(data, 'positive')
+        zero_count = count_values_by_condition(data, "zero")
+        near_zero_count = count_values_by_condition(
+            data, "near_zero", near_zero_threshold
+        )
+        negative_count = count_values_by_condition(data, "negative")
+        positive_count = count_values_by_condition(data, "positive")
 
         # Combine results
         result = {
-            'count': int(valid_count),
-            'skewness': float(skewness),
-            'kurtosis': float(kurtosis),
-            'zero_count': int(zero_count),
-            'zero_percentage': float(round(zero_count / valid_count * 100, 2)) if valid_count > 0 else 0.0,
-            'near_zero_count': int(near_zero_count),
-            'near_zero_percentage': float(round(near_zero_count / valid_count * 100, 2)) if valid_count > 0 else 0.0,
-            'negative_count': int(negative_count),
-            'negative_percentage': float(round(negative_count / valid_count * 100, 2)) if valid_count > 0 else 0.0,
-            'positive_count': int(positive_count),
-            'positive_percentage': float(round(positive_count / valid_count * 100, 2)) if valid_count > 0 else 0.0,
+            "count": int(valid_count),
+            "skewness": float(skewness),
+            "kurtosis": float(kurtosis),
+            "zero_count": int(zero_count),
+            "zero_percentage": (
+                float(round(zero_count / valid_count * 100, 2))
+                if valid_count > 0
+                else 0.0
+            ),
+            "near_zero_count": int(near_zero_count),
+            "near_zero_percentage": (
+                float(round(near_zero_count / valid_count * 100, 2))
+                if valid_count > 0
+                else 0.0
+            ),
+            "negative_count": int(negative_count),
+            "negative_percentage": (
+                float(round(negative_count / valid_count * 100, 2))
+                if valid_count > 0
+                else 0.0
+            ),
+            "positive_count": int(positive_count),
+            "positive_percentage": (
+                float(round(positive_count / valid_count * 100, 2))
+                if valid_count > 0
+                else 0.0
+            ),
         }
 
         # Update with basic stats
@@ -239,18 +268,20 @@ def calculate_extended_stats(data: pd.Series, near_zero_threshold: float = 1e-10
         return {}
 
 
-def calculate_percentiles(data: pd.Series, percentiles: List[float] = None) -> Dict[str, float]:
+def calculate_percentiles(
+    data: pd.Series, percentiles: List[float] = None
+) -> Dict[str, float]:
     """
     Calculate percentiles for numeric data.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     percentiles : List[float], optional
         List of percentiles to calculate (0-100)
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary of percentiles
@@ -261,55 +292,58 @@ def calculate_percentiles(data: pd.Series, percentiles: List[float] = None) -> D
     try:
         percentile_values = data.quantile([p / 100 for p in percentiles])
         # Map percentiles to their values with proper indexing
-        return {f'p{p}': float(percentile_values.loc[p / 100]) for p in percentiles}
+        return {f"p{p}": float(percentile_values.loc[p / 100]) for p in percentiles}
     except Exception as e:
         logger.warning(f"Error calculating percentiles: {e}")
         # Return 0.0 instead of None to maintain the Dict[str, float] type
-        return {f'p{p}': 0.0 for p in percentiles}
+        return {f"p{p}": 0.0 for p in percentiles}
 
 
 def calculate_histogram(data: pd.Series, bins: int = 10) -> Dict[str, Any]:
     """
     Calculate histogram data for numeric values.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     bins : int
         Number of bins for histogram
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with histogram data
     """
     try:
         hist, bin_edges = np.histogram(data, bins=bins)
-        bin_labels = [f"{bin_edges[i]:.2f}-{bin_edges[i + 1]:.2f}" for i in range(len(bin_edges) - 1)]
+        bin_labels = [
+            f"{bin_edges[i]:.2f}-{bin_edges[i + 1]:.2f}"
+            for i in range(len(bin_edges) - 1)
+        ]
 
         return {
-            'bins': bin_labels,
-            'counts': [int(count) for count in hist],
-            'bin_edges': [float(edge) for edge in bin_edges]
+            "bins": bin_labels,
+            "counts": [int(count) for count in hist],
+            "bin_edges": [float(edge) for edge in bin_edges],
         }
     except Exception as e:
         logger.warning(f"Error calculating histogram: {e}")
-        return {'bins': [], 'counts': [], 'bin_edges': []}
+        return {"bins": [], "counts": [], "bin_edges": []}
 
 
 def detect_outliers(data: pd.Series, iqr_factor: float = 1.5) -> Dict[str, Any]:
     """
     Detect outliers using the IQR method.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     iqr_factor : float
         Factor to multiply IQR by for determining outlier boundaries
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with outlier information
@@ -323,51 +357,57 @@ def detect_outliers(data: pd.Series, iqr_factor: float = 1.5) -> Dict[str, Any]:
         upper_bound = q3 + (iqr_factor * iqr)
 
         outliers_mask = (data < lower_bound) | (data > upper_bound)
-        outlier_count = int(outliers_mask.sum()) if hasattr(outliers_mask, 'sum') else 0
+        outlier_count = int(outliers_mask.sum()) if hasattr(outliers_mask, "sum") else 0
         valid_count = len(data)
 
         result = {
-            'iqr': float(iqr),
-            'lower_bound': float(lower_bound),
-            'upper_bound': float(upper_bound),
-            'count': outlier_count,
-            'percentage': float(round(outlier_count / valid_count * 100, 2)) if valid_count > 0 else 0.0
+            "iqr": float(iqr),
+            "lower_bound": float(lower_bound),
+            "upper_bound": float(upper_bound),
+            "count": outlier_count,
+            "percentage": (
+                float(round(outlier_count / valid_count * 100, 2))
+                if valid_count > 0
+                else 0.0
+            ),
         }
 
         # Sample outliers if any exist
         if outlier_count > 0:
             try:
-                outlier_sample = data[outliers_mask].sample(min(10, outlier_count)).tolist()
-                result['sample'] = outlier_sample
+                outlier_sample = (
+                    data[outliers_mask].sample(min(10, outlier_count)).tolist()
+                )
+                result["sample"] = outlier_sample
             except:
                 # Handle case where sampling fails
                 outlier_values = data[outliers_mask].tolist()
-                result['sample'] = outlier_values[:min(10, outlier_count)]
+                result["sample"] = outlier_values[: min(10, outlier_count)]
 
         return result
     except Exception as e:
         logger.warning(f"Error detecting outliers: {e}")
         return {
-            'iqr': None,
-            'lower_bound': None,
-            'upper_bound': None,
-            'count': 0,
-            'percentage': 0.0
+            "iqr": None,
+            "lower_bound": None,
+            "upper_bound": None,
+            "count": 0,
+            "percentage": 0.0,
         }
 
 
-def test_normality(data: pd.Series, test_method: str = 'all') -> Dict[str, Any]:
+def test_normality(data: pd.Series, test_method: str = "all") -> Dict[str, Any]:
     """
     Test the normality of a numeric dataset.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     test_method : str
         Method to use for testing: 'shapiro', 'anderson', 'ks', or 'all'
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with normality test results
@@ -383,77 +423,85 @@ def test_normality(data: pd.Series, test_method: str = 'all') -> Dict[str, Any]:
 
     try:
         # Shapiro-Wilk test
-        if test_method in ('shapiro', 'all'):
+        if test_method in ("shapiro", "all"):
             try:
                 shapiro_stat, shapiro_p = stats.shapiro(sample)
-                result['shapiro'] = {
-                    'statistic': float(shapiro_stat),
-                    'p_value': float(shapiro_p),
-                    'normal': shapiro_p > 0.05
+                result["shapiro"] = {
+                    "statistic": float(shapiro_stat),
+                    "p_value": float(shapiro_p),
+                    "normal": shapiro_p > 0.05,
                 }
             except Exception as e:
                 logger.warning(f"Error performing Shapiro-Wilk test: {e}")
-                result['shapiro'] = {'error': str(e)}
+                result["shapiro"] = {"error": str(e)}
 
         # Anderson-Darling test
-        if test_method in ('anderson', 'all'):
+        if test_method in ("anderson", "all"):
             try:
-                anderson_result = stats.anderson(sample, dist='norm')
-                result['anderson'] = {
-                    'statistic': float(anderson_result.statistic),
-                    'critical_values': [float(cv) for cv in anderson_result.critical_values],
-                    'significance_levels': [float(sl) for sl in anderson_result.significance_level],
+                anderson_result = stats.anderson(sample, dist="norm")
+                result["anderson"] = {
+                    "statistic": float(anderson_result.statistic),
+                    "critical_values": [
+                        float(cv) for cv in anderson_result.critical_values
+                    ],
+                    "significance_levels": [
+                        float(sl) for sl in anderson_result.significance_level
+                    ],
                     # If statistic > critical value at 5% significance, then not normal
-                    'normal': anderson_result.statistic < anderson_result.critical_values[2]  # Index 2 is 5% level
+                    "normal": anderson_result.statistic
+                    < anderson_result.critical_values[2],  # Index 2 is 5% level
                 }
             except Exception as e:
                 logger.warning(f"Error performing Anderson-Darling test: {e}")
-                result['anderson'] = {'error': str(e)}
+                result["anderson"] = {"error": str(e)}
 
         # Kolmogorov-Smirnov test
-        if test_method in ('ks', 'all'):
+        if test_method in ("ks", "all"):
             try:
                 # Standardize the data for comparison with standard normal
                 data_std = (sample - sample.mean()) / sample.std()
-                ks_stat, ks_p = stats.kstest(data_std, 'norm')
-                result['ks'] = {
-                    'statistic': float(ks_stat),
-                    'p_value': float(ks_p),
-                    'normal': ks_p > 0.05
+                ks_stat, ks_p = stats.kstest(data_std, "norm")
+                result["ks"] = {
+                    "statistic": float(ks_stat),
+                    "p_value": float(ks_p),
+                    "normal": ks_p > 0.05,
                 }
             except Exception as e:
                 logger.warning(f"Error performing Kolmogorov-Smirnov test: {e}")
-                result['ks'] = {'error': str(e)}
+                result["ks"] = {"error": str(e)}
 
         # Calculate skewness and kurtosis again for convenience
-        result['skewness'] = float(calculate_skewness(sample))
-        result['kurtosis'] = float(calculate_kurtosis(sample))
+        result["skewness"] = float(calculate_skewness(sample))
+        result["kurtosis"] = float(calculate_kurtosis(sample))
 
         # Overall assessment
-        normal_results = [v.get('normal', False) for k, v in result.items()
-                          if k in ('shapiro', 'anderson', 'ks') and isinstance(v, dict) and 'normal' in v]
+        normal_results = [
+            v.get("normal", False)
+            for k, v in result.items()
+            if k in ("shapiro", "anderson", "ks")
+            and isinstance(v, dict)
+            and "normal" in v
+        ]
 
         if normal_results:
-            result['is_normal'] = all(normal_results)
-            result['normal_test_count'] = len(normal_results)
-            result['normal_test_passed'] = sum(1 for x in normal_results if x)
+            result["is_normal"] = all(normal_results)
+            result["normal_test_count"] = len(normal_results)
+            result["normal_test_passed"] = sum(1 for x in normal_results if x)
 
         return result
 
     except Exception as e:
         logger.warning(f"Error testing normality: {e}")
-        return {
-            'error': str(e),
-            'is_normal': False
-        }
+        return {"error": str(e), "is_normal": False}
 
 
-def analyze_numeric_chunk(chunk_df: pd.DataFrame, field_name: str,
-                          near_zero_threshold: float = 1e-10) -> Dict[str, Any]:
+def analyze_numeric_chunk(
+    chunk_df: pd.DataFrame, field_name: str, near_zero_threshold: float = 1e-10
+) -> Dict[str, Any]:
     """
     Analyze a chunk of numeric data.
 
-    Parameters:
+    Parameters
     -----------
     chunk_df : pd.DataFrame
         DataFrame chunk to analyze
@@ -462,7 +510,7 @@ def analyze_numeric_chunk(chunk_df: pd.DataFrame, field_name: str,
     near_zero_threshold : float
         Threshold for near-zero detection
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with analysis results
@@ -470,29 +518,37 @@ def analyze_numeric_chunk(chunk_df: pd.DataFrame, field_name: str,
     if field_name not in chunk_df.columns:
         return {}  # Return empty dictionary instead of None
 
-    chunk_series = pd.to_numeric(chunk_df[field_name].dropna(), errors='coerce')
+    chunk_series = pd.to_numeric(chunk_df[field_name].dropna(), errors="coerce")
     if len(chunk_series) == 0:
         return {}  # Return empty dictionary instead of None
 
     # Basic stats using aggregation
-    chunk_basic_stats = chunk_series.agg(['count', 'min', 'max', 'mean', 'median', 'std', 'var', 'sum']).to_dict()
+    chunk_basic_stats = chunk_series.agg(
+        ["count", "min", "max", "mean", "median", "std", "var", "sum"]
+    ).to_dict()
 
     # Ensure all values are properly converted to appropriate types
     for key, value in chunk_basic_stats.items():
-        if key == 'count':
+        if key == "count":
             chunk_basic_stats[key] = int(value)
         else:
             chunk_basic_stats[key] = float(value)
 
     # Skewness and kurtosis
-    chunk_basic_stats['skewness'] = calculate_skewness(chunk_series)
-    chunk_basic_stats['kurtosis'] = calculate_kurtosis(chunk_series)
+    chunk_basic_stats["skewness"] = calculate_skewness(chunk_series)
+    chunk_basic_stats["kurtosis"] = calculate_kurtosis(chunk_series)
 
     # Count special values
-    chunk_basic_stats['zero_count'] = count_values_by_condition(chunk_series, 'zero')
-    chunk_basic_stats['negative_count'] = count_values_by_condition(chunk_series, 'negative')
-    chunk_basic_stats['positive_count'] = count_values_by_condition(chunk_series, 'positive')
-    chunk_basic_stats['near_zero_count'] = count_values_by_condition(chunk_series, 'near_zero', near_zero_threshold)
+    chunk_basic_stats["zero_count"] = count_values_by_condition(chunk_series, "zero")
+    chunk_basic_stats["negative_count"] = count_values_by_condition(
+        chunk_series, "negative"
+    )
+    chunk_basic_stats["positive_count"] = count_values_by_condition(
+        chunk_series, "positive"
+    )
+    chunk_basic_stats["near_zero_count"] = count_values_by_condition(
+        chunk_series, "near_zero", near_zero_threshold
+    )
 
     return chunk_basic_stats
 
@@ -501,12 +557,12 @@ def combine_chunk_results(chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]
     """
     Combine results from multiple chunks.
 
-    Parameters:
+    Parameters
     -----------
     chunk_results : List[Dict[str, Any]]
         List of chunk analysis results
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined statistics
@@ -520,141 +576,141 @@ def combine_chunk_results(chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]
     # If no valid results, return default values
     if not filtered_results:
         return {
-            'count': 0,
-            'min': None,
-            'max': None,
-            'mean': None,
-            'median': None,
-            'std': None,
-            'variance': None,
-            'sum': None,
-            'skewness': None,
-            'kurtosis': None,
-            'zero_count': 0,
-            'zero_percentage': 0.0,
-            'near_zero_count': 0,
-            'near_zero_percentage': 0.0,
-            'negative_count': 0,
-            'negative_percentage': 0.0,
-            'positive_count': 0,
-            'positive_percentage': 0.0
+            "count": 0,
+            "min": None,
+            "max": None,
+            "mean": None,
+            "median": None,
+            "std": None,
+            "variance": None,
+            "sum": None,
+            "skewness": None,
+            "kurtosis": None,
+            "zero_count": 0,
+            "zero_percentage": 0.0,
+            "near_zero_count": 0,
+            "near_zero_percentage": 0.0,
+            "negative_count": 0,
+            "negative_percentage": 0.0,
+            "positive_count": 0,
+            "positive_percentage": 0.0,
         }
 
     # Calculate total count
     total_count = 0
     for r in filtered_results:
-        count = r.get('count', 0)
+        count = r.get("count", 0)
         if count is not None:
             total_count += count
 
     # Initialize result dictionary
     result_dict = {}
-    result_dict['count'] = total_count
+    result_dict["count"] = total_count
 
     # Handle min values
     min_values = []
     for r in filtered_results:
-        min_val = r.get('min')
+        min_val = r.get("min")
         if min_val is not None:
             min_values.append(min_val)
 
     if min_values:
         min_value = min(min_values)
-        result_dict['min'] = min_value
+        result_dict["min"] = min_value
     else:
-        result_dict['min'] = None
+        result_dict["min"] = None
 
     # Handle max values
     max_values = []
     for r in filtered_results:
-        max_val = r.get('max')
+        max_val = r.get("max")
         if max_val is not None:
             max_values.append(max_val)
 
     if max_values:
         max_value = max(max_values)
-        result_dict['max'] = max_value
+        result_dict["max"] = max_value
     else:
-        result_dict['max'] = None
+        result_dict["max"] = None
 
     # Handle mean
     if total_count > 0:
         mean_sum = 0.0
         for r in filtered_results:
-            mean_val = r.get('mean')
-            count_val = r.get('count')
+            mean_val = r.get("mean")
+            count_val = r.get("count")
             if mean_val is not None and count_val is not None:
                 mean_sum += mean_val * count_val
-        result_dict['mean'] = mean_sum / total_count
+        result_dict["mean"] = mean_sum / total_count
     else:
-        result_dict['mean'] = None
+        result_dict["mean"] = None
 
     # Handle median (approximation)
     if filtered_results and len(filtered_results) > 0:
         middle_idx = len(filtered_results) // 2
-        median_val = filtered_results[middle_idx].get('median')
-        result_dict['median'] = median_val
+        median_val = filtered_results[middle_idx].get("median")
+        result_dict["median"] = median_val
     else:
-        result_dict['median'] = None
+        result_dict["median"] = None
 
     # Handle std
     if total_count > 0:
         std_sum = 0.0
         for r in filtered_results:
-            std_val = r.get('std')
-            count_val = r.get('count')
+            std_val = r.get("std")
+            count_val = r.get("count")
             if std_val is not None and count_val is not None:
                 std_sum += std_val * count_val
-        result_dict['std'] = std_sum / total_count
+        result_dict["std"] = std_sum / total_count
     else:
-        result_dict['std'] = None
+        result_dict["std"] = None
 
     # Handle variance
     if total_count > 0:
         var_sum = 0.0
         for r in filtered_results:
-            var_val = r.get('var')
-            count_val = r.get('count')
+            var_val = r.get("var")
+            count_val = r.get("count")
             if var_val is not None and count_val is not None:
                 var_sum += var_val * count_val
-        result_dict['variance'] = var_sum / total_count
+        result_dict["variance"] = var_sum / total_count
     else:
-        result_dict['variance'] = None
+        result_dict["variance"] = None
 
     # Handle sum
     sum_total = 0.0
     sum_available = False
     for r in filtered_results:
-        sum_val = r.get('sum')
+        sum_val = r.get("sum")
         if sum_val is not None:
             sum_total += sum_val
             sum_available = True
 
-    result_dict['sum'] = sum_total if sum_available else None
+    result_dict["sum"] = sum_total if sum_available else None
 
     # Handle skewness
     if total_count > 0:
         skew_sum = 0.0
         for r in filtered_results:
-            skew_val = r.get('skewness')
-            count_val = r.get('count')
+            skew_val = r.get("skewness")
+            count_val = r.get("count")
             if skew_val is not None and count_val is not None:
                 skew_sum += skew_val * count_val
-        result_dict['skewness'] = skew_sum / total_count
+        result_dict["skewness"] = skew_sum / total_count
     else:
-        result_dict['skewness'] = None
+        result_dict["skewness"] = None
 
     # Handle kurtosis
     if total_count > 0:
         kurt_sum = 0.0
         for r in filtered_results:
-            kurt_val = r.get('kurtosis')
-            count_val = r.get('count')
+            kurt_val = r.get("kurtosis")
+            count_val = r.get("count")
             if kurt_val is not None and count_val is not None:
                 kurt_sum += kurt_val * count_val
-        result_dict['kurtosis'] = kurt_sum / total_count
+        result_dict["kurtosis"] = kurt_sum / total_count
     else:
-        result_dict['kurtosis'] = None
+        result_dict["kurtosis"] = None
 
     # Handle count values
     zero_count = 0
@@ -663,10 +719,10 @@ def combine_chunk_results(chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]
     near_zero_count = 0
 
     for r in filtered_results:
-        zero_val = r.get('zero_count')
-        negative_val = r.get('negative_count')
-        positive_val = r.get('positive_count')
-        near_zero_val = r.get('near_zero_count')
+        zero_val = r.get("zero_count")
+        negative_val = r.get("negative_count")
+        positive_val = r.get("positive_count")
+        near_zero_val = r.get("near_zero_count")
 
         if zero_val is not None:
             zero_count += zero_val
@@ -677,22 +733,28 @@ def combine_chunk_results(chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]
         if near_zero_val is not None:
             near_zero_count += near_zero_val
 
-    result_dict['zero_count'] = zero_count
-    result_dict['negative_count'] = negative_count
-    result_dict['positive_count'] = positive_count
-    result_dict['near_zero_count'] = near_zero_count
+    result_dict["zero_count"] = zero_count
+    result_dict["negative_count"] = negative_count
+    result_dict["positive_count"] = positive_count
+    result_dict["near_zero_count"] = near_zero_count
 
     # Calculate percentages
     if total_count > 0:
-        result_dict['zero_percentage'] = round((zero_count / total_count) * 100, 2)
-        result_dict['negative_percentage'] = round((negative_count / total_count) * 100, 2)
-        result_dict['positive_percentage'] = round((positive_count / total_count) * 100, 2)
-        result_dict['near_zero_percentage'] = round((near_zero_count / total_count) * 100, 2)
+        result_dict["zero_percentage"] = round((zero_count / total_count) * 100, 2)
+        result_dict["negative_percentage"] = round(
+            (negative_count / total_count) * 100, 2
+        )
+        result_dict["positive_percentage"] = round(
+            (positive_count / total_count) * 100, 2
+        )
+        result_dict["near_zero_percentage"] = round(
+            (near_zero_count / total_count) * 100, 2
+        )
     else:
-        result_dict['zero_percentage'] = 0.0
-        result_dict['negative_percentage'] = 0.0
-        result_dict['positive_percentage'] = 0.0
-        result_dict['near_zero_percentage'] = 0.0
+        result_dict["zero_percentage"] = 0.0
+        result_dict["negative_percentage"] = 0.0
+        result_dict["positive_percentage"] = 0.0
+        result_dict["near_zero_percentage"] = 0.0
 
     return result_dict
 
@@ -701,51 +763,50 @@ def create_empty_stats() -> Dict[str, Any]:
     """
     Create empty statistics dictionary for when there's no valid data.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Empty statistics dictionary
     """
     return {
-        'count': 0,
-        'min': None,
-        'max': None,
-        'mean': None,
-        'median': None,
-        'std': None,
-        'variance': None,
-        'sum': None,
-        'skewness': None,
-        'kurtosis': None,
-        'percentiles': {},
-        'histogram': {'bins': [], 'counts': [], 'bin_edges': []},
-        'zero_count': 0,
-        'zero_percentage': 0,
-        'near_zero_count': 0,
-        'near_zero_percentage': 0,
-        'negative_count': 0,
-        'negative_percentage': 0,
-        'positive_count': 0,
-        'positive_percentage': 0,
-        'normality': {
-            'is_normal': False,
-            'tests': {}
-        }
+        "count": 0,
+        "min": None,
+        "max": None,
+        "mean": None,
+        "median": None,
+        "std": None,
+        "variance": None,
+        "sum": None,
+        "skewness": None,
+        "kurtosis": None,
+        "percentiles": {},
+        "histogram": {"bins": [], "counts": [], "bin_edges": []},
+        "zero_count": 0,
+        "zero_percentage": 0,
+        "near_zero_count": 0,
+        "near_zero_percentage": 0,
+        "negative_count": 0,
+        "negative_percentage": 0,
+        "positive_count": 0,
+        "positive_percentage": 0,
+        "normality": {"is_normal": False, "tests": {}},
     }
 
 
-def prepare_numeric_data(df: pd.DataFrame, field_name: str) -> Tuple[pd.Series, int, int]:
+def prepare_numeric_data(
+    df: pd.DataFrame, field_name: str
+) -> Tuple[pd.Series, int, int]:
     """
     Prepare numeric data for analysis by handling nulls and converting types.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
     field_name : str
         The name of the field to prepare
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, int, int]
         A tuple containing:
@@ -758,7 +819,7 @@ def prepare_numeric_data(df: pd.DataFrame, field_name: str) -> Tuple[pd.Series, 
     non_null_count = len(df) - null_count
 
     # Convert to numeric, coercing errors to NaN
-    numeric_series = pd.to_numeric(df[field_name], errors='coerce')
+    numeric_series = pd.to_numeric(df[field_name], errors="coerce")
 
     # Drop NaN values for valid data
     valid_data = numeric_series.dropna()
@@ -766,13 +827,13 @@ def prepare_numeric_data(df: pd.DataFrame, field_name: str) -> Tuple[pd.Series, 
     return valid_data, null_count, non_null_count
 
 
-def handle_large_dataframe(df: pd.DataFrame, field_name: str,
-                           analyze_func, chunk_size: int = 10000,
-                           **kwargs) -> Dict[str, Any]:
+def handle_large_dataframe(
+    df: pd.DataFrame, field_name: str, analyze_func, chunk_size: int = 10000, **kwargs
+) -> Dict[str, Any]:
     """
     Process a large DataFrame in chunks to analyze numeric data.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze
@@ -785,7 +846,7 @@ def handle_large_dataframe(df: pd.DataFrame, field_name: str,
     **kwargs :
         Additional parameters to pass to the analyze function
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined results of the analysis
@@ -807,12 +868,19 @@ def handle_large_dataframe(df: pd.DataFrame, field_name: str,
     # Combine results from all chunks
     return combine_chunk_results(chunk_results)
 
-def process_with_dask(df: pd.DataFrame, field_name: str, analyze_func,
-                      npartitions: int = 2, chunk_size: int = 10000, **kwargs) -> Dict[str, Any]:
+
+def process_with_dask(
+    df: pd.DataFrame,
+    field_name: str,
+    analyze_func,
+    npartitions: int = 2,
+    chunk_size: int = 10000,
+    **kwargs,
+) -> Dict[str, Any]:
     """
     Process a large DataFrame use dask to analyze numeric data.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze
@@ -825,7 +893,7 @@ def process_with_dask(df: pd.DataFrame, field_name: str, analyze_func,
     **kwargs :
         Additional parameters to pass to the analyze function
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined results of the analysis
@@ -836,7 +904,9 @@ def process_with_dask(df: pd.DataFrame, field_name: str, analyze_func,
     dask_df = dd.from_pandas(df, npartitions=npartitions)
 
     # Apply the analyze_numeric_chunk function in parallel to each partition (chunk)
-    chunk_results = dask_df.map_partitions(analyze_numeric_chunk, field_name, **kwargs).compute()
+    chunk_results = dask_df.map_partitions(
+        analyze_numeric_chunk, field_name, **kwargs
+    ).compute()
 
     # Filter out empty results (optional)
     chunk_results = [result for result in chunk_results if result]
@@ -844,12 +914,19 @@ def process_with_dask(df: pd.DataFrame, field_name: str, analyze_func,
     # Combine results from all chunks
     return combine_chunk_results(chunk_results)
 
-def process_with_joblib(df: pd.DataFrame, field_name: str, analyze_func,
-                        n_jobs: int = 2, chunk_size: int = 10000, **kwargs) -> Dict[str, Any]:
+
+def process_with_joblib(
+    df: pd.DataFrame,
+    field_name: str,
+    analyze_func,
+    n_jobs: int = 2,
+    chunk_size: int = 10000,
+    **kwargs,
+) -> Dict[str, Any]:
     """
     Process a large DataFrame use joblib to analyze numeric data.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze
@@ -862,7 +939,7 @@ def process_with_joblib(df: pd.DataFrame, field_name: str, analyze_func,
     **kwargs :
         Additional parameters to pass to the analyze function
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined results of the analysis
@@ -871,11 +948,12 @@ def process_with_joblib(df: pd.DataFrame, field_name: str, analyze_func,
 
     # Split the DataFrame into chunks manually
     n_chunks = (len(df) + chunk_size - 1) // chunk_size
-    chunks = [df.iloc[i * chunk_size: (i + 1) * chunk_size] for i in range(n_chunks)]
+    chunks = [df.iloc[i * chunk_size : (i + 1) * chunk_size] for i in range(n_chunks)]
 
     # Use Joblib's Parallel and delayed to process chunks in parallel
     chunk_results = Parallel(n_jobs=n_jobs)(
-        delayed(analyze_numeric_chunk)(chunk, field_name, **kwargs) for chunk in chunks)
+        delayed(analyze_numeric_chunk)(chunk, field_name, **kwargs) for chunk in chunks
+    )
 
     # Combine results from all chunks
     return combine_chunk_results(chunk_results)

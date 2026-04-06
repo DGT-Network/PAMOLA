@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Dask Integration Utilities
 Package:       pamola_core.utils.io_helpers
 Version:       1.1.0+refactor.2025.05.22
@@ -36,19 +35,19 @@ from typing import Iterator, Union, Dict, Any, Optional
 import pandas as pd
 import dask.dataframe as dd
 
-from pamola_core.utils import logging
-from pamola_core.utils import progress
-from pamola_core.utils.ops.op_data_processing import get_memory_usage
+import logging
+import pamola_core.utils.progress as progress
+from pamola_core.utils.io_helpers.memory_utils import get_memory_usage
 
 # Configure module logger
-logger = logging.get_logger("pamola_core.utils.io_helpers.dask_utils")
+logger = logging.getLogger(__name__)
 
 
 def is_dask_available() -> bool:
     """
     Check if Dask is available in the current environment.
 
-    Returns:
+    Returns
     --------
     bool
         True if Dask is available, False otherwise
@@ -77,7 +76,7 @@ def read_csv_in_chunks(
     """
     Read a CSV file using Dask and yield chunks as pandas DataFrames.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -92,14 +91,13 @@ def read_csv_in_chunks(
     show_progress : bool
         Whether to display a progress bar
 
-    Yields:
+    Yields
     -------
     pd.DataFrame
         Chunks of the CSV file as pandas DataFrames
     """
     try:
         import dask.dataframe as dd
-        from dask.diagnostics import ProgressBar
 
         file_path = Path(file_path)
         logger.info(f"Starting Dask chunked read of {file_path}")
@@ -163,7 +161,7 @@ def read_full_csv(
     """
     Read a full CSV file into a pandas DataFrame using Dask.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -176,7 +174,7 @@ def read_full_csv(
     show_progress : bool
         Whether to display a progress bar
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame containing the file data
@@ -239,7 +237,7 @@ def write_dataframe_to_csv(
     """
     Write a DataFrame to a CSV file using Dask.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to write
@@ -258,7 +256,7 @@ def write_dataframe_to_csv(
     compression : str, optional
         Compression algorithm: 'infer', 'gzip', 'bz2', 'zip', 'xz', 'zstd', or None for no compression
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -329,12 +327,12 @@ def compute_dask_stats(ddf) -> Dict[str, Any]:
     """
     Compute basic statistics for a Dask DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     ddf : dask.dataframe.DataFrame
         Dask DataFrame to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary of statistics including:
@@ -389,14 +387,14 @@ def check_dask_availability(engine: str = "auto", logger=None) -> bool:
     """
     Check if Dask is available in the current environment.
 
-    Parameters:
+    Parameters
     -----------
     engine : str
         The data processing engine requested: "pandas", "dask", or "auto".
     logger : Logger, optional
         Optional logger to print an error message if Dask is explicitly required but not installed.
 
-    Returns:
+    Returns
     --------
     bool
         True if Dask is available, False otherwise.
@@ -419,7 +417,7 @@ def should_use_dask(
     """
     Decide whether to use Dask based on configuration, Dask availability, and data size.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The input dataframe to evaluate.
@@ -430,7 +428,7 @@ def should_use_dask(
     max_rows_in_memory : int
         Threshold for using Pandas in memory. If row count exceeds this, prefer Dask.
 
-    Returns:
+    Returns
     --------
     bool
         True if Dask should be used, False otherwise.
@@ -453,7 +451,7 @@ def convert_to_dask(
     """
     Convert a pandas DataFrame into a Dask DataFrame with calculated or fixed partitioning.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Input pandas DataFrame.
@@ -464,7 +462,7 @@ def convert_to_dask(
     logger : Logger, optional
         Optional logger for progress/info output.
 
-    Returns:
+    Returns
     --------
     dd.DataFrame
         Converted Dask DataFrame.
@@ -485,12 +483,12 @@ def convert_from_dask(ddf):
     """
     Convert a Dask DataFrame back into a pandas DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     ddf : dd.DataFrame
         Dask DataFrame to convert.
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Resulting pandas DataFrame.
@@ -502,12 +500,12 @@ def parse_partition_size(partition_size: str) -> float:
     """
     Parse a string-based partition size to megabytes (MB).
 
-    Parameters:
+    Parameters
     -----------
     partition_size : str
         Partition size in the form "100MB", "1GB", or numeric string (default MB assumed).
 
-    Returns:
+    Returns
     --------
     float
         Partition size in megabytes.
@@ -524,12 +522,12 @@ def get_computed_df(df):
     Return the computed DataFrame if it's a Dask DataFrame,
     otherwise return the original DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : Union[pd.DataFrame, dd.DataFrame]
         Input DataFrame (can be Pandas or Dask)
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         The computed (or original) DataFrame

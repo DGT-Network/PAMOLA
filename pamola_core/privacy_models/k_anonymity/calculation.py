@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: k-Anonymity Processor
-------------------------------
 This module implements **k-Anonymity**, ensuring that each
 record in a dataset is **indistinguishable from at least `k-1` others**
 based on a set of quasi-identifiers.
@@ -50,26 +48,23 @@ from typing import Dict, List, Tuple, Optional, Any
 import pandas as pd
 from dask import dataframe as dd
 
-# PAMOLA imports
-from pamola_core import configs
 # Import reporting modules
-from pamola_core.privacy_models.k_anonymity.ka_reporting import (
-    generate_compliance_report
-)
+from pamola_core.privacy_models.k_anonymity.ka_reporting import generate_compliance_report
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.utils.io import write_json, write_csv
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
-from pamola_core.metrics.fidelity.statistical_fidelity import StatisticalFidelityMetric, calculate_fidelity_metrics
-# Import metrics modules
-from pamola_core.metrics.privacy.disclosure_risk import DisclosureRiskMetric, KAnonymityRiskMetric, calculate_disclosure_risk_metrics
-from pamola_core.metrics.utility.information_loss import InformationLossMetric, calculate_information_loss_metrics
-from pamola_core.utils import progress
-from pamola_core.utils.group_processing import compute_group_sizes, adaptive_k_lookup, validate_anonymity_inputs, optimize_memory_usage
+import pamola_core.utils.progress as progress
+from pamola_core.utils.group_processing import (
+    compute_group_sizes,
+    adaptive_k_lookup,
+    validate_anonymity_inputs,
+    optimize_memory_usage,
+)
 
 # Visualization libraries
 
-# Configure Logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
 
 class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
     """
@@ -79,7 +74,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
     by grouping records based on quasi-identifiers and ensuring each
     group meets the required `k` threshold.
 
-    Methods:
+    Methods
     --------
     - evaluate_privacy(): Assesses the dataset's k-anonymity level.
     - apply_model(): Applies k-Anonymity by suppressing or masking non-compliant records.
@@ -91,19 +86,21 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
     - visualize_risk_heatmap(): Creates a heatmap of re-identification risk.
     """
 
-    def __init__(self,
-                 k: int = 3,
-                 adaptive_k: Optional[Dict[Tuple, int]] = None,
-                 suppression: bool = True,
-                 mask_value: str = "MASKED",
-                 use_dask: bool = False,
-                 log_level: str = "INFO",
-                 progress_tracking: bool = True,
-                 config_override: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        k: int = 3,
+        adaptive_k: Optional[Dict[Tuple, int]] = None,
+        suppression: bool = True,
+        mask_value: str = "MASKED",
+        use_dask: bool = False,
+        log_level: str = "INFO",
+        progress_tracking: bool = True,
+        config_override: Optional[Dict[str, Any]] = None,
+    ):
         """
         Initializes the k-Anonymity processor.
 
-        Parameters:
+        Parameters
         -----------
         k : int, optional
             The minimum group size required for k-anonymity (default: 3).
@@ -122,8 +119,18 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         config_override : dict, optional
             Dictionary with configuration values to override defaults.
         """
-        # Merge configuration: defaults from config, overridden by explicit parameters
-        self.config = getattr(configs, "K_ANONYMITY_DEFAULTS", {
+        from pamola_core.metrics.fidelity.statistical_fidelity import (
+            StatisticalFidelityMetric,
+        )
+        from pamola_core.metrics.privacy.disclosure_risk import (
+            DisclosureRiskMetric,
+            KAnonymityRiskMetric,
+        )
+        from pamola_core.metrics.utility.information_loss import InformationLossMetric
+        import pamola_core.configs.settings as config_settings
+
+        # Merge configuration defaults, overridden by explicit parameters.
+        default_config = {
             "k": 5,
             "use_dask": False,
             "mask_value": "MASKED",
@@ -131,8 +138,9 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             "visualization": {
                 "hist_bins": 20,
                 "save_format": "png",
-            }
-        })
+            },
+        }
+        self.config = dict(getattr(config_settings, "K_ANONYMITY_DEFAULTS", default_config))
 
         # Apply configuration overrides if provided
         if config_override:
@@ -141,9 +149,19 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         # Set parameters, prioritizing explicitly provided values over config
         self.k = k if k is not None else self.config.get("k", 3)
         self.adaptive_k = adaptive_k if adaptive_k else {}
-        self.suppression = suppression if suppression is not None else self.config.get("suppression", True)
-        self.mask_value = mask_value if mask_value is not None else self.config.get("mask_value", "MASKED")
-        self.use_dask = use_dask if use_dask is not None else self.config.get("use_dask", False)
+        self.suppression = (
+            suppression
+            if suppression is not None
+            else self.config.get("suppression", True)
+        )
+        self.mask_value = (
+            mask_value
+            if mask_value is not None
+            else self.config.get("mask_value", "MASKED")
+        )
+        self.use_dask = (
+            use_dask if use_dask is not None else self.config.get("use_dask", False)
+        )
         self.progress_tracking = progress_tracking
 
         # Configure visualization settings
@@ -152,7 +170,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         # Configure logging
         numeric_level = getattr(logging, log_level.upper(), None)
         if not isinstance(numeric_level, int):
-            raise ValueError(f"Invalid log level: {log_level}")
+            raise ValidationError(f"Invalid log level: {log_level}")
         logger.setLevel(numeric_level)
 
         # Performance metrics and report data
@@ -166,29 +184,32 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         self.stat_fidelity_metric = StatisticalFidelityMetric()
 
         logger.info(
-            f"Initialized KAnonymityProcessor with k={self.k}, suppression={self.suppression}, use_dask={self.use_dask}")
+            f"Initialized KAnonymityProcessor with k={self.k}, suppression={self.suppression}, use_dask={self.use_dask}"
+        )
         logger.debug(f"Full configuration: {self.config}")
-    
+
     def process(self, data):
         """
         Process the input data.
 
-        Parameters:
+        Parameters
         -----------
         data : Any
             The input data to be processed.
 
-        Returns:
+        Returns
         --------
         Processed data, transformed according to the specific processor logic.
         """
         pass
 
-    def evaluate_privacy(self, data: pd.DataFrame, quasi_identifiers: List[str], **kwargs) -> Dict[str, Any]:
+    def evaluate_privacy(
+        self, data: pd.DataFrame, quasi_identifiers: List[str], **kwargs
+    ) -> Dict[str, Any]:
         """
         Evaluate the dataset's k-Anonymity level.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to be evaluated.
@@ -201,7 +222,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - sensitive_attributes: list - Columns containing sensitive information
             - store_for_report: bool - Whether to store results for later reporting (default: True)
 
-        Returns:
+        Returns
         --------
         dict
             Privacy assessment results:
@@ -212,18 +233,24 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - "compliant": Whether the dataset meets k-anonymity
             - Additional metrics if detailed_metrics=True
         """
+        from pamola_core.metrics.privacy.disclosure_risk import (
+            calculate_disclosure_risk_metrics,
+        )
+
         start_time = time()
-        logger.info(f"Evaluating k-anonymity for {len(data)} records with {len(quasi_identifiers)} quasi-identifiers")
+        logger.info(
+            f"Evaluating k-anonymity for {len(data)} records with {len(quasi_identifiers)} quasi-identifiers"
+        )
 
         try:
             # Input validation
             validate_anonymity_inputs(data, quasi_identifiers, self.k)
 
             # Extract additional parameters
-            detailed_metrics = kwargs.get('detailed_metrics', False)
-            risk_threshold = kwargs.get('risk_threshold', 0.5)
-            sensitive_attributes = kwargs.get('sensitive_attributes', None)
-            store_for_report = kwargs.get('store_for_report', True)
+            detailed_metrics = kwargs.get("detailed_metrics", False)
+            risk_threshold = kwargs.get("risk_threshold", 0.5)
+            sensitive_attributes = kwargs.get("sensitive_attributes", None)
+            store_for_report = kwargs.get("store_for_report", True)
 
             # Use metrics classes to evaluate privacy
             risk_results = calculate_disclosure_risk_metrics(
@@ -232,7 +259,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 sensitive_attributes=sensitive_attributes,
                 k_threshold=self.k,
                 risk_threshold=risk_threshold,
-                detailed=detailed_metrics
+                detailed=detailed_metrics,
             )
 
             # Extract key metrics
@@ -248,7 +275,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 "compliant": k_anonymity_risk["compliant"],
                 "prosecutor_risk": disclosure_risk["prosecutor_risk"],
                 "journalist_risk": disclosure_risk["journalist_risk"],
-                "marketer_risk": disclosure_risk["marketer_risk"]
+                "marketer_risk": disclosure_risk["marketer_risk"],
             }
 
             # Add l-diversity results if sensitive attributes provided
@@ -263,32 +290,39 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             # Record execution time
             end_time = time()
             execution_time = end_time - start_time
-            self.execution_times['evaluate_privacy'] = execution_time
-            result['execution_time'] = execution_time
+            self.execution_times["evaluate_privacy"] = execution_time
+            result["execution_time"] = execution_time
 
             # Store results for reporting if requested
             if store_for_report:
-                self.report_data['privacy_evaluation'] = result
-                self.report_data['quasi_identifiers'] = quasi_identifiers
+                self.report_data["privacy_evaluation"] = result
+                self.report_data["quasi_identifiers"] = quasi_identifiers
                 if sensitive_attributes:
-                    self.report_data['sensitive_attributes'] = sensitive_attributes
-                self.report_data['record_count'] = len(data)
-                self.report_data['evaluation_timestamp'] = datetime.now().isoformat()
+                    self.report_data["sensitive_attributes"] = sensitive_attributes
+                self.report_data["record_count"] = len(data)
+                self.report_data["evaluation_timestamp"] = datetime.now().isoformat()
 
-            logger.info(f"k-Anonymity evaluation completed in {execution_time:.2f} seconds. "
-                        f"Min k: {result['min_k']}, At-risk records: {result['at_risk_records']}")
+            logger.info(
+                f"k-Anonymity evaluation completed in {execution_time:.2f} seconds. "
+                f"Min k: {result['min_k']}, At-risk records: {result['at_risk_records']}"
+            )
             return result
 
         except Exception as e:
             logger.error(f"Error during privacy evaluation: {e}")
             raise
 
-    def apply_model(self, data: pd.DataFrame, quasi_identifiers: List[str], suppression: Optional[bool] = None,
-                    **kwargs) -> pd.DataFrame:
+    def apply_model(
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        suppression: Optional[bool] = None,
+        **kwargs,
+    ) -> pd.DataFrame:
         """
         Apply k-Anonymity by suppressing or masking non-compliant records.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to be anonymized.
@@ -306,7 +340,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - store_for_report: bool - Whether to store results for later reporting (default: True)
             - original_data: pd.DataFrame - Original data for metrics calculation
 
-        Returns:
+        Returns
         --------
         pd.DataFrame or Tuple[pd.DataFrame, Dict]
             The anonymized dataset, optionally with info dictionary if return_info=True.
@@ -322,16 +356,18 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             suppression = self.suppression if suppression is None else suppression
 
             # Extract additional parameters
-            npartitions = kwargs.get('npartitions', 4)
-            add_k_column = kwargs.get('add_k_column', False)
-            mask_columns = kwargs.get('mask_columns', quasi_identifiers)
-            return_info = kwargs.get('return_info', False)
-            optimize_memory = kwargs.get('optimize_memory', False)
-            store_for_report = kwargs.get('store_for_report', True)
-            original_data = kwargs.get('original_data', None)
+            npartitions = kwargs.get("npartitions", 4)
+            add_k_column = kwargs.get("add_k_column", False)
+            mask_columns = kwargs.get("mask_columns", quasi_identifiers)
+            return_info = kwargs.get("return_info", False)
+            optimize_memory = kwargs.get("optimize_memory", False)
+            store_for_report = kwargs.get("store_for_report", True)
+            original_data = kwargs.get("original_data", None)
 
-            logger.info(f"Applying k-anonymity (k={self.k}) on {len(data)} records using "
-                        f"{'suppression' if suppression else 'masking'}")
+            logger.info(
+                f"Applying k-anonymity (k={self.k}) on {len(data)} records using "
+                f"{'suppression' if suppression else 'masking'}"
+            )
 
             # Optimize memory if requested
             if optimize_memory:
@@ -340,7 +376,9 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
 
             # Convert to Dask DataFrame for large datasets if enabled
             if self.use_dask and not isinstance(data, dd.DataFrame):
-                logger.info(f"Converting to Dask DataFrame with {npartitions} partitions")
+                logger.info(
+                    f"Converting to Dask DataFrame with {npartitions} partitions"
+                )
                 data = dd.from_pandas(data, npartitions=npartitions)
 
             # Calculate group sizes and identify at-risk groups
@@ -353,26 +391,39 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             if self.progress_tracking:
                 progress_bar = progress.progress_logger(
                     f"Applying k-Anonymity: {'Suppression' if suppression else 'Masking'}",
-                    len(at_risk_groups)
+                    len(at_risk_groups),
                 )
 
             # Apply anonymization
             if suppression:
                 # Suppression: Remove records in at-risk groups
-                logger.info(f"Suppressing {(at_risk_mask * group_sizes).sum()} records in {len(at_risk_groups)} groups")
-                result = data[~data.set_index(quasi_identifiers).index.isin(at_risk_groups)]
+                logger.info(
+                    f"Suppressing {(at_risk_mask * group_sizes).sum()} records in {len(at_risk_groups)} groups"
+                )
+                result = data[
+                    ~data.set_index(quasi_identifiers).index.isin(at_risk_groups)
+                ]
             else:
                 # Masking: Replace values in specified columns
-                logger.info(f"Masking {len(mask_columns)} columns in {len(at_risk_groups)} groups")
+                logger.info(
+                    f"Masking {len(mask_columns)} columns in {len(at_risk_groups)} groups"
+                )
                 result = data.copy() if not self.use_dask else data
 
                 for i, col in enumerate(mask_columns):
                     if col in data.columns:
-                        result.loc[data.set_index(quasi_identifiers).index.isin(at_risk_groups), col] = self.mask_value
+                        result.loc[
+                            data.set_index(quasi_identifiers).index.isin(
+                                at_risk_groups
+                            ),
+                            col,
+                        ] = self.mask_value
                         if progress_bar:
                             progress_bar.update(1)
                     else:
-                        logger.warning(f"Column {col} not found in dataset, skipping masking")
+                        logger.warning(
+                            f"Column {col} not found in dataset, skipping masking"
+                        )
 
             # Add k-values column if requested
             if add_k_column:
@@ -382,7 +433,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                     group_sizes.rename(k_column),
                     left_on=quasi_identifiers,
                     right_index=True,
-                    how='left'
+                    how="left",
                 )
 
             # Convert back to pandas DataFrame if using Dask
@@ -394,14 +445,18 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             metrics = {}
             if isinstance(original_data, pd.DataFrame):
                 logger.info("Calculating metrics for anonymized data")
-                metrics = self.calculate_metrics(original_data, result, quasi_identifiers)
+                metrics = self.calculate_metrics(
+                    original_data, result, quasi_identifiers
+                )
             else:
-                logger.warning("Skipping metric calculation: original_data is None or invalid")
+                logger.warning(
+                    "Skipping metric calculation: original_data is None or invalid"
+                )
 
             # Record execution time
             end_time = time()
             execution_time = end_time - start_time
-            self.execution_times['apply_model'] = execution_time
+            self.execution_times["apply_model"] = execution_time
 
             # Prepare info dictionary
             info = {
@@ -413,7 +468,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 "method": "suppression" if suppression else "masking",
                 "k_value": self.k,
                 "quasi_identifiers": quasi_identifiers,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             # Add metrics to info if calculated
@@ -422,14 +477,18 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
 
             # Store results for reporting if requested
             if store_for_report:
-                self.report_data['anonymization_result'] = info
-                self.report_data['anonymization_timestamp'] = datetime.now().isoformat()
-                self.report_data['anonymization_method'] = "suppression" if suppression else "masking"
+                self.report_data["anonymization_result"] = info
+                self.report_data["anonymization_timestamp"] = datetime.now().isoformat()
+                self.report_data["anonymization_method"] = (
+                    "suppression" if suppression else "masking"
+                )
                 if metrics:
-                    self.report_data['metrics'] = metrics
+                    self.report_data["metrics"] = metrics
 
-            logger.info(f"k-Anonymity application completed in {execution_time:.2f} seconds. "
-                        f"Result has {len(result)} records ({info['records_removed']} removed).")
+            logger.info(
+                f"k-Anonymity application completed in {execution_time:.2f} seconds. "
+                f"Result has {len(result)} records ({info['records_removed']} removed)."
+            )
 
             # Return result with or without info
             return (result, info) if return_info else result
@@ -442,23 +501,27 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             if progress_bar:
                 progress_bar.close()
 
-    def enrich_with_k_values(self, data: pd.DataFrame, quasi_identifiers: List[str]) -> pd.DataFrame:
+    def enrich_with_k_values(
+        self, data: pd.DataFrame, quasi_identifiers: List[str]
+    ) -> pd.DataFrame:
         """
         Adds a column with the k-anonymity value for each record.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to enrich.
         quasi_identifiers : list[str]
             List of column names used as quasi-identifiers.
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Dataset with added k-value column.
         """
-        logger.info(f"Enriching dataset with k-values for {len(quasi_identifiers)} quasi-identifiers")
+        logger.info(
+            f"Enriching dataset with k-values for {len(quasi_identifiers)} quasi-identifiers"
+        )
 
         try:
             # Input validation
@@ -479,12 +542,16 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 group_sizes.rename(k_column),
                 left_on=quasi_identifiers,
                 right_index=True,
-                how='left'
+                how="left",
             )
 
             # Add risk column based on k-values
-            risk_column = f"RISK_{'_'.join([qi[:3].upper() for qi in quasi_identifiers])}"
-            result[risk_column] = result[k_column].apply(lambda k: 1 / k if k > 0 else 1)
+            risk_column = (
+                f"RISK_{'_'.join([qi[:3].upper() for qi in quasi_identifiers])}"
+            )
+            result[risk_column] = result[k_column].apply(
+                lambda k: 1 / k if k > 0 else 1
+            )
 
             # Convert back if using Dask
             if self.use_dask and isinstance(result, dd.DataFrame):
@@ -497,18 +564,20 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             logger.error(f"Error during dataset enrichment: {e}")
             raise
 
-    def calculate_risk(self, data: pd.DataFrame, quasi_identifiers: List[str]) -> pd.DataFrame:
+    def calculate_risk(
+        self, data: pd.DataFrame, quasi_identifiers: List[str]
+    ) -> pd.DataFrame:
         """
         Calculates re-identification risk for each record based on k-anonymity.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to analyze.
         quasi_identifiers : list[str]
             List of column names used as quasi-identifiers.
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Dataset with added risk column.
@@ -522,15 +591,20 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             logger.error(f"Error during risk calculation: {e}")
             raise
 
-    def calculate_metrics(self, original_data: pd.DataFrame, anonymized_data: pd.DataFrame,
-                          quasi_identifiers: List[str], **kwargs) -> Dict[str, Dict[str, Any]]:
+    def calculate_metrics(
+        self,
+        original_data: pd.DataFrame,
+        anonymized_data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        **kwargs,
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Calculates comprehensive metrics for anonymized data.
 
         This method combines privacy, utility, and fidelity metrics
         to provide a complete assessment of the anonymization process.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             The original dataset.
@@ -544,7 +618,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - numerical_columns: list - Columns to treat as numerical
             - distribution_tests: bool - Whether to include distribution tests (default: False)
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with all calculated metrics:
@@ -552,22 +626,32 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - "utility_metrics": Information loss metrics
             - "fidelity_metrics": Statistical fidelity metrics
         """
+        from pamola_core.metrics.fidelity.statistical_fidelity import (
+            calculate_fidelity_metrics,
+        )
+        from pamola_core.metrics.privacy.disclosure_risk import (
+            calculate_disclosure_risk_metrics,
+        )
+        from pamola_core.metrics.utility.information_loss import (
+            calculate_information_loss_metrics,
+        )
+
         logger.info("Calculating comprehensive metrics for anonymized data")
 
         try:
             metrics = {}
 
             # Extract additional parameters
-            sensitive_attributes = kwargs.get('sensitive_attributes', None)
-            numerical_columns = kwargs.get('numerical_columns', None)
-            distribution_tests = kwargs.get('distribution_tests', False)
+            sensitive_attributes = kwargs.get("sensitive_attributes", None)
+            numerical_columns = kwargs.get("numerical_columns", None)
+            distribution_tests = kwargs.get("distribution_tests", False)
 
             # Calculate privacy metrics
             privacy_metrics = calculate_disclosure_risk_metrics(
                 data=anonymized_data,
                 quasi_identifiers=quasi_identifiers,
                 sensitive_attributes=sensitive_attributes,
-                k_threshold=self.k
+                k_threshold=self.k,
             )
             metrics["privacy_metrics"] = privacy_metrics
 
@@ -575,7 +659,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             utility_metrics = calculate_information_loss_metrics(
                 original_data=original_data,
                 anonymized_data=anonymized_data,
-                numerical_columns=numerical_columns
+                numerical_columns=numerical_columns,
             )
             metrics["utility_metrics"] = utility_metrics
 
@@ -584,12 +668,12 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 original_data=original_data,
                 anonymized_data=anonymized_data,
                 distribution_tests=distribution_tests,
-                columns=numerical_columns
+                columns=numerical_columns,
             )
             metrics["fidelity_metrics"] = fidelity_metrics
 
             # Store metrics for reporting
-            self.report_data['metrics'] = metrics
+            self.report_data["metrics"] = metrics
 
             return metrics
 
@@ -597,12 +681,17 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             logger.error(f"Error during metrics calculation: {e}")
             raise
 
-    def generate_report(self, output_path: Optional[str] = None, include_visualizations: bool = True,
-                        report_format: str = "json", regulation: Optional[str] = None) -> Dict[str, Any]:
+    def generate_report(
+        self,
+        output_path: Optional[str] = None,
+        include_visualizations: bool = True,
+        report_format: str = "json",
+        regulation: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Generates a comprehensive report about the anonymization process.
 
-        Parameters:
+        Parameters
         -----------
         output_path : str, optional
             Path to save the report.
@@ -614,7 +703,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             If provided, generates a compliance report for the specified regulation
             (e.g., 'GDPR', 'HIPAA').
 
-        Returns:
+        Returns
         --------
         dict
             The complete anonymization report.
@@ -634,15 +723,20 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
 
             # Use compliance report if regulation is specified
             if regulation:
-                return generate_compliance_report(report_data=report_data, output_path=output_path,
-                                                  regulation=regulation)
+                return generate_compliance_report(
+                    report_data=report_data,
+                    output_path=output_path,
+                    regulation=regulation,
+                )
 
             # Save the report if an output path is provided
             if output_path:
                 if report_format.lower() == "json":
                     write_json(report_data, output_path)
                 else:
-                    logger.warning(f"Unsupported report format `{report_format}`. Saving as JSON instead.")
+                    logger.warning(
+                        f"Unsupported report format `{report_format}`. Saving as JSON instead."
+                    )
                     write_json(report_data, output_path)
 
             return report_data
@@ -651,13 +745,19 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             logger.error(f"Error generating anonymization report: {e}", exc_info=True)
             raise
 
-    def visualize_k_distribution(self, data: pd.DataFrame, k_column: str, save_path: Optional[str] = None, **kwargs):
+    def visualize_k_distribution(
+        self,
+        data: pd.DataFrame,
+        k_column: str,
+        save_path: Optional[str] = None,
+        **kwargs,
+    ):
         """
         Creates a visualization of k-anonymity distribution.
 
         This is a wrapper around the visualization utility function.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset with k-values.
@@ -668,14 +768,16 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         **kwargs : dict
             Additional parameters for visualization.
 
-        Returns:
+        Returns
         --------
         tuple
             Figure object and path to saved figure (if saved, otherwise None).
         """
         # Get visualization settings from config
-        bins = kwargs.get('bins', self.viz_config.get('hist_bins', 20))
-        save_format = kwargs.get('save_format', self.viz_config.get('save_format', 'png'))
+        bins = kwargs.get("bins", self.viz_config.get("hist_bins", 20))
+        save_format = kwargs.get(
+            "save_format", self.viz_config.get("save_format", "png")
+        )
 
         try:
             from pamola_core.privacy_models.k_anonymity.ka_visualization import visualize_k_distribution
@@ -687,14 +789,14 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 save_path=save_path,
                 bins=bins,
                 save_format=save_format,
-                **kwargs
+                **kwargs,
             )
 
             # Store path for reporting if saved
-            if saved_path and hasattr(self, 'report_data'):
-                if 'visualization_paths' not in self.report_data:
-                    self.report_data['visualization_paths'] = {}
-                self.report_data['visualization_paths']['k_distribution'] = saved_path
+            if saved_path and hasattr(self, "report_data"):
+                if "visualization_paths" not in self.report_data:
+                    self.report_data["visualization_paths"] = {}
+                self.report_data["visualization_paths"]["k_distribution"] = saved_path
 
             return fig, saved_path
 
@@ -702,14 +804,20 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             logger.error(f"Error during k-distribution visualization: {e}")
             raise
 
-    def visualize_risk_heatmap(self, data: pd.DataFrame, risk_column: str, feature_columns: List[str],
-                               save_path: Optional[str] = None, **kwargs):
+    def visualize_risk_heatmap(
+        self,
+        data: pd.DataFrame,
+        risk_column: str,
+        feature_columns: List[str],
+        save_path: Optional[str] = None,
+        **kwargs,
+    ):
         """
         Creates a heatmap visualizing re-identification risk.
 
         This is a wrapper around the visualization utility function.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Dataset with risk values.
@@ -722,13 +830,15 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         **kwargs : dict
             Additional parameters for visualization.
 
-        Returns:
+        Returns
         --------
         tuple
             Figure object and path to saved figure (if saved, otherwise None).
         """
         # Get visualization settings from config
-        save_format = kwargs.get('save_format', self.viz_config.get('save_format', 'png'))
+        save_format = kwargs.get(
+            "save_format", self.viz_config.get("save_format", "png")
+        )
 
         try:
             from pamola_core.privacy_models.k_anonymity.ka_visualization import visualize_risk_heatmap
@@ -740,14 +850,14 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 feature_columns=feature_columns,
                 save_path=save_path,
                 save_format=save_format,
-                **kwargs
+                **kwargs,
             )
 
             # Store path for reporting if saved
-            if saved_path and hasattr(self, 'report_data'):
-                if 'visualization_paths' not in self.report_data:
-                    self.report_data['visualization_paths'] = {}
-                self.report_data['visualization_paths']['risk_heatmap'] = saved_path
+            if saved_path and hasattr(self, "report_data"):
+                if "visualization_paths" not in self.report_data:
+                    self.report_data["visualization_paths"] = {}
+                self.report_data["visualization_paths"]["risk_heatmap"] = saved_path
 
             return fig, saved_path
 
@@ -761,7 +871,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
 
         This method uses the validate_anonymity_inputs utility function.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to validate.
@@ -774,7 +884,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Returns a summary of execution times for different operations.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary of operation names and execution times.
@@ -785,26 +895,25 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Returns the current configuration of the k-anonymity processor.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary containing all configuration parameters.
         """
         return self.config
 
-
     def export_metrics(self, path: str, format: str = "json") -> str:
         """
         Exports calculated metrics to a file.
 
-        Parameters:
+        Parameters
         -----------
         path : str
             Path where to save the metrics.
         format : str, optional
             Format to save metrics in: 'json', 'csv' (default: 'json').
 
-        Returns:
+        Returns
         --------
         str
             Path to the saved metrics file.
@@ -835,12 +944,17 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             logger.error(f"Error exporting metrics: {e}", exc_info=True)
             raise
 
-    def compare_anonymized_datasets(self, dataset1: pd.DataFrame, dataset2: pd.DataFrame,
-                                    quasi_identifiers: List[str], **kwargs) -> Dict[str, Any]:
+    def compare_anonymized_datasets(
+        self,
+        dataset1: pd.DataFrame,
+        dataset2: pd.DataFrame,
+        quasi_identifiers: List[str],
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Compares two anonymized datasets to evaluate their relative privacy and utility.
 
-        Parameters:
+        Parameters
         -----------
         dataset1 : pd.DataFrame
             First anonymized dataset.
@@ -851,11 +965,14 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         **kwargs : dict
             Additional parameters for comparison.
 
-        Returns:
+        Returns
         --------
         dict
             Comparison results with privacy and utility metrics for both datasets.
         """
+        from pamola_core.metrics.privacy.disclosure_risk import KAnonymityRiskMetric
+        from pamola_core.metrics.utility.information_loss import InformationLossMetric
+
         try:
             logger.info("Comparing two anonymized datasets")
 
@@ -868,7 +985,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
 
             # If original data is provided, calculate utility metrics
             utility_comparison = {}
-            original_data = kwargs.get('original_data', None)
+            original_data = kwargs.get("original_data", None)
             if isinstance(original_data, pd.DataFrame):  # Ensures correct type
                 logger.info("Calculating utility metrics for anonymized data")
                 info_loss1 = InformationLossMetric()
@@ -880,16 +997,18 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 utility_comparison = {
                     "dataset1": {
                         "information_loss": utility1["overall_information_loss"],
-                        "records_loss": utility1["total_records_loss"]
+                        "records_loss": utility1["total_records_loss"],
                     },
                     "dataset2": {
                         "information_loss": utility2["overall_information_loss"],
-                        "records_loss": utility2["total_records_loss"]
+                        "records_loss": utility2["total_records_loss"],
                     },
                     "difference": {
-                        "information_loss": utility1["overall_information_loss"] - utility2["overall_information_loss"],
-                        "records_loss": utility1["total_records_loss"] - utility2["total_records_loss"]
-                    }
+                        "information_loss": utility1["overall_information_loss"]
+                        - utility2["overall_information_loss"],
+                        "records_loss": utility1["total_records_loss"]
+                        - utility2["total_records_loss"],
+                    },
                 }
 
             # Prepare comparison result
@@ -899,19 +1018,19 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                         "min_k": ka_metrics1["min_k"],
                         "compliant": ka_metrics1["compliant"],
                         "at_risk_records": ka_metrics1["records_in_small_groups"],
-                        "at_risk_percentage": ka_metrics1["percent_records_at_risk"]
+                        "at_risk_percentage": ka_metrics1["percent_records_at_risk"],
                     },
                     "dataset2": {
                         "min_k": ka_metrics2["min_k"],
                         "compliant": ka_metrics2["compliant"],
                         "at_risk_records": ka_metrics2["records_in_small_groups"],
-                        "at_risk_percentage": ka_metrics2["percent_records_at_risk"]
+                        "at_risk_percentage": ka_metrics2["percent_records_at_risk"],
                     },
                     "difference": {
                         "min_k": ka_metrics1["min_k"] - ka_metrics2["min_k"],
-                        "at_risk_percentage": ka_metrics1["percent_records_at_risk"] - ka_metrics2[
-                            "percent_records_at_risk"]
-                    }
+                        "at_risk_percentage": ka_metrics1["percent_records_at_risk"]
+                        - ka_metrics2["percent_records_at_risk"],
+                    },
                 }
             }
 
@@ -935,22 +1054,29 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 result["privacy_utility_tradeoff"] = {
                     "dataset1_score": tradeoff_score1,
                     "dataset2_score": tradeoff_score2,
-                    "better_tradeoff": "dataset1" if tradeoff_score1 > tradeoff_score2 else "dataset2"
+                    "better_tradeoff": (
+                        "dataset1" if tradeoff_score1 > tradeoff_score2 else "dataset2"
+                    ),
                 }
 
-            logger.info(f"Dataset comparison completed")
+            logger.info("Dataset comparison completed")
             return result
 
         except Exception as e:
             logger.error(f"Error during dataset comparison: {e}")
             raise
 
-    def batch_anonymize(self, data: pd.DataFrame, quasi_identifiers: List[str],
-                        k_values: List[int], **kwargs) -> Dict[int, pd.DataFrame]:
+    def batch_anonymize(
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        k_values: List[int],
+        **kwargs,
+    ) -> Dict[int, pd.DataFrame]:
         """
         Anonymizes a dataset using multiple k values for comparison.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to anonymize.
@@ -961,13 +1087,15 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         **kwargs : dict
             Additional parameters for anonymization.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary mapping k values to anonymized datasets.
         """
         try:
-            logger.info(f"Batch anonymizing dataset with {len(k_values)} different k values")
+            logger.info(
+                f"Batch anonymizing dataset with {len(k_values)} different k values"
+            )
 
             results = {}
             comparison_metrics = []
@@ -987,27 +1115,34 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                     quasi_identifiers=quasi_identifiers,
                     return_info=True,
                     original_data=data,
-                    **kwargs
+                    **kwargs,
                 )
 
                 # Store result
                 results[k] = anonymized_data
 
                 # Store metrics for comparison
-                if 'metrics' in info:
-                    comparison_metrics.append({
-                        "k_value": k,
-                        "privacy": info['metrics'].get('privacy_metrics', {}),
-                        "utility": info['metrics'].get('utility_metrics', {}),
-                        "records_removed": info['records_removed'],
-                        "percent_removed": round(100 * info['records_removed'] / info['original_records'], 2)
-                    })
+                if "metrics" in info:
+                    comparison_metrics.append(
+                        {
+                            "k_value": k,
+                            "privacy": info["metrics"].get("privacy_metrics", {}),
+                            "utility": info["metrics"].get("utility_metrics", {}),
+                            "records_removed": info["records_removed"],
+                            "percent_removed": round(
+                                100
+                                * info["records_removed"]
+                                / info["original_records"],
+                                2,
+                            ),
+                        }
+                    )
 
             # Restore original k value
             self.k = original_k
 
             # Store comparison metrics for reporting
-            self.report_data['batch_comparison'] = comparison_metrics
+            self.report_data["batch_comparison"] = comparison_metrics
 
             logger.info(f"Batch anonymization completed for {len(k_values)} k values")
             return results

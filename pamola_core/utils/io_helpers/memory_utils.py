@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Memory Management Utilities
 Description: Tools for estimating, optimizing, and monitoring memory use during I/O operations
 Author: PAMOLA Core Team
@@ -19,10 +18,10 @@ from pathlib import Path
 from typing import Any, Dict, Tuple, Optional
 
 from pamola_core.common.type_aliases import DataFrameType, PathLike, pd, np
-from pamola_core.utils import logging
+import logging
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Constants for memory size conversions
 BYTES_PER_KB = 1024
@@ -35,7 +34,7 @@ def get_system_memory(
     """
     Get information about system memory.
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with system memory information in GB
@@ -90,7 +89,7 @@ def get_process_memory_usage(
     """
     Get memory usage information for the current process.
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with process memory usage information
@@ -133,12 +132,12 @@ def check_memory_critical(
     """
     Check if system memory usage is critical.
 
-    Parameters:
+    Parameters
     -----------
     threshold_percent : float
         Threshold percentage for critical memory usage
 
-    Returns:
+    Returns
     --------
     bool
         True if memory usage is critical, False otherwise
@@ -165,7 +164,7 @@ def estimate_dataframe_size(
     """
     Estimate the memory size of a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : DataFrameType
         DataFrame to estimate
@@ -174,7 +173,7 @@ def estimate_dataframe_size(
     sample_frac : float
         Calculate base on small sample of the data (default 0.01)
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with size information
@@ -230,6 +229,33 @@ def estimate_dataframe_size(
         }
 
 
+def get_memory_usage(df: pd.DataFrame) -> Dict[str, float]:
+    """
+    Get memory usage statistics for a DataFrame.
+
+    Parameters
+    -----------
+    df : pd.DataFrame
+        DataFrame to analyze
+
+    Returns
+    --------
+    Dict[str, float]
+        Memory usage information in MB
+    """
+    total_memory = df.memory_usage(deep=True).sum()
+
+    return {
+        "total_mb": round(total_memory / BYTES_PER_MB, 2),
+        "per_row_bytes": round(total_memory / len(df), 2) if len(df) > 0 else 0,
+        "per_column_avg_mb": (
+            round(total_memory / len(df.columns) / BYTES_PER_MB, 2)
+            if len(df.columns) > 0
+            else 0
+        ),
+    }
+
+
 def estimate_csv_memory_size(
         file_path: PathLike,
         sample_rows: int = 1000,
@@ -239,7 +265,7 @@ def estimate_csv_memory_size(
     """
     Estimate the memory requirements for loading a CSV file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path.
         Path to the CSV file
@@ -250,7 +276,7 @@ def estimate_csv_memory_size(
     delimiter : str
         Field delimiter (default: ",")
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with size estimates
@@ -343,12 +369,12 @@ def estimate_file_memory(
     """
     Estimate memory requirements for loading a file based on its format.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path.
         Path to the file
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with memory requirement estimates
@@ -439,7 +465,7 @@ def get_optimal_chunk_size(
     """
     Calculate the optimal chunk size for reading a file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path.
         Path to the file
@@ -456,7 +482,7 @@ def get_optimal_chunk_size(
     delimiter : str
         Field delimiter for CSV files (default: ",")
 
-    Returns:
+    Returns
     --------
     int
         Optimal chunk size in rows
@@ -504,7 +530,7 @@ def calculate_safe_chunk_count(
     """
     Calculate a safe number of chunks for processing a large file.
 
-    Parameters:
+    Parameters
     -----------
     file_size_mb : float
         File size in MB
@@ -515,7 +541,7 @@ def calculate_safe_chunk_count(
     min_chunks : int
         Minimum number of chunks
 
-    Returns:
+    Returns
     --------
     int
         Safe number of chunks
@@ -544,7 +570,7 @@ def optimize_dataframe_memory(
     """
     Optimize memory usage of a DataFrame by converting data types.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame.
         DataFrame to optimize
@@ -553,7 +579,7 @@ def optimize_dataframe_memory(
     inplace : bool
         Whether to modify the DataFrame in place
 
-    Returns:
+    Returns
     --------
     Tuple[pd.DataFrame, Dict[str, Any]]
         Optimized DataFrame and dictionary with optimization information
@@ -578,30 +604,30 @@ def optimize_dataframe_memory(
         if col_min >= 0:
             if col_max < 2**8:
                 df[col] = df[col].astype(np.uint8)
-                conversions[col] = f"int -> uint8"
+                conversions[col] = "int -> uint8"
             elif col_max < 2**16:
                 df[col] = df[col].astype(np.uint16)
-                conversions[col] = f"int -> uint16"
+                conversions[col] = "int -> uint16"
             elif col_max < 2**32:
                 df[col] = df[col].astype(np.uint32)
-                conversions[col] = f"int -> uint32"
+                conversions[col] = "int -> uint32"
         else:
             if col_min >= -2**7 and col_max < 2**7:
                 df[col] = df[col].astype(np.int8)
-                conversions[col] = f"int -> int8"
+                conversions[col] = "int -> int8"
             elif col_min >= -2**15 and col_max < 2**15:
                 df[col] = df[col].astype(np.int16)
-                conversions[col] = f"int -> int16"
+                conversions[col] = "int -> int16"
             elif col_min >= -2**31 and col_max < 2**31:
                 df[col] = df[col].astype(np.int32)
-                conversions[col] = f"int -> int32"
+                conversions[col] = "int -> int32"
 
     # Process float columns
     for col in df.select_dtypes(include=["float"]).columns:
         # Convert to float32 if precision loss is acceptable
         if df[col].notna().all(): # Only convert if no NaN values
             df[col] = df[col].astype(np.float32)
-            conversions[col] = f"float -> float32"
+            conversions[col] = "float -> float32"
 
     # Process object columns - consider converting to categorical
     for col in df.select_dtypes(include=["object"]).columns:

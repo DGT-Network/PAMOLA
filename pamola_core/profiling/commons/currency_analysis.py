@@ -6,23 +6,14 @@ including currency conversion, distribution analysis, and specialized statistics
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 
 import pandas as pd
 from pamola_core.profiling.commons.currency_utils import analyze_currency_stats
-from pamola_core.utils.logging import configure_logging
-from pamola_core.profiling.commons.numeric_utils import (
-    calculate_extended_stats,
-    calculate_percentiles,
-    calculate_histogram,
-    detect_outliers,
-    test_normality,
-    create_empty_stats,
-)
-from pamola_core.profiling.commons.data_types import DataType
+import pamola_core.utils.logging as pamola_logging
 
 # Configure logger using the custom logging utility
-logger = configure_logging(level=logging.INFO)
+logger = pamola_logging.configure_logging(level=logging.INFO)
 
 
 def analyze_currency_field(
@@ -34,7 +25,7 @@ def analyze_currency_field(
     """
     Analyze a currency field, potentially with an accompanying currency code field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -51,7 +42,7 @@ def analyze_currency_field(
         - perform_conversion: bool, optional
           Whether to perform currency conversion (default: True if exchange_rates provided)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Results of the analysis
@@ -100,7 +91,7 @@ def analyze_salary_field(
     """
     Specialized analysis for salary fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -111,7 +102,7 @@ def analyze_salary_field(
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Results of the analysis
@@ -129,7 +120,7 @@ def convert_currencies(
     """
     Convert currency values to a base currency using exchange rates.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -142,7 +133,7 @@ def convert_currencies(
     base_currency : str, optional
         Base currency for conversion (default: 'RUB')
 
-    Returns:
+    Returns
     --------
     pd.Series
         Series with converted values

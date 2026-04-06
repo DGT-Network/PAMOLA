@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Network Diagram Visualization Implementation
 
 Description:
@@ -51,7 +50,8 @@ class PlotlyNetworkDiagram(PlotlyFigure):
         """
         Create a network diagram using Plotly.
 
-        Parameters:
+        Parameters
+        ----------
             nodes (List[str]): List of node names.
             edges (List[Tuple[str, str]]): List of edges as (source, target) tuples.
             node_labels (Dict[str, str], optional): Labels for nodes.
@@ -61,7 +61,8 @@ class PlotlyNetworkDiagram(PlotlyFigure):
             strict (bool, optional): Strict mode for errors.
             **kwargs: Additional arguments for customization.
 
-        Returns:
+        Returns
+        -------
             go.Figure: Plotly figure containing the network diagram.
         """
         with visualization_context(backend=backend, theme=theme, strict=strict):
@@ -166,7 +167,8 @@ class PlotlyNetworkDiagram(PlotlyFigure):
         """
         Update an existing Plotly network diagram.
 
-        Parameters:
+        Parameters
+        ----------
             fig (go.Figure): Existing Plotly figure to update.
             nodes (List[str], optional): Updated list of nodes.
             edges (List[Tuple[str, str]], optional): Updated list of edges.
@@ -177,7 +179,8 @@ class PlotlyNetworkDiagram(PlotlyFigure):
             strict (bool, optional): Strict mode for errors.
             **kwargs: Additional arguments for customization.
 
-        Returns:
+        Returns
+        -------
             go.Figure: Updated Plotly figure.
         """
         with visualization_context(backend=backend, theme=theme, strict=strict):
@@ -227,7 +230,7 @@ class MatplotlibNetworkDiagram(MatplotlibFigure):
         """
         Create a network diagram using Matplotlib.
 
-        Parameters:
+        Parameters
         ----------
         nodes : List[str]
             List of node identifiers (subset and field names).
@@ -255,7 +258,7 @@ class MatplotlibNetworkDiagram(MatplotlibFigure):
                 - font_size (int): Font size of the node labels.
                 - title_font_size (int): Font size of the plot title.
 
-        Returns:
+        Returns
         -------
         matplotlib.figure.Figure or None
             The generated network diagram figure or None if an error occurs.
@@ -263,7 +266,6 @@ class MatplotlibNetworkDiagram(MatplotlibFigure):
         with visualization_context(backend=backend, theme=theme, strict=strict):
             try:
                 import matplotlib.pyplot as plt
-                import networkx as nx
 
                 node_labels = node_labels or {}
 
@@ -345,7 +347,8 @@ class MatplotlibNetworkDiagram(MatplotlibFigure):
         """
         Update an existing Matplotlib network diagram.
 
-        Parameters:
+        Parameters
+        ----------
             fig (plt.Figure): Existing figure to update.
             nodes (List[str], optional): Updated list of nodes.
             edges (List[Tuple[str, str]], optional): Updated list of edges.
@@ -356,13 +359,13 @@ class MatplotlibNetworkDiagram(MatplotlibFigure):
             strict (bool, optional): Strict mode for errors.
             **kwargs: Additional arguments for customization.
 
-        Returns:
+        Returns
+        -------
             plt.Figure: Updated Matplotlib figure.
         """
         with visualization_context(backend=backend, theme=theme, strict=strict):
             try:
                 import matplotlib.pyplot as plt
-                import networkx as nx
 
                 if nodes and edges:
                     return self.create(

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Pie Chart Visualization Implementation
 Description: Thread-safe pie chart visualization capabilities
 Author: PAMOLA Core Team
@@ -25,6 +24,7 @@ from pamola_core.utils.vis_helpers.base import (
     PlotlyFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import ValidationError, TypeValidationError
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
     apply_theme_to_plotly_figure,
@@ -62,7 +62,7 @@ class PlotlyPieChart(PlotlyFigure):
         """
         Create a pie chart using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict[str, float], pd.Series, List[float]]
             Data to visualize. If dict or Series, keys are used as labels.
@@ -100,7 +100,7 @@ class PlotlyPieChart(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to the Plotly trace
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the pie chart
@@ -132,7 +132,7 @@ class PlotlyPieChart(PlotlyFigure):
                         labels_list = labels[: len(data)]
                     values_list = data
                 else:
-                    raise TypeError(
+                    raise TypeValidationError(
                         f"Unsupported data type for pie chart: {type(data)}"
                     )
 
@@ -236,7 +236,7 @@ class PlotlyPieChart(PlotlyFigure):
         """
         Update an existing Plotly pie chart.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Existing Plotly figure to update
@@ -249,7 +249,7 @@ class PlotlyPieChart(PlotlyFigure):
         **kwargs:
             Parameters to update (same as create method)
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated Plotly figure
@@ -410,7 +410,7 @@ class PlotlySunburstChart(PlotlyFigure):
         Converts nested dictionary structure into flat lists of labels, parents, and values
         suitable for Plotly Sunburst visualization.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict
             Hierarchical dictionary where leaf nodes have numeric values.
@@ -418,7 +418,7 @@ class PlotlySunburstChart(PlotlyFigure):
         parent : str
             Parent node name (used for recursion)
 
-        Returns:
+        Returns
         --------
         Tuple[List[str], List[str], List[float]]
             Tuple of (labels, parents, values) where:
@@ -440,16 +440,14 @@ class PlotlySunburstChart(PlotlyFigure):
                 child_labels, child_parents, child_values = (
                     self._process_hierarchical_dict(value, key)
                 )
-                
+
                 # Calculate sum of IMMEDIATE children only
                 # immediate children are those whose parent equals current key
                 immediate_children_sum = sum(
-                    child_values[i] 
-                    for i, p in enumerate(child_parents) 
-                    if p == key
+                    child_values[i] for i, p in enumerate(child_parents) if p == key
                 )
                 values.append(immediate_children_sum)
-                
+
                 # Now extend with all descendant data
                 labels.extend(child_labels)
                 parents.extend(child_parents)
@@ -473,7 +471,7 @@ class PlotlySunburstChart(PlotlyFigure):
         """
         Prepare parameters for the sunburst chart based on input data type.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict, pd.DataFrame]
             Data for the visualization
@@ -490,12 +488,12 @@ class PlotlySunburstChart(PlotlyFigure):
         **kwargs
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for creating the sunburst chart
 
-        Raises:
+        Raises
         -------
         ValueError
             If required columns are missing for DataFrame input
@@ -508,7 +506,9 @@ class PlotlySunburstChart(PlotlyFigure):
         if isinstance(data, pd.DataFrame):
             # For DataFrame input, we need columns for path, values, and optionally colors
             if path_column is None:
-                raise ValueError("path_column must be provided for DataFrame input")
+                raise ValidationError(
+                    "path_column must be provided for DataFrame input"
+                )
 
             # Prepare paths - can be a single column or list of columns
             if isinstance(path_column, (list, tuple)):
@@ -554,7 +554,9 @@ class PlotlySunburstChart(PlotlyFigure):
             sunburst_params["parents"] = parents
             sunburst_params["values"] = values
         else:
-            raise TypeError(f"Unsupported data type for sunburst chart: {type(data)}")
+            raise TypeValidationError(
+                f"Unsupported data type for sunburst chart: {type(data)}"
+            )
 
         # Add maxdepth if provided
         if maxdepth is not None:
@@ -580,7 +582,7 @@ class PlotlySunburstChart(PlotlyFigure):
         """
         Create a sunburst chart using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict, pd.DataFrame]
             Data to visualize.
@@ -612,7 +614,7 @@ class PlotlySunburstChart(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to the Plotly trace
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the sunburst chart
@@ -643,7 +645,7 @@ class PlotlySunburstChart(PlotlyFigure):
                     # Add the trace
                     fig.add_trace(go.Sunburst(**sunburst_params))
 
-                except (ValueError, TypeError) as e:
+                except (ValidationError, ValueError, TypeError) as e:
                     return self.create_empty_figure(
                         title=title,
                         message=f"Error preparing sunburst chart data: {str(e)}",
@@ -688,7 +690,7 @@ class PlotlySunburstChart(PlotlyFigure):
         """
         Update an existing Plotly sunburst chart.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Existing Plotly figure to update
@@ -701,7 +703,7 @@ class PlotlySunburstChart(PlotlyFigure):
         **kwargs:
             Parameters to update
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated Plotly figure
@@ -884,7 +886,7 @@ class MatplotlibPieChart(MatplotlibFigure):
                         labels_list = labels[: len(data)]
                     values_list = data
                 else:
-                    raise TypeError(
+                    raise TypeValidationError(
                         f"Unsupported data type for pie chart: {type(data)}"
                     )
 

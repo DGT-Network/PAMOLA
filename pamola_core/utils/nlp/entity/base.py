@@ -18,18 +18,12 @@ from pamola_core.utils.nlp.base import normalize_language_code
 from pamola_core.utils.nlp.cache import get_cache
 from pamola_core.utils.nlp.category_matching import CategoryDictionary
 from pamola_core.utils.nlp.language import detect_language
-from pamola_core.utils.nlp.model_manager import NLPModelManager
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
-# Get cache instances
-file_cache = get_cache('file')
-memory_cache = get_cache('memory')
-model_cache = get_cache('model')
-
-# NLP model manager instance
-nlp_model_manager = NLPModelManager()
+def _get_file_cache():
+    return get_cache("file")
 
 
 def get_dictionaries_path() -> Path:
@@ -41,7 +35,7 @@ def get_dictionaries_path() -> Path:
     2. Data repository from PAMOLA.CORE config under external_dictionaries/entities
     3. Default path in package resources
 
-    Returns:
+    Returns
     --------
     Path
         Path to the entity dictionaries directory
@@ -85,14 +79,14 @@ def find_dictionary_file(entity_type: str, language: Optional[str] = None) -> Op
     """
     Find the dictionary file for a specific entity type.
 
-    Parameters:
+    Parameters
     -----------
     entity_type : str
         Type of entity (job, organization, skill, transaction)
     language : str, optional
         Language code to find a language-specific dictionary
 
-    Returns:
+    Returns
     --------
     str or None
         Path to the dictionary file if found, None otherwise
@@ -156,7 +150,7 @@ class EntityMatchResult:
         """
         Initialize an entity match result.
 
-        Parameters:
+        Parameters
         -----------
         original_text : str
             Original text that was matched
@@ -200,7 +194,7 @@ class EntityMatchResult:
         """
         Convert the match result to a dictionary.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary representation of the match result
@@ -245,7 +239,7 @@ class BaseEntityExtractor(ABC):
         """
         Initialize the entity extractor.
 
-        Parameters:
+        Parameters
         -----------
         language : str
             Language code or "auto" for detection
@@ -282,12 +276,12 @@ class BaseEntityExtractor(ABC):
         """
         Load the entity dictionary from the specified path.
 
-        Parameters:
+        Parameters
         -----------
         dictionary_path : str
             Path to the dictionary file
 
-        Returns:
+        Returns
         --------
         bool
             True if dictionary was loaded successfully, False otherwise
@@ -297,7 +291,7 @@ class BaseEntityExtractor(ABC):
             cache_key = f"entity_dict:{dictionary_path}"
 
             if self.use_cache:
-                dict_obj = file_cache.get(cache_key)
+                dict_obj = _get_file_cache().get(cache_key)
                 if dict_obj is not None:
                     self.category_dictionary = dict_obj.dictionary
                     self.hierarchy = dict_obj.hierarchy
@@ -312,7 +306,7 @@ class BaseEntityExtractor(ABC):
 
             # Store in cache
             if self.use_cache:
-                file_cache.set(cache_key, dict_obj, file_path=dictionary_path)
+                _get_file_cache().set(cache_key, dict_obj, file_path=dictionary_path)
 
             logger.info(f"Loaded entity dictionary from {dictionary_path}")
             return True
@@ -325,12 +319,12 @@ class BaseEntityExtractor(ABC):
         """
         Ensure that a dictionary is loaded, trying to find a suitable one if needed.
 
-        Parameters:
+        Parameters
         -----------
         entity_type : str
             Type of entity for finding an appropriate dictionary
 
-        Returns:
+        Returns
         --------
         bool
             True if a dictionary is loaded, False otherwise
@@ -357,7 +351,7 @@ class BaseEntityExtractor(ABC):
         """
         Extract entities from a list of texts.
 
-        Parameters:
+        Parameters
         -----------
         texts : List[str]
             List of text strings to process
@@ -366,7 +360,7 @@ class BaseEntityExtractor(ABC):
         show_progress : bool
             Whether to show a progress bar
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Extraction results containing entities, categories, and statistics
@@ -429,7 +423,7 @@ class BaseEntityExtractor(ABC):
         """
         Process a single text and extract entities.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Text to process
@@ -438,7 +432,7 @@ class BaseEntityExtractor(ABC):
         language : str
             Language of the text
 
-        Returns:
+        Returns
         --------
         EntityMatchResult or None
             Match result if found, None otherwise
@@ -490,7 +484,7 @@ class BaseEntityExtractor(ABC):
         """
         Extract entities using NER models.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Original text
@@ -499,7 +493,7 @@ class BaseEntityExtractor(ABC):
         language : str
             Language of the text
 
-        Returns:
+        Returns
         --------
         EntityMatchResult or None
             Match result if found, None otherwise
@@ -511,7 +505,7 @@ class BaseEntityExtractor(ABC):
         """
         Get the entity type for this extractor.
 
-        Returns:
+        Returns
         --------
         str
             Entity type string
@@ -522,7 +516,7 @@ class BaseEntityExtractor(ABC):
         """
         Create an empty result structure.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Empty result dictionary
@@ -550,7 +544,7 @@ class BaseEntityExtractor(ABC):
         """
         Compile the final results from the matches and unresolved texts.
 
-        Parameters:
+        Parameters
         -----------
         entity_matches : List[EntityMatchResult]
             List of entity match results
@@ -559,7 +553,7 @@ class BaseEntityExtractor(ABC):
         language : str
             Language used for processing
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Comprehensive results dictionary

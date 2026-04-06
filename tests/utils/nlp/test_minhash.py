@@ -5,8 +5,7 @@ This module contains unit tests for the abstract base classes and concrete
 implementations in the minhash.py module.
 """
 import unittest
-from unittest.mock import patch, MagicMock, mock_open
-from typing import List
+from unittest.mock import patch
 import tempfile
 import os
 import csv

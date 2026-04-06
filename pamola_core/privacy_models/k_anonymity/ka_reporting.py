@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - k-Anonymity Reporting Utilities
----------------------------------------------
 This module provides specialized reporting functionality for k-anonymity
 anonymization models. It extends the base reporting infrastructure with
 k-anonymity-specific metrics, visualizations, and report sections.
@@ -30,7 +29,6 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional, Any
 
-from pamola_core import configs
 from pamola_core.utils.base_reporting import PrivacyReport
 from pamola_core.utils.io import write_json
 
@@ -51,7 +49,7 @@ class KAnonymityReport(PrivacyReport):
         """
         Initialize a k-anonymity report.
 
-        Parameters:
+        Parameters
         -----------
         report_data : dict
             Dictionary containing k-anonymity report data.
@@ -62,12 +60,12 @@ class KAnonymityReport(PrivacyReport):
         """
         Generate a comprehensive k-anonymity report.
 
-        Parameters:
+        Parameters
         -----------
         include_visualizations : bool, optional
             Whether to include visualization paths in the report.
 
-        Returns:
+        Returns
         --------
         dict
             The compiled k-anonymity report.
@@ -116,13 +114,13 @@ class KAnonymityReport(PrivacyReport):
         """
         Generate a concise summary of the k-anonymity report.
 
-        Returns:
+        Returns
         --------
         str
             A summary of key k-anonymity metrics and results.
         """
         summary = [
-            f"PAMOLA k-Anonymity Summary",
+            "PAMOLA k-Anonymity Summary",
             "=========================",
             "",
             f"Generated on: {self.metadata['creation_time']}"
@@ -131,21 +129,21 @@ class KAnonymityReport(PrivacyReport):
         # Add configuration overview
         if "k_anonymity_configuration" in self.report_data:
             config = self.report_data["k_anonymity_configuration"]
-            summary.append(f"\nConfiguration:")
+            summary.append("\nConfiguration:")
             summary.append(f"- k-value: {config.get('k_value', 'N/A')}")
             summary.append(f"- Method: {'Suppression' if config.get('suppression') else 'Masking'}")
 
         # Add dataset overview
         if "dataset_information" in self.report_data:
             dataset = self.report_data["dataset_information"]
-            summary.append(f"\nDataset:")
+            summary.append("\nDataset:")
             summary.append(f"- Records: {dataset.get('record_count', 'N/A')}")
             summary.append(f"- Quasi-identifiers: {len(dataset.get('quasi_identifiers', []))}")
 
         # Add key results
         if "anonymization_result" in self.report_data:
             result = self.report_data["anonymization_result"]
-            summary.append(f"\nResults:")
+            summary.append("\nResults:")
             summary.append(f"- Records processed: {result.get('original_records', 'N/A')}")
             summary.append(f"- Records after anonymization: {result.get('anonymized_records', 'N/A')}")
             summary.append(f"- Records removed: {result.get('records_removed', 'N/A')}")
@@ -153,7 +151,7 @@ class KAnonymityReport(PrivacyReport):
         # Add anonymization metrics
         if "privacy_evaluation" in self.report_data:
             privacy = self.report_data["privacy_evaluation"]
-            summary.append(f"\nPrivacy:")
+            summary.append("\nPrivacy:")
             summary.append(f"- Minimum k: {privacy.get('min_k', 'N/A')}")
             summary.append(f"- Records at risk: {privacy.get('at_risk_records', 'N/A')}")
             summary.append(f"- Compliance: {'Yes' if privacy.get('compliant', False) else 'No'}")
@@ -161,7 +159,7 @@ class KAnonymityReport(PrivacyReport):
         # Add information loss
         if "information_loss" in self.report_data:
             loss = self.report_data["information_loss"]
-            summary.append(f"\nInformation Loss:")
+            summary.append("\nInformation Loss:")
             summary.append(f"- Overall: {loss.get('overall_information_loss', 'N/A')}%")
 
         return "\n".join(summary)
@@ -177,7 +175,7 @@ def generate_anonymization_report(report_data: Dict[str, Any],
     This function provides backward compatibility with previous implementation.
     For new code, consider using the KAnonymityReport class directly.
 
-    Parameters:
+    Parameters
     -----------
     report_data : dict
         Dictionary containing k-anonymity report data.
@@ -188,7 +186,7 @@ def generate_anonymization_report(report_data: Dict[str, Any],
     format : str, optional
         Report format: 'json', 'html', or 'text' (default: 'json').
 
-    Returns:
+    Returns
     --------
     dict
         The complete k-anonymity report.
@@ -220,7 +218,7 @@ def generate_compliance_report(report_data: Dict[str, Any],
     This specialized report focuses on compliance aspects of
     k-anonymity transformations for specific regulations.
 
-    Parameters:
+    Parameters
     -----------
     report_data : dict
         Dictionary containing k-anonymity report data.
@@ -229,12 +227,14 @@ def generate_compliance_report(report_data: Dict[str, Any],
     regulation : str, optional
         Regulation to check compliance against ('GDPR', 'HIPAA', 'CCPA', etc.)
 
-    Returns:
+    Returns
     --------
     dict
         The compliance report.
     """
     try:
+        import pamola_core.configs.settings as config_settings
+
         # Create base report
         report = KAnonymityReport(report_data)
         base_report = report.generate(include_visualizations=False)
@@ -243,7 +243,9 @@ def generate_compliance_report(report_data: Dict[str, Any],
         compliance_report = {
             "report_metadata": {
                 "creation_time": datetime.now().isoformat(),
-                "pamola_version": getattr(configs, "PAMOLA_VERSION", "unknown"),
+                "pamola_version": getattr(
+                    config_settings, "PAMOLA_VERSION", "unknown"
+                ),
                 "report_type": f"k-anonymity {regulation} compliance"
             },
             "regulation": regulation,

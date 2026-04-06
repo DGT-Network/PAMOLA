@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Attribute Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -35,6 +34,8 @@ from pamola_core.profiling.commons.attribute_utils import (
     analyze_dataset_attributes,
     load_attribute_dictionary,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.schemas.attribute_core_schema import (
     DataAttributeProfilerOperationConfig,
 )
@@ -59,7 +60,7 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 from pamola_core.utils.ops.op_cache import OperationCache
 
 # Configure logger
@@ -144,7 +145,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Execute the attribute analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -157,19 +158,25 @@ class DataAttributeProfilerOperation(BaseOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(
+                f"Starting: {self.operation_name} at {self.start_time}"
+            )
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
             entropy_df = None
-
-            if kwargs.get("logger"):
-                self.logger = kwargs["logger"]
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -179,17 +186,19 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             # Prepare output directories for artifacts
             dirs = self._prepare_directories(task_dir)
+            output_dir = dirs["output"]
+            visualizations_dir = dirs["visualizations"]
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
                 cache_dir=dirs["cache"],
             )
 
-            output_dir = dirs["output"]
-            visualizations_dir = dirs["visualizations"]
-
-            # Initialize operation result with success status
-            result = OperationResult(status=OperationStatus.SUCCESS)
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -223,12 +232,11 @@ class DataAttributeProfilerOperation(BaseOperation):
                 )
 
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Log initial dataset information
@@ -239,7 +247,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             # Report operation details
             if reporter:
                 reporter.add_operation(
-                    f"Attribute Profiling",
+                    "Attribute Profiling",
                     details={
                         "records_count": len(df),
                         "columns_count": len(df.columns),
@@ -269,7 +277,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Clean invalid values (from cache)",
+                            f"{self.operation_name} (from cache)",
                             details={"cached": True},
                         )
                     return cache_result
@@ -586,23 +594,29 @@ class DataAttributeProfilerOperation(BaseOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
+
             return result
 
         except Exception as e:
-            # Comprehensive error handling
-            self.logger.exception(f"Error in attribute profiling operation: {e}")
-
-            if progress_tracker:
-                progress_tracker.update(0, {"step": "Error", "error": str(e)})
-            if reporter:
-                reporter.add_operation(
-                    "Attribute Profiling", status="error", details={"error": str(e)}
-                )
-
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error in attribute profiling: {str(e)}",
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": "<unspecified>",
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _create_visualizations(
@@ -620,7 +634,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Create visualizations for attribute profiling.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of attribute analysis
@@ -782,12 +796,12 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Data source for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -825,7 +839,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -834,7 +848,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -861,9 +875,9 @@ class DataAttributeProfilerOperation(BaseOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
@@ -874,7 +888,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -905,7 +919,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of attribute analysis
@@ -928,7 +942,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         operation_timestamp : Optional[str]
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -963,7 +977,7 @@ class DataAttributeProfilerOperation(BaseOperation):
 
                 try:
                     # Log context variables
-                    logger.info(f"[DIAG] Checking context variables...")
+                    logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
                         logger.info(
@@ -973,7 +987,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                         logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
 
                     # Generate visualizations with visualization context parameters
-                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1019,17 +1033,17 @@ class DataAttributeProfilerOperation(BaseOperation):
                     logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1075,7 +1089,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts

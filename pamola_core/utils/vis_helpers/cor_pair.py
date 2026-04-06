@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
----------------------------------------------------
 Module: Correlation Pair Plot Visualization Implementation
 
 Description:
@@ -29,6 +28,7 @@ from pamola_core.utils.vis_helpers.base import (
     PlotlyFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.utils.vis_helpers.context import visualization_context
 from pamola_core.utils.vis_helpers.cor_utils import calculate_correlation
 from pamola_core.utils.vis_helpers.theme import (
@@ -64,7 +64,7 @@ class PlotlyCorrelationPair(PlotlyFigure):
         """
         Create a correlation plot for a pair of variables using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         x_data : List[float], np.ndarray, or pd.Series
             Data for the x-axis
@@ -95,12 +95,12 @@ class PlotlyCorrelationPair(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to go.Scatter
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the correlation plot
 
-        Raises:
+        Raises
         -------
         ValueError
             If input data is invalid or insufficient for correlation
@@ -254,7 +254,8 @@ class PlotlyCorrelationPair(PlotlyFigure):
             except Exception as e:
                 logger.error(f"Error creating correlation pair plot: {e}")
                 return self.create_empty_figure(
-                    title=title, message=f"Error creating correlation pair plot: {str(e)}"
+                    title=title,
+                    message=f"Error creating correlation pair plot: {str(e)}",
                 )
 
     def update(
@@ -268,7 +269,7 @@ class PlotlyCorrelationPair(PlotlyFigure):
         """
         Update an existing Plotly correlation pair plot.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Plotly figure to update
@@ -291,7 +292,7 @@ class PlotlyCorrelationPair(PlotlyFigure):
             - color: New color for the scatter points
             - marker_size: New size for the markers
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated figure
@@ -388,10 +389,15 @@ class PlotlyCorrelationPair(PlotlyFigure):
                             if isinstance(correlation, (np.ndarray, list, tuple)):
                                 try:
                                     correlation = float(correlation[0])
-                                except (IndexError, TypeError, ValueError):
+                                except (
+                                    ValidationError,
+                                    IndexError,
+                                    TypeError,
+                                    ValueError,
+                                ):
                                     try:
                                         correlation = float(correlation)
-                                    except (TypeError, ValueError):
+                                    except (ValidationError, TypeError, ValueError):
                                         logger.warning(
                                             "Could not convert correlation to float"
                                         )
@@ -432,7 +438,7 @@ class PlotlyCorrelationPair(PlotlyFigure):
         """
         Add trendline to figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Figure to add trendline to
@@ -491,7 +497,7 @@ class PlotlyCorrelationPair(PlotlyFigure):
         """
         Update or add trendline in figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Figure to update
@@ -578,7 +584,7 @@ class PlotlyCorrelationPair(PlotlyFigure):
         """
         Update scatter plot in figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Figure to update
@@ -635,7 +641,7 @@ class PlotlyCorrelationPair(PlotlyFigure):
         """
         Update histograms in figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Figure to update
@@ -662,7 +668,7 @@ class PlotlyCorrelationPair(PlotlyFigure):
         """
         Add correlation annotation to figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Figure to add annotation to
@@ -693,7 +699,7 @@ class PlotlyCorrelationPair(PlotlyFigure):
         """
         Update correlation annotation in figure.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Figure to update

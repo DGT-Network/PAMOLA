@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Constants Module
----------------------------------------------------------
 This module defines global constants used throughout the project to improve
 maintainability and reduce hardcoded values in the codebase.
 
@@ -22,7 +21,6 @@ For details, see the LICENSE file or visit:
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -126,3 +124,17 @@ class Constants:
         "pd": pd,
         "np": np,
     }
+    # Task runner
+    ORIENT = "orient"
+    ENCODING = "encoding"
+    SEP = "sep"
+    DELIMITER = "delimiter"
+    QUOTE_CHAR = "quotechar"
+    TRANSFORMED_DATASET_NAME = "transformed_dataset_name"
+    DELIMITER_COMMA = ","
+    DOUBLE_QUOTE = '"'
+    COLUMNS_ORIENT = "columns"
+    UTF_8 = "utf-8"
+    ANALYSIS_MODE = "analysis_mode"
+    ENRICH = "ENRICH"
+    BOTH = "BOTH"

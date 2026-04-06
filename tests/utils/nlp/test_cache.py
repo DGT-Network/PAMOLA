@@ -9,7 +9,6 @@ from unittest.mock import patch, mock_open, MagicMock
 import tempfile
 import os
 import time
-from collections import OrderedDict
 
 # Mocks or sample values (replace these with real ones from your environment)
 CACHE_ENABLED = True
@@ -29,9 +28,6 @@ from pamola_core.utils.nlp.cache import (
     get_cache,
     cache_function,
     detect_file_encoding,
-    _file_cache,
-    _model_cache,
-    _memory_cache
 )
 
 
@@ -132,11 +128,13 @@ class TestFileCache(unittest.TestCase):
 
     def test_set_and_get_valid_entry(self):
         self.cache.set("file1", "data", file_path=self.temp_file_path)
+        self.cache._flush_write_buffer()
         result = self.cache.get("file1")
         self.assertEqual(result, "data")
 
     def test_get_invalid_when_file_modified(self):
         self.cache.set("file1", "data", file_path=self.temp_file_path)
+        self.cache._flush_write_buffer()
         # Modify file to change mtime
         time.sleep(1)
         with open(self.temp_file_path, "a") as f:
@@ -146,36 +144,42 @@ class TestFileCache(unittest.TestCase):
 
     def test_is_valid_true(self):
         self.cache.set("file1", "data", file_path=self.temp_file_path)
+        self.cache._flush_write_buffer()
         self.assertTrue(self.cache.is_valid("file1"))
 
     def test_is_valid_false_on_modification(self):
         self.cache.set("file1", "data", file_path=self.temp_file_path)
+        self.cache._flush_write_buffer()
         time.sleep(1)
         with open(self.temp_file_path, "a") as f:
             f.write("update")
         self.assertFalse(self.cache.is_valid("file1"))
 
     def test_eviction(self):
-        # Add more than max_size
+        # Add more than max_size; flush buffer after each set so eviction logic runs
         self.cache.set("key1", "val1", file_path=self.temp_file_path)
+        self.cache._flush_write_buffer()
         time.sleep(0.5)
         with tempfile.NamedTemporaryFile(delete=False) as f2:
             f2.write(b"test")
             f2.flush()
             file2 = f2.name
         self.cache.set("key2", "val2", file_path=file2)
+        self.cache._flush_write_buffer()
         time.sleep(0.5)
         with tempfile.NamedTemporaryFile(delete=False) as f3:
             f3.write(b"test")
             f3.flush()
             file3 = f3.name
         self.cache.set("key3", "val3", file_path=file3)
+        self.cache._flush_write_buffer()
         time.sleep(0.5)
         with tempfile.NamedTemporaryFile(delete=False) as f4:
             f4.write(b"test")
             f4.flush()
             file4 = f4.name
-        self.cache.set("key4", "val4", file_path=file4) # should evict key1
+        self.cache.set("key4", "val4", file_path=file4)  # should evict key1
+        self.cache._flush_write_buffer()
 
         self.assertNotIn("key1", self.cache._cache)
         self.assertEqual(len(self.cache._cache), MAX_CACHE_SIZE)
@@ -185,17 +189,20 @@ class TestFileCache(unittest.TestCase):
 
     def test_delete(self):
         self.cache.set("file1", "data", file_path=self.temp_file_path)
+        self.cache._flush_write_buffer()
         self.assertTrue(self.cache.delete("file1"))
         self.assertFalse(self.cache.delete("file1"))  # Already deleted
 
     def test_clear(self):
         self.cache.set("file1", "data", file_path=self.temp_file_path)
+        self.cache._flush_write_buffer()
         self.cache.clear()
         self.assertEqual(len(self.cache._cache), 0)
         self.assertEqual(len(self.cache._file_paths), 0)
 
     def test_stats_tracking(self):
         self.cache.set("file1", "data", file_path=self.temp_file_path)
+        self.cache._flush_write_buffer()
         _ = self.cache.get("file1")  # hit
         _ = self.cache.get("missing")  # miss
         stats = self.cache.get_stats()
@@ -230,12 +237,15 @@ class TestModelCache(unittest.TestCase):
         self.assertEqual(stats["misses"], 1)
 
     def test_eviction_by_max_size(self):
+        # Use a fresh cache with check_memory=False to avoid memory pressure
+        # interfering with max_size eviction counting
+        cache = ModelCache(max_size=3, check_memory=False)
         for i in range(3):
-            self.cache.set(f"model{i}", DummyModel())
-        self.cache.set("model3", DummyModel())  # should trigger eviction
-        stats = self.cache.get_stats()
+            cache.set(f"model{i}", DummyModel())
+        cache.set("model3", DummyModel())  # should trigger eviction
+        stats = cache.get_stats()
         self.assertEqual(stats["evictions"], 1)
-        self.assertEqual(len(self.cache._cache), 3)
+        self.assertEqual(len(cache._cache), 3)
 
     def test_model_metadata_and_info(self):
         self.cache.set("model1", DummyModel(), metadata={"source": "huggingface"})
@@ -301,10 +311,21 @@ class DummyCache:
 class TestGlobalCacheUtilities(unittest.TestCase):
 
     def test_get_cache_returns_correct_instance(self):
-        self.assertIs(get_cache("file"), _file_cache)
-        self.assertIs(get_cache("model"), _model_cache)
-        self.assertIs(get_cache("memory"), _memory_cache)
-        self.assertIs(get_cache("unknown"), _memory_cache)
+        # get_cache lazily initializes the global singletons; call first then compare
+        file_cache = get_cache("file")
+        model_cache = get_cache("model")
+        memory_cache = get_cache("memory")
+        unknown_cache = get_cache("unknown")
+
+        self.assertIsInstance(file_cache, FileCache)
+        self.assertIsInstance(model_cache, ModelCache)
+        self.assertIsInstance(memory_cache, MemoryCache)
+        # "unknown" falls back to memory cache (same singleton)
+        self.assertIs(unknown_cache, memory_cache)
+        # Subsequent calls return the same singleton
+        self.assertIs(get_cache("file"), file_cache)
+        self.assertIs(get_cache("model"), model_cache)
+        self.assertIs(get_cache("memory"), memory_cache)
 
     def test_cache_function_decorator_caches_result(self):
         dummy_cache = DummyCache()
@@ -328,7 +349,10 @@ class TestGlobalCacheUtilities(unittest.TestCase):
     @patch("builtins.open", new_callable=mock_open, read_data=b'test content')
     @patch("pamola_core.utils.nlp.cache.get_cache", return_value=DummyCache())
     def test_detect_file_encoding_with_chardet(self, mock_cache, mock_file):
-        with patch("pamola_core.utils.nlp.cache.chardet.detect", return_value={'encoding': 'utf-8'}) as mock_detect:
+        # chardet is imported locally inside detect_file_encoding; create a mock module
+        mock_chardet = MagicMock()
+        mock_chardet.detect.return_value = {'encoding': 'utf-8'}
+        with patch.dict("sys.modules", {"chardet": mock_chardet}):
             encoding = detect_file_encoding("fake.txt")
             self.assertEqual(encoding, "utf-8")
             self.assertIn("file_encoding:fake.txt", mock_cache.return_value.store)

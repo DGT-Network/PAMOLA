@@ -162,7 +162,7 @@ result = analyze_resume_group_variation(
 | `data_source` | DataSource | Yes | - | Source of data for the operation |
 | `task_dir` | Path | Yes | - | Directory for saving artifacts |
 | `reporter` | Any | Yes | - | Reporter object for tracking artifacts |
-| `progress_tracker` | ProgressTracker | No | None | Progress tracking object |
+| `progress_tracker` | HierarchicalProgressTracker | No | None | Progress tracking object |
 | `title_prefix` | str | No | "Group" | Prefix for plot titles |
 | `generate_visualization` | bool | No | True | Whether to create visualizations |
 | `save_details` | bool | No | True | Whether to save detailed group information |

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Data Processing Utilities
 Package:       pamola_core.utils.ops
 Version:       2.0.0
@@ -31,11 +30,11 @@ Design Principles:
 
 import gc
 import logging
-from typing import Any, Dict, Generator, Optional, Tuple, Union
+from typing import Any, Dict, Generator, Optional, Tuple
 from typing import Literal
 
-import numpy as np
 import pandas as pd
+from pamola_core.errors.exceptions import ColumnNotFoundError, InvalidStrategyError
 
 
 # Configure module logger
@@ -52,7 +51,7 @@ def optimize_dataframe_dtypes(
     """
     Optimize DataFrame data types to reduce memory usage.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to optimize
@@ -65,7 +64,7 @@ def optimize_dataframe_dtypes(
     inplace : bool, optional
         Whether to modify the DataFrame in place (default: False)
 
-    Returns:
+    Returns
     --------
     Tuple[pd.DataFrame, Dict[str, Any]]
         (optimized_dataframe, optimization_info)
@@ -136,14 +135,14 @@ def get_dataframe_chunks(
     """
     Generate DataFrame chunks for memory-efficient processing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to chunk
     chunk_size : int, optional
         Size of each chunk (default: 10000)
 
-    Yields:
+    Yields
     -------
     pd.DataFrame
         Chunks of the original DataFrame
@@ -161,7 +160,7 @@ def process_null_values(
     """
     Process null values in a Series according to strategy.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Series to process
@@ -170,7 +169,7 @@ def process_null_values(
     fill_value : Any, optional
         Value to use when strategy is "fill"
 
-    Returns:
+    Returns
     --------
     pd.Series
         Processed series
@@ -188,7 +187,11 @@ def process_null_values(
                 fill_value = ""
         return series.fillna(fill_value)
     else:
-        raise ValueError(f"Unknown null strategy: {strategy}")
+        raise InvalidStrategyError(
+            strategy=strategy,
+            valid_strategies=["preserve", "drop", "fill"],
+            operation_type="process_null_values",
+        )
 
 
 def safe_convert_to_numeric(
@@ -197,14 +200,14 @@ def safe_convert_to_numeric(
     """
     Safely convert series to numeric, handling errors gracefully.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Series to convert
     errors : Literal['coerce', 'ignore', 'raise'], optional
         How to handle parsing errors: 'coerce', 'ignore', 'raise' (default: 'coerce')
 
-    Returns:
+    Returns
     --------
     pd.Series
         Numeric series
@@ -216,12 +219,12 @@ def get_memory_usage(df: pd.DataFrame) -> Dict[str, float]:
     """
     Get memory usage statistics for a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Memory usage information in MB
@@ -249,7 +252,7 @@ def apply_to_column(
     """
     Apply a function to a DataFrame column with optional result column.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -262,13 +265,16 @@ def apply_to_column(
     **kwargs
         Additional arguments passed to func
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame with applied transformation
     """
     if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+        raise ColumnNotFoundError(
+            column_name=column,
+            available_columns=list(df.columns),
+        )
 
     result = func(df[column], **kwargs)
 
@@ -289,7 +295,7 @@ def create_sample(
     """
     Create a sample from DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to sample from
@@ -300,7 +306,7 @@ def create_sample(
     random_state : int, optional
         Random seed (default: 42)
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Sampled DataFrame
@@ -318,21 +324,3 @@ def force_garbage_collection() -> None:
     Useful between processing large chunks of data.
     """
     gc.collect()
-
-
-# Module metadata
-__version__ = "2.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    "optimize_dataframe_dtypes",
-    "get_dataframe_chunks",
-    "process_null_values",
-    "safe_convert_to_numeric",
-    "get_memory_usage",
-    "apply_to_column",
-    "create_sample",
-    "force_garbage_collection",
-]

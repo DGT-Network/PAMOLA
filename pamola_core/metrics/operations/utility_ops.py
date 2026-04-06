@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Utility Metric Operation
 Package:       pamola_core.metrics
 Version:       4.0.0
@@ -44,13 +43,19 @@ from pamola_core.metrics.utility.classification import ClassificationUtility
 from pamola_core.metrics.utility.regression import RegressionUtility
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.metrics.commons.validation import validate_dataframe
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    InvalidParameterError,
+    ValidationError,
+)
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 # Factory mapping for utility metrics
 UTILITY_METRIC_FACTORY = {
@@ -128,7 +133,7 @@ class UtilityMetricOperation(MetricsOperation):
         """
         Execute the metrics operation with enhanced features including Dask support.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -141,7 +146,7 @@ class UtilityMetricOperation(MetricsOperation):
         **kwargs : dict
             Additional parameters including profiling_results
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -155,10 +160,16 @@ class UtilityMetricOperation(MetricsOperation):
             return result
 
         except Exception as e:
-            error_message = f"Error in transformation operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name} metrics: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.name},
+                message_kwargs={
+                    "field_name": "<metrics>",
+                    "operation": self.name,
+                    "reason": str(e),
+                },
             )
 
     def calculate_metrics(
@@ -171,7 +182,7 @@ class UtilityMetricOperation(MetricsOperation):
         """
         Calculate multiple utility metrics between original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original dataset.
@@ -183,7 +194,7 @@ class UtilityMetricOperation(MetricsOperation):
             - utility_metrics: List[str]: List of metric types to compute (e.g., ["classification", "regression", etc.])
             - metric_params: Dict[str, Dict]: Mapping of metric type to its specific configuration params.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             - result: Dict of metric_name → metric_result
@@ -196,8 +207,9 @@ class UtilityMetricOperation(MetricsOperation):
         validate_dataframe(transformed_df)
 
         if not utility_metrics:
-            raise ValueError(
-                "No utility metrics specified. 'utility_metrics' list is empty."
+            raise DataError(
+                message="No utility metrics specified. 'utility_metrics' list is empty.",
+                error_code=ErrorCode.DATA_EMPTY,
             )
 
         results: Dict[str, Any] = {}
@@ -235,7 +247,11 @@ class UtilityMetricOperation(MetricsOperation):
 
                 metric_class = UTILITY_METRIC_FACTORY.get(metric_type)
                 if not metric_class:
-                    raise ValueError(f"Unsupported utility metric: {metric_type}")
+                    raise InvalidParameterError(
+                        param_name="utility",
+                        param_value=metric_type,
+                        reason=f"Unsupported utility metric: {metric_type}",
+                    )
 
                 init_params = {
                     k: v
@@ -281,7 +297,7 @@ class UtilityMetricOperation(MetricsOperation):
 
             except Exception as e:
                 self.logger.error(f"[{metric_type.upper()}] Metric failed: {e}")
-                raise ValueError(
+                raise ValidationError(
                     f"Failed to calculate {metric_type} metric: {str(e)}"
                 ) from e
 
@@ -303,7 +319,7 @@ class UtilityMetricOperation(MetricsOperation):
 
         This implementation generates separate visualizations for each metric type if present.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Collected metrics for visualization (may include "classification", "regression", etc.)
@@ -318,7 +334,7 @@ class UtilityMetricOperation(MetricsOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -420,7 +436,7 @@ class UtilityMetricOperation(MetricsOperation):
                             viz_result = create_line_plot(
                                 data=tradeoff_precision,
                                 output_path=viz_path,
-                                title=f"Precision-Recall Curve",
+                                title="Precision-Recall Curve",
                                 x_data=tradeoff_recall,
                                 x_label="Recall",
                                 y_label="Precision",
@@ -460,7 +476,7 @@ class UtilityMetricOperation(MetricsOperation):
         This method should be overridden by subclasses to provide
         operation-specific parameters for caching.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation

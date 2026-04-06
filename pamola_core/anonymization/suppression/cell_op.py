@@ -73,10 +73,8 @@ from pamola_core.anonymization.commons.metric_utils import (
     calculate_suppression_metrics,
     calculate_anonymization_effectiveness,
 )
-from pamola_core.anonymization.commons.validation.exceptions import FieldTypeError
 from pamola_core.anonymization.commons.validation_utils import (
     check_field_exists,
-    FieldNotFoundError,
     validate_numeric_field,
 )
 from pamola_core.anonymization.commons.visualization_utils import (
@@ -100,6 +98,16 @@ from pamola_core.utils.ops.op_result import (
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_registry import register
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    FieldTypeError,
+    InvalidStrategyError,
+    MissingParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 import dask.dataframe as dd
 
@@ -177,23 +185,24 @@ class CellSuppressionOperation(AnonymizationOperation):
             "group_mode",
         ]
         if suppression_strategy not in valid_strategies:
-            raise ValueError(
-                f"Invalid suppression_strategy '{suppression_strategy}'. "
-                f"Must be one of: {valid_strategies}"
+            raise InvalidStrategyError(
+                strategy=suppression_strategy,
+                valid_strategies=valid_strategies,
+                operation_type=self.__class__.__name__,
             )
 
         # Validate strategy-specific requirements
         if suppression_strategy == "constant" and suppression_value is None:
-            raise ValueError("suppression_value required for 'constant' strategy")
+            raise ValidationError("suppression_value required for 'constant' strategy")
 
         if suppression_strategy in ["group_mean", "group_mode"] and not group_by_field:
-            raise ValueError(
+            raise ValidationError(
                 f"group_by_field required for '{suppression_strategy}' strategy"
             )
 
         # Validate suppress_if parameter
         if suppress_if and suppress_if not in ["outlier", "rare", "null"]:
-            raise ValueError(
+            raise ValidationError(
                 f"Invalid suppress_if '{suppress_if}'. "
                 "Must be one of: outlier, rare, null"
             )
@@ -244,7 +253,8 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Cache group statistics with memory management.
 
-        Args:
+        Parameters
+        ----------
             group_val: Group identifier
             stats: Statistics to cache
         """
@@ -265,13 +275,16 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Process Dask DataFrame for distributed computing.
 
-        Args:
+        Parameters
+        ----------
             ddf: Dask DataFrame
 
-        Returns:
+        Returns
+        -------
             Dask DataFrame with cells suppressed
 
-        Raises:
+        Raises
+        ------
             ImportError: If Dask is not available
         """
         # For group-based strategies, compute global statistics first
@@ -339,7 +352,7 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -352,46 +365,68 @@ class CellSuppressionOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
-            # Initialize operation metadata
+            # Start timing
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
+            )
+
+            # Initialize result object
+            result = OperationResult(status=OperationStatus.PENDING)
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Prepare directories for artifacts
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Initialize result object
-            result = OperationResult(
-                status=OperationStatus.PENDING,
-                artifacts=[],
-                metrics={},
-                error_message=None,
-                execution_time=0,
-                error_trace=None,
-            )
+            # Save configuration to task directory
+            self.save_config(task_dir)
 
-            # Start operation - Preparation
-            self.logger.info(
-                f"Operation: {self.operation_name}, Start operation - Preparation"
-            )
+            # Setup total progress steps
+            if progress_tracker:
+                progress_tracker.total = self._compute_total_steps()
+                progress_tracker.update(
+                    1, {"step": "Preparation", "operation": self.operation_name}
+                )
 
-            # Handle preparation
-            self._handle_preparation(
-                task_dir=task_dir,
-                progress_tracker=progress_tracker,
-                reporter=reporter,
-                **kwargs,
-            )
+            # Report preparation success
+            if reporter:
+                reporter.add_operation(
+                    f"Operation {self.operation_name}",
+                    status="info",
+                    details={
+                        "step": "Preparation",
+                        "message": "Preparation successfully",
+                        "directories": {k: str(v) for k, v in dirs.items()},
+                    },
+                )
 
             # Load data and validate input parameters
             self.logger.info(
@@ -404,8 +439,6 @@ class CellSuppressionOperation(AnonymizationOperation):
                     progress_tracker.update(
                         1, {"step": step, "operation": self.operation_name}
                     )
-                # Validate configuration early
-                dataset_name = kwargs.get("dataset_name", "main")
                 # Load settings operation
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
@@ -416,16 +449,13 @@ class CellSuppressionOperation(AnonymizationOperation):
                 df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-                is_valid = self._validate_input_parameters(df)
-                if not is_valid:
-                    raise ValueError("Missing fields in DataFrame.")
+                self._validate_input_parameters(df)
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Store original data for caching
@@ -433,34 +463,36 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
-                try:
+                if progress_tracker:
+                    progress_tracker.update(
+                        1,
+                        {"step": "Checking cache", "field": self.field_name},
+                    )
+
+                # Generate cache key based on operation parameters
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
+
+                if cache_result:
+                    self.logger.info(
+                        f"Using cached result for {self.field_name} generalization"
+                    )
+
+                    # Update progress
                     if progress_tracker:
                         progress_tracker.update(
                             1,
-                            {
-                                "step": "Load result from cache",
-                                "operation": self.operation_name,
-                            },
+                            {"step": "Complete (cached)", "field": self.field_name},
                         )
 
-                    self.logger.info(
-                        f"Operation: {self.operation_name}, Load result from cache"
-                    )
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Cell operation of {self.field_name} (cached)",
+                            details={"cached": True},
+                        )
 
-                    cached_result = self._check_cache(df, reporter)
-
-                    if cached_result is not None and isinstance(
-                        cached_result, OperationResult
-                    ):
-                        return cached_result
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                    return cache_result
 
             try:
                 # Process data
@@ -469,16 +501,21 @@ class CellSuppressionOperation(AnonymizationOperation):
                     df, progress_tracker=progress_tracker, reporter=reporter
                 )
             except Exception as e:
-                error_message = f"Error processing data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Record end time after processing metrics
             self.end_time = time.time()
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             try:
                 # Handle metric
@@ -516,12 +553,14 @@ class CellSuppressionOperation(AnonymizationOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_name},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Generate visualizations if required
@@ -566,99 +605,26 @@ class CellSuppressionOperation(AnonymizationOperation):
                 anonymized_data=None,
             )
 
-            # Finalize timing
-            self.end_time = time.time()
-
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
             self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
             )
-
             return result
 
         except Exception as e:
-            self.logger.error(f"Operation: {self.operation_name}, error occurred: {e}")
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": "Exception",
-                        "message": "Operation failed due to an exception",
-                        "error": str(e),
-                    },
-                )
-
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=str(e),
-                exception=e,
-            )
-
-    def _handle_preparation(
-        self,
-        task_dir: Path,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        **kwargs,
-    ) -> Dict[str, Path]:
-        """
-        Handle preparation step at the beginning of the execute method.
-
-        This includes:
-        - Logging the start of the operation.
-        - Setting up progress tracker total steps.
-        - Preparing directories.
-        - Sending preparation status to reporter.
-
-        Parameters
-        ----------
-        task_dir : Path
-            Root path for the task's working directory.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker for updating progress status.
-        reporter : Optional[Any]
-            Optional reporter for external operation updates.
-        **kwargs : dict
-            Additional keyword arguments passed to compute steps or directory creation.
-
-        Returns
-        -------
-        Dict[str, Path]
-            Dictionary of prepared directory paths.
-        """
-        step = "Preparation"
-
-        # Setup total progress steps
-        if progress_tracker:
-            progress_tracker.total = self._compute_total_steps()
-            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
-
-        # Prepare necessary directories
-        dirs = self._prepare_directories(task_dir)
-
-        # Initialize operation cache
-        self.operation_cache = OperationCache(
-            cache_dir=dirs["cache"],
-        )
-
-        # Save configuration to task directory
-        self.save_config(task_dir)
-
-        # Report preparation success
-        if reporter:
-            reporter.add_operation(
-                f"Operation {self.operation_name}",
-                status="info",
-                details={
-                    "step": "Preparation",
-                    "message": "Preparation successfully",
-                    "directories": {k: str(v) for k, v in dirs.items()},
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
                 },
             )
-
-        return dirs
 
     def _process_data(
         self,
@@ -1066,11 +1032,13 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Collect cell suppression specific metrics.
 
-        Args:
+        Parameters
+        ----------
             original_data: Original data series
             anonymized_data: Anonymized data series
 
-        Returns:
+        Returns
+        -------
             Dictionary of suppression metrics
         """
         # Calculate suppression rate based on non-null cells
@@ -1243,14 +1211,16 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Generate visualization showing distribution changes.
 
-        Args:
+        Parameters
+        ----------
             input_data: Original DataFrame
             output_data: Processed DataFrame
             task_dir: Directory to save visualization
             result: OperationResult to register artifacts
             operation_timestamp: Timestamp string for file naming
 
-        Returns:
+        Returns
+        -------
             Path to saved visualization or None
         """
 
@@ -1370,7 +1340,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         step = "Generate visualizations"
         self.logger.info(
-            f"[VIZ] Preparing to generate visualizations in a separate thread"
+            "[VIZ] Preparing to generate visualizations in a separate thread"
         )
 
         viz_error = None
@@ -1433,7 +1403,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                         },
                     )
             else:
-                self.logger.info(f"[VIZ] Visualization thread completed successfully")
+                self.logger.info("[VIZ] Visualization thread completed successfully")
                 if reporter:
                     num_images = len(
                         [a for a in result.artifacts if a.artifact_type == "png"]
@@ -1467,7 +1437,8 @@ class CellSuppressionOperation(AnonymizationOperation):
         Get cache-relevant parameters for CellSuppressionOperation to uniquely
         identify this configuration and support caching.
 
-        Returns:
+        Returns
+        -------
             Dict[str, Any]: Dictionary of relevant parameters for cache identity.
         """
         return {
@@ -1487,46 +1458,54 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Validate that required input parameters and fields exist in the DataFrame.
 
-        Args:
+        Parameters
+        ----------
             df (pd.DataFrame): Input data.
 
-        Returns:
+        Returns
+        -------
             bool: True if all validations pass, False otherwise.
         """
         # Validate presence of field_name
         if self.field_name not in df.columns:
-            self.logger.error(f"Missing required field: '{self.field_name}'")
-            return False
+            raise FieldNotFoundError(
+                field_name=self.field_name,
+                available_fields=list(df.columns),
+            )
 
         # Validate condition_field
         if self.condition_field and self.condition_field not in df.columns:
-            self.logger.error(
-                f"Condition field '{self.condition_field}' not found in DataFrame."
+            raise FieldNotFoundError(
+                field_name=self.condition_field,
+                available_fields=list(df.columns),
             )
-            return False
 
         # Validate group_by_field for group-based strategies
         if self.suppression_strategy in ["group_mean", "group_mode"]:
             if not self.group_by_field:
-                self.logger.error(
-                    f"group_by_field is required for suppression strategy '{self.suppression_strategy}'"
+                raise MissingParameterError(
+                    param_name="group_by_field",
+                    operation=self.operation_name or "cell_suppression",
                 )
-                return False
 
             if isinstance(self.group_by_field, str):
                 group_fields = [self.group_by_field]
             elif isinstance(self.group_by_field, list):
                 group_fields = self.group_by_field
             else:
-                self.logger.error("group_by_field must be a string or list of strings")
-                return False
+                raise TypeValidationError(
+                    message="group_by_field must be a string or list of strings",
+                    param_name="group_by_field",
+                    expected_type="str or list[str]",
+                    actual_type=type(self.group_by_field).__name__,
+                )
 
             missing = [col for col in group_fields if col not in df.columns]
             if missing:
-                self.logger.error(
-                    f"group_by_field columns missing in DataFrame: {missing}"
+                raise FieldNotFoundError(
+                    field_name=missing,
+                    available_fields=list(df.columns),
                 )
-                return False
 
         # Validate suppression_value for constant strategy
         if self.suppression_strategy == "constant" and self.suppression_value is None:
@@ -1661,7 +1640,8 @@ def build_suppression_mask(
     """
     Build boolean mask indicating which cells to suppress based on various criteria.
 
-    Parameters:
+    Parameters
+    ----------
         df: DataFrame to process
         field_name: Field to apply suppression logic
         suppress_if: Built-in condition ('outlier', 'rare', 'null', or None)
@@ -1673,7 +1653,8 @@ def build_suppression_mask(
         outlier_threshold: Threshold multiplier for outlier detection
         suppression_counter: Optional dictionary to track suppression reasons
 
-    Returns:
+    Returns
+    -------
         Boolean Series indicating which cells should be suppressed
     """
     mask = pd.Series(False, index=df.index)
@@ -1728,12 +1709,14 @@ def detect_outliers(
     """
     Detect outliers in a numeric Series using IQR or Z-score method.
 
-    Parameters:
+    Parameters
+    ----------
         series: The input Series to analyze
         method: Method for outlier detection ("iqr" or "zscore")
         threshold: Threshold multiplier (IQR or Z-score)
 
-    Returns:
+    Returns
+    -------
         Boolean Series where True indicates an outlier
     """
     if not pd.api.types.is_numeric_dtype(series):
@@ -1784,7 +1767,8 @@ def apply_group_mean(
     """
     Apply group-based mean suppression, falling back to global mean if needed.
 
-    Parameters:
+    Parameters
+    ----------
         df : DataFrame
         field_name : Column to suppress
         suppress_mask : Boolean Series indicating which cells to suppress
@@ -1792,7 +1776,8 @@ def apply_group_mean(
         min_group_size : Minimum number of records in a group to use group mean
         global_mean : Value to use if group size is too small
 
-    Returns:
+    Returns
+    -------
         Series with suppressed values
     """
     result_series = df[field_name].copy(deep=True)
@@ -1832,7 +1817,8 @@ def apply_group_mode(
     """
     Apply group-based mode suppression, falling back to global mode if needed.
 
-    Parameters:
+    Parameters
+    ----------
         df: Input DataFrame
         field_name: Column to modify
         suppress_mask: Boolean Series indicating which rows to suppress
@@ -1840,7 +1826,8 @@ def apply_group_mode(
         min_group_size: Minimum group size to apply group mode
         global_mode: Precomputed global mode for fallback
 
-    Returns:
+    Returns
+    -------
         Series with updated suppressed values
     """
     result_series = df[field_name].copy(deep=True)
@@ -1919,7 +1906,7 @@ def apply_suppression_strategy(
     elif strategy == "group_mean":
         _require_numeric(batch, working_field)
         if not group_by_field:
-            raise ValueError("group_mean strategy requires group_by_field")
+            raise ValidationError("group_mean strategy requires group_by_field")
         global_mean = pd.to_numeric(batch[working_field], errors="coerce").mean()
         batch[working_field] = apply_group_mean(
             df=batch,
@@ -1932,7 +1919,7 @@ def apply_suppression_strategy(
 
     elif strategy == "group_mode":
         if not group_by_field:
-            raise ValueError("group_mode strategy requires group_by_field")
+            raise ValidationError("group_mode strategy requires group_by_field")
         global_mode_result = batch[working_field].mode()
         global_mode = (
             global_mode_result.iloc[0] if not global_mode_result.empty else None
@@ -1947,7 +1934,19 @@ def apply_suppression_strategy(
         )
 
     else:
-        raise ValueError(f"Unsupported suppression strategy: {strategy}")
+        raise InvalidStrategyError(
+            strategy=strategy,
+            valid_strategies=[
+                "null",
+                "mean",
+                "median",
+                "mode",
+                "constant",
+                "group_mean",
+                "group_mode",
+            ],
+            operation_type="cell_suppression_operation",
+        )
 
     # --- Restore dtype ---
     try:

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Disclosure Risk Metrics
--------------------------------------
 This module provides metrics for evaluating disclosure risk in anonymized
 datasets. It includes various risk models such as prosecutor risk, journalist
 risk, and marketer risk, which represent different adversarial models.
@@ -52,7 +51,7 @@ class DisclosureRiskMetric:
         """
         Initialize the disclosure risk metric.
 
-        Parameters:
+        Parameters
         -----------
         risk_threshold : float, optional
             Threshold percentage above which records are considered at risk (default: 5.0%).
@@ -74,7 +73,7 @@ class DisclosureRiskMetric:
         """
         Calculate disclosure risk metrics for a dataset.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to evaluate.
@@ -85,7 +84,7 @@ class DisclosureRiskMetric:
         **kwargs : dict
             Additional parameters for risk calculation.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with disclosure risk metrics:
@@ -169,12 +168,12 @@ class DisclosureRiskMetric:
         """
         Interpret a disclosure risk value.
 
-        Parameters:
+        Parameters
         -----------
         value : float
             The disclosure risk value (typically prosecutor_risk).
 
-        Returns:
+        Returns
         --------
         str
             Human-readable interpretation of the disclosure risk.
@@ -204,7 +203,7 @@ class KAnonymityRiskMetric:
         """
         Initialize the k-anonymity risk metric.
 
-        Parameters:
+        Parameters
         -----------
         k_threshold : int, optional
             The minimum k value considered acceptable (default: 5).
@@ -222,7 +221,7 @@ class KAnonymityRiskMetric:
         """
         Calculate k-anonymity based risk metrics.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to evaluate.
@@ -231,7 +230,7 @@ class KAnonymityRiskMetric:
         **kwargs : dict
             Additional parameters for risk calculation.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with k-anonymity risk metrics:
@@ -296,12 +295,12 @@ class KAnonymityRiskMetric:
         """
         Interpret a k-anonymity value (min_k).
 
-        Parameters:
+        Parameters
         -----------
         value : int
             The minimum k value in the dataset.
 
-        Returns:
+        Returns
         --------
         str
             Human-readable interpretation of the k-anonymity level.
@@ -337,7 +336,7 @@ class LDiversityRiskMetric:
         """
         Initialize the basic l-diversity risk metric.
 
-        Parameters:
+        Parameters
         -----------
         l_threshold : int, optional
             The minimum l value considered acceptable (default: 3).
@@ -368,7 +367,7 @@ class LDiversityRiskMetric:
         This method imports and uses the specialized LDiversityRiskMetric from
         the ldiversity_risk module for complete functionality.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to evaluate.
@@ -379,7 +378,7 @@ class LDiversityRiskMetric:
         **kwargs : dict
             Additional parameters for risk calculation.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with l-diversity risk metrics.
@@ -414,7 +413,7 @@ class LDiversityRiskMetric:
         This is a simplified version that only handles the 'distinct' diversity type.
         For more advanced l-diversity metrics, use the specialized module.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to evaluate.
@@ -425,7 +424,7 @@ class LDiversityRiskMetric:
         **kwargs : dict
             Additional parameters for risk calculation.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with basic l-diversity risk metrics.
@@ -502,12 +501,12 @@ class LDiversityRiskMetric:
         """
         Interpret an l-diversity value (min_l).
 
-        Parameters:
+        Parameters
         -----------
         value : int
             The minimum l value across all sensitive attributes.
 
-        Returns:
+        Returns
         --------
         str
             Human-readable interpretation of the l-diversity level.
@@ -536,7 +535,7 @@ def calculate_disclosure_risk_metrics(
     """
     Calculate multiple disclosure risk metrics for a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset to evaluate.
@@ -556,7 +555,7 @@ def calculate_disclosure_risk_metrics(
         - record_level_risk: bool - Whether to calculate record-level risk (default: False)
         - t_threshold: float - Threshold for t-closeness (if supported)
 
-    Returns:
+    Returns
     --------
     dict
         Dictionary with results from all applicable disclosure risk metrics.
@@ -579,6 +578,11 @@ def calculate_disclosure_risk_metrics(
 
     # Calculate l-diversity risk if sensitive attributes are provided
     if sensitive_attributes:
+        # Extract l-diversity specific parameters from kwargs
+        diversity_type = kwargs.get("diversity_type", "distinct")
+        l_threshold = kwargs.get("l_threshold", 3)
+        c_value = kwargs.get("c_value", 1.0)
+
         # Try to use specialized metrics from ldiversity_risk module
         try:
             l_risk = LDiversityRiskMetric(
@@ -594,11 +598,6 @@ def calculate_disclosure_risk_metrics(
             logger.warning(
                 "Specialized ldiversity_risk module not available. Using basic implementation."
             )
-
-            # Extract l-diversity specific parameters
-            diversity_type = kwargs.get("diversity_type", "distinct")
-            l_threshold = kwargs.get("l_threshold", 3)
-            c_value = kwargs.get("c_value", 1.0)
 
             l_risk = LDiversityRiskMetric(
                 l_threshold=l_threshold, diversity_type=diversity_type, c_value=c_value

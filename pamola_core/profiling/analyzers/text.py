@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Text Semantic Categorization Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -42,6 +41,8 @@ from pamola_core.profiling.commons.text_utils import (
     extract_text_and_ids,
     find_dictionary_file,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.schemas.text_core_schema import (
     TextSemanticCategorizerOperationConfig,
 )
@@ -51,7 +52,7 @@ from pamola_core.utils.io import (
     write_json,
     write_dataframe_to_csv,
 )
-from pamola_core.utils.logging import get_logger
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.nlp.cache import get_cache
 from pamola_core.utils.nlp.category_matching import (
     CategoryDictionary,
@@ -71,10 +72,10 @@ from pamola_core.utils.visualization import (
     plot_text_length_distribution,
 )
 from pamola_core.common.constants import Constants
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure logger
-logger = get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 # Get cache instances
 file_cache = get_cache("file")
@@ -177,7 +178,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Execute the text semantic categorization operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -190,46 +191,50 @@ class TextSemanticCategorizerOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
 
-            # Initialize timing and result
-            self.start_time = time.time()
-
-            # Set logger if provided in kwargs
-            if kwargs.get("logger"):
-                self.logger = kwargs.get("logger")
-
-            dirs = self._prepare_directories(task_dir)
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Prepare directories for artifacts
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
                 cache_dir=dirs["cache"],
             )
 
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
             # Save configuration
             self.save_config(task_dir)
 
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
-
-            logger.info(
+            self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
                 f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
             )
-
-            # Initialize result
-            result = OperationResult(status=OperationStatus.SUCCESS)
 
             # Update progress if tracker provided
             if progress_tracker:
@@ -247,12 +252,11 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             if progress_tracker:
@@ -260,9 +264,14 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             # Check if field exists
             if self.field_name not in df.columns:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Field {self.field_name} not found in DataFrame",
+                return self.error_handler.handle_error(
+                    error=ValueError(f"Field {self.field_name} not found in DataFrame"),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Add operation to reporter
@@ -277,11 +286,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
-
-                logger.info("Checking operation cache...")
+                self.logger.info("Checking operation cache...")
                 cached_result = self._check_cache(df)
                 if cached_result:
-                    logger.info(f"Using cached results for {self.field_name}")
+                    self.logger.info(f"Using cached results for {self.field_name}")
 
                     # Update progress if tracker provided
                     if progress_tracker:
@@ -336,7 +344,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                         self.dictionary_path,
                         self.entity_type,
                         task_dir,
-                        logger,
+                        self.logger,
                     )
 
                 categorization_results = self._perform_semantic_categorization(
@@ -410,7 +418,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
-                    logger.error(error_message)
+                    self.logger.error(error_message)
                     # Continue execution - visualization failure is not critical
 
             # Add metrics to result
@@ -441,39 +449,37 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 instance=self,
             )
 
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
+
         except Exception as e:
-            logger.exception(
-                f"Error in text semantic categorization for {self.field_name}: {e}"
-            )
-
-            # Update progress tracker on error
-            if progress_tracker:
-                progress_tracker.update(1, {"step": "Error", "error": str(e)})
-
-            # Add error to reporter
-            reporter.add_operation(
-                f"Error categorizing {self.field_name}",
-                status="error",
-                details={"error": str(e)},
-            )
-
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error in semantic categorization of field {self.field_name}: {str(e)}",
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -499,7 +505,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             return result
         except Exception as e:
-            logger.warning(f"Error checking cache: {str(e)}")
+            self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
     def _save_to_cache(
@@ -511,7 +517,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
@@ -520,7 +526,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -543,7 +549,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             )
 
             # Save to cache
-            logger.debug(f"Saving to cache with key: {cache_key}")
+            self.logger.debug(f"Saving to cache with key: {cache_key}")
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
@@ -552,20 +558,20 @@ class TextSemanticCategorizerOperation(FieldOperation):
             )
 
             if success:
-                logger.info(f"Successfully saved results to cache")
+                self.logger.info("Successfully saved results to cache")
             else:
-                logger.warning(f"Failed to save results to cache")
+                self.logger.warning("Failed to save results to cache")
 
             return success
         except Exception as e:
-            logger.warning(f"Error saving to cache: {str(e)}")
+            self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -599,7 +605,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Perform basic analysis of text field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the field
@@ -608,7 +614,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         chunk_size : int, optional
             Size of chunks for processing large datasets
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Results of basic analysis
@@ -618,10 +624,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
         flag_processed = False
         try:
             if not flag_processed and use_dask and npartitions > 1:
-                logger.info("Parallel Enabled")
-                logger.info("Parallel Engine: Dask")
-                logger.info(f"Parallel Workers: {npartitions}")
-                logger.info(f"Using dask processing with chunk size {chunk_size}")
+                self.logger.info("Parallel Enabled")
+                self.logger.info("Parallel Engine: Dask")
+                self.logger.info(f"Parallel Workers: {npartitions}")
+                self.logger.info(f"Using dask processing with chunk size {chunk_size}")
 
                 null_empty_analysis = analyze_null_and_empty_in_chunks_dask(
                     df, field_name, npartitions, chunk_size
@@ -629,15 +635,17 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
                 flag_processed = True
         except Exception as e:
-            logger.exception(f"Error in using dask processing: {e}")
+            self.logger.exception(f"Error in using dask processing: {e}")
             flag_processed = False
 
         try:
             if not flag_processed and use_vectorization and parallel_processes > 1:
-                logger.info("Parallel Enabled")
-                logger.info("Parallel Engine: Joblib")
-                logger.info(f"Parallel Workers: {parallel_processes}")
-                logger.info(f"Using vectorized processing with chunk size {chunk_size}")
+                self.logger.info("Parallel Enabled")
+                self.logger.info("Parallel Engine: Joblib")
+                self.logger.info(f"Parallel Workers: {parallel_processes}")
+                self.logger.info(
+                    f"Using vectorized processing with chunk size {chunk_size}"
+                )
 
                 null_empty_analysis = analyze_null_and_empty_in_chunks_joblib(
                     df, field_name, parallel_processes, chunk_size
@@ -645,35 +653,35 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
                 flag_processed = True
         except Exception as e:
-            logger.exception(f"Error in using joblib processing: {e}")
+            self.logger.exception(f"Error in using joblib processing: {e}")
             flag_processed = False
 
         try:
             if not flag_processed and len(df) > chunk_size:
-                logger.info(f"Processing in chunks with chunk size {chunk_size}")
+                self.logger.info(f"Processing in chunks with chunk size {chunk_size}")
                 total_chunks = (len(df) + chunk_size - 1) // chunk_size
-                logger.info(f"Total chunks to process: {total_chunks}")
+                self.logger.info(f"Total chunks to process: {total_chunks}")
 
                 null_empty_analysis = analyze_null_and_empty(df, field_name, chunk_size)
 
                 flag_processed = True
         except Exception as e:
-            logger.exception(f"Error in using chunks processing: {e}")
+            self.logger.exception(f"Error in using chunks processing: {e}")
             flag_processed = False
 
         try:
             if not flag_processed:
-                logger.info("Fallback process as usual")
+                self.logger.info("Fallback process as usual")
 
                 null_empty_analysis = analyze_null_and_empty(df, field_name, chunk_size)
 
                 flag_processed = True
         except Exception as e:
-            logger.exception(f"Error in processing: {e}")
+            self.logger.exception(f"Error in processing: {e}")
             flag_processed = False
 
         if not flag_processed:
-            logger.exception(f"Error in processing")
+            self.logger.exception("Error in processing")
 
         # Get text values
         text_values = df[field_name].astype("object").fillna("").astype(str).tolist()
@@ -704,12 +712,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Initialize categorization results structure with defaults.
 
-        Parameters:
+        Parameters
         -----------
         text_values : List[str]
             List of text values
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Default categorization results structure
@@ -751,7 +759,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Perform semantic categorization using the entity extraction framework.
 
-        Parameters:
+        Parameters
         -----------
         text_values : List[str]
             List of text values to categorize
@@ -770,7 +778,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         clustering_threshold : float
             Similarity threshold for clustering
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Categorization results
@@ -924,7 +932,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     if category_dict.hierarchy:
                         hierarchy_analysis = analyze_hierarchy(category_dict.hierarchy)
                 except Exception as e:
-                    logger.warning(f"Error analyzing hierarchy: {e}")
+                    self.logger.warning(f"Error analyzing hierarchy: {e}")
 
         # Sort category and alias counts by frequency
         category_distribution = dict(
@@ -995,7 +1003,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Process large text datasets in chunks to improve memory efficiency.
 
-        Parameters:
+        Parameters
         -----------
         text_values : List[str]
             List of text values
@@ -1014,7 +1022,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         clustering_threshold : float
             Similarity threshold for clustering
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Combined categorization results
@@ -1028,17 +1036,17 @@ class TextSemanticCategorizerOperation(FieldOperation):
             end = min(i + self.chunk_size, len(text_values))
             chunks.append((text_values[i:end], record_ids[i:end]))
 
-        logger.info(f"Processing {len(text_values)} texts in {len(chunks)} chunks")
+        self.logger.info(f"Processing {len(text_values)} texts in {len(chunks)} chunks")
 
         # For large datasets, process in chunks
         chunk_results = []
         flag_processed = False
         try:
             if not flag_processed and use_dask and npartitions > 1:
-                logger.info("Parallel Enabled")
-                logger.info("Parallel Engine: Dask")
-                logger.info(f"Parallel Workers: {npartitions}")
-                logger.info(f"Using dask processing with chunk size {chunk_size}")
+                self.logger.info("Parallel Enabled")
+                self.logger.info("Parallel Engine: Dask")
+                self.logger.info(f"Parallel Workers: {npartitions}")
+                self.logger.info(f"Using dask processing with chunk size {chunk_size}")
 
                 tasks = [
                     dask.delayed(self._perform_semantic_categorization)(
@@ -1058,15 +1066,17 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
                 flag_processed = True
         except Exception as e:
-            logger.exception(f"Error in using dask processing: {e}")
+            self.logger.exception(f"Error in using dask processing: {e}")
             flag_processed = False
 
         try:
             if not flag_processed and use_vectorization and parallel_processes > 1:
-                logger.info("Parallel Enabled")
-                logger.info("Parallel Engine: Joblib")
-                logger.info(f"Parallel Workers: {parallel_processes}")
-                logger.info(f"Using vectorized processing with chunk size {chunk_size}")
+                self.logger.info("Parallel Enabled")
+                self.logger.info("Parallel Engine: Joblib")
+                self.logger.info(f"Parallel Workers: {parallel_processes}")
+                self.logger.info(
+                    f"Using vectorized processing with chunk size {chunk_size}"
+                )
 
                 chunk_results = joblib.Parallel(n_jobs=-parallel_processes)(
                     joblib.delayed(self._perform_semantic_categorization)(
@@ -1084,14 +1094,14 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
                 flag_processed = True
         except Exception as e:
-            logger.exception(f"Error in using joblib processing: {e}")
+            self.logger.exception(f"Error in using joblib processing: {e}")
             flag_processed = False
 
         try:
             if not flag_processed and len(text_values) > chunk_size:
-                logger.info(f"Processing in chunks with chunk size {chunk_size}")
+                self.logger.info(f"Processing in chunks with chunk size {chunk_size}")
                 total_chunks = (len(text_values) + chunk_size - 1) // chunk_size
-                logger.info(f"Total chunks to process: {total_chunks}")
+                self.logger.info(f"Total chunks to process: {total_chunks}")
 
                 for i, (chunk_texts, chunk_ids) in enumerate(chunks):
                     chunk_result = self._perform_semantic_categorization(
@@ -1109,12 +1119,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
                 flag_processed = True
         except Exception as e:
-            logger.exception(f"Error in using chunks processing: {e}")
+            self.logger.exception(f"Error in using chunks processing: {e}")
             flag_processed = False
 
         try:
             if not flag_processed:
-                logger.info("Fallback process as usual")
+                self.logger.info("Fallback process as usual")
 
                 chunk_result = self._perform_semantic_categorization(
                     text_values,
@@ -1130,11 +1140,11 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
                 flag_processed = True
         except Exception as e:
-            logger.exception(f"Error in processing: {e}")
+            self.logger.exception(f"Error in processing: {e}")
             flag_processed = False
 
         if not flag_processed:
-            logger.exception(f"Error in processing")
+            self.logger.exception("Error in processing")
 
         # Merge results
         merged_results = {
@@ -1226,7 +1236,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Combine basic analysis and categorization results into a complete results object.
 
-        Parameters:
+        Parameters
         -----------
         basic_analysis : Dict[str, Any]
             Results of basic text analysis
@@ -1235,7 +1245,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         field_name : str
             Name of the analyzed field
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Complete analysis results
@@ -1310,7 +1320,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Save main analysis artifacts.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Analysis results to save
@@ -1323,7 +1333,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         reporter : Any
             Reporter to add artifacts to
 
-        Returns:
+        Returns
         --------
         Dict[str, str]
             Information of artifact
@@ -1366,7 +1376,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Save artifacts specific to categorization.
 
-        Parameters:
+        Parameters
         -----------
         categorization_results : Dict[str, Any]
             Categorization results to save
@@ -1383,7 +1393,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         reporter : Any
             Reporter to add artifacts to
 
-        Returns:
+        Returns
         --------
         List[Dict[str, str]]
             Information of artifacts
@@ -1519,7 +1529,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Add metrics from analysis results to the operation result.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Analysis results containing metrics
@@ -1585,7 +1595,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Create and register an artifact in the result and reporter.
 
-        Parameters:
+        Parameters
         -----------
         artifact_type : str
             Type of artifact (e.g., "json", "csv", "png")
@@ -1627,7 +1637,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -1650,7 +1660,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         List[Dict[str, Path]]
             Dictionary with visualization types and paths
@@ -1658,7 +1668,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        logger.info(
+        self.logger.info(
             f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
         )
 
@@ -1677,10 +1687,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                logger.info(
+                self.logger.info(
                     f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
                 )
-                logger.info(
+                self.logger.info(
                     f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
                 )
 
@@ -1688,17 +1698,19 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info("[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        logger.info(
+                        self.logger.info(
                             f"[DIAG] Context vars count: {len(list(current_context))}"
                         )
                     except Exception as ctx_e:
-                        logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+                        self.logger.warning(
+                            f"[DIAG] Could not inspect context: {ctx_e}"
+                        )
 
                     # Generate visualizations with visualization context parameters
-                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info("[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1710,7 +1722,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            logger.debug(
+                            self.logger.debug(
                                 f"Could not create child progress tracker: {e}"
                             )
 
@@ -1734,30 +1746,30 @@ class TextSemanticCategorizerOperation(FieldOperation):
                             pass
 
                     elapsed = time.time() - start_time
-                    logger.info(
+                    self.logger.info(
                         f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
                     )
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    logger.error(
+                    self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error("[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info("[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-",
+                name="VizThread-",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            logger.info(
+            self.logger.info(
                 f"[DIAG] Starting visualization thread with timeout={vis_timeout}s"
             )
             thread_start_time = time.time()
@@ -1770,37 +1782,37 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    logger.info(
+                    self.logger.info(
                         f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
                     )
 
             if viz_thread.is_alive():
-                logger.error(
+                self.logger.error(
                     f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
                 )
-                logger.error(
+                self.logger.error(
                     f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
                 )
                 visualization_paths = []
             elif visualization_error:
-                logger.error(
+                self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
                 visualization_paths = []
             else:
                 total_time = time.time() - thread_start_time
-                logger.info(
+                self.logger.info(
                     f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s"
                 )
                 for vis_result in visualization_paths:
-                    logger.info(
+                    self.logger.info(
                         f"[DIAG] Generated visualizations: {vis_result['path']}"
                     )
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error("[DIAG] Stack trace:", exc_info=True)
             visualization_paths = []
 
         return visualization_paths
@@ -1819,7 +1831,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Generate visualizations for the text analysis.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -1838,7 +1850,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         vis_strict : bool, optional
             If True, raise exceptions for configuration errors
 
-        Returns:
+        Returns
         --------
         List[Dict[str, str]]
             Information of visualizations
@@ -1967,7 +1979,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Create a visualization and register it as an artifact.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Data for the visualization
@@ -1996,7 +2008,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         additional_params : Dict[str, Any], optional
             Additional parameters for the visualization function
 
-        Returns:
+        Returns
         --------
         Tuple[str, bool]
             Information of visualization

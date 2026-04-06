@@ -38,66 +38,46 @@ from pathlib import Path
 
 ## Constructor Parameters
 
-### Required Parameters
+```python
+def __init__(
+    self,
+    field_name: str,
+    suppression_strategy: str = "null",
+    suppression_value: Optional[Any] = None,
+    group_by_field: Optional[str] = None,
+    min_group_size: int = 5,
+    suppress_if: Optional[str] = None,
+    outlier_method: str = "iqr",
+    outlier_threshold: float = 1.5,
+    rare_threshold: int = 10,
+    **kwargs,
+):
+```
 
-- **`field_name`** (str): The field/column containing cells to suppress
+### Key Parameters
 
-### Suppression Strategy Parameters
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | The column containing cells to suppress |
+| `suppression_strategy` | str | "null" | Suppression strategy: "null", "mean", "median", "mode", "constant", "group_mean", "group_mode" |
+| `suppression_value` | Optional[Any] | None | Replacement value when using "constant" strategy |
+| `group_by_field` | Optional[str] | None | Column for group-based suppression (required for "group_mean"/"group_mode") |
+| `min_group_size` | int | 5 | Minimum group size for valid group-level suppression |
+| `suppress_if` | Optional[str] | None | Automatic suppression trigger: "outlier", "rare", or "null" |
+| `outlier_method` | str | "iqr" | Outlier detection method: "iqr" or "zscore" |
+| `outlier_threshold` | float | 1.5 | Threshold for outlier detection (IQR multiplier or std dev count) |
+| `rare_threshold` | int | 10 | Frequency threshold for rare value detection |
+| `**kwargs` | dict | - | Additional parameters passed to `AnonymizationOperation` |
 
-- **`suppression_strategy`** (str, default="null"): How to replace suppressed cells
-  - `"null"`: Replace with NULL/NaN
-  - `"mean"`: Replace with column mean (numeric only)
-  - `"median"`: Replace with column median (numeric only)
-  - `"mode"`: Replace with most frequent value (any type)
-  - `"constant"`: Replace with specified value
-  - `"group_mean"`: Replace with group-specific mean
-  - `"group_mode"`: Replace with group-specific mode
+### Suppression Strategies
 
-- **`suppression_value`** (Any, optional): Value for constant strategy
-
-### Mode Parameters
-
-- **`mode`** (str, default="REPLACE"): Operation mode
-  - `"REPLACE"`: Modify values in-place
-  - `"ENRICH"`: Create new column with suppressed values
-
-- **`output_field_name`** (str, optional): Output field name for ENRICH mode
-
-### Conditional Suppression Parameters
-
-- **`condition_field`** (str, optional): Field to check for conditional suppression
-- **`condition_values`** (List, optional): Values to match in condition field
-- **`condition_operator`** (str, default="in"): Operator for condition
-  - `"in"`, `"not_in"`, `"eq"`, `"ne"`, `"gt"`, `"lt"`, `"ge"`, `"le"`
-
-### Automatic Suppression Parameters
-
-- **`suppress_if`** (str, optional): Automatic suppression trigger
-  - `"outlier"`: Suppress statistical outliers
-  - `"rare"`: Suppress infrequent values
-  - `"null"`: Suppress null values
-
-- **`outlier_method`** (str, default="iqr"): Method for outlier detection
-  - `"iqr"`: Interquartile range method
-  - `"zscore"`: Z-score method
-
-- **`outlier_threshold`** (float, default=1.5): 
-  - For IQR: multiplier for IQR (1.5 = mild outliers, 3.0 = extreme)
-  - For Z-score: number of standard deviations
-
-- **`rare_threshold`** (int, default=10): Minimum frequency for non-rare values
-
-### Group-Based Parameters
-
-- **`group_by_field`** (str, optional): Field for grouping (required for group strategies)
-- **`min_group_size`** (int, default=5): Minimum group size for statistics calculation
-
-### Processing Parameters
-
-- **`batch_size`** (int, default=10000): Records per batch
-- **`use_cache`** (bool, default=True): Enable operation caching
-- **`engine`** (str, default="auto"): Processing engine
-  - `"pandas"`: Force pandas processing
+- **`"null"`**: Replace with NULL/NaN
+- **`"mean"`**: Replace with column mean (numeric only)
+- **`"median"`**: Replace with column median (numeric only)
+- **`"mode"`**: Replace with most frequent value (any type)
+- **`"constant"`**: Replace with specified constant value
+- **`"group_mean"`**: Replace with group-specific mean
+- **`"group_mode"`**: Replace with group-specific mode
   - `"dask"`: Force Dask processing
   - `"auto"`: Choose based on data size
 
@@ -282,9 +262,9 @@ op = CellSuppressionOperation(
 )
 
 # Execute with progress tracking
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 
-tracker = ProgressTracker(total=100, description="Processing")
+tracker = HierarchicalProgressTracker(total=100, description="Processing")
 result = op.execute(
     data_source,
     task_dir,

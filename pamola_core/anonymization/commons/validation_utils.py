@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Anonymization Validation Utilities (Complete Facade)
 Package:       pamola_core.anonymization.commons
 Version:       3.2.0
@@ -33,30 +32,6 @@ Framework:
    pamola_core.anonymization.commons.validation/, providing a simplified interface
    while maintaining all functionality.
 
-Migration Guide:
-   Old: from pamola_core.anonymization.commons.validation_utils import validate_numeric_field
-   New: from pamola_core.anonymization.commons.validation import NumericFieldValidator
-
-   Both approaches work, but the new approach offers more flexibility.
-
-Changelog:
-   3.2.0 - 2025-06-15 - Complete facade with all missing functionality
-         - Added all strategy validators and constants
-         - Added all decorators from decorators module
-         - Added base utilities and type checking functions
-         - Fixed missing exports in __all__
-         - Comprehensive re-export of all validation features
-   3.1.0 - Fixed import issues and naming conflicts
-         - Added pathlib import for Path type
-         - Improved error handling for FileNotFoundError
-         - Enhanced documentation and type hints
-   3.0.0 - Complete refactoring into modular validation framework
-         - Created facade for backward compatibility
-         - Added factory functions and convenience methods
-   2.1.0 - Enhanced categorical validation and hierarchy support
-   2.0.0 - Added conditional processing and specialized validators
-   1.0.0 - Initial monolithic implementation
-
 Dependencies:
    - pandas - DataFrame operations
    - numpy - Numeric operations
@@ -72,155 +47,69 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
-# Import from new modular validation system
-# Note: Using explicit imports to avoid naming conflicts
-
 # =============================================================================
 # Base Infrastructure Imports
 # =============================================================================
-from .validation import (
-    # Base infrastructure
+from pamola_core.anonymization.commons.validation.base import (
     ValidationResult,
     BaseValidator,
     CompositeValidator,
-    ValidationContext,
-    ValidationCache,
-    # Core Exceptions
+    check_field_exists,
+    check_multiple_fields_exist,
+)
+
+# =============================================================================
+# Error Handling Imports
+# =============================================================================
+from pamola_core.errors.exceptions.validation import (
     ValidationError,
     FieldNotFoundError,
-    FieldTypeError,
-    FieldValueError,
-    InvalidStrategyError,
-    InvalidParameterError,
-    ConditionalValidationError,
-    InvalidDataFormatError,
-    RangeValidationError,
-    FileValidationError,
-    InvalidFileFormatError,
-    ValidationErrorInfo,
-    MultipleValidationErrors,
-    ConfigurationError,
-    raise_if_errors,
-    # Base utilities
-    is_numeric_type,
-    is_categorical_type,
-    is_datetime_type,
-    safe_sample,
-    validate_type,
-    validate_range,
-    cached_validation,
 )
 
 # =============================================================================
 # Field Validator Imports
 # =============================================================================
-from .validation import (
-    # Field validators
+from pamola_core.anonymization.commons.validation.field_validators import (
     NumericFieldValidator,
     CategoricalFieldValidator,
     DateTimeFieldValidator,
-    BooleanFieldValidator,
-    TextFieldValidator,
     create_field_validator,
 )
 
 # =============================================================================
 # File Validator Imports
 # =============================================================================
-from .validation import (
-    # File validators
+from pamola_core.anonymization.commons.validation.file_validators import (
     FilePathValidator,
     DirectoryPathValidator,
     HierarchyFileValidator,
     JSONFileValidator,
     CSVFileValidator,
-    MultiFileValidator,
 )
 
 # =============================================================================
 # Strategy Validator Imports
 # =============================================================================
-from .validation import (
-    # Strategy validators (import with aliases to avoid conflicts)
+from pamola_core.anonymization.commons.validation.strategy_validators import (
     validate_strategy as validate_strategy_new,
-    validate_generalization_strategy as validate_generalization_strategy_new,
-    validate_noise_strategy,
-    validate_suppression_strategy,
-    validate_masking_strategy,
-    validate_pseudonymization_strategy,
-    # Mode validators
-    validate_operation_mode,
-    validate_null_strategy,
-    # Parameter validators
-    validate_bin_count,
-    validate_precision,
-    validate_range_limits,
-    validate_percentiles,
-    # Strategy-specific validators
-    validate_noise_parameters,
-    validate_masking_parameters,
-    validate_hierarchy_parameters,
-    # Composite validators
-    validate_strategy_compatibility,
-    validate_output_field_configuration,
-    # Strategy constants
-    GENERALIZATION_STRATEGIES,
-    NOISE_STRATEGIES,
-    SUPPRESSION_STRATEGIES,
-    MASKING_STRATEGIES,
-    PSEUDONYMIZATION_STRATEGIES,
-    OPERATION_MODES,
-    NULL_STRATEGIES,
 )
 
 # =============================================================================
 # Type Validator Imports
 # =============================================================================
-from .validation import (
-    # Type validators
+from pamola_core.anonymization.commons.validation.type_validators import (
     NetworkValidator,
     GeographicValidator,
     TemporalValidator,
     FinancialValidator,
-    SpecializedTypeValidator,
-    validate_specialized_type,
-    # Pattern constants
-    NETWORK_PATTERNS,
-    GEO_PATTERNS,
-    FINANCIAL_PATTERNS,
-    COMMON_CURRENCIES,
 )
 
 # =============================================================================
 # Decorator Imports
 # =============================================================================
-from .validation import (
-    # Decorators
+from pamola_core.anonymization.commons.validation.decorators import (
     validation_handler,
-    standard_validator,
-    validate_types,
-    sanitize_inputs,
-    skip_if_empty,
-    requires_field,
-    requires_fields,
-    aggregate_results,
 )
-
-# =============================================================================
-# Utility Function Imports
-# =============================================================================
-from .validation import (
-    # Utility functions
-    check_field_exists,
-    check_multiple_fields_exist,
-)
-
-# Handle FileNotFoundError import - use custom validation error
-try:
-    from .validation.exceptions import FileNotFoundError as FileNotFoundValidationError
-except ImportError:
-    # Fallback if the exception doesn't exist in the new system
-    FileNotFoundValidationError = FileNotFoundError
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -247,11 +136,13 @@ class LegacyValidationSupport:
         """
         Convert new ValidationResult to legacy format.
 
-        Args:
+        Parameters
+        ----------
             result: ValidationResult from new system
             return_bool: If True, return only boolean; if False, return tuple
 
-        Returns:
+        Returns
+        -------
             Boolean or tuple based on legacy API expectations
         """
         if return_bool:
@@ -279,7 +170,7 @@ def validate_field_exists(
 
     DEPRECATED: Use check_field_exists() or requires_field decorator instead.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to check
@@ -288,7 +179,7 @@ def validate_field_exists(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     bool
         True if the field exists, False otherwise
@@ -310,7 +201,7 @@ def validate_multiple_fields_exist(
 
     DEPRECATED: Use check_multiple_fields_exist() instead.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to check
@@ -319,7 +210,7 @@ def validate_multiple_fields_exist(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     Tuple[bool, List[str]]
         (True if all fields exist, list of missing fields)
@@ -341,7 +232,7 @@ def validate_numeric_field(
 
     DEPRECATED: Use NumericFieldValidator instead for more features.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the field
@@ -356,12 +247,12 @@ def validate_numeric_field(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     bool
         True if the field is numeric and meets all criteria, False otherwise
 
-    Raises:
+    Raises
     -------
     FieldNotFoundError
         If field doesn't exist in DataFrame
@@ -422,10 +313,8 @@ def validate_categorical_field(
     Tuple[bool, Dict[str, Any]]
         (True if valid, validation details including distribution info)
     """
-    # Use provided logger or module logger
     log = logger_instance or logger
 
-    # Check if field exists
     if field_name not in df.columns:
         return False, {
             "valid": False,
@@ -434,7 +323,6 @@ def validate_categorical_field(
             "errors": [f"Field '{field_name}' not found in DataFrame"],
         }
 
-    # Create validator with available parameters
     validator = CategoricalFieldValidator(
         allow_null=allow_null,
         valid_categories=valid_categories,
@@ -442,10 +330,8 @@ def validate_categorical_field(
     )
 
     try:
-        # Validate the field
         result = validator.validate(df[field_name], field_name=field_name)
 
-        # Convert ValidationResult to legacy format with explicit type annotation
         details: Dict[str, Any] = {
             "valid": result.is_valid,
             "field_name": field_name,
@@ -454,11 +340,9 @@ def validate_categorical_field(
             **result.details,
         }
 
-        # Add extended analysis if validation passed
         if result.is_valid:
             series = df[field_name]
 
-            # Check minimum categories constraint
             if min_categories is not None:
                 unique_count = series.nunique()
                 if unique_count < min_categories:
@@ -467,27 +351,21 @@ def validate_categorical_field(
                         f"Too few categories: {unique_count} < {min_categories}"
                     )
 
-            # Add distribution analysis if requested
             if check_distribution:
                 value_counts = series.value_counts(dropna=False)
-
-                # Convert to dict properly
                 details["distribution"] = value_counts.to_dict()
-
-                # Create distribution statistics
                 details["distribution_stats"] = {
-                    "total_unique": value_counts.size,  # More efficient than len()
-                    "most_common": value_counts.head(5).to_dict(),  # Proper conversion
-                    "least_common": value_counts.tail(5).to_dict(),  # Proper conversion
+                    "total_unique": value_counts.size,
+                    "most_common": value_counts.head(5).to_dict(),
+                    "least_common": value_counts.tail(5).to_dict(),
                 }
 
-                # Check for rare categories if threshold provided
                 if min_frequency_threshold is not None:
                     rare_categories = value_counts[
                         value_counts < min_frequency_threshold
                     ]
                     details["rare_categories"] = rare_categories.to_dict()
-                    details["rare_category_count"] = len(rare_categories)  # Already int
+                    details["rare_category_count"] = len(rare_categories)
 
         return details["valid"], details
 
@@ -513,7 +391,7 @@ def validate_hierarchy_dictionary(
 
     DEPRECATED: Use HierarchyFileValidator instead.
 
-    Parameters:
+    Parameters
     -----------
     hierarchy_dict : Union[Any, Dict[str, Any], str, Path]
         Hierarchy dictionary to validate (object, dict, or file path)
@@ -526,32 +404,25 @@ def validate_hierarchy_dictionary(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     Tuple[bool, Dict[str, Any]]
         (True if valid, validation details)
     """
     try:
         if isinstance(hierarchy_dict, (str, Path)):
-            # Use file validator for paths
             validator = HierarchyFileValidator(validate_structure=True)
             result = validator.validate(hierarchy_dict)
 
-            # Add additional checks if needed
             if result.is_valid and required_levels is not None:
-                # This would need to be implemented in HierarchyFileValidator
                 result.warnings.append(
                     f"Required levels check ({required_levels}) not implemented in new validator"
                 )
-
             if result.is_valid and check_coverage is not None:
-                # Coverage check would need implementation
                 result.warnings.append(
                     f"Coverage check for {len(check_coverage)} values not implemented"
                 )
-
         else:
-            # For dict or object, create basic validation result
             result = ValidationResult(
                 is_valid=isinstance(hierarchy_dict, dict),
                 warnings=[
@@ -563,21 +434,17 @@ def validate_hierarchy_dictionary(
                 result.details["type"] = "dictionary"
                 result.details["size"] = len(hierarchy_dict)
 
-                # Basic structure analysis
                 if required_levels is not None:
-                    # Simple depth check (would need recursive implementation)
                     result.warnings.append(
                         "Hierarchy depth validation not fully implemented for dictionaries"
                     )
 
-        # Convert to legacy format
         details = {
             "valid": result.is_valid,
             "errors": result.errors,
             "warnings": result.warnings,
             **result.details,
         }
-
         return result.is_valid, details
 
     except Exception as e:
@@ -599,7 +466,7 @@ def validate_datetime_field(
 
     DEPRECATED: Use DateTimeFieldValidator instead.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the field
@@ -614,7 +481,7 @@ def validate_datetime_field(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     bool
         True if the field is datetime and meets all criteria, False otherwise
@@ -649,7 +516,7 @@ def validate_generalization_strategy(
     DEPRECATED: Use validate_strategy() from new system.
     This is a legacy wrapper for backward compatibility.
 
-    Parameters:
+    Parameters
     -----------
     strategy : str
         The strategy to validate
@@ -658,7 +525,7 @@ def validate_generalization_strategy(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored)
 
-    Returns:
+    Returns
     --------
     bool
         True if the strategy is valid, False otherwise
@@ -683,7 +550,7 @@ def create_validator(field_type: str, **params) -> BaseValidator:
     This is a convenience wrapper that provides a simpler interface
     for creating validators of various types.
 
-    Parameters:
+    Parameters
     -----------
     field_type : str
         Type of field validator to create:
@@ -701,12 +568,12 @@ def create_validator(field_type: str, **params) -> BaseValidator:
     **params : dict
         Parameters specific to the validator type
 
-    Returns:
+    Returns
     --------
     BaseValidator
         Configured validator instance
 
-    Examples:
+    Examples
     ---------
     >>> # Create numeric validator
     >>> num_validator = create_validator('numeric', min_value=0, max_value=100)
@@ -717,7 +584,6 @@ def create_validator(field_type: str, **params) -> BaseValidator:
     >>> # Create file validator
     >>> file_validator = create_validator('file', must_exist=True, valid_extensions=['.csv'])
     """
-    # Map extended types to specialized validators
     specialized_validators = {
         "network": NetworkValidator,
         "geographic": GeographicValidator,
@@ -733,7 +599,6 @@ def create_validator(field_type: str, **params) -> BaseValidator:
     if field_type in specialized_validators:
         return specialized_validators[field_type](**params)
 
-    # Use standard field validator factory for basic types
     return create_field_validator(field_type, **params)
 
 
@@ -746,14 +611,14 @@ def create_validation_pipeline(
     This is a convenience function for creating composite validators
     with a more intuitive interface.
 
-    Parameters:
+    Parameters
     -----------
     *validators : BaseValidator
         Variable number of validators to chain together
     stop_on_first_error : bool
         Whether to stop validation chain on first error
 
-    Returns:
+    Returns
     --------
     CompositeValidator
         Composite validator that runs all validators in sequence
@@ -767,7 +632,7 @@ def validate_dataframe_schema(
     """
     Validate entire DataFrame against a schema definition.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to validate
@@ -777,7 +642,7 @@ def validate_dataframe_schema(
     strict : bool
         If True, unexpected columns cause validation failure
 
-    Returns:
+    Returns
     --------
     ValidationResult
         Aggregated validation result for all columns
@@ -787,13 +652,11 @@ def validate_dataframe_schema(
     warnings = []
     validated_columns = set()
 
-    # Validate each column in schema
     for column, config in schema.items():
         if column not in df.columns:
             errors.append(f"Required column '{column}' not found")
             continue
 
-        # Extract validator type and create validator
         validator_config = config.copy()
         validator_type = validator_config.pop("type", "text")
 
@@ -811,11 +674,7 @@ def validate_dataframe_schema(
         except Exception as e:
             errors.append(f"{column}: Validation setup failed - {str(e)}")
 
-    # Check for unexpected columns
-    expected_columns = set(schema.keys())
-    actual_columns = set(df.columns)
-    unexpected = actual_columns - expected_columns
-
+    unexpected = set(df.columns) - set(schema.keys())
     if unexpected:
         msg = f"Unexpected columns found: {', '.join(sorted(unexpected))}"
         if strict:
@@ -823,7 +682,6 @@ def validate_dataframe_schema(
         else:
             warnings.append(msg)
 
-    # Create aggregate result
     return ValidationResult(
         is_valid=len(errors) == 0,
         errors=errors,
@@ -849,21 +707,20 @@ def create_cross_validator(
     This is useful for complex validation scenarios where you need to validate
     type, then format, then business rules, etc.
 
-    Parameters:
+    Parameters
     -----------
     validators : Dict[str, BaseValidator]
         Dictionary of named validators
     validation_order : Optional[List[str]]
         Order to execute validators (if None, uses dict order)
 
-    Returns:
+    Returns
     --------
     BaseValidator
         Composite validator with ordered execution
 
-    Examples:
+    Examples
     ---------
-    >>> # Example 1: Simple cross-validation
     >>> type_validator = create_validator('numeric')
     >>> range_validator = create_validator('numeric', min_value=0, max_value=100)
     >>>
@@ -871,14 +728,6 @@ def create_cross_validator(
     ...     'type': type_validator,
     ...     'range': range_validator
     ... }, validation_order=['type', 'range'])
-    >>>
-    >>> # Example 2: With custom validator (assuming you have one)
-    >>> # from myapp.validators import CustomBusinessRuleValidator
-    >>> # cross_validator = create_cross_validator({
-    >>> #     'type': create_validator('numeric'),
-    >>> #     'range': create_validator('numeric', min_value=0, max_value=100),
-    >>> #     'business': CustomBusinessRuleValidator()
-    >>> # }, validation_order=['type', 'range', 'business'])
     """
     if validation_order:
         ordered_validators = [
@@ -1029,7 +878,7 @@ def get_validation_error_result(
 
     DEPRECATED: Use ValidationResult directly.
 
-    Parameters:
+    Parameters
     -----------
     error_message : str
         The error message
@@ -1038,7 +887,7 @@ def get_validation_error_result(
     error_type : str, optional
         The type of error (default: "ValidationError")
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation error result with standardized structure
@@ -1060,14 +909,14 @@ def get_validation_success_result(
 
     DEPRECATED: Use ValidationResult directly.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str, optional
         The field name that was validated
     additional_info : Optional[Dict[str, Any]]
         Additional validation information
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation success result with standardized structure
@@ -1076,139 +925,3 @@ def get_validation_success_result(
         is_valid=True, field_name=field_name, details=additional_info or {}
     )
     return result.to_dict()
-
-
-# Module metadata
-__version__ = "3.2.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-__updated__ = "2025-06-15"
-
-# Define explicit exports - this helps with auto-discovery and documentation
-__all__ = [
-    # === Core classes and types from new system ===
-    "ValidationResult",
-    "BaseValidator",
-    "CompositeValidator",
-    "ValidationContext",
-    "ValidationCache",
-    # === All Exceptions ===
-    "ValidationError",
-    "FieldNotFoundError",
-    "FieldTypeError",
-    "FieldValueError",
-    "FileNotFoundValidationError",
-    "InvalidStrategyError",
-    "InvalidParameterError",
-    "ConditionalValidationError",
-    "InvalidDataFormatError",
-    "RangeValidationError",
-    "FileValidationError",
-    "InvalidFileFormatError",
-    "ValidationErrorInfo",
-    "MultipleValidationErrors",
-    "ConfigurationError",
-    "raise_if_errors",
-    # === Field Validators ===
-    "NumericFieldValidator",
-    "CategoricalFieldValidator",
-    "DateTimeFieldValidator",
-    "BooleanFieldValidator",
-    "TextFieldValidator",
-    # === File Validators ===
-    "FilePathValidator",
-    "DirectoryPathValidator",
-    "HierarchyFileValidator",
-    "JSONFileValidator",
-    "CSVFileValidator",
-    "MultiFileValidator",
-    # === Type Validators ===
-    "NetworkValidator",
-    "GeographicValidator",
-    "TemporalValidator",
-    "FinancialValidator",
-    "SpecializedTypeValidator",
-    # === Factory functions ===
-    "create_validator",
-    "create_field_validator",
-    "create_validation_pipeline",
-    "create_cross_validator",
-    "validate_dataframe_schema",
-    # === Legacy field validation (backward compatibility) ===
-    "validate_field_exists",
-    "validate_multiple_fields_exist",
-    "validate_numeric_field",
-    "validate_categorical_field",
-    "validate_hierarchy_dictionary",
-    "validate_datetime_field",
-    # === Strategy validation ===
-    "validate_strategy_new",  # From new system
-    "validate_generalization_strategy",  # Legacy wrapper
-    "validate_generalization_strategy_new",  # From new system
-    "validate_noise_strategy",
-    "validate_suppression_strategy",
-    "validate_masking_strategy",
-    "validate_pseudonymization_strategy",
-    # === Mode validation ===
-    "validate_operation_mode",
-    "validate_null_strategy",
-    # === Parameter validation ===
-    "validate_bin_count",
-    "validate_precision",
-    "validate_range_limits",
-    "validate_percentiles",
-    # === Strategy-specific validation ===
-    "validate_noise_parameters",
-    "validate_masking_parameters",
-    "validate_hierarchy_parameters",
-    "validate_strategy_compatibility",
-    "validate_output_field_configuration",
-    # === Specialized validation (legacy) ===
-    "validate_specialized_type",
-    "validate_geographic_data",
-    "validate_temporal_sequence",
-    "validate_network_identifiers",
-    "validate_financial_data",
-    # === File validation (legacy) ===
-    "validate_file_path",
-    "validate_directory_path",
-    # === Decorators ===
-    "validation_handler",
-    "standard_validator",
-    "validate_types",
-    "sanitize_inputs",
-    "skip_if_empty",
-    "requires_field",
-    "requires_fields",
-    "aggregate_results",
-    "cached_validation",
-    # === Utility functions ===
-    "check_field_exists",
-    "check_multiple_fields_exist",
-    "is_numeric_type",
-    "is_categorical_type",
-    "is_datetime_type",
-    "safe_sample",
-    "validate_type",
-    "validate_range",
-    "get_validation_error_result",
-    "get_validation_success_result",
-    # === Support classes ===
-    "LegacyValidationSupport",
-    # === Strategy Constants ===
-    "GENERALIZATION_STRATEGIES",
-    "NOISE_STRATEGIES",
-    "SUPPRESSION_STRATEGIES",
-    "MASKING_STRATEGIES",
-    "PSEUDONYMIZATION_STRATEGIES",
-    "OPERATION_MODES",
-    "NULL_STRATEGIES",
-    # === Pattern Constants ===
-    "NETWORK_PATTERNS",
-    "GEO_PATTERNS",
-    "FINANCIAL_PATTERNS",
-    "COMMON_CURRENCIES",
-]
-
-# Log module initialization
-logger.info(f"Validation facade v{__version__} initialized with {len(__all__)} exports")

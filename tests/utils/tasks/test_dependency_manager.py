@@ -2,16 +2,15 @@ import pytest
 import logging
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from pamola_core.utils.tasks.dependency_manager import (
     TaskDependencyManager,
-    DependencyError,
     DependencyMissingError,
     DependencyFailedError,
-    OptionalT1IDependencyManager,
-    PathSecurityError
+    OptionalT1IDependencyManager
 )
+from pamola_core.errors.exceptions import ValidationError, InvalidParameterError
 
 class DummyConfig:
     def __init__(self, output_dir, reports_dir, dependencies=None, continue_on_error=False, allow_external=False, allowed_external_paths=None):
@@ -194,7 +193,8 @@ def test_get_dependency_report_absolute_path_error(tmp_dirs, logger):
     output_dir, reports_dir = tmp_dirs
     config = DummyConfig(output_dir, reports_dir)
     mgr = TaskDependencyManager(config, logger)
-    with pytest.raises(ValueError):
+    # Source raises ValidationError (not built-in ValueError) for absolute path dependency
+    with pytest.raises((ValueError, ValidationError)):
         mgr.get_dependency_report(str(output_dir))
 
 def test_assert_dependencies_completed_all_success(tmp_dirs, logger):
@@ -225,7 +225,7 @@ def test_assert_dependencies_completed_missing_report(tmp_dirs, logger):
     with pytest.raises(DependencyMissingError):
         mgr.assert_dependencies_completed()
 
-@patch("pamola_core.utils.io.read_json", side_effect=json.JSONDecodeError("msg", "doc", 0))
+@patch("pamola_core.utils.tasks.dependency_manager.read_json", side_effect=json.JSONDecodeError("msg", "doc", 0))
 def test_assert_dependencies_completed_json_decode_error(mock_read_json, tmp_dirs, logger):
     output_dir, reports_dir = tmp_dirs
     dep_id = "dep1"
@@ -235,7 +235,7 @@ def test_assert_dependencies_completed_json_decode_error(mock_read_json, tmp_dir
     with pytest.raises(DependencyMissingError):
         mgr.assert_dependencies_completed()
 
-@patch("pamola_core.utils.io.read_json", side_effect=FileNotFoundError)
+@patch("pamola_core.utils.tasks.dependency_manager.read_json", side_effect=FileNotFoundError)
 def test_assert_dependencies_completed_file_not_found(mock_read_json, tmp_dirs, logger):
     output_dir, reports_dir = tmp_dirs
     dep_id = "dep1"
@@ -282,7 +282,7 @@ def test_get_dependency_metrics(tmp_dirs, logger):
     result2 = mgr.get_dependency_metrics(dep_id, metric_path="foo.bar")
     assert result2 == {"bar": 42}
 
-@patch("pamola_core.utils.io.read_json", side_effect=json.JSONDecodeError("msg", "doc", 0))
+@patch("pamola_core.utils.tasks.dependency_manager.read_json", side_effect=json.JSONDecodeError("msg", "doc", 0))
 def test_get_dependency_metrics_json_decode_error(mock_read_json, tmp_dirs, logger):
     output_dir, reports_dir = tmp_dirs
     dep_id = "dep1"
@@ -292,7 +292,7 @@ def test_get_dependency_metrics_json_decode_error(mock_read_json, tmp_dirs, logg
     with pytest.raises(DependencyMissingError):
         mgr.get_dependency_metrics(dep_id)
 
-@patch("pamola_core.utils.io.read_json", side_effect=FileNotFoundError)
+@patch("pamola_core.utils.tasks.dependency_manager.read_json", side_effect=FileNotFoundError)
 def test_get_dependency_metrics_file_not_found(mock_read_json, tmp_dirs, logger):
     output_dir, reports_dir = tmp_dirs
     dep_id = "dep1"
@@ -324,7 +324,8 @@ def test_get_dependency_metrics_keyerror(tmp_dirs, logger):
     (reports_dir / f"{dep_id}_report.json").write_text(json.dumps({"success": True, "metrics": {"foo": 1}}))
     config = DummyConfig(output_dir, reports_dir)
     mgr = TaskDependencyManager(config, logger)
-    with pytest.raises(KeyError):
+    # Source raises InvalidParameterError (not built-in KeyError) for missing metric path
+    with pytest.raises((KeyError, InvalidParameterError)):
         mgr.get_dependency_metrics(dep_id, metric_path="bar.baz")
 
 def test_get_dependency_status(tmp_dirs, logger):
@@ -339,7 +340,7 @@ def test_get_dependency_status(tmp_dirs, logger):
     assert result["task_id"] == dep_id
     assert result["report_path"].endswith("dep1_report.json")
 
-@patch("pamola_core.utils.io.read_json", side_effect=json.JSONDecodeError("msg", "doc", 0))
+@patch("pamola_core.utils.tasks.dependency_manager.read_json", side_effect=json.JSONDecodeError("msg", "doc", 0))
 def test_get_dependency_status_json_decode_error(mock_read_json, tmp_dirs, logger):
     output_dir, reports_dir = tmp_dirs
     dep_id = "dep1"
@@ -349,7 +350,7 @@ def test_get_dependency_status_json_decode_error(mock_read_json, tmp_dirs, logge
     with pytest.raises(DependencyMissingError):
         mgr.get_dependency_status(dep_id)
 
-@patch("pamola_core.utils.io.read_json", side_effect=FileNotFoundError)
+@patch("pamola_core.utils.tasks.dependency_manager.read_json", side_effect=FileNotFoundError)
 def test_get_dependency_status_file_not_found(mock_read_json, tmp_dirs, logger):
     output_dir, reports_dir = tmp_dirs
     dep_id = "dep1"

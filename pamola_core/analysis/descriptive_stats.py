@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Descriptive Statistics Module
-------------------------------------------------
 Module:        Descriptive Statistics Analyzer
 Package:       pamola_core.analysis
 Version:       1.0.0
@@ -31,10 +30,10 @@ Dependencies:
 
 from typing import Any, Dict, List, Optional
 import pandas as pd
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 def analyze_descriptive_stats(
@@ -46,7 +45,7 @@ def analyze_descriptive_stats(
     """
     Analyze descriptive stats data frame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Data frame for calculate.
@@ -57,7 +56,7 @@ def analyze_descriptive_stats(
     extra_statistics : list, optional
         Extra statistics.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Descriptive statistics of data frame.

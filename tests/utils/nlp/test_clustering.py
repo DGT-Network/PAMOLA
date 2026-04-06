@@ -5,11 +5,8 @@ This module contains unit tests for the abstract base classes and concrete
 implementations in the clustering.py module.
 """
 import unittest
-from unittest.mock import patch
 from pamola_core.utils.nlp.clustering import (
-    TextClusterer,
-    cluster_by_similarity,
-    batch_cluster_texts
+    TextClusterer
 )
 
 class TestTextClusterer(unittest.TestCase):

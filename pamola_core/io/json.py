@@ -23,9 +23,24 @@
 
 import pandas as pd
 from typing import Any
-from .base import data_read, data_write
+from pamola_core.io.base import (
+    data_read,
+    data_write,
+)
 
 class DataJSON:
+    """Low-level JSON I/O handler.
+
+    Wraps :func:`pandas.read_json` and :meth:`pandas.DataFrame.to_json` with
+    a uniform ``read`` / ``write`` interface shared by all PAMOLA IO adapters.
+    All keyword arguments accepted by the underlying pandas functions are
+    forwarded transparently via ``**kwargs``.
+
+    Use the module-level :func:`read_json` convenience function for everyday
+    reading tasks.  Instantiate ``DataJSON`` directly only when you need to
+    share a single handler instance across multiple calls.
+    """
+
     def __init__(self): ...
 
     def read(self, path: str, **kwargs) -> Any:
@@ -78,18 +93,24 @@ def read_json(path: str, **kwargs) -> Any:
     orient : str, optional
         Indication of expected JSON string format. Compatible JSON strings can be produced by
         to_json() with a corresponding orient value. The set of possible orients is:
+
         - ``'split'`` : dict like ``{{index -> [index], columns -> [columns], data -> [values]}}``
         - ``'records'`` : list like ``[{{column -> value}}, ... , {{column -> value}}]``
         - ``'index'`` : dict like ``{{index -> {{column -> value}}}}``
         - ``'columns'`` : dict like ``{{column -> {{index -> value}}}}``
         - ``'values'`` : just the values array
         - ``'table'`` : dict like ``{{'schema': {{schema}}, 'data': {{data}}}}``
+
         The allowed and default values depend on the value of the `typ` parameter.
+
         * when ``typ == 'series'``,
+
           - allowed orients are ``{{'split','records','index'}}``
           - default is ``'index'``
           - The Series index must be unique for orient ``'index'``.
+
         * when ``typ == 'frame'``,
+
           - allowed orients are ``{{'split','records','index', 'columns','values', 'table'}}``
           - default is ``'columns'``
           - The DataFrame index must be unique for orients ``'index'`` and ``'columns'``.

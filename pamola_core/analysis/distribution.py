@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Distribution Visualization Module
-------------------------------------------------
 Module:        Distribution & Visualization Analyzer
 Package:       pamola_core.analysis
 Version:       1.0.0
@@ -61,7 +60,7 @@ def visualize_distribution_df(
 
     Generates histograms for numeric fields and bar charts for categorical fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze and visualize
@@ -76,7 +75,7 @@ def visualize_distribution_df(
     viz_format : str, default='html'
         Output format for visualizations (e.g., 'html', 'png', 'svg')
 
-    Returns:
+    Returns
     --------
     Dict[str, Path]
         Mapping of field names to their visualization file paths.

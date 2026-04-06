@@ -1,0 +1,10 @@
+{
+  "operation": "AttributeSuppressionOperation",
+  "parameters": {
+    "suppression_mode": "REMOVE",
+    "save_suppressed_schema": true
+  },
+  "scope": {
+    "target": ["email", "phone"]
+  }
+}

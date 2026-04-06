@@ -81,26 +81,30 @@ except Exception as e:
 
 #### Constructor
 ```python
-SplitByIDValuesOperation(
+def __init__(
+    self,
     name: str = "split_by_id_values_operation",
-    description: str = "Split dataset by ID values",
-    id_field: str = None,
+    id_field: Optional[str] = None,
     value_groups: Optional[Dict[str, List[Any]]] = None,
-    number_of_partitions: int = 0,
+    number_of_partitions: int = 1,
     partition_method: str = PartitionMethod.EQUAL_SIZE.value,
-    output_format: str = OutputFormat.CSV.value,
-    **kwargs
+    **kwargs,
 )
 ```
 **Parameters:**
-- `name`: Name of the operation.
-- `description`: Description of the operation.
-- `id_field`: Field name used to identify records.
-- `value_groups`: Mapping of group names to lists of ID values.
-- `number_of_partitions`: Number of partitions for automatic splitting.
-- `partition_method`: Partitioning strategy (`equal_size`, `random`, `modulo`).
-- `output_format`: Output file format (`csv`, `json`).
-- `**kwargs`: Additional configuration.
+- `name` (str): Operation name (default: "split_by_id_values_operation").
+- `id_field` (Optional[str]): Field name used to uniquely identify records for splitting.
+- `value_groups` (Optional[Dict[str, List[Any]]]): Mapping of group names to lists of ID values for explicit splitting.
+- `number_of_partitions` (int): Number of partitions for automatic splitting strategies (default: 1).
+- `partition_method` (str): Partitioning strategy (`equal_size`, `random`, `modulo`) (default: PartitionMethod.EQUAL_SIZE.value).
+- `**kwargs` (dict): Additional parameters passed to `TransformationOperation`, including:
+  - `field_name`: Field name to transform.
+  - `mode`: "REPLACE" or "ENRICH".
+  - `output_field_name`: Name for new field (ENRICH mode).
+  - `column_prefix`: Prefix for new columns.
+  - `description`: Operation description.
+  - `output_format`: Output file format (`csv`, `json`).
+  - `use_cache`, `use_encryption`, `encryption_key`: Performance and security options.
 
 #### Key Attributes
 - `id_field`: The column used for splitting/partitioning.
@@ -120,7 +124,7 @@ def execute(
     data_source: DataSource,
     task_dir: Path,
     reporter: Any,
-    progress_tracker: Optional[ProgressTracker] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
     **kwargs
 ) -> OperationResult
 ```

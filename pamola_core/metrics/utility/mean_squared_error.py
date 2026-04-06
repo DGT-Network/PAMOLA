@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Mean Squared Error Metric
----------------------------------------
 This module provides a class for calculating the Mean Squared Error (MSE)
 between real and synthetic datasets. MSE is a measure of the average squared
 difference between the estimated values and the actual value.
@@ -27,6 +26,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import numpy as np
 import pandas as pd
 from typing import Dict, Any
+from pamola_core.errors.exceptions import ValidationError
 
 
 class MeanSquaredError:
@@ -46,12 +46,12 @@ class MeanSquaredError:
         real_data: pd.DataFrame,
         synthetic_data: pd.DataFrame,
         columns: list,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Calculate Mean Squared Error (MSE).
 
-        Parameters:
+        Parameters
         -----------
         real_data : pd.DataFrame
             The actual data.
@@ -60,7 +60,7 @@ class MeanSquaredError:
         columns : list
             List of columns to calculate MSE.
 
-        Returns:
+        Returns
         --------
         dict
             {'mse': Dict[str, float], 'overall_mse': float} - MSE values for each column and overall MSE.
@@ -68,12 +68,14 @@ class MeanSquaredError:
         if not isinstance(real_data, pd.DataFrame) or not isinstance(
             synthetic_data, pd.DataFrame
         ):
-            raise ValueError(
+            raise ValidationError(
                 "Both real_data and synthetic_data must be pandas DataFrames."
             )
 
         if not columns:
-            raise ValueError("A list of columns must be provided to calculate MSE!")
+            raise ValidationError(
+                "A list of columns must be provided to calculate MSE!"
+            )
 
         mse_values = {}
         overall_mse = 0

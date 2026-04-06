@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Progress Manager
 Description: Centralized progress tracking and logging coordination
 Author: PAMOLA Core Team
@@ -78,7 +77,8 @@ class NoOpProgressTracker:
         """
         Initialize no-op progress tracker.
 
-        Args:
+        Parameters
+        ----------
             total: Total number of steps (unused)
             description: Description of the operation (unused)
             unit: Unit of progress (unused)
@@ -112,7 +112,8 @@ class NoOpProgressTracker:
         """
         Update progress (no-op version).
 
-        Args:
+        Parameters
+        ----------
             steps: Number of steps completed
             postfix: Dictionary of metrics to display after the progress bar
         """
@@ -129,7 +130,8 @@ class NoOpProgressTracker:
         """
         Update the description (no-op version).
 
-        Args:
+        Parameters
+        ----------
             description: New description text
         """
         self.description = description
@@ -138,7 +140,8 @@ class NoOpProgressTracker:
         """
         Set the postfix metrics (no-op version).
 
-        Args:
+        Parameters
+        ----------
             postfix: Dictionary of metrics to display
         """
         pass
@@ -147,7 +150,8 @@ class NoOpProgressTracker:
         """
         Close the progress tracker (no-op version).
 
-        Args:
+        Parameters
+        ----------
             failed: Whether the operation failed
         """
         # Calculate execution time
@@ -174,7 +178,8 @@ class NoOpProgressTracker:
         """
         Get current memory usage in MB.
 
-        Returns:
+        Returns
+        -------
             Memory usage in MB
         """
         if PSUTIL_AVAILABLE:
@@ -215,7 +220,8 @@ class ProgressTracker:
         """
         Initialize progress tracker.
 
-        Args:
+        Parameters
+        ----------
             total: Total number of steps
             description: Description of the operation
             unit: Unit of progress (e.g., "items", "records")
@@ -267,7 +273,8 @@ class ProgressTracker:
         """
         Update progress by specified number of steps.
 
-        Args:
+        Parameters
+        ----------
             steps: Number of steps completed
             postfix: Dictionary of metrics to display after the progress bar
         """
@@ -294,7 +301,8 @@ class ProgressTracker:
         """
         Update the description of the progress bar.
 
-        Args:
+        Parameters
+        ----------
             description: New description text
         """
         self.description = description
@@ -304,7 +312,8 @@ class ProgressTracker:
         """
         Set the postfix metrics display.
 
-        Args:
+        Parameters
+        ----------
             postfix: Dictionary of metrics to display
         """
         self.pbar.set_postfix(**postfix)
@@ -313,7 +322,8 @@ class ProgressTracker:
         """
         Close the progress bar and compute final metrics.
 
-        Args:
+        Parameters
+        ----------
             failed: Whether the operation failed
         """
         # Close all child progress bars first, with a copy of the list to safely iterate
@@ -383,7 +393,8 @@ class ProgressTracker:
         """
         Get current memory usage in MB.
 
-        Returns:
+        Returns
+        -------
             Memory usage in MB
         """
         if PSUTIL_AVAILABLE:
@@ -422,7 +433,8 @@ class TaskProgressManager:
         """
         Initialize progress manager.
 
-        Args:
+        Parameters
+        ----------
             task_id: Task identifier
             task_type: Type of task
             logger: Logger for the task
@@ -468,7 +480,8 @@ class TaskProgressManager:
         for progress tracking. When using the BaseTask.run() method, it sets the total
         operations equal to the length of the operations list.
 
-        Args:
+        Parameters
+        ----------
             total: Total number of operations
         """
         with self.lock:
@@ -492,7 +505,8 @@ class TaskProgressManager:
         This method is expected by BaseTask in the add_operation() method
         to increment the total operation count when a new operation is added.
 
-        Args:
+        Parameters
+        ----------
             count: Number of operations to add (default: 1)
         """
         with self.lock:
@@ -533,14 +547,16 @@ class TaskProgressManager:
         """
         Start tracking a new operation.
 
-        Args:
+        Parameters
+        ----------
             name: Operation name (unique identifier)
             total: Total number of steps in the operation
             description: Description of the operation (defaults to name)
             unit: Unit of progress
             leave: Whether to leave the progress bar after completion
 
-        Returns:
+        Returns
+        -------
             Progress tracker for the operation
         """
         with self.lock:
@@ -607,7 +623,8 @@ class TaskProgressManager:
         """
         Update progress of an operation.
 
-        Args:
+        Parameters
+        ----------
             name: Operation name
             steps: Number of steps completed
             postfix: Additional metrics to display
@@ -626,7 +643,8 @@ class TaskProgressManager:
         """
         Mark an operation as completed.
 
-        Args:
+        Parameters
+        ----------
             name: Operation name
             success: Whether the operation completed successfully
             metrics: Final metrics for the operation
@@ -694,7 +712,8 @@ class TaskProgressManager:
         """
         Log a message without breaking progress bars.
 
-        Args:
+        Parameters
+        ----------
             level: Logging level
             message: Message to log
             preserve_progress: Whether to preserve progress bars after logging
@@ -749,7 +768,8 @@ class TaskProgressManager:
 
         By default, critical messages clear progress bars to ensure visibility.
 
-        Args:
+        Parameters
+        ----------
             message: Critical message to log
             preserve_progress: Whether to preserve progress bars after logging
         """
@@ -766,14 +786,16 @@ class TaskProgressManager:
         """
         Create a context manager for an operation.
 
-        Args:
+        Parameters
+        ----------
             name: Operation name
             total: Total number of steps
             description: Description of the operation
             unit: Unit of progress
             leave: Whether to leave the progress bar after completion
 
-        Returns:
+        Returns
+        -------
             Context manager for the operation
         """
         # Log a warning if total is zero or negative
@@ -793,7 +815,8 @@ class TaskProgressManager:
         """
         Get overall metrics for the task.
 
-        Returns:
+        Returns
+        -------
             Dictionary of task metrics
         """
         execution_time = time.time() - self.start_time
@@ -841,7 +864,8 @@ class TaskProgressManager:
         """
         Get current memory usage in MB.
 
-        Returns:
+        Returns
+        -------
             Memory usage in MB
         """
         if PSUTIL_AVAILABLE:
@@ -855,7 +879,8 @@ class TaskProgressManager:
         """
         Get initial memory usage at manager creation.
 
-        Returns:
+        Returns
+        -------
             Initial memory usage in MB
         """
         # Start time is approximately when the manager was created
@@ -896,7 +921,8 @@ class ProgressContext:
         """
         Initialize progress context.
 
-        Args:
+        Parameters
+        ----------
             progress_manager: Task progress manager
             operation_name: Name of the operation
             total: Total number of steps
@@ -918,7 +944,8 @@ class ProgressContext:
         """
         Start tracking operation progress.
 
-        Returns:
+        Returns
+        -------
             Progress tracker for the operation
         """
         # Check for empty work (total <= 0)
@@ -958,7 +985,8 @@ class ProgressContext:
         """
         Complete operation tracking.
 
-        Args:
+        Parameters
+        ----------
             exc_type: Exception type if an exception occurred
             exc_val: Exception value if an exception occurred
             exc_tb: Exception traceback if an exception occurred
@@ -1011,7 +1039,8 @@ def create_task_progress_manager(
     This is a convenience function for creating a TaskProgressManager
     with optional auto-detection of quiet mode based on the environment.
 
-    Args:
+    Parameters
+    ----------
         task_id: Task identifier
         task_type: Type of task
         logger: Logger for the task
@@ -1019,7 +1048,8 @@ def create_task_progress_manager(
         total_operations: Total number of operations (if known)
         quiet: Whether to disable progress bars (auto-detected if None)
 
-    Returns:
+    Returns
+    -------
         Task progress manager
     """
     # Auto-detect quiet mode if not specified

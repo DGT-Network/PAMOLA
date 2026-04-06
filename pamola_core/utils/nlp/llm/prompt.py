@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Prompt Management Utilities
 Package:       pamola_core.utils.nlp.llm.prompt
 Version:       1.1.0
@@ -58,6 +57,11 @@ from pathlib import Path
 from string import Template
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from pamola_core.errors.exceptions import (
+    ValidationError,
+    PromptValidationError,
+    ResourceNotFoundError,
+)
 from pamola_core.utils.nlp.base import DependencyManager
 
 # Configure logger
@@ -66,23 +70,19 @@ logger = logging.getLogger(__name__)
 # Constants
 DEFAULT_MAX_PROMPT_LENGTH = 4000  # Conservative default
 TOKEN_CHAR_RATIO = 4  # Approximate chars per token
-TEMPLATE_PATTERN = re.compile(r'{(\w+)}')  # Pattern for {variable} placeholders
-TRAILING_PUNCT_PATTERN = re.compile(r'[:—–-]\s*$', re.MULTILINE)  # Trailing punctuation
+TEMPLATE_PATTERN = re.compile(r"{(\w+)}")  # Pattern for {variable} placeholders
+TRAILING_PUNCT_PATTERN = re.compile(r"[:—–-]\s*$", re.MULTILINE)  # Trailing punctuation
 
 
 class PromptStrategy(Enum):
     """Enumeration of available prompt strategies."""
+
     DIRECT = "direct"  # Simple direct prompt
     INSTRUCTION = "instruction"  # Instruction-following format
     CHAT = "chat"  # Chat/conversation format
     FEW_SHOT = "few_shot"  # Few-shot learning format
     CHAIN_OF_THOUGHT = "chain_of_thought"  # Step-by-step reasoning
     ROLE_PLAY = "role_play"  # Role-based prompting
-
-
-class PromptValidationError(Exception):
-    """Exception raised when prompt validation fails."""
-    pass
 
 
 @dataclass
@@ -115,6 +115,7 @@ class PromptTemplate:
     require_non_empty : bool
         Whether to enforce non-empty values for required variables
     """
+
     name: str
     template: str
     description: str = ""
@@ -217,21 +218,22 @@ class PromptTemplate:
             "optional_variables": self.optional_variables,
             "metadata": self.metadata,
             "examples": self.examples,
-            "require_non_empty": self.require_non_empty
+            "require_non_empty": self.require_non_empty,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'PromptTemplate':
+    def from_dict(cls, data: Dict[str, Any]) -> "PromptTemplate":
         """Create from dictionary representation."""
         # Convert strategy string to enum
-        if isinstance(data.get('strategy'), str):
-            data['strategy'] = PromptStrategy(data['strategy'])
+        if isinstance(data.get("strategy"), str):
+            data["strategy"] = PromptStrategy(data["strategy"])
         return cls(**data)
 
 
 @dataclass
 class PromptConfig:
     """Configuration for prompt formatting and optimization."""
+
     max_length: int = DEFAULT_MAX_PROMPT_LENGTH
     truncation_strategy: str = "end"  # "end", "middle", "smart"
     preserve_examples: bool = True  # Keep examples when truncating
@@ -258,9 +260,8 @@ class PromptLibrary:
             strategy=PromptStrategy.INSTRUCTION,
             language="ru",
             variables=["text"],
-            require_non_empty=True
+            require_non_empty=True,
         ),
-
         "anonymize_experience_en": PromptTemplate(
             name="anonymize_experience_en",
             template="""Rewrite the following work experience removing all personal and identifying information (company names, specific projects, names, specific technologies). Preserve the general meaning and professional skills.
@@ -272,9 +273,8 @@ Anonymized text:""",
             strategy=PromptStrategy.INSTRUCTION,
             language="en",
             variables=["text"],
-            require_non_empty=True
+            require_non_empty=True,
         ),
-
         "extract_skills": PromptTemplate(
             name="extract_skills",
             template="""Extract all professional skills and technologies mentioned in the following text. List them as comma-separated values.
@@ -286,9 +286,8 @@ Skills:""",
             strategy=PromptStrategy.INSTRUCTION,
             language="en",
             variables=["text"],
-            require_non_empty=True
+            require_non_empty=True,
         ),
-
         "chat_anonymize": PromptTemplate(
             name="chat_anonymize",
             template="""<|system|>
@@ -300,9 +299,8 @@ Please anonymize this text: {text}
             strategy=PromptStrategy.CHAT,
             language="en",
             variables=["text"],
-            require_non_empty=True
+            require_non_empty=True,
         ),
-
         "few_shot_anonymize": PromptTemplate(
             name="few_shot_anonymize",
             template="""Task: Anonymize work experience by removing company names and personal details.
@@ -325,9 +323,9 @@ Output:""",
             require_non_empty=True,
             examples=[
                 {"text": "Worked at Microsoft on Azure cloud services"},
-                {"text": "Senior Developer at Facebook working on React framework"}
-            ]
-        )
+                {"text": "Senior Developer at Facebook working on React framework"},
+            ],
+        ),
     }
 
     def __init__(self, custom_templates: Optional[Dict[str, PromptTemplate]] = None):
@@ -359,11 +357,19 @@ Output:""",
 
         Raises
         ------
-        KeyError
+        ResourceNotFoundError
             If template not found
         """
         if name not in self.templates:
-            raise KeyError(f"Template '{name}' not found. Available: {list(self.templates.keys())}")
+            available = list(self.templates.keys())
+            raise ResourceNotFoundError(
+                resource_name=f"prompt template '{name}'",
+                reason=f"available templates: {available}",
+                details={
+                    "template_name": name,
+                    "available_templates": available,
+                },
+            )
         return self.templates[name]
 
     def add(self, template: PromptTemplate, overwrite: bool = False) -> None:
@@ -383,11 +389,12 @@ Output:""",
             If template exists and overwrite is False
         """
         if template.name in self.templates and not overwrite:
-            raise ValueError(f"Template '{template.name}' already exists")
+            raise ValidationError(f"Template '{template.name}' already exists")
         self.templates[template.name] = template
 
-    def list_templates(self, language: Optional[str] = None,
-                       strategy: Optional[PromptStrategy] = None) -> List[str]:
+    def list_templates(
+        self, language: Optional[str] = None, strategy: Optional[PromptStrategy] = None
+    ) -> List[str]:
         """
         List available templates with optional filtering.
 
@@ -415,18 +422,16 @@ Output:""",
     def export_to_file(self, filepath: Union[str, Path]) -> None:
         """Export all templates to JSON file."""
         path = Path(filepath)
-        data = {
-            name: template.to_dict()
-            for name, template in self.templates.items()
-        }
-        with open(path, 'w', encoding='utf-8') as f:
+        data = {name: template.to_dict() for name, template in self.templates.items()}
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-    def import_from_file(self, filepath: Union[str, Path],
-                         overwrite: bool = False) -> None:
+    def import_from_file(
+        self, filepath: Union[str, Path], overwrite: bool = False
+    ) -> None:
         """Import templates from JSON file."""
         path = Path(filepath)
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         for name, template_data in data.items():
@@ -466,7 +471,7 @@ class PromptFormatter:
             return self.config.token_counter(text)
 
         # Try tiktoken if available
-        tiktoken = DependencyManager.get_module('tiktoken')
+        tiktoken = DependencyManager.get_module("tiktoken")
         if tiktoken:
             try:
                 encoding = tiktoken.get_encoding("cl100k_base")
@@ -509,8 +514,8 @@ class PromptFormatter:
         else:  # "smart"
             truncated = self._truncate_smart(text, target_chars)
 
-        if self.config.add_ellipsis and not truncated.endswith('...'):
-            truncated += '...'
+        if self.config.add_ellipsis and not truncated.endswith("..."):
+            truncated += "..."
 
         tokens_removed = current_tokens - self.estimate_tokens(truncated)
         return truncated, tokens_removed
@@ -522,7 +527,7 @@ class PromptFormatter:
 
         truncated = text[:max_chars]
         # Try to truncate at word boundary
-        last_space = truncated.rfind(' ')
+        last_space = truncated.rfind(" ")
         if last_space > max_chars * 0.8:
             truncated = truncated[:last_space]
 
@@ -542,7 +547,7 @@ class PromptFormatter:
             return text
 
         # Split into sentences
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+        sentences = re.split(r"(?<=[.!?])\s+", text)
 
         truncated = ""
         for sent in sentences:
@@ -559,9 +564,9 @@ class PromptFormatter:
             return text
 
         # Replace multiple spaces with single space
-        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r"\s+", " ", text)
         # Replace multiple newlines with double newline
-        text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
+        text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
 
         return text.strip()
 
@@ -586,10 +591,9 @@ class PromptFormatter:
             return text
 
         # Remove trailing colons, em-dashes, en-dashes, and hyphens
-        return TRAILING_PUNCT_PATTERN.sub('', text).rstrip()
+        return TRAILING_PUNCT_PATTERN.sub("", text).rstrip()
 
-    def format_prompt(self, template: PromptTemplate,
-                      variables: Dict[str, Any]) -> str:
+    def format_prompt(self, template: PromptTemplate, variables: Dict[str, Any]) -> str:
         """
         Format prompt from template with optimization.
 
@@ -627,19 +631,20 @@ class PromptFormatter:
             )
             # Truncate the variable content, not the template
             # This is a simplified approach - could be improved
-            if 'text' in variables and isinstance(variables['text'], str):
-                text_tokens = self.estimate_tokens(variables['text'])
+            if "text" in variables and isinstance(variables["text"], str):
+                text_tokens = self.estimate_tokens(variables["text"])
                 template_tokens = tokens - text_tokens
 
-                max_text_tokens = self.config.max_length - template_tokens - 50  # Buffer
+                max_text_tokens = (
+                    self.config.max_length - template_tokens - 50
+                )  # Buffer
                 truncated_text, _ = self.truncate_text(
-                    variables['text'],
-                    max_text_tokens
+                    variables["text"], max_text_tokens
                 )
 
                 # Re-format with truncated text
                 new_vars = variables.copy()
-                new_vars['text'] = truncated_text
+                new_vars["text"] = truncated_text
                 prompt = template.format(**new_vars)
 
                 # Re-apply post-processing
@@ -658,17 +663,17 @@ class PromptChainBuilder:
         self.context: Optional[str] = None
         self.examples: List[Tuple[str, str]] = []
 
-    def set_context(self, context: str) -> 'PromptChainBuilder':
+    def set_context(self, context: str) -> "PromptChainBuilder":
         """Set initial context."""
         self.context = context
         return self
 
-    def add_step(self, step: str) -> 'PromptChainBuilder':
+    def add_step(self, step: str) -> "PromptChainBuilder":
         """Add reasoning step."""
         self.steps.append(step)
         return self
 
-    def add_example(self, input_text: str, output_text: str) -> 'PromptChainBuilder':
+    def add_example(self, input_text: str, output_text: str) -> "PromptChainBuilder":
         """Add example input/output pair."""
         self.examples.append((input_text, output_text))
         return self
@@ -709,7 +714,9 @@ def create_prompt_formatter(config: Optional[PromptConfig] = None) -> PromptForm
     return PromptFormatter(config)
 
 
-def load_prompt_library(template_file: Optional[Union[str, Path]] = None) -> PromptLibrary:
+def load_prompt_library(
+    template_file: Optional[Union[str, Path]] = None,
+) -> PromptLibrary:
     """
     Load prompt library with optional custom templates.
 

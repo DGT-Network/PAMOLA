@@ -1,7 +1,7 @@
 [project]
 name = "pamola-core"
-version = "0.1.0"
-requires-python = ">=3.11,<3.13"
+version = "1.0.0.dev2"
+requires-python = ">=3.10,<3.13"
 
 authors = [
   { name = "Author", email = "author@example.com" },
@@ -16,6 +16,11 @@ license = { text = "BSD-3-Clause" }
 
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
 ]
 
@@ -31,7 +36,7 @@ dependencies = [
     "diff-match-patch==20241021",
     "sdv==1.18.0",
     "faker==33.3.1",
-    "scipy==1.16.3",
+    "scipy==1.15.3",
     "uvicorn[standard]==0.38.0",
     "openpyxl==3.1.5",
     "xlrd==2.0.1",
@@ -50,7 +55,6 @@ dependencies = [
     "dask[complete]==2025.11.0",
     "pyarrow==14.0.2",
     "numpy==1.26.4",
-    "pytest==8.4.2",
     "matplotlib-venn==1.1.2",
     "psutil==5.9.8",
     "ijson==3.4.0.post0",
@@ -61,13 +65,32 @@ dependencies = [
     "spacy==3.8.9",
     "phonenumbers==9.0.10",
     "base58==2.1.1",
-    "cryptography==46.0.3"
+    "cryptography==46.0.3",
+    "PyYAML==6.0.2",
+    "typer[all]==0.24.1",
+    "jsonschema==4.25.1",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest==8.4.2",
+    "pytest-cov>=7.0",
 ]
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "build"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pamola_core*"]
+
+[tool.setuptools.package-data]
+"pamola_core.errors.context" = ["*.yaml"]
+"pamola_core" = ["resources/**/*"]
+"pamola_core.catalogs" = ["*.yaml"]
+
+# ── CLI entry point ────────────────────────────────────────────────────────
+# After `pip install pamola-core`, the `pamola-core` command becomes available
+[project.scripts]
+pamola-core = "pamola_core.cli.main:app"

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: Attack Simulation
------------------------
 This module provides an abstract base class for attack simulation feature
 in PAMOLA.CORE. It defines the general structure and required methods for
 implementing specific attack simulation
@@ -27,6 +25,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import numpy as np
 import pandas as pd
 from pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.errors.exceptions import ValidationError, FieldNotFoundError
 
 
 class AttributeInference(PreprocessData):
@@ -43,13 +42,13 @@ class AttributeInference(PreprocessData):
         The function performs an Attribute Inference Attack
         This is an attack that attempts to infer sensitive attributes of an individual (data point)
 
-        Parameters:
+        Parameters
         -----------
         data_train: The training dataset, containing attributes of the entities, includes the target_column attribute whose value is known.
         data_test: The test dataset, containing attributes of the entities, includes target_column attribute whose value is unknown and needs to be inferred
         target_column: attribute of the data_test dataset needs to be inferred
 
-        Returns:
+        Returns
         -----------
         List contains the predicted values of target_attribute
         """
@@ -59,13 +58,15 @@ class AttributeInference(PreprocessData):
             return pd.Series(dtype=object)
 
         if target_attribute not in data_train.columns:
-            raise KeyError(
-                f"Target attribute '{target_attribute}' not found in training data."
+            raise FieldNotFoundError(
+                target_attribute,
+                list(data_train.columns),
+                dataset_name="training data",
             )
 
         features = [col for col in data_train.columns if col != target_attribute]
         if not features:
-            raise ValueError("No features available for inference.")
+            raise ValidationError("No features available for inference.")
 
         # Compute entropy for each candidate feature
         entropy_values = {}

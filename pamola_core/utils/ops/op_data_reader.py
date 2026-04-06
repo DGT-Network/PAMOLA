@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Data Reader
 Description: Unified data reading capabilities for operations
 Author: PAMOLA Core Team
@@ -26,25 +25,39 @@ from typing import Dict, Any, List, Union, Optional, Tuple, Generator, TypeVar
 import dask.dataframe as dd
 import pandas as pd
 
-from pamola_core.utils import logging as custom_logging
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.io import (
     # Pamola Core reading functions
-    read_full_csv, read_csv_in_chunks, read_parquet, read_excel,
-    read_json, read_dataframe, read_multi_csv, read_similar_files,
+    read_full_csv,
+    read_csv_in_chunks,
+    read_parquet,
+    read_excel,
+    read_json,
+    read_dataframe,
+    read_multi_csv,
+    read_similar_files,
     # Memory management
-    estimate_file_memory, optimize_dataframe_memory,
+    estimate_file_memory,
+    optimize_dataframe_memory,
     # Format detection
-    detect_csv_dialect, validate_file_format, is_encrypted_file,
+    detect_csv_dialect,
+    validate_file_format,
+    is_encrypted_file,
     # Get file info/metadata
     get_file_metadata,
-    get_system_memory, estimate_file_memory_list, read_multi_file_dask
+    get_system_memory,
+    estimate_file_memory_list,
+    read_multi_file_dask,
 )
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
 # Define type variables for better type hints
 PathType = Union[str, Path]
-DataFrameType = TypeVar('DataFrameType', bound=pd.DataFrame)
-ResultWithError = Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
+DataFrameType = TypeVar("DataFrameType", bound=pd.DataFrame)
+ResultWithError = Tuple[
+    Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]
+]
 
 
 class DataReader:
@@ -59,41 +72,45 @@ class DataReader:
         """
         Initialize a DataReader instance.
 
-        Parameters:
+        Parameters
         -----------
         logger : logging.Logger, optional
             Logger instance for output messages
         """
         # Initialize logger
-        self.logger = logger or custom_logging.get_logger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = logger or pamola_logging.getLogger(
+            f"{__name__}.{self.__class__.__name__}"
+        )
         self.logger.debug("Initializing DataReader")
 
-    def read_dataframe(self,
-                       source: Union[PathType, Dict[str, PathType], Dict[str, List[PathType]]],
-                       file_format: Optional[str] = None,
-                       columns: Optional[List[str]] = None,
-                       nrows: Optional[int] = None,
-                       skiprows: Optional[Union[int, List[int]]] = None,
-                       encoding: str = "utf-8",
-                       delimiter: str = ",",
-                       quotechar: str = '"',
-                       sheet_name: Optional[Union[str, int]] = 0,
-                       use_dask: bool = False,
-                       memory_limit: Optional[float] = None,
-                       encryption_key: Optional[str] = None,
-                       auto_optimize: bool = True,
-                       show_progress: bool = True,
-                       detect_parameters: bool = True,
-                       use_encryption: bool = False,
-                       encryption_mode: Optional[str] = None,
-                       **kwargs) -> ResultWithError:
+    def read_dataframe(
+        self,
+        source: Union[PathType, Dict[str, PathType], Dict[str, List[PathType]]],
+        file_format: Optional[str] = None,
+        columns: Optional[List[str]] = None,
+        nrows: Optional[int] = None,
+        skiprows: Optional[Union[int, List[int]]] = None,
+        encoding: str = "utf-8",
+        delimiter: str = ",",
+        quotechar: str = '"',
+        sheet_name: Optional[Union[str, int]] = 0,
+        use_dask: bool = False,
+        memory_limit: Optional[float] = None,
+        encryption_key: Optional[str] = None,
+        auto_optimize: bool = True,
+        show_progress: bool = True,
+        detect_parameters: bool = True,
+        use_encryption: bool = False,
+        encryption_mode: Optional[str] = None,
+        **kwargs,
+    ) -> ResultWithError:
         """
         Read a DataFrame from various sources with comprehensive options.
 
         This method provides a unified interface for reading data from different
         sources with robust error handling, progress tracking, and memory management.
 
-        Parameters:
+        Parameters
         -----------
         source : str, Path, or Dict[str, Union[str, Path]]
             Source file path or dictionary of source paths
@@ -128,7 +145,7 @@ class DataReader:
         **kwargs
             Additional arguments passed to the underlying reader
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -154,9 +171,13 @@ class DataReader:
         # Perform pre-flight memory check with io.py
         try:
             file_memory_infos = estimate_file_memory_list(source_list)
-            sum_memory_required_gb = sum(
-                file_memory_info.get('estimated_memory_mb', 0) for file_memory_info in file_memory_infos
-            ) / 1024
+            sum_memory_required_gb = (
+                sum(
+                    file_memory_info.get("estimated_memory_mb", 0)
+                    for file_memory_info in file_memory_infos
+                )
+                / 1024
+            )
 
             # Auto-switch to Dask if memory limit is specified and exceeded
             system_memory = get_system_memory()
@@ -171,14 +192,21 @@ class DataReader:
                 )
                 use_dask = True
         except Exception as e:
-            self.logger.warning(f"Memory estimation failed: {e}. Proceeding without pre-flight check.")
-
+            self.logger.warning(
+                f"Memory estimation failed: {e}. Proceeding without pre-flight check."
+            )
 
         if use_dask and len(source_list) > 0:
-            max_memory_required_gb = max(
-                (file_memory_info.get('estimated_memory_mb', 0) for file_memory_info in file_memory_infos),
-                default=0
-            ) / 1024
+            max_memory_required_gb = (
+                max(
+                    (
+                        file_memory_info.get("estimated_memory_mb", 0)
+                        for file_memory_info in file_memory_infos
+                    ),
+                    default=0,
+                )
+                / 1024
+            )
             available_memory = system_memory.get("available_gb", 0)
 
             # Convert all sources to Path objects
@@ -199,7 +227,7 @@ class DataReader:
                 skiprows=skiprows,
                 npartitions=npartitions,
                 show_progress=show_progress,
-                encryption_key=encryption_key
+                encryption_key=encryption_key,
             )
 
             return df, None
@@ -217,7 +245,7 @@ class DataReader:
                 encryption_key=encryption_key,
                 show_progress=show_progress,
                 auto_optimize=auto_optimize,
-                **kwargs
+                **kwargs,
             )
 
         # Convert source to Path if it's a string
@@ -229,20 +257,20 @@ class DataReader:
             error_info = {
                 "error_type": "FileNotFoundError",
                 "message": f"File not found: {source}",
-                "resolution": "Check file path and permissions"
+                "resolution": "Check file path and permissions",
             }
             self.logger.error(error_info["message"])
             return None, error_info
 
         # Auto-detect file format if not specified
         if file_format is None:
-            file_format = source.suffix.lower().lstrip('.')
+            file_format = source.suffix.lower().lstrip(".")
             self.logger.debug(f"Auto-detected format: {file_format}")
 
         # Perform pre-flight memory check with io.py
         try:
             memory_info = estimate_file_memory(source)
-            memory_required_gb = memory_info.get('estimated_memory_mb', 0) / 1024
+            memory_required_gb = memory_info.get("estimated_memory_mb", 0) / 1024
 
             # Auto-switch to Dask if memory limit is specified and exceeded
             if memory_limit and memory_required_gb > memory_limit:
@@ -252,10 +280,12 @@ class DataReader:
                 )
                 use_dask = True
         except Exception as e:
-            self.logger.warning(f"Memory estimation failed: {e}. Proceeding without pre-flight check.")
+            self.logger.warning(
+                f"Memory estimation failed: {e}. Proceeding without pre-flight check."
+            )
 
         # Auto-detect encoding and parameters if requested for CSV files
-        if detect_parameters and file_format == 'csv':
+        if detect_parameters and file_format == "csv":
             try:
                 dialect_info = detect_csv_dialect(source)
                 if dialect_info.get("encoding"):
@@ -268,42 +298,78 @@ class DataReader:
                     quotechar = dialect_info["quotechar"]
                     self.logger.debug(f"Auto-detected quotechar: {quotechar}")
             except Exception as e:
-                self.logger.warning(f"Auto-detection failed: {e}. Using specified parameters.")
+                self.logger.warning(
+                    f"Auto-detection failed: {e}. Using specified parameters."
+                )
 
         # Create progress tracker if requested
         progress_tracker = None
         if show_progress:
-            total_estimate = nrows if nrows is not None else memory_info.get('estimated_rows', 1000)
+            total_estimate = (
+                nrows if nrows is not None else memory_info.get("estimated_rows", 1000)
+            )
             progress_tracker = HierarchicalProgressTracker(
                 total=total_estimate,
                 description=f"Reading {source.name}",
                 unit="rows",
-                track_memory=True
+                track_memory=True,
             )
 
         try:
             # Select appropriate reader based on format
-            if file_format in ('csv', 'tsv', 'txt'):
+            if file_format in ("csv", "tsv", "txt"):
                 df, error_info = self._read_csv_format(
-                    source, file_format, encoding, delimiter, quotechar,
-                    columns, nrows, skiprows, use_dask,
-                    encryption_key, show_progress,
-                    progress_tracker, use_encryption, encryption_mode, **kwargs
+                    source,
+                    file_format,
+                    encoding,
+                    delimiter,
+                    quotechar,
+                    columns,
+                    nrows,
+                    skiprows,
+                    use_dask,
+                    encryption_key,
+                    show_progress,
+                    progress_tracker,
+                    use_encryption,
+                    encryption_mode,
+                    **kwargs,
                 )
-            elif file_format in ('parquet', 'pq'):
+            elif file_format in ("parquet", "pq"):
                 df, error_info = self._read_parquet_format(
-                    source, columns, nrows, skiprows,
-                    encryption_key, use_encryption, encryption_mode, **kwargs
+                    source,
+                    columns,
+                    nrows,
+                    skiprows,
+                    encryption_key,
+                    use_encryption,
+                    encryption_mode,
+                    **kwargs,
                 )
-            elif file_format in ('xls', 'xlsx', 'xlsm'):
+            elif file_format in ("xls", "xlsx", "xlsm"):
                 df, error_info = self._read_excel_format(
-                    source, sheet_name, columns, nrows, skiprows,
-                    encryption_key, show_progress, use_encryption, encryption_mode, **kwargs
+                    source,
+                    sheet_name,
+                    columns,
+                    nrows,
+                    skiprows,
+                    encryption_key,
+                    show_progress,
+                    use_encryption,
+                    encryption_mode,
+                    **kwargs,
                 )
-            elif file_format == 'json':
+            elif file_format == "json":
                 df, error_info = self._read_json_format(
-                    source, encoding, columns, nrows, skiprows,
-                    encryption_key, use_encryption, encryption_mode, **kwargs
+                    source,
+                    encoding,
+                    columns,
+                    nrows,
+                    skiprows,
+                    encryption_key,
+                    use_encryption,
+                    encryption_mode,
+                    **kwargs,
                 )
             else:
                 # For other formats, use generic read_dataframe from io.py
@@ -315,13 +381,13 @@ class DataReader:
                         nrows=nrows,
                         skiprows=skiprows,
                         encryption_key=encryption_key,
-                        **kwargs
+                        **kwargs,
                     )
                 except Exception as e:
                     error_info = {
                         "error_type": type(e).__name__,
                         "message": str(e),
-                        "resolution": self._suggest_resolution(e, file_format)
+                        "resolution": self._suggest_resolution(e, file_format),
                     }
 
             # Auto-optimize memory usage if requested and data was loaded
@@ -337,10 +403,9 @@ class DataReader:
             # Update progress tracker
             if progress_tracker:
                 if df is not None:
-                    progress_tracker.update(len(df), {
-                        "status": "complete",
-                        "rows": len(df)
-                    })
+                    progress_tracker.update(
+                        len(df), {"status": "complete", "rows": len(df)}
+                    )
                 else:
                     progress_tracker.update(0, {"status": "error"})
                 progress_tracker.close()
@@ -359,7 +424,7 @@ class DataReader:
                 "message": str(e),
                 "source": str(source),
                 "format": file_format,
-                "resolution": self._suggest_resolution(e, file_format)
+                "resolution": self._suggest_resolution(e, file_format),
             }
 
             # Close progress tracker on error
@@ -367,21 +432,34 @@ class DataReader:
                 progress_tracker.update(0, {"status": "error", "message": str(e)})
                 progress_tracker.close()
 
-            self.logger.error(f"Error reading {source}: {error_info['error_type']}: {error_info['message']}")
+            self.logger.error(
+                f"Error reading {source}: {error_info['error_type']}: {error_info['message']}"
+            )
             return None, error_info
 
-    def _read_csv_format(self, source, file_format, encoding, delimiter, quotechar,
-                         columns, nrows, skiprows, use_dask,
-                         encryption_key, show_progress,
-                         progress_tracker=None,
-                         use_encryption: bool = False,
-                         encryption_mode: Optional[str] = None,
-                         **kwargs) -> ResultWithError:
+    def _read_csv_format(
+        self,
+        source,
+        file_format,
+        encoding,
+        delimiter,
+        quotechar,
+        columns,
+        nrows,
+        skiprows,
+        use_dask,
+        encryption_key,
+        show_progress,
+        progress_tracker=None,
+        use_encryption: bool = False,
+        encryption_mode: Optional[str] = None,
+        **kwargs,
+    ) -> ResultWithError:
         """Read data from CSV-like formats using io.py functions."""
         try:
             # For TSV format, override delimiter
-            if file_format == 'tsv':
-                delimiter = '\t'
+            if file_format == "tsv":
+                delimiter = "\t"
 
             # Use io.py's read_full_csv
             df = read_full_csv(
@@ -396,22 +474,28 @@ class DataReader:
                 encryption_key=encryption_key,
                 show_progress=show_progress,
                 use_encryption=use_encryption,
-                encryption_mode=encryption_mode
+                encryption_mode=encryption_mode,
             )
             return df, None
         except Exception as e:
             error_info = {
                 "error_type": type(e).__name__,
                 "message": str(e),
-                "resolution": self._suggest_resolution(e, file_format)
+                "resolution": self._suggest_resolution(e, file_format),
             }
             return None, error_info
 
-    def _read_parquet_format(self, source, columns, nrows, skiprows,
-                             encryption_key,
-                             use_encryption: bool = False,
-                             encryption_mode: Optional[str] = None,
-                             **kwargs) -> ResultWithError:
+    def _read_parquet_format(
+        self,
+        source,
+        columns,
+        nrows,
+        skiprows,
+        encryption_key,
+        use_encryption: bool = False,
+        encryption_mode: Optional[str] = None,
+        **kwargs,
+    ) -> ResultWithError:
         """Read data from Parquet format using io.py functions."""
         try:
             # Use io.py's read_parquet
@@ -421,7 +505,7 @@ class DataReader:
                 encryption_key=encryption_key,
                 use_encryption=use_encryption,
                 encryption_mode=encryption_mode,
-                **kwargs
+                **kwargs,
             )
 
             # Handle nrows and skiprows manually (not supported by read_parquet)
@@ -440,15 +524,23 @@ class DataReader:
             error_info = {
                 "error_type": type(e).__name__,
                 "message": str(e),
-                "resolution": self._suggest_resolution(e, "parquet")
+                "resolution": self._suggest_resolution(e, "parquet"),
             }
             return None, error_info
 
-    def _read_excel_format(self, source, sheet_name, columns, nrows, skiprows,
-                           encryption_key, show_progress,
-                           use_encryption: bool = False,
-                           encryption_mode: Optional[str] = None,
-                           **kwargs) -> ResultWithError:
+    def _read_excel_format(
+        self,
+        source,
+        sheet_name,
+        columns,
+        nrows,
+        skiprows,
+        encryption_key,
+        show_progress,
+        use_encryption: bool = False,
+        encryption_mode: Optional[str] = None,
+        **kwargs,
+    ) -> ResultWithError:
         """Read data from Excel format using io.py functions."""
         try:
             # Use io.py's read_excel
@@ -462,22 +554,29 @@ class DataReader:
                 show_progress=show_progress,
                 use_encryption=use_encryption,
                 encryption_mode=encryption_mode,
-                **kwargs
+                **kwargs,
             )
             return df, None
         except Exception as e:
             error_info = {
                 "error_type": type(e).__name__,
                 "message": str(e),
-                "resolution": self._suggest_resolution(e, "excel")
+                "resolution": self._suggest_resolution(e, "excel"),
             }
             return None, error_info
 
-    def _read_json_format(self, source, encoding, columns, nrows, skiprows,
-                          encryption_key,
-                          use_encryption: bool = False,
-                          encryption_mode: Optional[str] = None,
-                          **kwargs) -> ResultWithError:
+    def _read_json_format(
+        self,
+        source,
+        encoding,
+        columns,
+        nrows,
+        skiprows,
+        encryption_key,
+        use_encryption: bool = False,
+        encryption_mode: Optional[str] = None,
+        **kwargs,
+    ) -> ResultWithError:
         """Read data from JSON format using io.py functions."""
         try:
             # Use io.py's read_json
@@ -487,7 +586,7 @@ class DataReader:
                 encryption_key=encryption_key,
                 use_encryption=use_encryption,
                 encryption_mode=encryption_mode,
-                **kwargs
+                **kwargs,
             )
 
             # Convert to DataFrame based on structure
@@ -501,22 +600,17 @@ class DataReader:
                     df = pd.DataFrame(data)
             elif isinstance(data, dict):
                 # Try to determine the JSON orientation
-                if all(key in data for key in ['index', 'columns', 'data']):
+                if all(key in data for key in ["index", "columns", "data"]):
                     # Full split orientation (3 keys)
                     df = pd.DataFrame(
-                        data=data['data'],
-                        index=data['index'],
-                        columns=data['columns']
+                        data=data["data"], index=data["index"], columns=data["columns"]
                     )
-                elif 'columns' in data and 'data' in data:
+                elif "columns" in data and "data" in data:
                     # Simplified split orientation (2 keys)
-                    df = pd.DataFrame(
-                        data=data['data'],
-                        columns=data['columns']
-                    )
-                elif 'schema' in data and 'data' in data:
+                    df = pd.DataFrame(data=data["data"], columns=data["columns"])
+                elif "schema" in data and "data" in data:
                     # Table orientation (Table Schema format)
-                    df = pd.DataFrame.from_records(data['data'])
+                    df = pd.DataFrame.from_records(data["data"])
                 elif all(isinstance(v, list) for v in data.values()):
                     # Dict of lists -> columns oriented
                     df = pd.DataFrame(data)
@@ -525,19 +619,23 @@ class DataReader:
                     # Try both orientations
                     try:
                         # First try index orientation
-                        df = pd.DataFrame.from_dict(data, orient='index')
-                    except (ValueError, TypeError):
+                        df = pd.DataFrame.from_dict(data, orient="index")
+                    except (ValidationError, ValueError, TypeError):
                         try:
                             # Then try columns orientation
-                            df = pd.DataFrame.from_dict(data, orient='columns')
-                        except (ValueError, TypeError):
+                            df = pd.DataFrame.from_dict(data, orient="columns")
+                        except (ValidationError, ValueError, TypeError):
                             # If both fail, raise error
-                            raise ValueError("Cannot determine orientation of dictionary data")
+                            raise ValidationError(
+                                "Cannot determine orientation of dictionary data"
+                            )
                 else:
                     # Single record -> wrap in list
                     df = pd.DataFrame([data])
             else:
-                raise ValueError(f"JSON data structure not convertible to DataFrame: {type(data)}")
+                raise ValidationError(
+                    f"JSON data structure not convertible to DataFrame: {type(data)}"
+                )
 
             # Apply filtering
             if columns is not None:
@@ -545,7 +643,9 @@ class DataReader:
                 if valid_cols:
                     df = df[valid_cols]
                 else:
-                    self.logger.warning(f"None of the requested columns exist in JSON data")
+                    self.logger.warning(
+                        "None of the requested columns exist in JSON data"
+                    )
 
             if skiprows is not None:
                 if isinstance(skiprows, int):
@@ -559,34 +659,40 @@ class DataReader:
 
             # Add warning for potential orientation issues
             if df is not None and df.empty:
-                self.logger.warning("DataFrame is empty after conversion. Check if JSON orientation is correct.")
+                self.logger.warning(
+                    "DataFrame is empty after conversion. Check if JSON orientation is correct."
+                )
             elif df is not None and len(df.columns) == 1 and len(df) == 1:
-                self.logger.warning("DataFrame has only one row and column. Check if JSON orientation is correct.")
+                self.logger.warning(
+                    "DataFrame has only one row and column. Check if JSON orientation is correct."
+                )
 
             return df, None
         except Exception as e:
             error_info = {
                 "error_type": type(e).__name__,
                 "message": str(e),
-                "resolution": self._suggest_resolution(e, "json")
+                "resolution": self._suggest_resolution(e, "json"),
             }
             return None, error_info
 
-    def read_dataframe_in_chunks(self,
-                                 source: PathType,
-                                 chunk_size: int = 10000,
-                                 columns: Optional[List[str]] = None,
-                                 encoding: str = "utf-8",
-                                 delimiter: str = ",",
-                                 quotechar: str = '"',
-                                 encryption_key: Optional[str] = None,
-                                 show_progress: bool = True,
-                                 detect_parameters: bool = True,
-                                 **kwargs) -> Generator[pd.DataFrame, None, None]:
+    def read_dataframe_in_chunks(
+        self,
+        source: PathType,
+        chunk_size: int = 10000,
+        columns: Optional[List[str]] = None,
+        encoding: str = "utf-8",
+        delimiter: str = ",",
+        quotechar: str = '"',
+        encryption_key: Optional[str] = None,
+        show_progress: bool = True,
+        detect_parameters: bool = True,
+        **kwargs,
+    ) -> Generator[pd.DataFrame, None, None]:
         """
         Read a file in chunks for memory-efficient processing of large datasets.
 
-        Parameters:
+        Parameters
         -----------
         source : PathType
             Source file path
@@ -609,7 +715,7 @@ class DataReader:
         **kwargs
             Additional arguments to pass to reader functions
 
-        Yields:
+        Yields
         -------
         pd.DataFrame
             DataFrame chunks
@@ -624,10 +730,10 @@ class DataReader:
             return
 
         # Get file format from extension
-        file_format = source.suffix.lower().lstrip('.')
+        file_format = source.suffix.lower().lstrip(".")
 
         # Auto-detect encoding and parameters if requested
-        if detect_parameters and file_format == 'csv':
+        if detect_parameters and file_format == "csv":
             try:
                 dialect_info = detect_csv_dialect(source)
                 if dialect_info.get("encoding"):
@@ -640,27 +746,29 @@ class DataReader:
                     quotechar = dialect_info["quotechar"]
                     self.logger.debug(f"Auto-detected quotechar: {quotechar}")
             except Exception as e:
-                self.logger.warning(f"Auto-detection failed: {e}. Using specified parameters.")
+                self.logger.warning(
+                    f"Auto-detection failed: {e}. Using specified parameters."
+                )
 
         # Process based on file format
         self.logger.info(f"Reading {source} in chunks of {chunk_size} rows")
 
-        if file_format in ('csv', 'tsv', 'txt'):
+        if file_format in ("csv", "tsv", "txt"):
             # For TSV format, override delimiter
-            if file_format == 'tsv':
-                delimiter = '\t'
+            if file_format == "tsv":
+                delimiter = "\t"
 
             # Use io.py's read_csv_in_chunks directly
             try:
                 for chunk in read_csv_in_chunks(
-                        file_path=source,
-                        chunk_size=chunk_size,
-                        encoding=encoding,
-                        delimiter=delimiter,
-                        quotechar=quotechar,
-                        columns=columns,
-                        encryption_key=encryption_key,
-                        show_progress=show_progress
+                    file_path=source,
+                    chunk_size=chunk_size,
+                    encoding=encoding,
+                    delimiter=delimiter,
+                    quotechar=quotechar,
+                    columns=columns,
+                    encryption_key=encryption_key,
+                    show_progress=show_progress,
                 ):
                     yield chunk
             except Exception as e:
@@ -683,12 +791,14 @@ class DataReader:
                     encryption_key=encryption_key,
                     show_progress=show_progress,
                     detect_parameters=detect_parameters,
-                    **kwargs
+                    **kwargs,
                 )
 
                 if df is None:
                     if error_info:
-                        self.logger.error(f"Failed to load {source}: {error_info.get('message', 'Unknown error')}")
+                        self.logger.error(
+                            f"Failed to load {source}: {error_info.get('message', 'Unknown error')}"
+                        )
                     return
 
                 # Calculate total chunks properly
@@ -701,19 +811,22 @@ class DataReader:
                         total=total_chunks,
                         description=f"Processing {source.name} in chunks",
                         unit="chunks",
-                        track_memory=True
+                        track_memory=True,
                     )
 
                 # Yield chunks
                 for i in range(0, len(df), chunk_size):
-                    chunk = df.iloc[i:i + chunk_size].copy()
+                    chunk = df.iloc[i : i + chunk_size].copy()
 
                     # Update progress without trying to get memory info
                     if progress_tracker:
-                        progress_tracker.update(1, {
-                            "chunk": f"{(i // chunk_size) + 1}/{total_chunks}",
-                            "rows": len(chunk)
-                        })
+                        progress_tracker.update(
+                            1,
+                            {
+                                "chunk": f"{(i // chunk_size) + 1}/{total_chunks}",
+                                "rows": len(chunk),
+                            },
+                        )
 
                     yield chunk
 
@@ -724,27 +837,29 @@ class DataReader:
             except Exception as e:
                 self.logger.error(f"Error chunking {source}: {str(e)}")
 
-    def _read_multi_file_dataset(self,
-                                 sources: Union[List[PathType], Dict[str, PathType]],
-                                 columns: Optional[List[str]] = None,
-                                 nrows: Optional[int] = None,
-                                 skiprows: Optional[Union[int, List[int]]] = None,
-                                 encoding: str = "utf-8",
-                                 delimiter: str = ",",
-                                 quotechar: str = '"',
-                                 encryption_key: Optional[str] = None,
-                                 min_valid_files: int = 1,
-                                 memory_efficient: bool = True,
-                                 auto_optimize: bool = True,
-                                 show_progress: bool = True,
-                                 error_on_empty: bool = False,
-                                 **kwargs) -> ResultWithError:
+    def _read_multi_file_dataset(
+        self,
+        sources: Union[List[PathType], Dict[str, PathType]],
+        columns: Optional[List[str]] = None,
+        nrows: Optional[int] = None,
+        skiprows: Optional[Union[int, List[int]]] = None,
+        encoding: str = "utf-8",
+        delimiter: str = ",",
+        quotechar: str = '"',
+        encryption_key: Optional[str] = None,
+        min_valid_files: int = 1,
+        memory_efficient: bool = True,
+        auto_optimize: bool = True,
+        show_progress: bool = True,
+        error_on_empty: bool = False,
+        **kwargs,
+    ) -> ResultWithError:
         """
         Read and combine multiple files into a single DataFrame.
 
         This method fully leverages io.py's multi-file reading capabilities.
 
-        Parameters:
+        Parameters
         -----------
         sources : Union[List[PathType], Dict[str, PathType]]
             List or dictionary of source paths
@@ -775,7 +890,7 @@ class DataReader:
         **kwargs
             Additional arguments to pass to reader functions
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -794,25 +909,27 @@ class DataReader:
             error_info = {
                 "error_type": "InsufficientValidFilesError",
                 "message": f"Found only {len(valid_paths)} valid files, but {min_valid_files} required",
-                "resolution": "Check file paths and permissions"
+                "resolution": "Check file paths and permissions",
             }
             self.logger.error(error_info["message"])
 
             if error_on_empty:
-                raise ValueError(error_info["message"])
+                raise ValidationError(error_info["message"])
 
             return None, error_info
 
         # Get file format of the first file
-        file_format = valid_paths[0].suffix.lower().lstrip('.')
-        self.logger.info(f"Reading multi-file dataset with {len(valid_paths)} files of {file_format} format")
+        file_format = valid_paths[0].suffix.lower().lstrip(".")
+        self.logger.info(
+            f"Reading multi-file dataset with {len(valid_paths)} files of {file_format} format"
+        )
 
         try:
             # For CSV files, directly use read_multi_csv from io.py
-            if file_format in ('csv', 'tsv', 'txt'):
+            if file_format in ("csv", "tsv", "txt"):
                 # For TSV format, override delimiter
-                if file_format == 'tsv':
-                    delimiter = '\t'
+                if file_format == "tsv":
+                    delimiter = "\t"
 
                 # Use read_multi_csv without **kwargs
                 df = read_multi_csv(
@@ -826,7 +943,7 @@ class DataReader:
                     encryption_key=encryption_key,
                     show_progress=show_progress,
                     memory_efficient=memory_efficient,
-                    ignore_errors=not error_on_empty
+                    ignore_errors=not error_on_empty,
                 )
             else:
                 # For other formats, check if all files are in same directory
@@ -844,12 +961,12 @@ class DataReader:
                         columns=columns,
                         encryption_key=encryption_key,
                         show_progress=show_progress,
-                        ignore_errors=not error_on_empty
+                        ignore_errors=not error_on_empty,
                     )
                 else:
                     # Files in different directories, read individually and combine
                     self.logger.info(
-                        f"Files in multiple directories. Reading individually and combining."
+                        "Files in multiple directories. Reading individually and combining."
                     )
 
                     # Create progress tracker
@@ -859,7 +976,7 @@ class DataReader:
                             total=len(valid_paths),
                             description="Reading multiple files",
                             unit="files",
-                            track_memory=True
+                            track_memory=True,
                         )
 
                     dfs = []
@@ -875,7 +992,7 @@ class DataReader:
                                 quotechar=quotechar,
                                 encryption_key=encryption_key,
                                 show_progress=False,  # Don't show progress for individual files
-                                auto_optimize=False  # Optimize after combining
+                                auto_optimize=False,  # Optimize after combining
                             )
 
                             if file_df is not None and len(file_df) > 0:
@@ -883,10 +1000,13 @@ class DataReader:
 
                             # Update progress
                             if progress_tracker:
-                                progress_tracker.update(1, {
-                                    "file": f"{i + 1}/{len(valid_paths)}",
-                                    "successful": len(dfs)
-                                })
+                                progress_tracker.update(
+                                    1,
+                                    {
+                                        "file": f"{i + 1}/{len(valid_paths)}",
+                                        "successful": len(dfs),
+                                    },
+                                )
 
                         except Exception as e:
                             self.logger.warning(f"Error reading {path}: {str(e)}")
@@ -908,12 +1028,12 @@ class DataReader:
                 error_info = {
                     "error_type": "EmptyDatasetError",
                     "message": f"No data loaded from {len(valid_paths)} files",
-                    "resolution": "Check file contents or adjust parameters"
+                    "resolution": "Check file contents or adjust parameters",
                 }
                 self.logger.warning(error_info["message"])
 
                 if error_on_empty:
-                    raise ValueError(error_info["message"])
+                    raise ValidationError(error_info["message"])
 
                 return None, error_info
 
@@ -927,7 +1047,9 @@ class DataReader:
                 except Exception as e:
                     self.logger.warning(f"Memory optimization failed: {e}")
 
-            self.logger.info(f"Successfully loaded {len(df)} rows from {len(valid_paths)} files")
+            self.logger.info(
+                f"Successfully loaded {len(df)} rows from {len(valid_paths)} files"
+            )
             return df, None
 
         except Exception as e:
@@ -935,22 +1057,25 @@ class DataReader:
             error_info = {
                 "error_type": type(e).__name__,
                 "message": str(e),
-                "sources": [str(p) for p in valid_paths[:5]] + (["..."] if len(valid_paths) > 5 else []),
-                "resolution": "Check file formats and contents"
+                "sources": [str(p) for p in valid_paths[:5]]
+                + (["..."] if len(valid_paths) > 5 else []),
+                "resolution": "Check file formats and contents",
             }
-            self.logger.error(f"Error reading multiple files: {error_info['error_type']}: {error_info['message']}")
+            self.logger.error(
+                f"Error reading multiple files: {error_info['error_type']}: {error_info['message']}"
+            )
             return None, error_info
 
     def get_encryption_info(self, source: PathType) -> Optional[Dict[str, Any]]:
         """
         Get encryption information for a file using io.py functions.
 
-        Parameters:
+        Parameters
         -----------
         source : str or Path
             Source file path
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Encryption information or None if file not encrypted
@@ -977,12 +1102,12 @@ class DataReader:
         """
         Detect format information for a file using io.py functions.
 
-        Parameters:
+        Parameters
         -----------
         source : str or Path
             Source file path
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with format information or None if detection fails
@@ -998,30 +1123,27 @@ class DataReader:
 
         try:
             # Get file format from extension
-            file_format = source.suffix.lower().lstrip('.')
+            file_format = source.suffix.lower().lstrip(".")
 
             # Use io.py's detection functions
-            if file_format in ('csv', 'tsv', 'txt'):
+            if file_format in ("csv", "tsv", "txt"):
                 return detect_csv_dialect(source)
             else:
                 return validate_file_format(source)
         except Exception as e:
             self.logger.warning(f"Failed to detect file format: {str(e)}")
-            return {
-                "error": str(e),
-                "format": source.suffix.lower().lstrip('.')
-            }
+            return {"error": str(e), "format": source.suffix.lower().lstrip(".")}
 
     def estimate_memory_usage(self, source: PathType) -> Optional[Dict[str, Any]]:
         """
         Estimate memory requirements for loading a file using io.py.
 
-        Parameters:
+        Parameters
         -----------
         source : str or Path
             Source file path
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with memory requirement estimates
@@ -1042,21 +1164,21 @@ class DataReader:
             self.logger.warning(f"Failed to estimate memory usage: {str(e)}")
             return {
                 "error": str(e),
-                "file_size_mb": source.stat().st_size / (1024 * 1024)
+                "file_size_mb": source.stat().st_size / (1024 * 1024),
             }
 
     def _suggest_resolution(self, error: Exception, file_format: str) -> str:
         """
         Suggest resolution for common errors.
 
-        Parameters:
+        Parameters
         -----------
         error : Exception
             The exception that occurred
         file_format : str
             The file format being read
 
-        Returns:
+        Returns
         --------
         str
             Suggested resolution
@@ -1065,39 +1187,43 @@ class DataReader:
         error_message = str(error).lower()
 
         # CSV/Text file errors
-        if file_format in ('csv', 'tsv', 'txt'):
-            if 'unicode' in error_message or 'codec' in error_message:
+        if file_format in ("csv", "tsv", "txt"):
+            if "unicode" in error_message or "codec" in error_message:
                 return "Try a different encoding (e.g., 'utf-8', 'latin1', 'cp1252')"
-            elif 'delimiter' in error_message:
+            elif "delimiter" in error_message:
                 return "Check or auto-detect the correct delimiter"
-            elif 'quote' in error_message:
+            elif "quote" in error_message:
                 return "Check or auto-detect the correct quote character"
 
         # Parquet errors
-        elif file_format in ('parquet', 'pq'):
-            if 'pyarrow' in error_message:
+        elif file_format in ("parquet", "pq"):
+            if "pyarrow" in error_message:
                 return "Install pyarrow with 'pip install pyarrow'"
-            elif 'corrupt' in error_message:
+            elif "corrupt" in error_message:
                 return "File may be corrupted or incomplete"
 
         # Excel errors
-        elif file_format in ('xls', 'xlsx', 'xlsm'):
-            if 'openpyxl' in error_message:
+        elif file_format in ("xls", "xlsx", "xlsm"):
+            if "openpyxl" in error_message:
                 return "Install openpyxl with 'pip install openpyxl'"
-            elif 'sheet' in error_message:
+            elif "sheet" in error_message:
                 return "Check sheet name or index"
 
         # JSON errors
-        elif file_format == 'json':
-            if 'json' in error_message and 'decode' in error_message:
+        elif file_format == "json":
+            if "json" in error_message and "decode" in error_message:
                 return "File may not be valid JSON format"
 
         # Encryption errors
-        if 'encrypt' in error_message or 'decrypt' in error_message or 'key' in error_message:
+        if (
+            "encrypt" in error_message
+            or "decrypt" in error_message
+            or "key" in error_message
+        ):
             return "Check encryption key or file format"
 
         # Memory errors
-        if error_type == 'MemoryError' or 'memory' in error_message:
+        if error_type == "MemoryError" or "memory" in error_message:
             return "File too large for available memory. Try reading in chunks or use Dask."
 
         # Default resolution

@@ -77,51 +77,47 @@ result = salary_noise_op.execute(
 )
 ```
 
-## Parameters
+## Constructor & Parameters
 
-### Required Parameters
+```python
+def __init__(
+    self,
+    field_name: str,
+    # ==== Noise Parameters ====
+    noise_range: Union[float, Tuple[float, float]],
+    noise_type: str = "additive",  # 'additive' | 'multiplicative'
+    # ==== Bounds and Constraints ====
+    output_min: Optional[float] = None,
+    output_max: Optional[float] = None,
+    preserve_zero: bool = False,
+    # ==== Integer Handling ====
+    round_to_integer: Optional[bool] = None,
+    # ==== Statistical Parameters ====
+    scale_by_std: bool = False,
+    scale_factor: float = 1.0,
+    # ==== Randomization ====
+    random_seed: Optional[int] = None,
+    use_secure_random: bool = True,
+    **kwargs,
+):
+```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `field_name` | str | The name of the numeric field to add noise to |
-| `noise_range` | float or tuple | Symmetric range (float) or asymmetric range (min, max) |
-
-### Noise Configuration
+### Key Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
+| `field_name` | str | Required | Name of the numeric field to add noise to |
+| `noise_range` | float or tuple | Required | Symmetric range (float) or asymmetric (min, max) tuple |
 | `noise_type` | str | "additive" | Type of noise: "additive" or "multiplicative" |
-| `output_min` | float | None | Minimum allowed output value |
-| `output_max` | float | None | Maximum allowed output value |
-| `preserve_zero` | bool | False | Keep zero values unchanged |
-| `round_to_integer` | bool | None | Round to integers (auto-detected if None) |
-
-### Statistical Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `scale_by_std` | bool | False | Scale noise by field standard deviation |
-| `scale_factor` | float | 1.0 | Additional scaling factor for noise |
-
-### Security Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `use_secure_random` | bool | True | Use cryptographically secure random generation |
-| `random_seed` | int | None | Seed for reproducible noise (ignored if secure=True) |
-
-### Standard Operation Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `mode` | str | "REPLACE" | "REPLACE" to modify in-place, "ENRICH" to create new field |
-| `output_field_name` | str | None | Name for output field (ENRICH mode) |
-| `null_strategy` | str | "PRESERVE" | How to handle nulls: "PRESERVE", "EXCLUDE", "ERROR" |
-| `batch_size` | int | 10000 | Batch size for processing |
-| `use_cache` | bool | False | Enable operation caching |
-| `use_encryption` | bool | False | Encrypt output files |
-| `engine` | str | "auto" | Processing engine: "pandas", "dask", or "auto" |
-| `max_rows_in_memory` | int | 1000000 | Threshold for automatic Dask switching |
+| `output_min` | Optional[float] | None | Minimum allowed output value after noise |
+| `output_max` | Optional[float] | None | Maximum allowed output value after noise |
+| `preserve_zero` | bool | False | If True, keeps zero values unchanged |
+| `round_to_integer` | Optional[bool] | None | Round final results to integers (auto-detected if None) |
+| `scale_by_std` | bool | False | Whether to scale noise by field standard deviation |
+| `scale_factor` | float | 1.0 | Multiplier for noise magnitude |
+| `random_seed` | Optional[int] | None | Seed for reproducible results (ignored if secure random used) |
+| `use_secure_random` | bool | True | Whether to use cryptographically secure random generator |
+| `**kwargs` | dict | - | Additional parameters passed to `AnonymizationOperation` |
 
 ## Advanced Features
 
@@ -381,10 +377,10 @@ salary_noise = UniformNumericNoiseOperation(
 ### Example 5: Batch Processing with Progress
 
 ```python
-from pamola.pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 
 # Create progress tracker
-progress = ProgressTracker(total=100, description="Adding noise")
+progress = HierarchicalProgressTracker(total=100, description="Adding noise")
 
 # Configure operation
 operation = UniformNumericNoiseOperation(
@@ -510,7 +506,7 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
 - Inherits from `AnonymizationOperation`
 - Uses `SecureRandomGenerator` for noise generation
 - Integrates with `DataWriter` for output
-- Compatible with `ProgressTracker`
+- Compatible with `HierarchicalProgressTracker`
 - Supports `OperationResult` for metrics and artifacts
 
 ## Related Operations
