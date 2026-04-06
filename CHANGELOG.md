@@ -7,6 +7,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0.dev2] - 2026-04-06
+
+### Changed
+
+- Mark attacks/ module as experimental in README and `__init__.py`
+- Remove empty synthesis/ placeholder package (out of scope for CORE)
+- Move pytest from production dependencies to `[project.optional-dependencies]`
+- Fix PyPI classifier for BSD license
+
 ## [1.0.0.dev1] - 2026-03-30
 
 First alpha release. Epic 3 (Core Library) in progress.
@@ -59,6 +68,7 @@ Initial development release.
 - BaseOperation / BaseTask framework
 - NLP subsystem (tokenization, entity extraction, LLM integration)
 
-[Unreleased]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev1...HEAD
+[Unreleased]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev2...HEAD
+[1.0.0.dev2]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev1...v1.0.0.dev2
 [1.0.0.dev1]: https://github.com/DGT-Network/PAMOLA/compare/v0.0.1...v1.0.0.dev1
 [0.0.1]: https://github.com/DGT-Network/PAMOLA/releases/tag/v0.0.1
