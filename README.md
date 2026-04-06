@@ -112,7 +112,9 @@ PAMOLA.CORE is part of a comprehensive privacy engineering stack:
 
 ---
 
-## Data-Release Attacks
+## Attack Simulation (experimental)
+
+> **⚠️ Experimental:** The `attacks` module is functional but under active development. API may change in future releases.
 
 PAMOLA.CORE tests practical re-identification risk on your **data**:
 

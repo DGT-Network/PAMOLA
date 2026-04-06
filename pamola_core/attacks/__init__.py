@@ -12,7 +12,7 @@ For details, see the LICENSE file or visit:
     https://opensource.org/licenses/BSD-3-Clause
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
-Package: pamola_core.attacks
+Package: pamola_core.attacks (experimental — API may change)
 Type: Public API Package
 
 Author: Realm Inveo Inc. & DGT Network Inc.
