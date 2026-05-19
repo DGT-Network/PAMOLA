@@ -1,0 +1,14 @@
+{
+  "metadata": {
+    "timestamp": "2026-05-18T13:30:34.249691",
+    "name": "data_types_AGE_NumericGeneralizationOperation_output_20260518_133034",
+    "operation": {
+      "module": "pamola_core.anonymization.base_anonymization_op",
+      "class": "NumericGeneralizationOperation",
+      "function": "_save_dtypes_output"
+    }
+  },
+  "metrics": {
+    "AGE": "object"
+  }
+}

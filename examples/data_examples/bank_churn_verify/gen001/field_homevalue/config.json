@@ -1,0 +1,37 @@
+{
+  "field_name": "HOMEVALUE",
+  "strategy": "range",
+  "bin_count": 10,
+  "binning_method": "equal_width",
+  "precision": 0,
+  "range_limits": [
+    [
+      0,
+      200000
+    ],
+    [
+      200000,
+      500000
+    ],
+    [
+      500000,
+      1000000
+    ],
+    [
+      1000000,
+      2000000
+    ],
+    [
+      2000000,
+      10000000
+    ]
+  ],
+  "quasi_identifiers": null,
+  "mode": "REPLACE",
+  "null_strategy": "PRESERVE",
+  "save_output": true,
+  "generate_visualization": false,
+  "description": "Numeric generalization for 'HOMEVALUE' using range strategy",
+  "operation_name": "HOMEVALUE_anonymization",
+  "version": "1.0.0"
+}

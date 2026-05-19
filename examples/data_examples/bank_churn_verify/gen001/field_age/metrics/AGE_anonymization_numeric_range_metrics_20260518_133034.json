@@ -1,0 +1,115 @@
+{
+  "metadata": {
+    "timestamp": "2026-05-18T13:30:34.239625",
+    "name": "AGE_anonymization_numeric_range_metrics_20260518_133034",
+    "operation": {
+      "module": "pamola_core.anonymization.base_anonymization_op",
+      "class": "NumericGeneralizationOperation",
+      "function": "_save_metrics"
+    }
+  },
+  "metrics": {
+    "operation_type": "generalization",
+    "timestamp": "2026-05-18T13:30:34.239625",
+    "field_info": {
+      "original": {
+        "total_count": 10000,
+        "null_count": 0,
+        "unique_count": 44,
+        "uniqueness_ratio": 0.0044
+      },
+      "processed": {
+        "total_count": 10000,
+        "null_count": 0,
+        "unique_count": 6,
+        "uniqueness_ratio": 0.0006,
+        "top_values": {
+          "26-35": 3520,
+          "36-45": 3454,
+          "18-25": 1851,
+          "46-55": 1139,
+          "56-65": 35,
+          "66-100": 1
+        }
+      }
+    },
+    "generalization": {
+      "strategy": "range",
+      "parameters": {
+        "strategy": "range",
+        "field_name": "AGE",
+        "bin_count": 10,
+        "binning_method": "equal_width",
+        "precision": 0,
+        "range_limits": [
+          [
+            18,
+            25
+          ],
+          [
+            26,
+            35
+          ],
+          [
+            36,
+            45
+          ],
+          [
+            46,
+            55
+          ],
+          [
+            56,
+            65
+          ],
+          [
+            66,
+            100
+          ]
+        ],
+        "quasi_identifiers": null,
+        "mode": "REPLACE",
+        "null_strategy": "EXCLUDE",
+        "save_output": true,
+        "generate_visualization": false,
+        "description": "Numeric generalization for 'AGE' using range strategy"
+      },
+      "reduction_ratio": 0.8837209302325582,
+      "range_span_list": [
+        7.0,
+        9.0,
+        9.0,
+        9.0,
+        9.0,
+        34.0
+      ],
+      "range_span_avg": 12.833333333333334,
+      "range_span_total": 82.0
+    },
+    "performance": {
+      "duration_seconds": 0.008328437805175781,
+      "records_processed": 10000,
+      "records_per_second": 1200705.370433986,
+      "batch_count": 1,
+      "avg_batch_size": 10000.0,
+      "batches_per_second": 120.0705370433986
+    },
+    "performance_summary": {
+      "total_duration_seconds": 0.008328437805175781,
+      "total_records_processed": 10000,
+      "avg_records_per_second": 1200705.370433986
+    },
+    "effectiveness": {
+      "total_records": 10000,
+      "original_unique": 44,
+      "anonymized_unique": 6,
+      "effectiveness_ratio": 0.8837209302325582,
+      "null_increase": 0.0
+    },
+    "processing_summary": {
+      "total_records": 10000,
+      "processed_records": 0,
+      "vulnerable_records": 10000
+    }
+  }
+}

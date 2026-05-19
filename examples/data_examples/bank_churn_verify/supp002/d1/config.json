@@ -1,0 +1,16 @@
+{
+  "field_name": "SEX",
+  "suppression_mode": "REMOVE",
+  "suppression_condition": "risk",
+  "suppression_values": null,
+  "suppression_range": null,
+  "save_suppressed_records": false,
+  "suppression_reason_field": "_suppression_reason",
+  "ka_risk_field": "_k_score",
+  "risk_threshold": 5.0,
+  "save_output": false,
+  "generate_visualization": false,
+  "description": "Record suppresstion for 'SEX' using REMOVE suppression mode",
+  "operation_name": "SEX_anonymization",
+  "version": "1.0.0"
+}

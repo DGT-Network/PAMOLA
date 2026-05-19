@@ -1,0 +1,266 @@
+{
+  "metadata": {
+    "timestamp": "2026-05-18T13:30:35.335164",
+    "name": "CITY_CategoricalGeneralizationOperation_metrics_20260518_133035",
+    "operation": {
+      "module": "pamola_core.anonymization.base_anonymization_op",
+      "class": "CategoricalGeneralizationOperation",
+      "function": "_save_metrics"
+    }
+  },
+  "metrics": {
+    "effectiveness": {
+      "total_records": 10000,
+      "original_unique": 849,
+      "anonymized_unique": 8,
+      "effectiveness_ratio": 0.9917452830188679,
+      "null_increase": 0.0
+    },
+    "duration_seconds": 0.0,
+    "records_processed": 10000,
+    "records_per_second": 5024923.92,
+    "chunk_count": 1,
+    "operation_type": "generalization",
+    "timestamp": "2026-05-18T13:30:35.315149",
+    "field_info": {
+      "original": {
+        "total_count": 10000,
+        "null_count": 0,
+        "unique_count": 849,
+        "uniqueness_ratio": 0.0849
+      },
+      "processed": {
+        "total_count": 10000,
+        "null_count": 0,
+        "unique_count": 8,
+        "uniqueness_ratio": 0.0008,
+        "top_values": {
+          "Other": 3980,
+          "GTA": 2986,
+          "Quebec Metro": 1038,
+          "Lower Mainland": 678,
+          "Alberta Metro": 528,
+          "Eastern Ontario": 408,
+          "Prairies": 247,
+          "Maritimes": 135
+        }
+      }
+    },
+    "generalization": {
+      "strategy": "hierarchy",
+      "parameters": {
+        "strategy": "hierarchy",
+        "allow_unknown": true,
+        "unknown_value": "Other",
+        "text_normalization": "basic",
+        "case_sensitive": false,
+        "null_strategy": null,
+        "external_dictionary_path": "E:/DTX/PAMOLA/examples/anonymization/generalization/hierarchy_city.json",
+        "dictionary_format": "auto",
+        "hierarchy_level": 1,
+        "fuzzy_matching": false,
+        "similarity_threshold": 0.85,
+        "category_mapping": {
+          "Hamilton": "GTA",
+          "Ottawa": "Eastern Ontario",
+          "Montreal": "Quebec Metro",
+          "Toronto": "GTA",
+          "Mississauga": "GTA",
+          "Edmonton": "Alberta Metro",
+          "Brampton": "GTA",
+          "Markham": "GTA",
+          "Vancouver": "Lower Mainland",
+          "Quebec City": "Quebec Metro",
+          "Vaughan": "GTA",
+          "Laval": "Quebec Metro",
+          "Calgary": "Alberta Metro",
+          "Winnipeg": "Prairies",
+          "Regina": "Prairies",
+          "Saskatoon": "Prairies",
+          "Kingston": "Eastern Ontario",
+          "Halifax": "Maritimes",
+          "St. John's": "Maritimes",
+          "Surrey": "Lower Mainland",
+          "Burnaby": "Lower Mainland"
+        },
+        "hierarchy_info": {
+          "level": 1,
+          "coverage": {
+            "total_values": 849,
+            "found_values": 21,
+            "coverage_percent": 2.4734982332155475,
+            "missing_values": [
+              "east zorra-tavistock",
+              "longueuil",
+              "bowmanville",
+              "delta",
+              "didsbury",
+              "oshawa",
+              "oakville",
+              "kitchener",
+              "guelph",
+              "moncton",
+              "victoria",
+              "middlesex centre",
+              "edwardsburgh/cardinal",
+              "kamloops",
+              "innisfil",
+              "windsor",
+              "peterborough",
+              "red lake",
+              "nanaimo",
+              "trent hills",
+              "brossard",
+              "brandon",
+              "gatineau",
+              "barrie",
+              "montreal-ouest",
+              "gravenhurst",
+              "genelle",
+              "wilmot",
+              "plessisville",
+              "london",
+              "st. catharines",
+              "clarington",
+              "cambridge",
+              "la prairie",
+              "orillia",
+              "lakeshore",
+              "lloydminster",
+              "augusta",
+              "drummondville",
+              "the north shore",
+              "lasalle",
+              "kanata",
+              "perth",
+              "quispamsis",
+              "cobourg",
+              "mount brydges",
+              "burlington",
+              "chicoutimi",
+              "strathroy",
+              "wingham",
+              "south glengarry",
+              "sherbrooke",
+              "georgian bluffs",
+              "pickering",
+              "white rock",
+              "north dundas",
+              "sarnia",
+              "loyalist",
+              "west grey",
+              "springwater",
+              "brant",
+              "candiac",
+              "sault ste. marie",
+              "richmond hill",
+              "westmount",
+              "southwold",
+              "stratford",
+              "uxbridge",
+              "thunder bay",
+              "west nipissing / nipissing ouest",
+              "chilliwack",
+              "whitby",
+              "meaford",
+              "richmond",
+              "port alberni",
+              "mont-joli",
+              "hearst",
+              "grande prairie",
+              "newmarket",
+              "thetford mines",
+              "westbank",
+              "oakbank",
+              "prince george",
+              "white river",
+              "saanich",
+              "belleville",
+              "levis",
+              "picture butte",
+              "bois-des-filion",
+              "bradford",
+              "north glengarry",
+              "caledon",
+              "rimouski",
+              "malahide",
+              "alfred and plantagenet",
+              "clarenville",
+              "niagara falls",
+              "sudbury",
+              "coquitlam",
+              "estevan"
+            ]
+          }
+        }
+      },
+      "reduction_ratio": 0.9917452830188679
+    },
+    "categorical_info_loss": {
+      "precision_loss": 0.9905771495877503,
+      "entropy_loss": 0.637041188933223,
+      "distribution_shift": 0.125,
+      "category_reduction_ratio": 0.9905771495877503,
+      "average_group_size": 1250.0
+    },
+    "performance": {
+      "duration_seconds": 0.001990079879760742,
+      "records_processed": 10000,
+      "records_per_second": 5024923.924763388,
+      "batch_count": 1,
+      "avg_batch_size": 10000.0,
+      "batches_per_second": 502.4923924763388
+    },
+    "performance_summary": {
+      "total_duration_seconds": 0.001990079879760742,
+      "total_records_processed": 10000,
+      "avg_records_per_second": 5024923.924763388
+    },
+    "distribution_metrics": {
+      "original": {
+        "unique_values": 849,
+        "entropy": 6.2823317527404186,
+        "top_categories": {}
+      },
+      "anonymized": {
+        "unique_values": 8,
+        "entropy": 2.2802277070044936,
+        "top_categories": {}
+      }
+    },
+    "info_loss_summary": {
+      "avg_precision_loss": 0.9906,
+      "avg_entropy_loss": 0.637,
+      "avg_category_reduction": 0.9906
+    },
+    "hierarchy_metrics": {
+      "hierarchy_level": 1,
+      "dictionary_coverage": 2.4734982332155475,
+      "fuzzy_matches": 0,
+      "unknown_values": 828,
+      "generalization_height": {
+        "min_height": 1,
+        "max_height": 1,
+        "avg_height": 1.0,
+        "height_distribution": {
+          "1": 10000
+        },
+        "uniform_generalization": true,
+        "total_generalized": 10000,
+        "total_unchanged": 0
+      }
+    },
+    "privacy_metrics": {
+      "status": "SKIPPED",
+      "reason": "no_quasi_identifiers"
+    },
+    "privacy_summary": "Privacy checks skipped: no quasi-identifiers specified",
+    "semantic_diversity": 0.9880952380952381,
+    "total_records": 10000,
+    "processed_records": 10000,
+    "filtered_records": 0,
+    "processing_rate": 100.0,
+    "chunk_size_used": 10000,
+    "adaptive_chunk_size": true
+  }
+}

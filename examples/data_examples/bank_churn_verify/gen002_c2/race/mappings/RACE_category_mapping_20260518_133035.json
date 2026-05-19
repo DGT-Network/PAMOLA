@@ -1,0 +1,13 @@
+{
+  "operation_id": "categorical_generalization_21b5d1e2",
+  "field_name": "RACE",
+  "strategy": "hierarchy",
+  "timestamp": "2026-05-18T13:30:35.171407",
+  "total_mappings": 4,
+  "mappings": {
+    "White": "White",
+    "Latino": "OTHER",
+    "Asian": "OTHER",
+    "Black": "OTHER"
+  }
+}

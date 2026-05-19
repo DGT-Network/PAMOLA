@@ -1,0 +1,30 @@
+{
+  "operation_id": "categorical_generalization_c6a444fb",
+  "field_name": "CITY",
+  "strategy": "hierarchy",
+  "timestamp": "2026-05-18T13:30:35.335164",
+  "total_mappings": 21,
+  "mappings": {
+    "Hamilton": "GTA",
+    "Ottawa": "Eastern Ontario",
+    "Montreal": "Quebec Metro",
+    "Toronto": "GTA",
+    "Mississauga": "GTA",
+    "Edmonton": "Alberta Metro",
+    "Brampton": "GTA",
+    "Markham": "GTA",
+    "Vancouver": "Lower Mainland",
+    "Quebec City": "Quebec Metro",
+    "Vaughan": "GTA",
+    "Laval": "Quebec Metro",
+    "Calgary": "Alberta Metro",
+    "Winnipeg": "Prairies",
+    "Regina": "Prairies",
+    "Saskatoon": "Prairies",
+    "Kingston": "Eastern Ontario",
+    "Halifax": "Maritimes",
+    "St. John's": "Maritimes",
+    "Surrey": "Lower Mainland",
+    "Burnaby": "Lower Mainland"
+  }
+}

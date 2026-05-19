@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "timestamp": "2026-05-18T13:28:57.815548",
+    "name": "FAMILYID_hash_pseudonymization",
+    "operation": {
+      "module": "pamola_core.anonymization.pseudonymization.hash_based_op",
+      "class": "HashBasedPseudonymizationOperation",
+      "function": "execute"
+    }
+  },
+  "metrics": {
+    "operation_type": "pseudonymization",
+    "timestamp": "2026-05-18T13:28:57.813548",
+    "field_info": {
+      "original": {
+        "total_count": 10000,
+        "null_count": 8668,
+        "unique_count": 1324,
+        "uniqueness_ratio": 0.993993993993994
+      },
+      "processed": {
+        "total_count": 10000,
+        "null_count": 8668,
+        "unique_count": 1324,
+        "uniqueness_ratio": 0.993993993993994
+      }
+    },
+    "effectiveness": {
+      "total_records": 10000,
+      "original_unique": 1324,
+      "anonymized_unique": 1324,
+      "effectiveness_ratio": 0.0,
+      "null_increase": 0.0
+    },
+    "performance": {
+      "duration_seconds": 0.011031150817871094,
+      "records_processed": 10000,
+      "records_per_second": 906523.7313045734,
+      "batch_count": 1,
+      "avg_batch_size": 10000.0,
+      "batches_per_second": 90.65237313045733
+    },
+    "performance_summary": {
+      "total_duration_seconds": 0.011031150817871094,
+      "total_records_processed": 10000,
+      "avg_records_per_second": 906523.7313045734
+    },
+    "pseudonymization": {
+      "algorithm": "sha3_256",
+      "output_format": "hex",
+      "collision_probability": 0.0,
+      "collision_count": 0,
+      "estimated_collision_count": 0,
+      "unique_pseudonyms": 1324,
+      "pseudonymization_rate": 1.0,
+      "values_pseudonymized": 1324,
+      "salt_source": "parameter",
+      "hash_computation_time": 0.003
+    }
+  }
+}

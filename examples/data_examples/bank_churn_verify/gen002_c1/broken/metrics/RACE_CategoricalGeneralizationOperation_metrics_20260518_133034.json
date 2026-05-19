@@ -1,0 +1,143 @@
+{
+  "metadata": {
+    "timestamp": "2026-05-18T13:30:34.862835",
+    "name": "RACE_CategoricalGeneralizationOperation_metrics_20260518_133034",
+    "operation": {
+      "module": "pamola_core.anonymization.base_anonymization_op",
+      "class": "CategoricalGeneralizationOperation",
+      "function": "_save_metrics"
+    }
+  },
+  "metrics": {
+    "effectiveness": {
+      "total_records": 5,
+      "original_unique": 4,
+      "anonymized_unique": 1,
+      "effectiveness_ratio": 1.0,
+      "null_increase": 0.0
+    },
+    "duration_seconds": 0.01,
+    "records_processed": 5,
+    "records_per_second": 624.51,
+    "chunk_count": 1,
+    "operation_type": "generalization",
+    "timestamp": "2026-05-18T13:30:34.857837",
+    "field_info": {
+      "original": {
+        "total_count": 5,
+        "null_count": 0,
+        "unique_count": 4,
+        "uniqueness_ratio": 0.8,
+        "top_values": {
+          "White": 2,
+          "Asian": 1,
+          "Black": 1,
+          "Latino": 1
+        }
+      },
+      "processed": {
+        "total_count": 5,
+        "null_count": 0,
+        "unique_count": 1,
+        "uniqueness_ratio": 0.2,
+        "top_values": {
+          "OTHER": 5
+        }
+      }
+    },
+    "generalization": {
+      "strategy": "hierarchy",
+      "parameters": {
+        "strategy": "hierarchy",
+        "allow_unknown": true,
+        "unknown_value": "OTHER",
+        "text_normalization": "basic",
+        "case_sensitive": false,
+        "null_strategy": null,
+        "external_dictionary_path": "C:\\Users\\thang.bui\\AppData\\Local\\Temp\\tmpgut6w0ks\\hier_broken.json",
+        "dictionary_format": "auto",
+        "hierarchy_level": 1,
+        "fuzzy_matching": false,
+        "similarity_threshold": 0.85,
+        "hierarchy_info": {
+          "level": 1,
+          "coverage": {
+            "total_values": 4,
+            "found_values": 0,
+            "coverage_percent": 0.0,
+            "missing_values": [
+              "white",
+              "asian",
+              "black",
+              "latino"
+            ]
+          }
+        }
+      },
+      "reduction_ratio": 1.0
+    },
+    "categorical_info_loss": {
+      "precision_loss": 0.75,
+      "entropy_loss": 1.0,
+      "distribution_shift": 1.0,
+      "category_reduction_ratio": 0.75,
+      "average_group_size": 5.0
+    },
+    "performance": {
+      "duration_seconds": 0.00800633430480957,
+      "records_processed": 5,
+      "records_per_second": 624.5055239569995
+    },
+    "performance_summary": {
+      "total_duration_seconds": 0.00800633430480957,
+      "total_records_processed": 5,
+      "avg_records_per_second": 624.5055239569995
+    },
+    "distribution_metrics": {
+      "original": {
+        "unique_values": 4,
+        "entropy": 1.9219280943102843,
+        "top_categories": {}
+      },
+      "anonymized": {
+        "unique_values": 1,
+        "entropy": 0.0,
+        "top_categories": {}
+      }
+    },
+    "info_loss_summary": {
+      "avg_precision_loss": 0.75,
+      "avg_entropy_loss": 1.0,
+      "avg_category_reduction": 0.75
+    },
+    "hierarchy_metrics": {
+      "hierarchy_level": 1,
+      "dictionary_coverage": 0.0,
+      "fuzzy_matches": 0,
+      "unknown_values": 4,
+      "generalization_height": {
+        "min_height": 1,
+        "max_height": 1,
+        "avg_height": 1.0,
+        "height_distribution": {
+          "1": 5
+        },
+        "uniform_generalization": true,
+        "total_generalized": 5,
+        "total_unchanged": 0
+      }
+    },
+    "privacy_metrics": {
+      "status": "SKIPPED",
+      "reason": "no_quasi_identifiers"
+    },
+    "privacy_summary": "Privacy checks skipped: no quasi-identifiers specified",
+    "semantic_diversity": 0.0,
+    "total_records": 5,
+    "processed_records": 5,
+    "filtered_records": 0,
+    "processing_rate": 100.0,
+    "chunk_size_used": 10000,
+    "adaptive_chunk_size": true
+  }
+}

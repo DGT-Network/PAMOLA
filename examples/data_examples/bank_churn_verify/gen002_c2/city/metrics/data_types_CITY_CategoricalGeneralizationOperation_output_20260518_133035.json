@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "timestamp": "2026-05-18T13:30:35.335164",
+    "name": "data_types_CITY_CategoricalGeneralizationOperation_output_20260518_133035",
+    "operation": {
+      "module": "pamola_core.anonymization.base_anonymization_op",
+      "class": "CategoricalGeneralizationOperation",
+      "function": "_save_dtypes_output"
+    }
+  },
+  "metrics": {
+    "CITY": "object",
+    "CITY_region": "object"
+  }
+}

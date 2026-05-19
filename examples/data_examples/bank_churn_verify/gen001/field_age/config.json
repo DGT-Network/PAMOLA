@@ -1,0 +1,41 @@
+{
+  "field_name": "AGE",
+  "strategy": "range",
+  "bin_count": 10,
+  "binning_method": "equal_width",
+  "precision": 0,
+  "range_limits": [
+    [
+      18,
+      25
+    ],
+    [
+      26,
+      35
+    ],
+    [
+      36,
+      45
+    ],
+    [
+      46,
+      55
+    ],
+    [
+      56,
+      65
+    ],
+    [
+      66,
+      100
+    ]
+  ],
+  "quasi_identifiers": null,
+  "mode": "REPLACE",
+  "null_strategy": "EXCLUDE",
+  "save_output": true,
+  "generate_visualization": false,
+  "description": "Numeric generalization for 'AGE' using range strategy",
+  "operation_name": "AGE_anonymization",
+  "version": "1.0.0"
+}

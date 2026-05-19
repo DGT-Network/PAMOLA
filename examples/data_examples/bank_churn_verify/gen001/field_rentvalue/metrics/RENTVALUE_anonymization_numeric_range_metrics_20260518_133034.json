@@ -1,0 +1,109 @@
+{
+  "metadata": {
+    "timestamp": "2026-05-18T13:30:34.612665",
+    "name": "RENTVALUE_anonymization_numeric_range_metrics_20260518_133034",
+    "operation": {
+      "module": "pamola_core.anonymization.base_anonymization_op",
+      "class": "NumericGeneralizationOperation",
+      "function": "_save_metrics"
+    }
+  },
+  "metrics": {
+    "operation_type": "generalization",
+    "timestamp": "2026-05-18T13:30:34.610666",
+    "field_info": {
+      "original": {
+        "total_count": 10000,
+        "null_count": 0,
+        "unique_count": 1159,
+        "uniqueness_ratio": 0.1159
+      },
+      "processed": {
+        "total_count": 10000,
+        "null_count": 0,
+        "unique_count": 5,
+        "uniqueness_ratio": 0.0005,
+        "top_values": {
+          "0-500": 8112,
+          "1000-2000": 885,
+          "500-1000": 836,
+          "2000-5000": 166,
+          "5000-50000": 1
+        }
+      }
+    },
+    "generalization": {
+      "strategy": "range",
+      "parameters": {
+        "strategy": "range",
+        "field_name": "RENTVALUE",
+        "bin_count": 10,
+        "binning_method": "equal_width",
+        "precision": 0,
+        "range_limits": [
+          [
+            0,
+            500
+          ],
+          [
+            500,
+            1000
+          ],
+          [
+            1000,
+            2000
+          ],
+          [
+            2000,
+            5000
+          ],
+          [
+            5000,
+            50000
+          ]
+        ],
+        "quasi_identifiers": null,
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE",
+        "save_output": true,
+        "generate_visualization": false,
+        "description": "Numeric generalization for 'RENTVALUE' using range strategy"
+      },
+      "reduction_ratio": 0.9965457685664939,
+      "range_span_list": [
+        500.0,
+        500.0,
+        1000.0,
+        3000.0,
+        45000.0
+      ],
+      "range_span_avg": 10000.0,
+      "range_span_total": 50000.0
+    },
+    "performance": {
+      "duration_seconds": 0.006003618240356445,
+      "records_processed": 10000,
+      "records_per_second": 1665662.2056312298,
+      "batch_count": 1,
+      "avg_batch_size": 10000.0,
+      "batches_per_second": 166.56622056312298
+    },
+    "performance_summary": {
+      "total_duration_seconds": 0.006003618240356445,
+      "total_records_processed": 10000,
+      "avg_records_per_second": 1665662.2056312298
+    },
+    "effectiveness": {
+      "total_records": 10000,
+      "original_unique": 1159,
+      "anonymized_unique": 5,
+      "effectiveness_ratio": 0.9965457685664939,
+      "null_increase": 0.0
+    },
+    "processing_summary": {
+      "total_records": 10000,
+      "processed_records": 0,
+      "vulnerable_records": 10000
+    }
+  }
+}

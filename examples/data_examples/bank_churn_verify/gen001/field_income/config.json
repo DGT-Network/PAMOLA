@@ -1,0 +1,37 @@
+{
+  "field_name": "Income",
+  "strategy": "range",
+  "bin_count": 10,
+  "binning_method": "equal_width",
+  "precision": 0,
+  "range_limits": [
+    [
+      0,
+      30000
+    ],
+    [
+      30000,
+      60000
+    ],
+    [
+      60000,
+      100000
+    ],
+    [
+      100000,
+      200000
+    ],
+    [
+      200000,
+      1000000
+    ]
+  ],
+  "quasi_identifiers": null,
+  "mode": "REPLACE",
+  "null_strategy": "EXCLUDE",
+  "save_output": true,
+  "generate_visualization": false,
+  "description": "Numeric generalization for 'Income' using range strategy",
+  "operation_name": "Income_anonymization",
+  "version": "1.0.0"
+}

@@ -1,0 +1,122 @@
+{
+  "PSEUDO-INSTANTIATION": {
+    "status": "PASS",
+    "evidence": "HashBasedPseudonymizationOperation instantiated without error (batch_size patch applied)",
+    "actual": "no error",
+    "expected": "instantiation OK"
+  },
+  "PSEUDO-NULL-PRESERVE": {
+    "status": "PASS",
+    "evidence": "Nulls in: 8668, nulls preserved in output: 8668",
+    "actual": "8668",
+    "expected": "8668"
+  },
+  "PSEUDO-REPRODUCIBILITY": {
+    "status": "PASS",
+    "evidence": "Run1 vs Run2: non-null matches=True (1332 non-null rows), null positions consistent=True. Same salt + no pepper -> deterministic.",
+    "actual": "identical",
+    "expected": "identical"
+  },
+  "PSEUDO-LINKAGE": {
+    "status": "PASS",
+    "evidence": "Output lengths: [16] (all should be 16)",
+    "actual": "[16]",
+    "expected": "[16]"
+  },
+  "PSEUDO-GAP-A2": {
+    "status": "PASS",
+    "evidence": "Gap confirmed: CardNumber 'preserve_format:true' not supported. Output: plain 16-char hex. No format-preservation logic in hash_based_op.py (no params for it).",
+    "actual": "flat hex output only",
+    "expected": "gap documented"
+  },
+  "GEN001-B1-AGE": {
+    "status": "PASS",
+    "evidence": "Labels after clip: ['18-25', '26-35', '36-45', '46-55', '56-65', '66-100']",
+    "actual": "no bad labels",
+    "expected": "no '<min' or '>=max' labels"
+  },
+  "GEN001-B1-Income": {
+    "status": "PASS",
+    "evidence": "Labels after clip: ['0.00-30000.00', '100000.00-200000.00', '200000.00-1000000.00', '30000.00-60000.00', '60000.00-100000.00']",
+    "actual": "no bad labels",
+    "expected": "no '<min' or '>=max' labels"
+  },
+  "GEN001-B1-HOMEVALUE": {
+    "status": "PASS",
+    "evidence": "Labels after clip: ['0-200000', '1000000-2000000', '200000-500000', '2000000-10000000', '500000-1000000']",
+    "actual": "no bad labels",
+    "expected": "no '<min' or '>=max' labels"
+  },
+  "GEN001-B1-RENTVALUE": {
+    "status": "PASS",
+    "evidence": "Labels after clip: ['0-500', '1000-2000', '2000-5000', '500-1000', '5000-50000']",
+    "actual": "no bad labels",
+    "expected": "no '<min' or '>=max' labels"
+  },
+  "GEN001-B2-BOUNDARY": {
+    "status": "PASS",
+    "evidence": "Boundary behavior confirmed per workaround doc. Off-by-one: values at range_min fall one bin lower. Table: [(18, '<18'), (26, '18-25'), (36, '26-35'), (46, '36-45'), (56, '46-55'), (66, '56-65'), (100, '66-100')]",
+    "actual": "[(18, '<18'), (26, '18-25'), (36, '26-35'), (46, '36-45'), (56, '46-55'), (66, '56-65'), (100, '66-100')]",
+    "expected": "per workaround doc: AGE=18->'<18', 26->'18-25', etc."
+  },
+  "GEN002-C1-BROKEN-FILE": {
+    "status": "PASS",
+    "evidence": "Broken file (no 'levels' key): all values -> OTHER=True. Output: ['OTHER', 'OTHER', 'OTHER', 'OTHER', 'OTHER']",
+    "actual": "['OTHER', 'OTHER', 'OTHER', 'OTHER', 'OTHER']",
+    "expected": "all OTHER (levels guard returns None for every lookup)"
+  },
+  "GEN002-C1-CORRECT-FILE": {
+    "status": "PASS",
+    "evidence": "Correct file (with 'levels' key): White preserved=True, Others->OTHER=True. Output: ['White', 'OTHER', 'OTHER', 'White', 'OTHER']",
+    "actual": "['White', 'OTHER', 'OTHER', 'White', 'OTHER']",
+    "expected": "White->White, Asian/Black/Latino->OTHER"
+  },
+  "GEN002-C2-RACE-WHITE": {
+    "status": "PASS",
+    "evidence": "White preserved: 5832 rows (plan: 5831, tolerance ±2)",
+    "actual": "5832",
+    "expected": "5831 ±2"
+  },
+  "GEN002-C2-RACE-OTHER": {
+    "status": "PASS",
+    "evidence": "Non-White -> OTHER: 4168 rows (expected ~4169)",
+    "actual": "4168",
+    "expected": "~4169"
+  },
+  "GEN002-C2-LAYER2-Native": {
+    "status": "PASS",
+    "evidence": "Layer 2 fallback: Native (315 rows) -> ['OTHER']",
+    "actual": "['OTHER']",
+    "expected": "['OTHER']"
+  },
+  "GEN002-C2-LAYER2-Others": {
+    "status": "PASS",
+    "evidence": "Layer 2 fallback: Others (306 rows) -> ['OTHER']",
+    "actual": "['OTHER']",
+    "expected": "['OTHER']"
+  },
+  "GEN002-C2-CITY-FALLBACK": {
+    "status": "PASS",
+    "evidence": "Other fallback bucket: 3980 rows (~3300 plan estimate). Mapped to named regions: 6020. Full dist: {'Other': 3980, 'GTA': 2986, 'Quebec Metro': 1038, 'Lower Mainland': 678, 'Alberta Metro': 528, 'Eastern Ontario': 408, 'Prairies': 247, 'Maritimes': 135}",
+    "actual": "3980",
+    "expected": "~3300 (2500-4500)"
+  },
+  "SUPP002-D1-NO-KSCORE": {
+    "status": "PARTIAL",
+    "evidence": "D1 completed without raising an error when _k_score missing. Op may silently skip risk-mask step (investigate record_op.py:866-870).",
+    "actual": "no exception",
+    "expected": "exception raised"
+  },
+  "SUPP002-D2-ROW-COUNT": {
+    "status": "PARTIAL",
+    "evidence": "Output rows: 2,528 (suppressed 7,472 rows from 10,000). Expected 9,000-9,500.",
+    "actual": "2528",
+    "expected": "9000-9500"
+  },
+  "SUPP002-D2-K-CONSTRAINT": {
+    "status": "PASS",
+    "evidence": "All remaining rows have _k_score >= 5: True. Min _k_score in output: 5.0",
+    "actual": "min_k=5.0",
+    "expected": "_k_score >= 5 for all output rows"
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "metadata": {
+    "timestamp": "2026-05-18T13:30:35.167405",
+    "name": "RACE_CategoricalGeneralizationOperation_metrics_20260518_133035",
+    "operation": {
+      "module": "pamola_core.anonymization.base_anonymization_op",
+      "class": "CategoricalGeneralizationOperation",
+      "function": "_save_metrics"
+    }
+  },
+  "metrics": {
+    "effectiveness": {
+      "total_records": 10000,
+      "original_unique": 6,
+      "anonymized_unique": 2,
+      "effectiveness_ratio": 0.8,
+      "null_increase": 0.0
+    },
+    "duration_seconds": 0.01,
+    "records_processed": 10000,
+    "records_per_second": 1070439.73,
+    "chunk_count": 1,
+    "operation_type": "generalization",
+    "timestamp": "2026-05-18T13:30:35.135070",
+    "field_info": {
+      "original": {
+        "total_count": 10000,
+        "null_count": 0,
+        "unique_count": 6,
+        "uniqueness_ratio": 0.0006,
+        "top_values": {
+          "White": 5832,
+          "Asian": 2635,
+          "Black": 648,
+          "Native": 315,
+          "Others": 306,
+          "Latino": 264
+        }
+      },
+      "processed": {
+        "total_count": 10000,
+        "null_count": 0,
+        "unique_count": 2,
+        "uniqueness_ratio": 0.0002,
+        "top_values": {
+          "White": 5832,
+          "OTHER": 4168
+        }
+      }
+    },
+    "generalization": {
+      "strategy": "hierarchy",
+      "parameters": {
+        "strategy": "hierarchy",
+        "allow_unknown": true,
+        "unknown_value": "OTHER",
+        "text_normalization": "basic",
+        "case_sensitive": false,
+        "null_strategy": null,
+        "external_dictionary_path": "E:/DTX/PAMOLA/examples/anonymization/generalization/hierarchy_race.json",
+        "dictionary_format": "auto",
+        "hierarchy_level": 1,
+        "fuzzy_matching": false,
+        "similarity_threshold": 0.85,
+        "category_mapping": {
+          "White": "White",
+          "Latino": "OTHER",
+          "Asian": "OTHER",
+          "Black": "OTHER"
+        },
+        "hierarchy_info": {
+          "level": 1,
+          "coverage": {
+            "total_values": 6,
+            "found_values": 4,
+            "coverage_percent": 66.66666666666666,
+            "missing_values": [
+              "others",
+              "native"
+            ]
+          }
+        }
+      },
+      "reduction_ratio": 0.8
+    },
+    "categorical_info_loss": {
+      "precision_loss": 0.6666666666666666,
+      "entropy_loss": 0.4118085320779211,
+      "distribution_shift": 0.5,
+      "category_reduction_ratio": 0.6666666666666666,
+      "average_group_size": 5000.0
+    },
+    "performance": {
+      "duration_seconds": 0.009341955184936523,
+      "records_processed": 10000,
+      "records_per_second": 1070439.7315162187,
+      "batch_count": 1,
+      "avg_batch_size": 10000.0,
+      "batches_per_second": 107.04397315162187
+    },
+    "performance_summary": {
+      "total_duration_seconds": 0.009341955184936523,
+      "total_records_processed": 10000,
+      "avg_records_per_second": 1070439.7315162187
+    },
+    "distribution_metrics": {
+      "original": {
+        "unique_values": 6,
+        "entropy": 1.6660109511975552,
+        "top_categories": {}
+      },
+      "anonymized": {
+        "unique_values": 2,
+        "entropy": 0.9799334271797585,
+        "top_categories": {}
+      }
+    },
+    "info_loss_summary": {
+      "avg_precision_loss": 0.6667,
+      "avg_entropy_loss": 0.4118,
+      "avg_category_reduction": 0.6667
+    },
+    "hierarchy_metrics": {
+      "hierarchy_level": 1,
+      "dictionary_coverage": 66.66666666666666,
+      "fuzzy_matches": 0,
+      "unknown_values": 2,
+      "generalization_height": {
+        "min_height": 0,
+        "max_height": 1,
+        "avg_height": 0.4168,
+        "height_distribution": {
+          "0": 5832,
+          "1": 4168
+        },
+        "uniform_generalization": false,
+        "total_generalized": 4168,
+        "total_unchanged": 5832
+      }
+    },
+    "privacy_metrics": {
+      "status": "SKIPPED",
+      "reason": "no_quasi_identifiers"
+    },
+    "privacy_summary": "Privacy checks skipped: no quasi-identifiers specified",
+    "semantic_diversity": 1.0,
+    "total_records": 10000,
+    "processed_records": 10000,
+    "filtered_records": 0,
+    "processing_rate": 100.0,
+    "chunk_size_used": 10000,
+    "adaptive_chunk_size": true
+  }
+}

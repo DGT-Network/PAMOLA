@@ -1,0 +1,10 @@
+{
+  "levels": ["category"],
+  "White": "White",
+  "Asian": "OTHER",
+  "Black": "OTHER",
+  "Latino": "OTHER",
+  "Hispanic": "OTHER",
+  "Indigenous": "OTHER",
+  "Mixed": "OTHER"
+}

@@ -1,0 +1,146 @@
+{
+  "metadata": {
+    "timestamp": "2026-05-18T13:30:34.996377",
+    "name": "RACE_CategoricalGeneralizationOperation_metrics_20260518_133034",
+    "operation": {
+      "module": "pamola_core.anonymization.base_anonymization_op",
+      "class": "CategoricalGeneralizationOperation",
+      "function": "_save_metrics"
+    }
+  },
+  "metrics": {
+    "effectiveness": {
+      "total_records": 5,
+      "original_unique": 4,
+      "anonymized_unique": 2,
+      "effectiveness_ratio": 0.6666666666666666,
+      "null_increase": 0.0
+    },
+    "duration_seconds": 0.01,
+    "records_processed": 5,
+    "records_per_second": 714.07,
+    "chunk_count": 1,
+    "operation_type": "generalization",
+    "timestamp": "2026-05-18T13:30:34.992377",
+    "field_info": {
+      "original": {
+        "total_count": 5,
+        "null_count": 0,
+        "unique_count": 4,
+        "uniqueness_ratio": 0.8,
+        "top_values": {
+          "White": 2,
+          "Asian": 1,
+          "Black": 1,
+          "Latino": 1
+        }
+      },
+      "processed": {
+        "total_count": 5,
+        "null_count": 0,
+        "unique_count": 2,
+        "uniqueness_ratio": 0.4,
+        "top_values": {
+          "OTHER": 3,
+          "White": 2
+        }
+      }
+    },
+    "generalization": {
+      "strategy": "hierarchy",
+      "parameters": {
+        "strategy": "hierarchy",
+        "allow_unknown": true,
+        "unknown_value": "OTHER",
+        "text_normalization": "basic",
+        "case_sensitive": false,
+        "null_strategy": null,
+        "external_dictionary_path": "C:\\Users\\thang.bui\\AppData\\Local\\Temp\\tmpnikmhi8f\\hier_correct.json",
+        "dictionary_format": "auto",
+        "hierarchy_level": 1,
+        "fuzzy_matching": false,
+        "similarity_threshold": 0.85,
+        "category_mapping": {
+          "White": "White",
+          "Asian": "OTHER",
+          "Black": "OTHER",
+          "Latino": "OTHER"
+        },
+        "hierarchy_info": {
+          "level": 1,
+          "coverage": {
+            "total_values": 4,
+            "found_values": 4,
+            "coverage_percent": 100.0,
+            "missing_values": []
+          }
+        }
+      },
+      "reduction_ratio": 0.6666666666666666
+    },
+    "categorical_info_loss": {
+      "precision_loss": 0.5,
+      "entropy_loss": 0.49480389144757636,
+      "distribution_shift": 0.5,
+      "category_reduction_ratio": 0.5,
+      "average_group_size": 2.5
+    },
+    "performance": {
+      "duration_seconds": 0.007002115249633789,
+      "records_processed": 5,
+      "records_per_second": 714.0699376894004
+    },
+    "performance_summary": {
+      "total_duration_seconds": 0.007002115249633789,
+      "total_records_processed": 5,
+      "avg_records_per_second": 714.0699376894004
+    },
+    "distribution_metrics": {
+      "original": {
+        "unique_values": 4,
+        "entropy": 1.9219280943102843,
+        "top_categories": {}
+      },
+      "anonymized": {
+        "unique_values": 2,
+        "entropy": 0.9709505941661296,
+        "top_categories": {}
+      }
+    },
+    "info_loss_summary": {
+      "avg_precision_loss": 0.5,
+      "avg_entropy_loss": 0.4948,
+      "avg_category_reduction": 0.5
+    },
+    "hierarchy_metrics": {
+      "hierarchy_level": 1,
+      "dictionary_coverage": 100.0,
+      "fuzzy_matches": 0,
+      "unknown_values": 0,
+      "generalization_height": {
+        "min_height": 0,
+        "max_height": 1,
+        "avg_height": 0.6,
+        "height_distribution": {
+          "0": 2,
+          "1": 3
+        },
+        "uniform_generalization": false,
+        "total_generalized": 3,
+        "total_unchanged": 2
+      }
+    },
+    "privacy_metrics": {
+      "status": "SKIPPED",
+      "reason": "no_quasi_identifiers"
+    },
+    "privacy_summary": "Privacy checks skipped: no quasi-identifiers specified",
+    "semantic_diversity": 1.0,
+    "total_records": 5,
+    "processed_records": 5,
+    "filtered_records": 0,
+    "processing_rate": 100.0,
+    "chunk_size_used": 10000,
+    "adaptive_chunk_size": true
+  }
+}
