@@ -49,16 +49,15 @@ class PrivacyMetricConfig(OperationConfig):
                         ),
                         "items": {
                             "type": "string",
-                            "oneOf": [
-                                {"const": PrivacyMetricsType.DCR.value, "description": "Distance to Closest Record"},
-                                {"const": PrivacyMetricsType.NNDR.value, "description": "Nearest Neighbor Distance Ratio"},
-                                {"const": PrivacyMetricsType.UNIQUENESS.value, "description": "Uniqueness"},
-                                {"const": PrivacyMetricsType.K_ANONYMITY.value, "description": "K-Anonymity"},
-                                {"const": PrivacyMetricsType.L_DIVERSITY.value, "description": "L-Diversity"},
+                            "enum": [
+                                PrivacyMetricsType.DCR.value,
+                                PrivacyMetricsType.NNDR.value,
+                                PrivacyMetricsType.UNIQUENESS.value,
+                                PrivacyMetricsType.K_ANONYMITY.value,
+                                PrivacyMetricsType.L_DIVERSITY.value,
                             ],
                         },
                         "default": [PrivacyMetricsType.DCR.value],
-                        "minItems": 1,
                     },
                     "metric_params": {
                         "type": ["object", "null"],
