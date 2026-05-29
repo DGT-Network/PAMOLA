@@ -45,9 +45,9 @@ class FidelityConfig(OperationConfig):
                         "description": "List of fidelity metrics to compute between the original and transformed datasets.",
                         "items": {
                             "type": "string",
-                            "enum": [
-                                FidelityMetricsType.KS.value,
-                                FidelityMetricsType.KL.value,
+                            "oneOf": [
+                                {"const": FidelityMetricsType.KS.value, "description": "Kolmogorov-Smirnov Test"},
+                                {"const": FidelityMetricsType.KL.value, "description": "Kullback-Leibler Divergence"},
                             ],
                         },
                         "default": [

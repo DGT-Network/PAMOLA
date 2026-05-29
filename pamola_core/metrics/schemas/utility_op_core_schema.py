@@ -46,7 +46,13 @@ class UtilityMetricConfig(OperationConfig):
                             "List of utility metric identifiers to compute. "
                             "Supported: 'classification', 'regression'."
                         ),
-                        "items": {"type": "string"},
+                        "items": {
+                            "type": "string",
+                            "oneOf": [
+                                {"const": "classification", "description": "Classification (AUROC, Accuracy, F1, Precision, Recall)"},
+                                {"const": "regression", "description": "Regression (R2, MSE, MAE)"},
+                            ],
+                        },
                     },
                     "metric_params": {
                         "type": ["object", "null"],
