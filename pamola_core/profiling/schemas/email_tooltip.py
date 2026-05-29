@@ -43,6 +43,14 @@ class EmailOperationTooltip:
         "• Impact: Useful for exploring domain usage patterns visually during data profiling."
     )
 
+
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
     force_recalculation = (
         "Ignore saved results. Check this box to force the operation to run again "
         "instead of using a cached result from a previous run with the same settings."
@@ -57,5 +65,6 @@ class EmailOperationTooltip:
             "min_frequency": cls.min_frequency,
             "generate_visualization": cls.generate_visualization,
             "analyze_privacy_risk": cls.analyze_privacy_risk,
+            "use_cache": cls.use_cache,
             "force_recalculation": cls.force_recalculation,
         }

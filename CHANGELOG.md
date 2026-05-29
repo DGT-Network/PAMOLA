@@ -7,6 +7,38 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0.dev3] - 2026-05-29
+
+### Security
+
+- **CRITICAL:** Stop persisting AES-256-GCM mapping encryption key to disk via `save_config()`. Added `OperationConfig.SENSITIVE_KEYS` + `to_safe_dict()` infrastructure; `ConsistentMappingPseudonymizationConfig` declares `mapping_encryption_key` as sensitive so it is replaced with `*REDACTED*` in `{task_dir}/config.json`.
+- **Hash-based pseudonymization:** Reject all-zero/empty default salt when `use_pepper=False` via `_is_weak_salt_value()` guard in `_validate_configuration()` — prevents deterministic pseudonyms across installs.
+- **Hash-based pseudonymization:** Invalidate stale disk cache when `use_pepper=True` by including a per-run `_session_id` in the cache key — previous-run pseudonyms can no longer be served back.
+
+### Added
+
+- **Pseudonymization ops:** New `HashBasedPseudonymizationOperation` (SHA3-256/512 with salt+pepper) and `ConsistentMappingPseudonymizationOperation` (AES-256-GCM encrypted reversible mapping) refactored to PAMOLA 7-step lifecycle.
+- **Schemas:** 4-file schema pattern (`*_core_schema.py`, `*_schema_exclude.py`, `*_tooltip.py`, `*_ui_schema.py`) for hash-based and mapping pseudonymization ops; same pattern applied to metrics fidelity/privacy/utility ops.
+- **Examples:** 4 Jupyter notebooks under `examples/anonymization/pseudonymization/` (simple + advanced for each op).
+- **Tests:** 41 tests for pseudonymization ops covering ENRICH/REPLACE modes, compound identifiers, pickle round-trip, reverse mapping, sequential/random_string pseudonyms, weak-salt rejection, pepper cache invalidation, `config.json` secret-leak prevention.
+- **OperationConfig:** `SENSITIVE_KEYS: ClassVar[frozenset]` + `to_safe_dict()` helper for declaring secrets that must never reach disk.
+- **Anonymization base:** `_is_pseudonymization` class-level marker for ops that need `*REDACTED*` null-handling placeholder.
+
+### Changed
+
+- **Metric naming:** Renamed `values_pseudonymized` (misleadingly counted rows) to `rows_processed`; added `unique_values_hashed`; fixed `pseudonymization_rate` from boolean (1.0/0.0) to true fraction `changed_non_null / total_non_null`.
+- **Metrics schemas:** Reorganized `pamola_core/metrics/schemas/` — renamed `*_ops_config.py` → `*_op_core_schema.py`, split into 4-file pattern.
+- **Profiling analyzers:** Standardized `if reporter:` / `if progress_tracker:` guards across all analyzers (anonymity, attribute, currency, date, email, identity, mvf, numeric, phone, text).
+- **Correlation utils:** Local `log` variable replaces module-level `logger` mutation; added NaN-filter and zero-variance guards around scipy correlation calls.
+- **Schema builder:** Reorganized `_build_all_op_configs()` by section with comments; loads 41 op configs.
+- **Cache log:** `_check_cache` log/reporter messages use `self.operation_name` instead of hardcoded "generalization".
+
+### Fixed
+
+- **Hash-based pseudonymization:** `process_batch` now uses `list(self.additional_fields or [])` defensive guard — safe to call independently with reloaded configs.
+- **Consistent mapping pseudonymization:** Same defensive guard plus normalized `additional_fields`/`quasi_identifiers` (None → `[]`) at constructor entry; removed redundant post-`setattr` reassignment.
+- **Pseudonymization null-handling:** Replaced fragile `getattr(self, "algorithm", None)` heuristic with explicit `_is_pseudonymization` class marker for selecting the `*REDACTED*` placeholder.
+
 ## [1.0.0.dev2] - 2026-04-06
 
 ### Changed
@@ -68,7 +100,8 @@ Initial development release.
 - BaseOperation / BaseTask framework
 - NLP subsystem (tokenization, entity extraction, LLM integration)
 
-[Unreleased]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev2...HEAD
+[Unreleased]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev3...HEAD
+[1.0.0.dev3]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev2...v1.0.0.dev3
 [1.0.0.dev2]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev1...v1.0.0.dev2
 [1.0.0.dev1]: https://github.com/DGT-Network/PAMOLA/compare/v0.0.1...v1.0.0.dev1
 [0.0.1]: https://github.com/DGT-Network/PAMOLA/releases/tag/v0.0.1

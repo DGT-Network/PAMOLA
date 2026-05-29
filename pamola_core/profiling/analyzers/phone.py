@@ -481,14 +481,15 @@ class PhoneOperation(FieldOperation):
                 )
 
             # Add operation to reporter
-            reporter.add_operation(
-                f"Analyzing phone field: {self.field_name}",
-                details={
-                    "field_name": self.field_name,
-                    "min_frequency": self.min_frequency,
-                    "operation_type": "phone_analysis",
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analyzing phone field: {self.field_name}",
+                    details={
+                        "field_name": self.field_name,
+                        "min_frequency": self.min_frequency,
+                        "operation_type": "phone_analysis",
+                    },
+                )
 
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
@@ -580,9 +581,10 @@ class PhoneOperation(FieldOperation):
             )
 
             # Add to reporter
-            reporter.add_artifact(
-                "json", str(stats_path), f"{self.field_name} statistical analysis"
-            )
+            if reporter:
+                reporter.add_artifact(
+                    "json", str(stats_path), f"{self.field_name} statistical analysis"
+                )
             artifacts.append(
                 {
                     "artifact_type": "json",
@@ -679,16 +681,18 @@ class PhoneOperation(FieldOperation):
                     category=Constants.Artifact_Category_Output,
                 )
 
-                reporter.add_artifact(
-                    "csv",
-                    str(dict_path),
-                    f"{self.field_name} country codes dictionary (CSV)",
-                )
-                reporter.add_artifact(
-                    "json",
-                    str(json_dict_path),
-                    f"{self.field_name} country codes dictionary (JSON)",
-                )
+                if reporter:
+                    reporter.add_artifact(
+                        "csv",
+                        str(dict_path),
+                        f"{self.field_name} country codes dictionary (CSV)",
+                    )
+                    reporter.add_artifact(
+                        "json",
+                        str(json_dict_path),
+                        f"{self.field_name} country codes dictionary (JSON)",
+                    )
+
                 artifacts.append(
                     {
                         "artifact_type": "csv",
@@ -757,16 +761,18 @@ class PhoneOperation(FieldOperation):
                     category=Constants.Artifact_Category_Output,
                 )
 
-                reporter.add_artifact(
-                    "csv",
-                    str(dict_path),
-                    f"{self.field_name} operator codes dictionary (CSV)",
-                )
-                reporter.add_artifact(
-                    "json",
-                    str(json_dict_path),
-                    f"{self.field_name} operator codes dictionary (JSON)",
-                )
+                if reporter:
+                    reporter.add_artifact(
+                        "csv",
+                        str(dict_path),
+                        f"{self.field_name} operator codes dictionary (CSV)",
+                    )
+                    reporter.add_artifact(
+                        "json",
+                        str(json_dict_path),
+                        f"{self.field_name} operator codes dictionary (JSON)",
+                    )
+
                 artifacts.append(
                     {
                         "artifact_type": "csv",
@@ -839,16 +845,18 @@ class PhoneOperation(FieldOperation):
                     category=Constants.Artifact_Category_Output,
                 )
 
-                reporter.add_artifact(
-                    "csv",
-                    str(dict_path),
-                    f"{self.field_name} messenger dictionary (CSV)",
-                )
-                reporter.add_artifact(
-                    "json",
-                    str(json_dict_path),
-                    f"{self.field_name} messenger dictionary (JSON)",
-                )
+                if reporter:
+                    reporter.add_artifact(
+                        "csv",
+                        str(dict_path),
+                        f"{self.field_name} messenger dictionary (CSV)",
+                    )
+                    reporter.add_artifact(
+                        "json",
+                        str(json_dict_path),
+                        f"{self.field_name} messenger dictionary (JSON)",
+                    )
+
                 artifacts.append(
                     {
                         "artifact_type": "csv",
@@ -913,17 +921,18 @@ class PhoneOperation(FieldOperation):
                 )
 
             # Add final operation status to reporter
-            reporter.add_operation(
-                f"Analysis of {self.field_name} completed",
-                details={
-                    "valid_phones": analysis_results.get("valid_count", 0),
-                    "format_errors": analysis_results.get("format_error_count", 0),
-                    "with_comments": analysis_results.get("has_comment_count", 0),
-                    "normalization_success": analysis_results.get(
-                        "normalization_success_count", 0
-                    ),
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analysis of {self.field_name} completed",
+                    details={
+                        "valid_phones": analysis_results.get("valid_count", 0),
+                        "format_errors": analysis_results.get("format_error_count", 0),
+                        "with_comments": analysis_results.get("has_comment_count", 0),
+                        "normalization_success": analysis_results.get(
+                            "normalization_success_count", 0
+                        ),
+                    },
+                )
 
             self.end_time = time.time()
             if self.end_time and self.start_time:

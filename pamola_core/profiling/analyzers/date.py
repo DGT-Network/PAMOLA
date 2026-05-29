@@ -382,18 +382,19 @@ class DateOperation(FieldOperation):
                 )
 
             # Add operation to reporter
-            reporter.add_operation(
-                f"Analyzing date field: {self.field_name}",
-                details={
-                    "field_name": self.field_name,
-                    "min_year": self.min_year,
-                    "max_year": self.max_year,
-                    "id_column": self.id_column,
-                    "uid_column": self.uid_column,
-                    "is_birth_date": self.is_birth_date,
-                    "operation_type": "date_analysis",
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analyzing date field: {self.field_name}",
+                    details={
+                        "field_name": self.field_name,
+                        "min_year": self.min_year,
+                        "max_year": self.max_year,
+                        "id_column": self.id_column,
+                        "uid_column": self.uid_column,
+                        "is_birth_date": self.is_birth_date,
+                        "operation_type": "date_analysis",
+                    },
+                )
 
             # Step 3: Analysis
             if progress_tracker:
@@ -456,9 +457,10 @@ class DateOperation(FieldOperation):
             )
 
             # Add to reporter
-            reporter.add_artifact(
-                "json", str(stats_path), f"{self.field_name} statistical analysis"
-            )
+            if reporter:
+                reporter.add_artifact(
+                    "json", str(stats_path), f"{self.field_name} statistical analysis"
+                )
 
             # Step 4: Saving results
             # Update progress
@@ -545,24 +547,25 @@ class DateOperation(FieldOperation):
                 )
 
             # Add final operation status to reporter
-            reporter.add_operation(
-                f"Analysis of {self.field_name} completed",
-                details={
-                    "valid_dates": analysis_results.get("valid_count", 0),
-                    "invalid_dates": analysis_results.get("invalid_count", 0),
-                    "date_range": f"{analysis_results.get('min_date', 'N/A')} to {analysis_results.get('max_date', 'N/A')}",
-                    "anomalies_found": sum(
-                        analysis_results.get("anomalies", {}).values()
-                    ),
-                    "groups_with_changes": (
-                        analysis_results.get("date_changes_within_group", {}).get(
-                            "groups_with_changes", 0
-                        )
-                        if "date_changes_within_group" in analysis_results
-                        else 0
-                    ),
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analysis of {self.field_name} completed",
+                    details={
+                        "valid_dates": analysis_results.get("valid_count", 0),
+                        "invalid_dates": analysis_results.get("invalid_count", 0),
+                        "date_range": f"{analysis_results.get('min_date', 'N/A')} to {analysis_results.get('max_date', 'N/A')}",
+                        "anomalies_found": sum(
+                            analysis_results.get("anomalies", {}).values()
+                        ),
+                        "groups_with_changes": (
+                            analysis_results.get("date_changes_within_group", {}).get(
+                                "groups_with_changes", 0
+                            )
+                            if "date_changes_within_group" in analysis_results
+                            else 0
+                        ),
+                    },
+                )
 
             if self.use_cache:
                 try:
@@ -686,9 +689,10 @@ class DateOperation(FieldOperation):
                     f"{self.field_name} year distribution",
                     category=Constants.Artifact_Category_Visualization,
                 )
-                reporter.add_artifact(
-                    "png", str(year_path), f"{self.field_name} year distribution"
-                )
+                if reporter:
+                    reporter.add_artifact(
+                        "png", str(year_path), f"{self.field_name} year distribution"
+                    )
         # Generate month distribution visualization if we have data
         if (
             "month_distribution" in analysis_results
@@ -719,9 +723,10 @@ class DateOperation(FieldOperation):
                     f"{self.field_name} month distribution",
                     category=Constants.Artifact_Category_Visualization,
                 )
-                reporter.add_artifact(
-                    "png", str(month_path), f"{self.field_name} month distribution"
-                )
+                if reporter:
+                    reporter.add_artifact(
+                        "png", str(month_path), f"{self.field_name} month distribution"
+                    )
 
         # Generate day of week distribution visualization if we have data
         if (
@@ -753,9 +758,10 @@ class DateOperation(FieldOperation):
                     f"{self.field_name} day of week distribution",
                     category=Constants.Artifact_Category_Visualization,
                 )
-                reporter.add_artifact(
-                    "png", str(dow_path), f"{self.field_name} day of week distribution"
-                )
+                if reporter:
+                    reporter.add_artifact(
+                        "png", str(dow_path), f"{self.field_name} day of week distribution"
+                    )
 
         # Generate age distribution visualization if it's a birth date and we have data
         if (
@@ -786,7 +792,8 @@ class DateOperation(FieldOperation):
                     "Age distribution",
                     category=Constants.Artifact_Category_Visualization,
                 )
-                reporter.add_artifact("png", str(age_path), "Age distribution")
+                if reporter:
+                    reporter.add_artifact("png", str(age_path), "Age distribution")
 
     def _save_anomalies_to_csv(
         self,
@@ -864,17 +871,19 @@ class DateOperation(FieldOperation):
                     f"{self.field_name} anomalies",
                     category=Constants.Artifact_Category_Dictionary,
                 )
-                reporter.add_artifact(
-                    "csv", str(anomalies_path), f"{self.field_name} anomalies"
-                )
+                if reporter:
+                    reporter.add_artifact(
+                        "csv", str(anomalies_path), f"{self.field_name} anomalies"
+                    )
 
         except Exception as e:
             self.logger.warning(f"Error saving anomalies for {self.field_name}: {e}")
-            reporter.add_operation(
-                f"Saving anomalies for {self.field_name}",
-                status="warning",
-                details={"warning": str(e)},
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Saving anomalies for {self.field_name}",
+                    status="warning",
+                    details={"warning": str(e)},
+                )
 
     def _check_cache(
         self,
@@ -1244,11 +1253,12 @@ def analyze_date_fields(
     settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
     df = load_data_operation(data_source, dataset_name, **settings_operation)
     if df is None:
-        reporter.add_operation(
-            "Date fields analysis",
-            status="error",
-            details={"error": "No valid DataFrame found in data source"},
-        )
+        if reporter:
+            reporter.add_operation(
+                "Date fields analysis",
+                status="error",
+                details={"error": "No valid DataFrame found in data source"},
+            )
         return {}
 
     # If no date fields specified, try to find them
@@ -1265,20 +1275,21 @@ def analyze_date_fields(
     actual_uid_column = uid_column if uid_column in df.columns else None
 
     # Report on fields to be analyzed
-    reporter.add_operation(
-        "Date fields analysis",
-        details={
-            "fields_count": len(date_fields),
-            "fields": date_fields,
-            "id_column": actual_id_column,
-            "uid_column": actual_uid_column,
-            "parameters": {
-                k: v
-                for k, v in kwargs.items()
-                if isinstance(v, (str, int, float, bool))
+    if reporter:
+        reporter.add_operation(
+            "Date fields analysis",
+            details={
+                "fields_count": len(date_fields),
+                "fields": date_fields,
+                "id_column": actual_id_column,
+                "uid_column": actual_uid_column,
+                "parameters": {
+                    k: v
+                    for k, v in kwargs.items()
+                    if isinstance(v, (str, int, float, bool))
+                },
             },
-        },
-    )
+        )
 
     # Track progress if enabled
     track_progress = kwargs.get("track_progress", True)
@@ -1348,11 +1359,12 @@ def analyze_date_fields(
             except Exception as e:
                 logger.error(f"Error analyzing date field {field}: {e}", exc_info=True)
 
-                reporter.add_operation(
-                    f"Analyzing {field} field",
-                    status="error",
-                    details={"error": str(e)},
-                )
+                if reporter:
+                    reporter.add_operation(
+                        f"Analyzing {field} field",
+                        status="error",
+                        details={"error": str(e)},
+                    )
 
                 # Update overall tracker in case of error
                 if overall_tracker:
@@ -1368,13 +1380,14 @@ def analyze_date_fields(
     )
     error_count = sum(1 for r in results.values() if r.status == OperationStatus.ERROR)
 
-    reporter.add_operation(
-        "Date fields analysis completed",
-        details={
-            "fields_analyzed": len(results),
-            "successful": success_count,
-            "failed": error_count,
-        },
-    )
+    if reporter:
+        reporter.add_operation(
+            "Date fields analysis completed",
+            details={
+                "fields_analyzed": len(results),
+                "successful": success_count,
+                "failed": error_count,
+            },
+        )
 
     return results

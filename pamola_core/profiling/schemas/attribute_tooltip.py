@@ -50,6 +50,14 @@ class DataAttributeProfilerOperationTooltip:
         "count distributions"
     )
 
+
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
     force_recalculation = (
         "What it does: Ignore saved results. Check this to force the operation to run again instead of using a cached result."
     )
@@ -63,5 +71,6 @@ class DataAttributeProfilerOperationTooltip:
             "max_columns": cls.max_columns,
             "dictionary_path": cls.dictionary_path,
             "generate_visualization": cls.generate_visualization,
+            "use_cache": cls.use_cache,
             "force_recalculation": cls.force_recalculation,
         }

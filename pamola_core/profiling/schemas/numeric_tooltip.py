@@ -20,7 +20,6 @@ Changelog:
 
 
 class NumericOperationTooltip:
-
     bins = "What it does: Sets the number of intervals (bins) used to group values when creating the histogram visualization."
 
     near_zero_threshold = (
@@ -42,6 +41,14 @@ class NumericOperationTooltip:
 
     generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
 
+
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
     force_recalculation = (
         "Ignore saved results. Check this box to force the operation to run again "
         "instead of using a cached result from a previous run with the same settings."
@@ -56,5 +63,6 @@ class NumericOperationTooltip:
             "detect_outliers": cls.detect_outliers,
             "test_normality": cls.test_normality,
             "generate_visualization": cls.generate_visualization,
+            "use_cache": cls.use_cache,
             "force_recalculation": cls.force_recalculation,
         }

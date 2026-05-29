@@ -51,7 +51,6 @@ IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS = [
     "chunk_size",
     "output_field_name",
     "null_strategy",
-    "use_cache",
     "save_output",
     "visualization_theme",
     "visualization_backend",

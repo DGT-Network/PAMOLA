@@ -447,9 +447,10 @@ class EmailOperation(FieldOperation):
             )
 
             # Add to reporter
-            reporter.add_artifact(
-                "json", str(stats_path), f"{self.field_name} statistical analysis"
-            )
+            if reporter:
+                reporter.add_artifact(
+                    "json", str(stats_path), f"{self.field_name} statistical analysis"
+                )
 
             # Step 5: Saving results
             # Update progress
@@ -548,14 +549,15 @@ class EmailOperation(FieldOperation):
                     category=Constants.Artifact_Category_Output,
                 )
 
-                reporter.add_artifact(
-                    "csv", str(dict_path), f"{self.field_name} domains dictionary (CSV)"
-                )
-                reporter.add_artifact(
-                    "json",
-                    str(json_dict_path),
-                    f"{self.field_name} domains dictionary (JSON)",
-                )
+                if reporter:
+                    reporter.add_artifact(
+                        "csv", str(dict_path), f"{self.field_name} domains dictionary (CSV)"
+                    )
+                    reporter.add_artifact(
+                        "json",
+                        str(json_dict_path),
+                        f"{self.field_name} domains dictionary (JSON)",
+                    )
 
             # Update progress
             # Step 7: Dictionary
@@ -592,11 +594,12 @@ class EmailOperation(FieldOperation):
                         f"{self.field_name} privacy risk assessment",
                         category=Constants.Artifact_Category_Output,
                     )
-                    reporter.add_artifact(
-                        "json",
-                        str(privacy_path),
-                        f"{self.field_name} privacy risk assessment",
-                    )
+                    if reporter:
+                        reporter.add_artifact(
+                            "json",
+                            str(privacy_path),
+                            f"{self.field_name} privacy risk assessment",
+                        )
 
             # Add metrics to the result
             result.add_metric("total_records", analysis_results.get("total_rows", 0))
@@ -620,15 +623,16 @@ class EmailOperation(FieldOperation):
                 )
 
             # Add final operation status to reporter
-            reporter.add_operation(
-                f"Analysis of {self.field_name} completed",
-                details={
-                    "valid_emails": analysis_results.get("valid_count", 0),
-                    "invalid_emails": analysis_results.get("invalid_count", 0),
-                    "unique_domains": analysis_results.get("unique_domains", 0),
-                    "null_percentage": analysis_results.get("null_percentage", 0),
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analysis of {self.field_name} completed",
+                    details={
+                        "valid_emails": analysis_results.get("valid_count", 0),
+                        "invalid_emails": analysis_results.get("invalid_count", 0),
+                        "unique_domains": analysis_results.get("unique_domains", 0),
+                        "null_percentage": analysis_results.get("null_percentage", 0),
+                    },
+                )
 
             # Cache the result if caching is enabled
             if self.use_cache:
@@ -825,9 +829,10 @@ class EmailOperation(FieldOperation):
                     f"{self.field_name} domains distribution",
                     category=Constants.Artifact_Category_Visualization,
                 )
-                reporter.add_artifact(
-                    "png", str(viz_path), f"{self.field_name} domains distribution"
-                )
+                if reporter:
+                    reporter.add_artifact(
+                        "png", str(viz_path), f"{self.field_name} domains distribution"
+                    )
             else:
                 self.logger.warning(f"Error creating visualization: {viz_result}")
 
@@ -1211,11 +1216,12 @@ def analyze_email_fields(
     settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
     df = load_data_operation(data_source, dataset_name, **settings_operation)
     if df is None:
-        reporter.add_operation(
-            "Email fields analysis",
-            status="error",
-            details={"error": "No valid DataFrame found in data source"},
-        )
+        if reporter:
+            reporter.add_operation(
+                "Email fields analysis",
+                status="error",
+                details={"error": "No valid DataFrame found in data source"},
+            )
         return {}
 
     # Extract operation parameters from kwargs
@@ -1233,20 +1239,21 @@ def analyze_email_fields(
             email_fields = ["email"]  # Default field name
 
     # Report on fields to be analyzed
-    reporter.add_operation(
-        "Email fields analysis",
-        details={
-            "fields_count": len(email_fields),
-            "fields": email_fields,
-            "top_n": top_n,
-            "min_frequency": min_frequency,
-            "parameters": {
-                k: v
-                for k, v in kwargs.items()
-                if isinstance(v, (str, int, float, bool))
+    if reporter:
+        reporter.add_operation(
+            "Email fields analysis",
+            details={
+                "fields_count": len(email_fields),
+                "fields": email_fields,
+                "top_n": top_n,
+                "min_frequency": min_frequency,
+                "parameters": {
+                    k: v
+                    for k, v in kwargs.items()
+                    if isinstance(v, (str, int, float, bool))
+                },
             },
-        },
-    )
+        )
 
     # Track progress if enabled
     track_progress = kwargs.get("track_progress", True)
@@ -1303,11 +1310,12 @@ def analyze_email_fields(
             except Exception as e:
                 logger.error(f"Error analyzing email field {field}: {e}", exc_info=True)
 
-                reporter.add_operation(
-                    f"Analyzing {field} field",
-                    status="error",
-                    details={"error": str(e)},
-                )
+                if reporter:
+                    reporter.add_operation(
+                        f"Analyzing {field} field",
+                        status="error",
+                        details={"error": str(e)},
+                    )
 
                 # Update overall tracker in case of error
                 if overall_tracker:
@@ -1323,13 +1331,14 @@ def analyze_email_fields(
     )
     error_count = sum(1 for r in results.values() if r.status == OperationStatus.ERROR)
 
-    reporter.add_operation(
-        "Email fields analysis completed",
-        details={
-            "fields_analyzed": len(results),
-            "successful": success_count,
-            "failed": error_count,
-        },
-    )
+    if reporter:
+        reporter.add_operation(
+            "Email fields analysis completed",
+            details={
+                "fields_analyzed": len(results),
+                "successful": success_count,
+                "failed": error_count,
+            },
+        )
 
     return results

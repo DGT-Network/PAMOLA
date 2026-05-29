@@ -554,25 +554,26 @@ class DataAttributeProfilerOperation(BaseOperation):
                 )
 
             # Report operation summary
-            reporter.add_operation(
-                "Attribute Profiling Completed",
-                details={
-                    "direct_identifiers": analysis_results["summary"][
-                        "DIRECT_IDENTIFIER"
-                    ],
-                    "quasi_identifiers": analysis_results["summary"][
-                        "QUASI_IDENTIFIER"
-                    ],
-                    "sensitive_attributes": analysis_results["summary"][
-                        "SENSITIVE_ATTRIBUTE"
-                    ],
-                    "indirect_identifiers": analysis_results["summary"][
-                        "INDIRECT_IDENTIFIER"
-                    ],
-                    "non_sensitive": analysis_results["summary"]["NON_SENSITIVE"],
-                    "conflicts": len(analysis_results.get("conflicts", [])),
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    "Attribute Profiling Completed",
+                    details={
+                        "direct_identifiers": analysis_results["summary"][
+                            "DIRECT_IDENTIFIER"
+                        ],
+                        "quasi_identifiers": analysis_results["summary"][
+                            "QUASI_IDENTIFIER"
+                        ],
+                        "sensitive_attributes": analysis_results["summary"][
+                            "SENSITIVE_ATTRIBUTE"
+                        ],
+                        "indirect_identifiers": analysis_results["summary"][
+                            "INDIRECT_IDENTIFIER"
+                        ],
+                        "non_sensitive": analysis_results["summary"]["NON_SENSITIVE"],
+                        "conflicts": len(analysis_results.get("conflicts", [])),
+                    },
+                )
 
             # Cache the result if caching is enabled
             if self.use_cache:
@@ -681,9 +682,10 @@ class DataAttributeProfilerOperation(BaseOperation):
                         "Attribute role distribution",
                         category=Constants.Artifact_Category_Visualization,
                     )
-                    reporter.add_artifact(
-                        "png", str(pie_path), "Attribute role distribution"
-                    )
+                    if reporter:
+                        reporter.add_artifact(
+                            "png", str(pie_path), "Attribute role distribution"
+                        )
 
             # 2. Create entropy vs uniqueness scatter plot
             entropy_data = []
@@ -740,9 +742,10 @@ class DataAttributeProfilerOperation(BaseOperation):
                         "Entropy vs uniqueness analysis",
                         category=Constants.Artifact_Category_Visualization,
                     )
-                    reporter.add_artifact(
-                        "png", str(entropy_path), "Entropy vs uniqueness analysis"
-                    )
+                    if reporter:
+                        reporter.add_artifact(
+                            "png", str(entropy_path), "Entropy vs uniqueness analysis"
+                        )
 
             # 3. Create inferred type bar chart
             inferred_types = {}
@@ -780,17 +783,19 @@ class DataAttributeProfilerOperation(BaseOperation):
                         "Inferred data type distribution",
                         category=Constants.Artifact_Category_Visualization,
                     )
-                    reporter.add_artifact(
-                        "png", str(types_path), "Inferred data type distribution"
-                    )
+                    if reporter:
+                        reporter.add_artifact(
+                            "png", str(types_path), "Inferred data type distribution"
+                        )
 
         except Exception as e:
             self.logger.error(f"Error creating visualizations: {e}", exc_info=True)
-            reporter.add_operation(
-                "Creating visualizations",
-                status="warning",
-                details={"warning": f"Error creating some visualizations: {str(e)}"},
-            )
+            if reporter:
+                reporter.add_operation(
+                    "Creating visualizations",
+                    status="warning",
+                    details={"warning": f"Error creating some visualizations: {str(e)}"},
+                )
 
     def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """

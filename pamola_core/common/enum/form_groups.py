@@ -77,6 +77,13 @@ class GroupName(str, Enum):
     FIELD_OPERATIONS_CONFIGURATION = "field_operations_configuration"
     LOOKUP_TABLE_CONFIGURATION = "lookup_table_configuration"
     FIELD_SETTINGS = "field_settings"
+    CORE_PSEUDONYMIZATION_STRATEGY = "core_pseudonymization_strategy"
+    MAPPING_STORAGE_SETTINGS = "mapping_storage_settings"
+    COMPOUND_IDENTIFIER_SETTINGS = "compound_identifier_settings"
+    SALT_AND_SECURITY_SETTINGS = "salt_and_security_settings"
+    METRIC_SELECTION = "metric_selection"
+    COLUMN_CONFIGURATION = "column_configuration"
+    STATISTICAL_SETTINGS = "statistical_settings"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -145,6 +152,13 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.FIELD_OPERATIONS_CONFIGURATION: "Field Operations Configuration",
     GroupName.LOOKUP_TABLE_CONFIGURATION: "Lookup Table Configuration",
     GroupName.FIELD_SETTINGS: "Field Settings",
+    GroupName.CORE_PSEUDONYMIZATION_STRATEGY: "Core Pseudonymization Strategy",
+    GroupName.MAPPING_STORAGE_SETTINGS: "Mapping Storage Settings",
+    GroupName.COMPOUND_IDENTIFIER_SETTINGS: "Compound Identifier Settings",
+    GroupName.SALT_AND_SECURITY_SETTINGS: "Salt & Security Settings",
+    GroupName.METRIC_SELECTION: "Metric Selection",
+    GroupName.COLUMN_CONFIGURATION: "Column Configuration",
+    GroupName.STATISTICAL_SETTINGS: "Statistical Settings",
 }
 
 
@@ -212,6 +226,22 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.SIMPLE_CONDITIONAL_RULE,
         GroupName.ADVANCED_CONDITIONAL_RULES,
         GroupName.RISK_BASED_FILTERING,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "ConsistentMappingPseudonymizationConfig": [
+        GroupName.CORE_PSEUDONYMIZATION_STRATEGY,
+        GroupName.MAPPING_STORAGE_SETTINGS,
+        GroupName.COMPOUND_IDENTIFIER_SETTINGS,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "HashBasedPseudonymizationConfig": [
+        GroupName.CORE_PSEUDONYMIZATION_STRATEGY,
+        GroupName.SALT_AND_SECURITY_SETTINGS,
+        GroupName.COMPOUND_IDENTIFIER_SETTINGS,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     # -------------- Fake Data ------------------
@@ -347,6 +377,25 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "AddOrModifyFieldsOperationConfig": [
         GroupName.LOOKUP_TABLE_CONFIGURATION,
         GroupName.FIELD_OPERATIONS_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    # -------------- Metrics ---------------
+    "FidelityConfig": [
+        GroupName.METRIC_SELECTION,
+        GroupName.COLUMN_CONFIGURATION,
+        GroupName.STATISTICAL_SETTINGS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "PrivacyMetricConfig": [
+        GroupName.METRIC_SELECTION,
+        GroupName.COLUMN_CONFIGURATION,
+        GroupName.STATISTICAL_SETTINGS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "UtilityMetricConfig": [
+        GroupName.METRIC_SELECTION,
+        GroupName.COLUMN_CONFIGURATION,
+        GroupName.STATISTICAL_SETTINGS,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }

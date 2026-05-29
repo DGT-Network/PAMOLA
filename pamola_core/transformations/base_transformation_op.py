@@ -615,19 +615,20 @@ class TransformationOperation(BaseOperation):
             else "Transformation on all applicable fields"
         )
 
-        reporter.add_operation(
-            operation_desc,
-            details={
-                "field_name": self.field_name or "N/A",
-                "output_fields": (
-                    output_fields[0]
-                    if len(output_fields) == 1
-                    else ", ".join(output_fields)
-                ),
-                "mode": self.mode,
-                "operation_type": self.operation_name,
-            },
-        )
+        if reporter:
+            reporter.add_operation(
+                operation_desc,
+                details={
+                    "field_name": self.field_name or "N/A",
+                    "output_fields": (
+                        output_fields[0]
+                        if len(output_fields) == 1
+                        else ", ".join(output_fields)
+                    ),
+                    "mode": self.mode,
+                    "operation_type": self.operation_name,
+                },
+            )
 
     def _process_dataframe(
         self, df: pd.DataFrame, progress_tracker: Optional[HierarchicalProgressTracker]

@@ -688,6 +688,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         Union[pd.DataFrame, dd.DataFrame, None, Any]
             The processed DataFrame.
         """
+        task_logger = task_logger or logging.getLogger(__name__)
         df_len = (
             int(df.map_partitions(len).sum().compute())
             if isinstance(df, dd.DataFrame)

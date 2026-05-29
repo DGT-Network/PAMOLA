@@ -30,7 +30,6 @@ CORRELATION_EXCLUDE_FIELDS = [
     "use_vectorization",
     "parallel_processes",
     "chunk_size",
-    "use_cache",
     "output_format",
     "visualization_theme",
     "visualization_backend",
@@ -51,5 +50,4 @@ CORRELATION_EXCLUDE_FIELDS = [
     "profile_type",
     "output_field_name",
     "mvf_parser",
-    "force_recalculation",
 ]

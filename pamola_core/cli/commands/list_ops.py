@@ -54,7 +54,7 @@ def list_ops(
     try:
         ops_data = _load_from_catalog(category)
     except Exception as e:
-        console.print(f"[red]✗ Failed to load operations:[/red] {e}")
+        console.print(f"[red]X Failed to load operations:[/red] {e}")
         raise typer.Exit(EXIT_ERROR)
 
     if not ops_data:
@@ -88,8 +88,8 @@ def _load_from_catalog(category: Optional[str]) -> list:
             {
                 "name": e.get("name", ""),
                 "category": e.get("category", "general"),
-                "module": e.get("module", "—"),
-                "version": e.get("version", "—"),
+                "module": e.get("module", "-"),
+                "version": e.get("version", "-"),
                 "description": e.get("description", ""),
             }
             for e in entries
@@ -114,8 +114,8 @@ def _load_from_catalog(category: Optional[str]) -> list:
             ops_data.append({
                 "name": name,
                 "category": meta.get("category", "general"),
-                "module": meta.get("module", "—"),
-                "version": get_operation_version(name) or "—",
+                "module": meta.get("module", "-"),
+                "version": get_operation_version(name) or "-",
                 "description": description,
             })
         if category:
@@ -129,7 +129,7 @@ def _load_from_catalog(category: Optional[str]) -> list:
 
 
 def _render_table(ops_data: list, category: Optional[str]):
-    title = f"PAMOLA Operations — {category}" if category else "PAMOLA Operations"
+    title = f"PAMOLA Operations - {category}" if category else "PAMOLA Operations"
     t = Table(title=title, show_lines=True, highlight=True)
     t.add_column("Operation", style="cyan", no_wrap=True)
     t.add_column("Category", style="magenta", justify="center")

@@ -54,7 +54,6 @@ CLEAN_INVALID_VALUES_EXCLUDE_FIELDS = [
     "chunk_size",
     "output_field_name",
     "null_strategy",
-    "use_cache",
     "visualization_theme",
     "visualization_backend",
     "visualization_strict",

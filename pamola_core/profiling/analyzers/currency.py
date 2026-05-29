@@ -179,7 +179,8 @@ class CurrencyAnalyzer:
         is_large_df = total_rows > chunk_size
 
         if is_large_df is False:
-            task_logger.warning("Small DataFrame! Process as usual")
+            if task_logger:
+                task_logger.warning("Small DataFrame! Process as usual")
             return self._analyze_small_dataset(
                 df.compute() if isinstance(df, dd.DataFrame) else df,
                 field_name,
@@ -1569,9 +1570,10 @@ class CurrencyOperation(FieldOperation):
             )
 
             # Add to reporter
-            reporter.add_artifact(
-                "json", str(stats_path), f"{self.field_name} currency analysis"
-            )
+            if reporter:
+                reporter.add_artifact(
+                    "json", str(stats_path), f"{self.field_name} currency analysis"
+                )
 
             # Generate visualizations if requested
             if self.generate_visualization:
@@ -1615,17 +1617,18 @@ class CurrencyOperation(FieldOperation):
                 )
 
             # Add final operation status to reporter
-            reporter.add_operation(
-                f"Analysis of currency field {self.field_name} completed",
-                details={
-                    "valid_values": analysis_results.get("valid_count", 0),
-                    "null_percentage": analysis_results.get("null_percentage", 0),
-                    "multi_currency": analysis_results.get("multi_currency", False),
-                    "currencies_detected": len(
-                        analysis_results.get("currency_counts", {})
-                    ),
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analysis of currency field {self.field_name} completed",
+                    details={
+                        "valid_values": analysis_results.get("valid_count", 0),
+                        "null_percentage": analysis_results.get("null_percentage", 0),
+                        "multi_currency": analysis_results.get("multi_currency", False),
+                        "currencies_detected": len(
+                            analysis_results.get("currency_counts", {})
+                        ),
+                    },
+                )
 
             # Cache the result if caching is enabled
             if self.use_cache:
@@ -1774,11 +1777,12 @@ class CurrencyOperation(FieldOperation):
                         f"{self.field_name} distribution histogram",
                         category=Constants.Artifact_Category_Visualization,
                     )
-                    reporter.add_artifact(
-                        "png",
-                        str(hist_path),
-                        f"{self.field_name} distribution histogram",
-                    )
+                    if reporter:
+                        reporter.add_artifact(
+                            "png",
+                            str(hist_path),
+                            f"{self.field_name} distribution histogram",
+                        )
             except Exception as e:
                 self.logger.warning(
                     f"Error creating histogram for {self.field_name}: {e}"
@@ -1810,9 +1814,10 @@ class CurrencyOperation(FieldOperation):
                         f"{self.field_name} boxplot",
                         category=Constants.Artifact_Category_Visualization,
                     )
-                    reporter.add_artifact(
-                        "png", str(boxplot_path), f"{self.field_name} boxplot"
-                    )
+                    if reporter:
+                        reporter.add_artifact(
+                            "png", str(boxplot_path), f"{self.field_name} boxplot"
+                        )
             except Exception as e:
                 self.logger.warning(
                     f"Error creating boxplot for {self.field_name}: {e}"
@@ -1871,9 +1876,10 @@ class CurrencyOperation(FieldOperation):
                         f"{self.field_name} Q-Q plot (normality test)",
                         category=Constants.Artifact_Category_Visualization,
                     )
-                    reporter.add_artifact(
-                        "png", str(qq_path), f"{self.field_name} Q-Q plot"
-                    )
+                    if reporter:
+                        reporter.add_artifact(
+                            "png", str(qq_path), f"{self.field_name} Q-Q plot"
+                        )
             except Exception as e:
                 self.logger.warning(
                     f"Error creating Q-Q plot for {self.field_name}: {e}"
@@ -2017,9 +2023,10 @@ class CurrencyOperation(FieldOperation):
                 f"{self.field_name} sample records",
                 category=Constants.Artifact_Category_Dictionary,
             )
-            reporter.add_artifact(
-                "csv", str(sample_path), f"{self.field_name} sample records"
-            )
+            if reporter:
+                reporter.add_artifact(
+                    "csv", str(sample_path), f"{self.field_name} sample records"
+                )
 
         except Exception as e:
             self.logger.warning(

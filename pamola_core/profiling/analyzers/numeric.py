@@ -629,16 +629,17 @@ class NumericOperation(FieldOperation):
                 )
 
             # Add operation to reporter
-            reporter.add_operation(
-                f"Analyzing numeric field: {self.field_name}",
-                details={
-                    "field_name": self.field_name,
-                    "bins": self.bins,
-                    "detect_outliers": self.detect_outliers,
-                    "test_normality": self.test_normality,
-                    "operation_type": "numeric_analysis",
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analyzing numeric field: {self.field_name}",
+                    details={
+                        "field_name": self.field_name,
+                        "bins": self.bins,
+                        "detect_outliers": self.detect_outliers,
+                        "test_normality": self.test_normality,
+                        "operation_type": "numeric_analysis",
+                    },
+                )
 
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
@@ -719,9 +720,10 @@ class NumericOperation(FieldOperation):
             )
 
             # Add to reporter
-            reporter.add_artifact(
-                "json", str(stats_path), f"{self.field_name} statistical analysis"
-            )
+            if reporter:
+                reporter.add_artifact(
+                    "json", str(stats_path), f"{self.field_name} statistical analysis"
+                )
             artifacts.append(
                 {
                     "artifact_type": "json",
@@ -806,26 +808,27 @@ class NumericOperation(FieldOperation):
                 )
 
             # Add final operation status to reporter
-            reporter.add_operation(
-                f"Analysis of {self.field_name} completed",
-                details={
-                    "valid_values": analysis_results.get("valid_count", 0),
-                    "null_percentage": analysis_results.get("null_percentage", 0),
-                    "min": stats_dict.get("min"),
-                    "max": stats_dict.get("max"),
-                    "mean": stats_dict.get("mean"),
-                    "outliers": (
-                        stats_dict.get("outliers", {}).get("count", 0)
-                        if "outliers" in stats_dict
-                        else 0
-                    ),
-                    "is_normal": (
-                        stats_dict.get("normality", {}).get("is_normal", False)
-                        if "normality" in stats_dict
-                        else False
-                    ),
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analysis of {self.field_name} completed",
+                    details={
+                        "valid_values": analysis_results.get("valid_count", 0),
+                        "null_percentage": analysis_results.get("null_percentage", 0),
+                        "min": stats_dict.get("min"),
+                        "max": stats_dict.get("max"),
+                        "mean": stats_dict.get("mean"),
+                        "outliers": (
+                            stats_dict.get("outliers", {}).get("count", 0)
+                            if "outliers" in stats_dict
+                            else 0
+                        ),
+                        "is_normal": (
+                            stats_dict.get("normality", {}).get("is_normal", False)
+                            if "normality" in stats_dict
+                            else False
+                        ),
+                    },
+                )
 
             self.end_time = time.time()
             if self.end_time and self.start_time:
@@ -1403,11 +1406,12 @@ def analyze_numeric_fields(
     settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
     df = load_data_operation(data_source, dataset_name, **settings_operation)
     if df is None:
-        reporter.add_operation(
-            "Numeric fields analysis",
-            status="error",
-            details={"error": "No valid DataFrame found in data source"},
-        )
+        if reporter:
+            reporter.add_operation(
+                "Numeric fields analysis",
+                status="error",
+                details={"error": "No valid DataFrame found in data source"},
+            )
         return {}
 
     # If no numeric fields specified, try to find them
@@ -1418,18 +1422,19 @@ def analyze_numeric_fields(
                 numeric_fields.append(col)
 
     # Report on fields to be analyzed
-    reporter.add_operation(
-        "Numeric fields analysis",
-        details={
-            "fields_count": len(numeric_fields),
-            "fields": numeric_fields,
-            "parameters": {
-                k: v
-                for k, v in kwargs.items()
-                if isinstance(v, (str, int, float, bool))
+    if reporter:
+        reporter.add_operation(
+            "Numeric fields analysis",
+            details={
+                "fields_count": len(numeric_fields),
+                "fields": numeric_fields,
+                "parameters": {
+                    k: v
+                    for k, v in kwargs.items()
+                    if isinstance(v, (str, int, float, bool))
+                },
             },
-        },
-    )
+        )
 
     # Track progress if enabled
     track_progress = kwargs.get("track_progress", True)
@@ -1487,11 +1492,12 @@ def analyze_numeric_fields(
                     f"Error analyzing numeric field {field}: {e}", exc_info=True
                 )
 
-                reporter.add_operation(
-                    f"Analyzing {field} field",
-                    status="error",
-                    details={"error": str(e)},
-                )
+                if reporter:
+                    reporter.add_operation(
+                        f"Analyzing {field} field",
+                        status="error",
+                        details={"error": str(e)},
+                    )
 
                 # Update overall tracker in case of error
                 if overall_tracker:
@@ -1507,13 +1513,14 @@ def analyze_numeric_fields(
     )
     error_count = sum(1 for r in results.values() if r.status == OperationStatus.ERROR)
 
-    reporter.add_operation(
-        "Numeric fields analysis completed",
-        details={
-            "fields_analyzed": len(results),
-            "successful": success_count,
-            "failed": error_count,
-        },
-    )
+    if reporter:
+        reporter.add_operation(
+            "Numeric fields analysis completed",
+            details={
+                "fields_analyzed": len(results),
+                "successful": success_count,
+                "failed": error_count,
+            },
+        )
 
     return results

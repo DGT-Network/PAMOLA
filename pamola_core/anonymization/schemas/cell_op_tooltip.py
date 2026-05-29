@@ -114,6 +114,13 @@ class CellSuppressionOpTooltip:
         "• Recommended: `PRESERVE`"
     )
 
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
     force_recalculation = "What it does: Disables the caching mechanism for this run, forcing the operation to re-process all data from scratch."
 
     generate_visualization = (
@@ -141,6 +148,7 @@ class CellSuppressionOpTooltip:
             "output_field_name": cls.output_field_name,
             "column_prefix": cls.column_prefix,
             "null_strategy": cls.null_strategy,
+            "use_cache": cls.use_cache,
             "force_recalculation": cls.force_recalculation,
             "generate_visualization": cls.generate_visualization,
         }

@@ -30,7 +30,6 @@ CELL_EXCLUDE_FIELDS = [
     "use_vectorization",
     "parallel_processes",
     "chunk_size",
-    "use_cache",
     "output_format",
     "visualization_theme",
     "visualization_backend",

@@ -46,21 +46,21 @@ def show_schema(
     discover_operations("pamola_core")
     op_cls = get_operation_class(operation)
     if op_cls is None:
-        console.print(f"[red]✗ Unknown operation:[/red] {operation}")
+        console.print(f"[red]X Unknown operation:[/red] {operation}")
         console.print(
             "  Run [bold]pamola-core list-ops[/bold] to see available operations."
         )
         raise typer.Exit(EXIT_ERROR)
 
     meta = get_operation_metadata(operation) or {}
-    version = get_operation_version(operation) or "—"
+    version = get_operation_version(operation) or "-"
     params = meta.get("parameters", {})
 
     if fmt == SchemaFormat.json:
         schema = {
             "operation": operation,
             "version": version,
-            "module": meta.get("module", "—"),
+            "module": meta.get("module", "-"),
             "category": meta.get("category", "general"),
             "parameters": {
                 name: {
@@ -95,8 +95,8 @@ def _render_table(op_name, version, meta, params):
     t.add_column("Default", style="green")
 
     for name, info in params.items():
-        required = "[red]✓[/red]" if info.get("is_required") else ""
+        required = "[red]Yes[/red]" if info.get("is_required") else ""
         default = "" if info.get("is_required") else str(info.get("default", ""))
-        t.add_row(name, info.get("annotation") or "—", required, default)
+        t.add_row(name, str(info.get("annotation") or "-"), required, default)
 
     console.print(t)

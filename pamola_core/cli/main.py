@@ -11,7 +11,7 @@ import typer
 
 app = typer.Typer(
     name="pamola-core",
-    help="[bold cyan]PAMOLA.CORE[/bold cyan] — Privacy-Preserving AI Data Processing Framework",
+    help="[bold cyan]PAMOLA.CORE[/bold cyan] - Privacy-Preserving AI Data Processing Framework",
     no_args_is_help=True,
     rich_markup_mode="rich",
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -30,7 +30,7 @@ def _verbose_callback(value: bool):
     if value:
         logging.basicConfig(
             level=logging.DEBUG,
-            format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+            format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
             force=True,
         )
 
@@ -55,7 +55,7 @@ def _root(
         expose_value=False,
     ),
 ):
-    """PAMOLA.CORE CLI — Privacy-Preserving Data Processing Framework."""
+    """PAMOLA.CORE CLI - Privacy-Preserving Data Processing Framework."""
 
 
 # ── Register sub-commands (lazy imports to keep startup fast) ──────────────

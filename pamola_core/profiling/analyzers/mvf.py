@@ -624,15 +624,16 @@ class MVFOperation(FieldOperation):
                 )
 
             # Add operation to reporter
-            reporter.add_operation(
-                f"Analyzing multi-valued field: {self.field_name}",
-                details={
-                    "field_name": self.field_name,
-                    "top_n": self.top_n,
-                    "min_frequency": self.min_frequency,
-                    "operation_type": "mvf_analysis",
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analyzing multi-valued field: {self.field_name}",
+                    details={
+                        "field_name": self.field_name,
+                        "top_n": self.top_n,
+                        "min_frequency": self.min_frequency,
+                        "operation_type": "mvf_analysis",
+                    },
+                )
 
             # Step 3: Check if we have a cached result
             # Check Cache (if enabled and not forced to recalculate)
@@ -1557,11 +1558,12 @@ def analyze_mvf_fields(
     dataset_name = kwargs.get("dataset_name", "main")
     df = load_data_operation(data_source, dataset_name)
     if df is None:
-        reporter.add_operation(
-            "MVF fields analysis",
-            status="error",
-            details={"error": "No valid DataFrame found in data source"},
-        )
+        if reporter:
+            reporter.add_operation(
+                "MVF fields analysis",
+                status="error",
+                details={"error": "No valid DataFrame found in data source"},
+            )
         return {}
 
     # Extract operation parameters from kwargs
@@ -1571,20 +1573,21 @@ def analyze_mvf_fields(
     parse_kwargs = kwargs.get("parse_kwargs", {})
 
     # Report on fields to be analyzed
-    reporter.add_operation(
-        "MVF fields analysis",
-        details={
-            "fields_count": len(mvf_fields),
-            "fields": mvf_fields,
-            "top_n": top_n,
-            "min_frequency": min_frequency,
-            "parameters": {
-                k: v
-                for k, v in kwargs.items()
-                if isinstance(v, (str, int, float, bool))
+    if reporter:
+        reporter.add_operation(
+            "MVF fields analysis",
+            details={
+                "fields_count": len(mvf_fields),
+                "fields": mvf_fields,
+                "top_n": top_n,
+                "min_frequency": min_frequency,
+                "parameters": {
+                    k: v
+                    for k, v in kwargs.items()
+                    if isinstance(v, (str, int, float, bool))
+                },
             },
-        },
-    )
+        )
 
     # Track progress if enabled
     track_progress = kwargs.get("track_progress", True)
@@ -1651,11 +1654,12 @@ def analyze_mvf_fields(
             except Exception as e:
                 logger.error(f"Error analyzing MVF field {field}: {e}", exc_info=True)
 
-                reporter.add_operation(
-                    f"Analyzing {field} field",
-                    status="error",
-                    details={"error": str(e)},
-                )
+                if reporter:
+                    reporter.add_operation(
+                        f"Analyzing {field} field",
+                        status="error",
+                        details={"error": str(e)},
+                    )
 
                 # Update overall tracker in case of error
                 if overall_tracker:
@@ -1671,13 +1675,14 @@ def analyze_mvf_fields(
     )
     error_count = sum(1 for r in results.values() if r.status == OperationStatus.ERROR)
 
-    reporter.add_operation(
-        "MVF fields analysis completed",
-        details={
-            "fields_analyzed": len(results),
-            "successful": success_count,
-            "failed": error_count,
-        },
-    )
+    if reporter:
+        reporter.add_operation(
+            "MVF fields analysis completed",
+            details={
+                "fields_analyzed": len(results),
+                "successful": success_count,
+                "failed": error_count,
+            },
+        )
 
     return results

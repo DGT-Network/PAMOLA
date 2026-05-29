@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import pandas as pd
 from pamola_core.metrics.base_metrics_op import MetricsOperation
-from pamola_core.metrics.schemas.utility_ops_config import UtilityMetricConfig
+from pamola_core.metrics.schemas.utility_op_core_schema import UtilityMetricConfig
 from pamola_core.metrics.utility.classification import ClassificationUtility
 from pamola_core.metrics.utility.regression import RegressionUtility
 from pamola_core.utils.ops.op_data_source import DataSource

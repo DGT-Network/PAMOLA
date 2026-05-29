@@ -76,6 +76,13 @@ class AddOrModifyFieldsOperationTooltip:
 
     generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
 
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
     force_recalculation = "What it does: Forces the operation to recalculate results from scratch, ignoring any existing cached results. Useful when you want to ensure results reflect any subtle data changes"
 
     @classmethod
@@ -85,5 +92,6 @@ class AddOrModifyFieldsOperationTooltip:
             "field_operations": cls.field_operations,
             "lookup_tables": cls.lookup_tables,
             "generate_visualization": cls.generate_visualization,
+            "use_cache": cls.use_cache,
             "force_recalculation": cls.force_recalculation,
         }

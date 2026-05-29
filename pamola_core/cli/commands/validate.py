@@ -62,7 +62,7 @@ def validate_config(
         if fmt == OutputFormat.json:
             _emit(fmt, {"valid": False, "errors": ["Provide --config or --task."]})
         else:
-            console.print("[red]✗ Provide --config or --task.[/red]")
+            console.print("[red]X Provide --config or --task.[/red]")
         raise typer.Exit(EXIT_ERROR)
 
     target = config or task
@@ -73,7 +73,7 @@ def validate_config(
         if fmt == OutputFormat.json:
             _emit(fmt, {"valid": False, "file": str(target), "errors": [f"Invalid JSON: {e}"]})
         else:
-            console.print(f"[red]✗ Invalid JSON in[/red] [cyan]{target}[/cyan]\n  {e}")
+            console.print(f"[red]X Invalid JSON in[/red] [cyan]{target}[/cyan]\n  {e}")
         raise typer.Exit(EXIT_VALIDATION)
 
     errors = _validate_task(data) if task else _validate_op_config(data)
@@ -83,7 +83,7 @@ def validate_config(
             _emit(fmt, {"valid": False, "file": str(target), "errors": errors})
         else:
             console.print(
-                f"[red]✗ Validation failed[/red] — {len(errors)} issue(s) in [cyan]{target}[/cyan]\n"
+                f"[red]X Validation failed[/red] - {len(errors)} issue(s) in [cyan]{target}[/cyan]\n"
             )
             for err in errors:
                 console.print(f"  [red]•[/red] {err}")
@@ -92,7 +92,7 @@ def validate_config(
     if fmt == OutputFormat.json:
         _emit(fmt, {"valid": True, "file": str(target), "errors": []})
     else:
-        console.print(f"[green]✓ Valid:[/green] [cyan]{target}[/cyan]")
+        console.print(f"[green]OK Valid:[/green] [cyan]{target}[/cyan]")
 
 
 def _emit(fmt: OutputFormat, payload: dict) -> None:

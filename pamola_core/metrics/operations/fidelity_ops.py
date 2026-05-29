@@ -43,7 +43,7 @@ from pamola_core.metrics.base_metrics_op import MetricsOperation
 from pamola_core.metrics.commons.safe_instantiate import safe_instantiate
 from pamola_core.metrics.fidelity.distribution.kl_divergence import KLDivergence
 from pamola_core.metrics.fidelity.distribution.ks_test import KolmogorovSmirnovTest
-from pamola_core.metrics.schemas.fidelity_ops_config import FidelityConfig
+from pamola_core.metrics.schemas.fidelity_op_core_schema import FidelityConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult

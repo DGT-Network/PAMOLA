@@ -443,15 +443,16 @@ class IdentityAnalysisOperation(FieldOperation):
                 valid_id_field = self.id_field
 
             # Log analysis metadata
-            reporter.add_operation(
-                f"Analyzing identity field: {self.field_name}",
-                details={
-                    "field_name": self.field_name,
-                    "reference_fields": valid_refs,
-                    "id_field": valid_id_field,
-                    "operation_type": "identity_analysis",
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Analyzing identity field: {self.field_name}",
+                    details={
+                        "field_name": self.field_name,
+                        "reference_fields": valid_refs,
+                        "id_field": valid_id_field,
+                        "operation_type": "identity_analysis",
+                    },
+                )
 
             # Step 3: Check if we have a cached result
             # Check Cache (if enabled and not forced to recalculate)
@@ -551,11 +552,12 @@ class IdentityAnalysisOperation(FieldOperation):
                     logger.warning(
                         f"Skipping distribution analysis. ID field not found: {self.id_field}"
                     )
-                    reporter.add_operation(
-                        f"Skipping distribution analysis for {self.field_name}",
-                        status="warning",
-                        details={"reason": f"ID field {self.id_field} not found"},
-                    )
+                    if reporter:
+                        reporter.add_operation(
+                            f"Skipping distribution analysis for {self.field_name}",
+                            status="warning",
+                            details={"reason": f"ID field {self.id_field} not found"},
+                        )
 
                 # Cross-matching analysis
                 # Update progress
@@ -1492,9 +1494,10 @@ class IdentityAnalysisOperation(FieldOperation):
         - context (str): Contextual message for the reporter log.
         """
         logger.warning(f"{label.capitalize()} are missing: {field_list}")
-        reporter.add_operation(
-            context, status="warning", details={"missing_fields": field_list}
-        )
+        if reporter:
+            reporter.add_operation(
+                context, status="warning", details={"missing_fields": field_list}
+            )
 
 
 def analyze_identities(
@@ -1534,11 +1537,12 @@ def analyze_identities(
     df = load_data_operation(data_source, dataset_name, **settings_operation)
     # Use get_dataframe safely
     if df is None:
-        reporter.add_operation(
-            "Identity fields analysis",
-            status="error",
-            details={"error": "No valid DataFrame found in data source"},
-        )
+        if reporter:
+            reporter.add_operation(
+                "Identity fields analysis",
+                status="error",
+                details={"error": "No valid DataFrame found in data source"},
+            )
         return {}
 
     # If no identity fields specified, try to detect them (this is a simplified approach)
@@ -1577,18 +1581,19 @@ def analyze_identities(
             }
 
     # Report on fields to be analyzed
-    reporter.add_operation(
-        "Identity fields analysis",
-        details={
-            "fields_count": len(identity_fields),
-            "fields": list(identity_fields.keys()),
-            "parameters": {
-                k: v
-                for k, v in kwargs.items()
-                if isinstance(v, (str, int, float, bool))
+    if reporter:
+        reporter.add_operation(
+            "Identity fields analysis",
+            details={
+                "fields_count": len(identity_fields),
+                "fields": list(identity_fields.keys()),
+                "parameters": {
+                    k: v
+                    for k, v in kwargs.items()
+                    if isinstance(v, (str, int, float, bool))
+                },
             },
-        },
-    )
+        )
 
     # Track progress if enabled
     track_progress = kwargs.get("track_progress", True)
@@ -1652,11 +1657,12 @@ def analyze_identities(
                     f"Error analyzing identity field {field}: {e}", exc_info=True
                 )
 
-                reporter.add_operation(
-                    f"Analyzing {field} field",
-                    status="error",
-                    details={"error": str(e)},
-                )
+                if reporter:
+                    reporter.add_operation(
+                        f"Analyzing {field} field",
+                        status="error",
+                        details={"error": str(e)},
+                    )
 
                 # Update overall tracker in case of error
                 if overall_tracker:
@@ -1672,13 +1678,14 @@ def analyze_identities(
     )
     error_count = sum(1 for r in results.values() if r.status == OperationStatus.ERROR)
 
-    reporter.add_operation(
-        "Identity fields analysis completed",
-        details={
-            "fields_analyzed": len(results),
-            "successful": success_count,
-            "failed": error_count,
-        },
-    )
+    if reporter:
+        reporter.add_operation(
+            "Identity fields analysis completed",
+            details={
+                "fields_analyzed": len(results),
+                "successful": success_count,
+                "failed": error_count,
+            },
+        )
 
     return results

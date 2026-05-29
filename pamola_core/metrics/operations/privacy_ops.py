@@ -42,7 +42,7 @@ from pamola_core.metrics.commons.safe_instantiate import safe_instantiate
 from pamola_core.metrics.privacy.distance import DistanceToClosestRecord
 from pamola_core.metrics.privacy.identity import Uniqueness
 from pamola_core.metrics.privacy.neighbor import NearestNeighborDistanceRatio
-from pamola_core.metrics.schemas.privacy_ops_config import PrivacyMetricConfig
+from pamola_core.metrics.schemas.privacy_op_core_schema import PrivacyMetricConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult

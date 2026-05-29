@@ -424,14 +424,15 @@ class KAnonymityProfilerOperation(BaseOperation):
                 )
 
             # Add operation summary to reporter
-            reporter.add_operation(
-                "K-Anonymity Profiling Completed",
-                details={
-                    "mode": self.analysis_mode.value,
-                    "combinations_analyzed": len(qi_combinations),
-                    "threshold_k": self.threshold_k,
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    "K-Anonymity Profiling Completed",
+                    details={
+                        "mode": self.analysis_mode.value,
+                        "combinations_analyzed": len(qi_combinations),
+                        "threshold_k": self.threshold_k,
+                    },
+                )
 
             # Cache the result if caching is enabled
             if self.use_cache:
@@ -668,7 +669,8 @@ class KAnonymityProfilerOperation(BaseOperation):
                 f"Data enriched with {output_field}",
                 category="output",
             )
-            reporter.add_artifact("csv", str(output_path), "Enriched data")
+            if reporter:
+                reporter.add_artifact("csv", str(output_path), "Enriched data")
 
             # Add enrichment metrics
             result.add_metric("enrichment_field", output_field)
@@ -1138,7 +1140,8 @@ class KAnonymityProfilerOperation(BaseOperation):
         result.add_artifact(
             "json", summary_path, "K-anonymity summary", category="metrics"
         )
-        reporter.add_artifact("json", str(summary_path), "K-anonymity summary")
+        if reporter:
+            reporter.add_artifact("json", str(summary_path), "K-anonymity summary")
 
         # Export detailed metrics if needed
         if vulnerable_records:
@@ -1156,7 +1159,8 @@ class KAnonymityProfilerOperation(BaseOperation):
             result.add_artifact(
                 "json", vuln_path, "Vulnerable records", category="metrics"
             )
-            reporter.add_artifact("json", str(vuln_path), "Vulnerable records")
+            if reporter:
+                reporter.add_artifact("json", str(vuln_path), "Vulnerable records")
 
     def _create_visualizations(
         self,
