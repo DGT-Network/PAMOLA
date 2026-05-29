@@ -56,4 +56,3 @@ from pamola_core.anonymization.suppression.record_op import RecordSuppressionOpe
 from pamola_core.anonymization.noise.uniform_numeric_op import UniformNumericNoiseOperation
 
 from pamola_core.anonymization.noise.uniform_temporal_op import UniformTemporalNoiseOperation
-
