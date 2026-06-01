@@ -5,8 +5,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
+  <a href="https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD%203--Clause-blue.svg"></a>
   <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10--3.12-blue.svg"></a>
+  <a href="https://pypi.org/project/pamola-core/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-1.0.0.dev3-orange.svg"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-active%20development-orange.svg">
 </p>
 
@@ -14,7 +15,7 @@
 
 ## Privacy Engineering for Python. Finally.
 
-**PAMOLA.CORE** is the open-source foundation of the PAMOLA platform - a Python library for **privacy-preserving data operations** with pipeline workflow, reproducibility, and audit trail.
+**PAMOLA.CORE** is the open-source foundation of the PAMOLA platform — a Python library for **privacy-preserving data operations** with reproducible pipelines, structured artifacts, and an audit trail per operation.
 
 Developed by **[Realm Inveo Inc.](https://realmdata.io)**
 
@@ -24,62 +25,65 @@ Developed by **[Realm Inveo Inc.](https://realmdata.io)**
 
 You need to anonymize sensitive data. You've tried:
 
-- **ARX:** Powerful, but Java, GUI-focused, opaque operations
-- **Faker + Presidio + custom scripts:** Fragmented, no pipeline, no proof
-- **DP libraries:** Great math, but narrow scope
+- **ARX:** Powerful, but Java, GUI-focused, opaque operations.
+- **Faker + Presidio + custom scripts:** Fragmented, no pipeline, no proof.
+- **DP libraries:** Great math, but narrow scope.
 
 You're still missing:
 
-- Direct operations (mask, drop, fake - not just "achieve k-anonymity")
-- Risk testing (can someone actually re-identify records?)
-- Short text handling (job titles, comments - without LLM)
-- Reproducibility (what exactly was done?)
+- Direct operations (mask, generalize, pseudonymize, suppress) — not just "achieve k-anonymity".
+- Risk measurement (privacy/fidelity/utility metrics on real outputs).
+- Reproducibility (config + metrics + artifacts written to disk per task).
 
 ---
 
 ## The Solution
 
-PAMOLA.CORE: operations-first privacy engineering with full audit trail.
+PAMOLA.CORE: operations-first privacy engineering with a per-operation lifecycle (validate → load → process → save → metrics → visualize → cache).
 
 ```python
-from pamola_core.tasks import TaskRunner
-from pamola_core.profiling import ProfileOperation
-from pamola_core.anonymization import MaskingOperation, GeneralizationOperation
-from pamola_core.noise import LaplaceNoiseOperation
-from pamola_core.metrics import PrivacyProxyMetricsOperation
-from pamola_core.attacks import AttackSuiteOperation
+from pathlib import Path
 
-# Define pipeline with reproducible seed
-task = TaskRunner(task_dir="./anonymize_customers", seed=42)
+import pandas as pd
 
-task.run([
-    ProfileOperation(params={"analyzers": ["all"]}),
-    MaskingOperation(params={"fields": ["name", "email", "phone"], "strategy": "partial"}),
-    GeneralizationOperation(params={"field": "age", "bins": [0, 18, 35, 50, 65, 100]}),
-    LaplaceNoiseOperation(params={"fields": ["salary"], "epsilon": 1.0, "sensitivity": 1000}),
-    PrivacyProxyMetricsOperation(params={"metrics": ["k_anonymity", "l_diversity"]}),
-    AttackSuiteOperation(params={"policy": "standard"}),
-], input_data="customers.csv")
+from pamola_core import HashBasedPseudonymizationOperation, FullMaskingOperation
+from pamola_core.utils.ops.op_data_source import DataSource
+from pamola_core.utils.tasks.task_reporting import TaskReporter
+from pamola_core.utils.progress import HierarchicalProgressTracker
 
-# Result: task_dir/ with data, metrics, attack results, manifest.json
+df = pd.read_csv("customers.csv")
+data_source = DataSource(dataframes={"main": df})
+task_dir = Path("./anonymize_customers")
+reporter = TaskReporter(task_dir=task_dir, task_name="anonymize")
+tracker = HierarchicalProgressTracker(total=2, description="Anonymize")
+
+# 1) Irreversible hash-based pseudonymization of the email column
+HashBasedPseudonymizationOperation(
+    field_name="email",
+    algorithm="sha3_256",
+    salt_config={"source": "parameter", "value": "ab" * 32},
+    use_pepper=True,
+).execute(data_source, task_dir, reporter, tracker)
+
+# 2) Mask the phone column entirely
+FullMaskingOperation(
+    field_name="phone",
+    mask_char="*",
+).execute(data_source, task_dir, reporter, tracker)
 ```
 
-**Output structure:**
+**Output structure (`task_dir/`):**
 
 ```
 anonymize_customers/
-├── manifest.json          # Full reproducibility record
-├── output/                # Anonymized data (csv/parquet)
-│   └── anonymized.csv
-├── metrics/               # Privacy & utility metrics (JSON)
-│   ├── metrics_summary.json
-│   └── metrics_detail.json
-├── attacks/               # Attack simulation results
-│   └── suite_report.json
-├── plots/                 # Generated visualizations
-├── dictionaries/          # Extracted mappings
-└── logs/                  # Execution logs
+├── config.json           # Operation configuration (secrets redacted)
+├── output/               # Anonymized data (csv/parquet)
+├── metrics/              # Privacy & quality metrics (JSON)
+├── visualizations/       # Generated charts (PNG)
+└── logs/                 # Per-task execution log
 ```
+
+> **Security note (1.0.0.dev3):** `config.json` now redacts sensitive parameters (e.g. AES-256 mapping encryption keys) via `OperationConfig.SENSITIVE_KEYS`. See [CHANGELOG.md](CHANGELOG.md) for the full release notes.
 
 ---
 
@@ -89,135 +93,101 @@ PAMOLA.CORE is part of a comprehensive privacy engineering stack:
 
 | Component | Description | Availability |
 |-----------|-------------|--------------|
-| **PAMOLA.CORE** | Operations, metrics, attacks, pipeline runtime | **Open Source** |
+| **PAMOLA.CORE** | Anonymization, profiling, transformation, metrics, and shared op framework | **Open Source (this repo)** |
 | **PAMOLA.STUDIO** | Visual environment for data transformation and privacy management | Commercial |
-| **PAMOLA.SYNT** | Synthetic data generation with DP guarantees (CTGAN, TVAE) | Commercial |
+| **PAMOLA.SYNT** | Synthetic data generation, including formal DP-SGD-based generators | Commercial |
+| **PAMOLA.BEST** | Best-practice policy modules and DP accounting | Commercial |
 | **PAMOLA.TEXT** | Long text and document anonymization (NLP/LLM-based) | Commercial |
 | **PAMOLA.INSIGHT** | Agent modules for LLM integration | Commercial |
+
+> **Scope of CORE:** This package provides anonymization and pseudonymization primitives, classical privacy metrics, and reproducibility plumbing. It does **not** implement formal differential-privacy synthetic-data generation — that lives in PAMOLA.SYNT / PAMOLA.BEST.
 
 ---
 
 ## What's In CORE
 
+All classes below are exported from the top-level `pamola_core` package.
+
 | Category | Operations |
 |----------|------------|
-| **Profiling** | `ProfileOperation`, `CorrelationOperation`, `ShortTextProfileOperation` |
-| **Anonymization** | `MaskingOperation`, `GeneralizationOperation`, `SuppressionOperation`, `PseudonymizationOperation` |
-| **Transformation** | `CleaningOperation`, `MergeOperation`, `SplitOperation`, `AggregateOperation` |
-| **Noise (DP-semantics)** | `LaplaceNoiseOperation`, `GaussianNoiseOperation`, `DateTimeJitterOperation`, `RandomizedResponseOperation` |
-| **Short Text** | `ShortTextProfileOperation`, `ShortTextCategorizerOperation`, `ShortTextMaskOperation`, `ShortTextNEROperation` |
-| **Fake Data** | `FakeNameOperation`, `FakeEmailOperation`, `FakePhoneOperation`, `FakeOrgOperation` |
-| **Metrics** | `QualityMetricsOperation`, `PrivacyProxyMetricsOperation`, `AttackBasedMetricsOperation`, `CompositeScoreOperation` |
-| **Attacks** | `CVPLAttackOperation`, `LinkageAttackOperation`, `SinglingOutOperation`, `AttributeInferenceOperation`, `AttackSuiteOperation` |
+| **Anonymization — Masking** | `FullMaskingOperation`, `PartialMaskingOperation` |
+| **Anonymization — Generalization** | `CategoricalGeneralizationOperation`, `NumericGeneralizationOperation`, `DateTimeGeneralizationOperation` |
+| **Anonymization — Suppression** | `AttributeSuppressionOperation`, `CellSuppressionOperation`, `RecordSuppressionOperation` |
+| **Anonymization — Pseudonymization** | `HashBasedPseudonymizationOperation` (SHA3-256/512 + salt + pepper), `ConsistentMappingPseudonymizationOperation` (AES-256-GCM reversible mapping) |
+| **Anonymization — Noise** | `UniformNumericNoiseOperation`, `UniformTemporalNoiseOperation` |
+| **Profiling — Field analyzers** | `CategoricalOperation`, `CorrelationOperation`, `CorrelationMatrixOperation`, `CurrencyOperation`, `DateOperation`, `EmailOperation`, `GroupAnalyzerOperation`, `IdentityAnalysisOperation`, `MVFOperation`, `NumericOperation`, `PhoneOperation`, `TextSemanticCategorizerOperation` |
+| **Profiling — Dataset-level** | `KAnonymityProfilerOperation`, `DataAttributeProfilerOperation` |
+| **Transformation** | `AddOrModifyFieldsOperation`, `RemoveFieldsOperation`, `CleanInvalidValuesOperation`, `ImputeMissingValuesOperation`, `AggregateRecordsOperation`, `MergeDatasetsOperation`, `SplitByIDValuesOperation`, `SplitFieldsOperation` |
+| **Fake Data** | `FakeNameOperation`, `FakeEmailOperation`, `FakePhoneOperation`, `FakeOrganizationOperation` |
+| **Metrics** | `FidelityOperation` (KS, KL-divergence), `PrivacyMetricOperation` (DCR, NNDR, uniqueness, k-anonymity, l-diversity), `UtilityMetricOperation` (classification, regression) |
+| **Analysis helpers** | `analyze_dataset_summary`, `analyze_descriptive_stats`, `analyze_correlation`, `visualize_distribution_df`, `calculate_full_risk` |
+
+> **Note on attack simulation:** Internal modules under `pamola_core/attacks/` (linkage, attribute inference, membership inference, DCR/NNDR helpers) are used by `PrivacyMetricOperation`, but there are no public, registered `Attack*Operation` classes in CORE 1.0.0.dev3. Future releases may expose them.
 
 ---
 
-## Attack Simulation (experimental)
+## Pseudonymization Spotlight (1.0.0.dev3)
 
-> **⚠️ Experimental:** The `attacks` module is functional but under active development. API may change in future releases.
-
-PAMOLA.CORE tests practical re-identification risk on your **data**:
-
-| Attack | Question |
-|--------|----------|
-| **CVPL** | How much information leaks between releases? (PAMOLA signature) |
-| **Fellegi-Sunter Linkage** | Can records be matched to external data? |
-| **Singling-out** | Are any records uniquely identifiable? |
-| **Attribute inference** | Can sensitive attributes be guessed from QI? |
+The 1.0.0.dev3 release hardened the pseudonymization stack:
 
 ```python
-from pamola_core.tasks import TaskRunner
-from pamola_core.attacks import AttackSuiteOperation
+from pamola_core import ConsistentMappingPseudonymizationOperation
 
-task = TaskRunner(task_dir="./risk_assessment", seed=42)
-task.run([
-    AttackSuiteOperation(params={
-        "policy": "standard",  # or "minimal", "comprehensive"
-        "quasi_identifiers": ["age", "gender", "zipcode"],
-        "sensitive_columns": ["diagnosis"]
-    })
-], input_data="anonymized.csv")
+op = ConsistentMappingPseudonymizationOperation(
+    field_name="customer_id",
+    mapping_encryption_key="ab" * 32,         # 256-bit hex key
+    pseudonym_type="uuid",                    # or "sequential" / "random_string"
+    mapping_format="csv",                     # encrypted at rest with AES-256-GCM
+    persist_frequency=1000,
+)
 
-# Result: attacks/suite_report.json with risk scores and verdicts
+# Outputs:
+#  - {task_dir}/output/         anonymized data
+#  - {task_dir}/output/         encrypted mapping file (re-identification key)
+#  - {task_dir}/metrics/        operation metrics
+#  - {task_dir}/config.json     mapping_encryption_key is replaced with "*REDACTED*"
 ```
 
-> **Note:** Model-centric attacks (MIA on generators) belong to PAMOLA.SYNT
+Highlights:
+
+- **AES-256-GCM mapping encryption keys are never persisted to disk.** A new `OperationConfig.SENSITIVE_KEYS` declaration + `to_safe_dict()` redacts secrets before any `save_config()` call.
+- **Hash-based op rejects weak salts** (all-zero or empty) when `use_pepper=False`.
+- **Per-run session id** invalidates stale disk cache when `use_pepper=True`, so previous-run pseudonyms cannot be served back.
+- **Compound identifiers**, **ENRICH/REPLACE modes**, **reverse mapping**, and **Dask pickle safety** are covered by 41 dedicated tests.
 
 ---
 
-## Metrics with Verdicts
+## Metrics
 
-Metrics produce actionable signals, not just numbers:
+Metric operations write JSON artifacts under `{task_dir}/metrics/`:
 
 ```python
-from pamola_core.metrics import CompositeScoreOperation
+from pamola_core import FidelityOperation, PrivacyMetricOperation
 
-# Aggregate metrics with weighted scoring
-CompositeScoreOperation(params={
-    "weights": {
-        "quality": 0.3,
-        "privacy_proxy": 0.2,
-        "privacy_attack": 0.4,  # Attack-based metrics weighted higher
-        "utility": 0.1
-    }
-})
-# Output: metrics_summary.json with verdict (PASS/WARN/FAIL)
+FidelityOperation(
+    fidelity_metrics=["ks", "kl"],
+    columns=["age", "income"],
+).execute(data_source, task_dir, reporter, tracker)
+
+PrivacyMetricOperation(
+    privacy_metrics=["dcr", "nndr", "uniqueness"],
+    quasi_identifiers=["age", "gender", "zipcode"],
+).execute(data_source, task_dir, reporter, tracker)
 ```
 
-**Output example (`metrics_summary.json`):**
-
-```json
-{
-  "overall": {
-    "quality_score": 0.85,
-    "privacy_score": 0.78,
-    "composite_score": 0.84,
-    "verdict": "PASS"
-  },
-  "metrics": {
-    "k_anonymity": {"value": 5, "verdict": "PASS"},
-    "linkage_rate": {"value": 0.02, "verdict": "PASS"}
-  }
-}
-```
-
----
-
-## DP-Semantics Noise
-
-Add calibrated noise with differential privacy semantics:
-
-```python
-from pamola_core.noise import LaplaceNoiseOperation
-
-LaplaceNoiseOperation(params={
-    "fields": ["salary", "age"],
-    "epsilon": 1.0,
-    "sensitivity": {"salary": 1000, "age": 1},
-    "seed": 42,
-    "clip_bounds": {"salary": [0, None]}  # No negative values
-})
-# Output includes noise_report.json documenting exactly what was applied
-```
-
-> **Note:** This provides DP-like noise but NOT formal DP guarantees without external accountant. For formal guarantees, use `pamola-core[dp]` with OpenDP adapter.
-
----
-
-## What's NOT in CORE
-
-| Feature | Package | Why separate |
-|---------|---------|--------------|
-| Long text + LLM anonymization | `pamola-core[text]` | Heavy deps (torch, transformers) |
-| Formal DP with accountant | `pamola-core[dp]` | Use OpenDP/diffprivlib adapters |
-| Synthetic data generation | `pamola-synt` | Different concern, ML models |
-| Model-centric attacks (MIA) | `pamola-synt` | Requires trained model access |
+For dataset-level utility scoring (classification / regression downstream models) use `UtilityMetricOperation`.
 
 ---
 
 ## Installation
 
-**From source (current):**
+**From PyPI:**
+
+```bash
+pip install pamola-core==1.0.0.dev3
+```
+
+**From source:**
 
 ```bash
 git clone https://github.com/DGT-Network/PAMOLA.git
@@ -225,21 +195,13 @@ cd PAMOLA
 pip install -e .
 ```
 
-**With optional extras:**
+**Test extras:**
 
 ```bash
-pip install -e ".[fast]"       # + Polars, ConnectorX, DuckDB
-pip install -e ".[profiling]"  # + YData-profiling, Presidio
-pip install -e ".[ner]"        # + spaCy for short text NER
-pip install -e ".[dp]"         # + OpenDP for formal DP guarantees
-pip install -e ".[dev]"        # + pytest, coverage, black, ruff
+pip install -e ".[test]"   # adds pytest, pytest-cov
 ```
 
-**From PyPI:**
-
-```bash
-pip install pamola-core
-```
+> **Heads-up:** All scientific dependencies (numpy, pandas, scikit-learn, scipy, torch, dask, spacy, sdv, faker, cryptography, etc.) are pinned in the main `[project.dependencies]` table — no separate `[fast]/[ner]/[dp]` extras in this release.
 
 ---
 
@@ -259,13 +221,18 @@ PAMOLA.CORE supports Python **3.10, 3.11, and 3.12** (`requires-python = ">=3.10
 
 ## Core Dependencies
 
-These packages are declared in `pyproject.toml` under `[project.dependencies]` and are automatically installed with `pip install pamola-core`.
+A non-exhaustive view of the heaviest third-party packages (full list in `pyproject.toml`):
 
-| Package | Version Range | Purpose |
+| Package | Pin | Purpose |
 |---|---|---|
-| **numpy** | `==1.26.4` | Numerical computation and array operations used throughout privacy metrics, attack simulations, and statistical analysis |
-| **pandas** | `==2.2.2` | Tabular data structures and DataFrame processing; the primary data container for all PAMOLA operations |
-| **scikit-learn** | `==1.7.2` | Machine learning utilities used by core operations including nearest-neighbor attacks, classification metrics, and model-based privacy risk assessment |
+| **numpy** | `1.26.4` | Numerical computation across metrics, attacks, statistical analysis |
+| **pandas** | `2.2.2` | The DataFrame container for every CORE operation |
+| **scikit-learn** | `1.7.2` | Classification/regression metrics, nearest-neighbor distance, model-based utility |
+| **scipy** | `1.15.3` | Statistical tests (KS, KL divergence) used by `FidelityOperation` |
+| **cryptography** | `46.0.3` | AES-256-GCM mapping encryption for `ConsistentMappingPseudonymizationOperation` |
+| **dask[complete]** | `2025.11.0` | Optional out-of-core / distributed execution path |
+| **pyarrow** | `14.0.2` | Parquet I/O |
+| **typer** | `0.24.1` | CLI entry point |
 
 ---
 
@@ -275,48 +242,60 @@ PAMOLA.CORE follows [Semantic Versioning](https://semver.org/) and [PEP 440](htt
 
 ```python
 import pamola_core
-print(pamola_core.__version__)  # e.g. "1.0.0.dev1"
+print(pamola_core.__version__)   # e.g. "1.0.0.dev3"
 ```
 
 | Phase | Version | Branch | Tag | Install |
 |-------|---------|--------|-----|---------|
-| Dev | `1.0.0.dev1` | `develop` | `v1.0.0.dev1` | `pip install pamola-core==1.0.0.dev1` |
-| Stable | `1.0.0` | `main` | `v1.0.0` | `pip install pamola-core` |
+| Dev (current) | `1.0.0.dev3` | `develop` | `v1.0.0.dev3` | `pip install pamola-core==1.0.0.dev3` |
+| Stable (planned) | `1.0.0` | `main` | `v1.0.0` | `pip install pamola-core` |
 
 - **Source of truth:** `pyproject.toml` → `version`
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
-- **CI/CD:** GitHub Actions — lint, test (3.10/3.11/3.12), build, PyPI publish on tag `v*`
-- **Release rules:** Dev tags (`v*dev*`) must be on `develop`, stable tags on `main`
+- **CI/CD:** GitHub Actions — lint (ruff), test (3.10/3.11/3.12, pytest), build (sdist+wheel), PyPI publish on tag `v*`
+- **Release rules:** Dev tags (`v*dev*`) must be on `develop`; stable tags on `main`.
 
 ---
 
 ## CLI
 
+The `pamola-core` console script is installed automatically:
+
 ```bash
 pamola-core --version
-pamola-core list-ops
-pamola-core run --task task.json --output ./task_dir
-pamola-core run --op MaskingOperation --config config.json --input data.csv
-pamola-core schema MaskingOperation
+pamola-core list-ops                              # discover registered operations
+pamola-core run --task task.json                  # run a task definition
+pamola-core run --op FullMaskingOperation --config config.json --input data.csv
+pamola-core schema FullMaskingOperation           # show parameter schema
+pamola-core validate-config --config config.json  # validate a config file
 ```
+
+Run `pamola-core --help` for the full command list.
 
 ---
 
-## Sample Data
+## Examples
 
-> **Note:** Synthetic test datasets are available in [`data/raw/`](https://github.com/DGT-Network/PAMOLA/tree/main/data/raw) for development and testing purposes only.
->
-> **No real personal data (PII/PHI) is included.** All records are artificially generated.
+Hands-on notebooks live under [`examples/`](https://github.com/DGT-Network/PAMOLA/tree/main/examples):
+
+- `examples/anonymization/pseudonymization/` — simple + advanced for hash-based and consistent-mapping pseudonymization
+- `examples/anonymization/` — masking, generalization, noise, suppression
+- `examples/profiling/` — field-level and dataset-level profilers
+- `examples/transformations/` — merge, split, aggregate, clean, impute
+- `examples/fake_data/` — synthetic identity, email, phone, organization
+- `examples/metrics/` — fidelity, privacy, utility metrics
+- `examples/data_examples/sample.csv` — non-PII synthetic sample used by the notebooks
+
+> **No real personal data** is included in this repository. All sample records are artificially generated.
 
 ---
 
 ## Philosophy
 
-- **Operations-first:** Direct transforms, not constraint optimization
-- **Measure everything:** Quality, privacy, utility - with verdicts
-- **Test before release:** Practical risk via data-release attacks
-- **Noise with transparency:** DP-semantics + detailed reports
-- **Reproducibility by default:** manifest.json tracks everything
+- **Operations-first:** Direct transforms with a well-defined 7-step lifecycle, not constraint optimization.
+- **Measure everything:** Privacy, fidelity, and utility metrics persisted as JSON artifacts.
+- **Reproducibility by default:** Each operation writes a `config.json` (with secrets redacted) alongside its output.
+- **Secret hygiene:** `OperationConfig.SENSITIVE_KEYS` provides a single place to declare parameters that must never reach disk.
 
 ---
 
@@ -324,17 +303,9 @@ pamola-core schema MaskingOperation
 
 The project uses **Sphinx** to generate API reference documentation from Python docstrings.
 
-Build the documentation locally:
-
 ```bash
 cd docs
-make html
-```
-
-The generated documentation will be available at:
-
-```
-docs/_build/html/index.html
+make html        # output: docs/_build/html/index.html
 ```
 
 ---
@@ -347,16 +318,17 @@ docs/_build/html/index.html
 | **Technical Documentation** | [docs/en/index.md](https://github.com/DGT-Network/PAMOLA/blob/main/docs/en/index.md) |
 | **Glossary** | [realmdata.io/glossary](https://realmdata.io/pages/glossary.html) |
 | **Examples** | [`examples/`](https://github.com/DGT-Network/PAMOLA/tree/main/examples) |
+| **Changelog** | [CHANGELOG.md](CHANGELOG.md) |
 
 ---
 
 ## Use Cases
 
-- **Data Engineering:** Prepare privacy-safe datasets for ML training
-- **Healthcare:** HIPAA-oriented de-identification workflows (Safe Harbor support)
-- **Finance:** Privacy engineering aligned with PCI/GDPR considerations
-- **Compliance:** Audit-ready evidence with manifest.json and attack reports
-- **Data Sharing:** Risk-assessed data exchange between organizations
+- **Data Engineering:** Prepare privacy-safe datasets for ML training.
+- **Healthcare:** HIPAA-oriented de-identification workflows (Safe Harbor support).
+- **Finance:** Privacy engineering aligned with PCI/GDPR considerations.
+- **Compliance:** Audit-ready evidence with structured per-operation artifacts.
+- **Data Sharing:** Risk-assessed data exchange between organizations.
 
 ---
 
@@ -366,9 +338,9 @@ PAMOLA.CORE provides technical building blocks for privacy compliance programs:
 
 | Regulation | Relevant Capabilities |
 |------------|----------------------|
-| **GDPR** | Pseudonymization, data minimization (Art. 25, 32) |
+| **GDPR** | Pseudonymization (reversible / irreversible), data minimization (Art. 25, 32) |
 | **HIPAA** | Safe Harbor de-identification support |
-| **CCPA/CPRA** | Data suppression, anonymization workflows |
+| **CCPA/CPRA** | Data suppression, masking, anonymization workflows |
 
 > **Important:** PAMOLA.CORE provides technical capabilities only. Legal compliance requires organizational policies, procedures, and legal guidance beyond software tools.
 
@@ -379,7 +351,7 @@ PAMOLA.CORE provides technical building blocks for privacy compliance programs:
 ```bash
 git clone https://github.com/DGT-Network/PAMOLA.git
 cd PAMOLA
-pip install -e ".[dev]"
+pip install -e ".[test]"
 pytest tests/ -v
 ```
 
@@ -391,9 +363,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **PAMOLA.CORE** is developed and owned exclusively by **[Realm Inveo Inc.](https://realmdata.io)**
 
-This repository is hosted under DGT-Network GitHub organization, which provides shared development infrastructure for Realm Inveo projects. **DGT-Network does not claim ownership of this intellectual property.** All IP rights belong exclusively to Realm Inveo Inc.
+This repository is hosted under the DGT-Network GitHub organization, which provides shared development infrastructure for Realm Inveo projects. **DGT-Network does not claim ownership of this intellectual property.** All IP rights belong exclusively to Realm Inveo Inc.
 
-**License:** Apache 2.0 - see [LICENSE](https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE)
+**License:** BSD 3-Clause — see [LICENSE](https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE).
 
 ---
 
