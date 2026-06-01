@@ -7,7 +7,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [1.0.0.dev3] - 2026-05-29
+## [1.0.0.dev3] - 2026-06-01
+
+> **Scope:** This release is a **CORE pseudonymization & anonymization hardening** release. It does **not** introduce, modify, or imply any formal differential-privacy (DP-SGD) or DP-based synthetic-data-generation capability — those capabilities live in the separate BEST / SYNT packages and follow an independent roadmap.
 
 ### Security
 
