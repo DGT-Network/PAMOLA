@@ -2,11 +2,11 @@
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 Module:        Consistent Mapping Pseudonymization Operation
 Package:       pamola_core.anonymization.pseudonymization
-Version:       1.0.2
+Version:       1.1.0
 Status:        stable
 Author:        PAMOLA Core Team
 Created:       2025-05-20
-Updated:       2025-06-15
+Updated:       2025-06-20
 License:       BSD 3-Clause
 
 Description:
@@ -22,7 +22,7 @@ Key Features:
     - Batch processing with automatic persistence
     - Support for REPLACE and ENRICH modes
     - Compound identifier support for multi-field pseudonymization
-    - Integration with PAMOLA framework standards
+    - Integration with PAMOLA framework standards (7-step lifecycle)
     - Comprehensive metrics collection and visualization
 
 Security Considerations:
@@ -32,49 +32,26 @@ Security Considerations:
     - Thread-safe operations for concurrent access
     - No plaintext mappings in memory or logs
 
-Dependencies:
-    - pamola_core.utils.crypto_helpers.pseudonymization: Core crypto functions
-    - pamola_core.anonymization.commons.mapping_storage: Encrypted mapping storage
-    - pamola_core.anonymization.commons.pseudonymization_utils: Shared utilities
-    - threading: For thread synchronization
-    - uuid: For UUID generation
-    - pathlib: For file path handling
-
 Changelog:
-    1.0.0 (2025-01-20):
-        - Initial implementation with full framework integration
-        - Support for UUID, sequential, and random string generation
-        - Encrypted mapping storage with atomic operations
-        - Batch processing with configurable persistence
-        - Comprehensive metrics and visualization
-    1.0.1 (2025-06-15):
-        - Updated imports to use validation_utils facade
-        - Improved mapping directory structure
-        - Enhanced error handling and recovery
-    1.0.2 (2025-06-15):
-        - Fixed condition_operator normalization (P-1)
-        - Improved key validation error handling (P-2)
-        - Added null_strategy error handling in process_batch (P-3)
-        - Accurate lookup time tracking (P-4)
-        - Sequential counter persistence in metadata (P-5)
-        - Pseudonym length validation (P-6)
-        - Added missing metrics: mapping_hit_rate, percent_new_mappings (P-7)
-        - Fixed export format consistency (P-8)
-        - Corrected progress tracking weights (P-9)
-        - Added collision tracking for random_string type
+    1.0.0 (2025-01-20): Initial implementation
+    1.0.1 (2025-06-15): Updated imports to use validation_utils facade
+    1.0.2 (2025-06-15): P-1 through P-9 fixes
+    1.1.0 (2025-06-20): Refactored to 7-step lifecycle; imported config from schema module
 """
 
-import logging
+import secrets
 import string
 import threading
 import time
-import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
+from pamola_core.common.helpers.data_helper import DataHelper
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.exceptions import (
     PseudonymizationError,
     FieldNotFoundError,
@@ -86,8 +63,10 @@ from pamola_core.errors.exceptions import (
 # Base anonymization operation import
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 
-# Data utilities imports
-from pamola_core.anonymization.commons.data_utils import process_nulls
+# Config schema import (replaces inline class)
+from pamola_core.anonymization.schemas.mapping_op_core_schema import (
+    ConsistentMappingPseudonymizationConfig,
+)
 
 # Mapping storage import
 from pamola_core.anonymization.commons.mapping_storage import MappingStorage
@@ -111,14 +90,8 @@ from pamola_core.anonymization.commons.pseudonymization_utils import (
     format_pseudonym_output,
 )
 
-# Validation imports - Using validation_utils facade
+# Validation imports
 from pamola_core.anonymization.commons.validation_utils import check_field_exists
-
-# Visualization utilities imports
-from pamola_core.anonymization.commons.visualization_utils import (
-    create_comparison_visualization,
-    create_metric_visualization,
-)
 
 # Crypto helpers imports
 from pamola_core.utils.crypto_helpers.pseudonymization import (
@@ -126,83 +99,18 @@ from pamola_core.utils.crypto_helpers.pseudonymization import (
     validate_key_size,
 )
 
-# Operation framework imports
-from pamola_core.utils.ops.op_config import OperationConfig
-from pamola_core.utils.ops.op_data_processing import (
-    force_garbage_collection,
-    optimize_dataframe_dtypes,
-)
+# IO / framework imports
+from pamola_core.utils.io import load_settings_operation
+from pamola_core.utils.ops.op_cache import OperationCache
+from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_field_utils import (
-    apply_condition_operator,
     create_composite_key,
-    generate_output_field_name,
 )
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
-
-# Configure module logger
-logger = logging.getLogger(__name__)
-
-
-class ConsistentMappingPseudonymizationConfig(OperationConfig):
-    """Configuration for ConsistentMappingPseudonymizationOperation."""
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "field_name": {"type": "string"},
-            "additional_fields": {
-                "type": ["array", "null"],
-                "items": {"type": "string"},
-            },
-            "mapping_file": {"type": ["string", "null"]},
-            "mapping_format": {"type": "string", "enum": ["csv", "json"]},
-            "pseudonym_type": {
-                "type": "string",
-                "enum": ["uuid", "sequential", "random_string"],
-            },
-            "pseudonym_prefix": {"type": ["string", "null"]},
-            "pseudonym_suffix": {"type": ["string", "null"]},
-            "pseudonym_length": {"type": "integer", "minimum": 4, "maximum": 64},
-            "encryption_key": {"type": "string"},  # Hex-encoded key
-            "create_if_not_exists": {"type": "boolean"},
-            "backup_on_update": {"type": "boolean"},
-            "persist_frequency": {"type": "integer", "minimum": 1},
-            "mode": {"type": "string", "enum": ["REPLACE", "ENRICH"]},
-            "output_field_name": {"type": ["string", "null"]},
-            "column_prefix": {"type": "string"},
-            "null_strategy": {
-                "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
-            },
-            "batch_size": {"type": "integer", "minimum": 1},
-            "use_cache": {"type": "boolean"},  # Not used, mapping is the cache
-            "use_encryption": {"type": "boolean"},  # Always true for this operation
-            "condition_field": {"type": ["string", "null"]},
-            "condition_values": {"type": ["array", "null"]},
-            "condition_operator": {"type": "string"},
-            "ka_risk_field": {"type": ["string", "null"]},
-            "risk_threshold": {"type": "number"},
-            "vulnerable_record_strategy": {"type": "string"},
-            "output_file_format": {
-                "type": "string",
-                "enum": ["csv", "parquet", "arrow"],
-            },
-            "quasi_identifiers": {
-                "type": ["array", "null"],
-                "items": {"type": "string"},
-            },
-            "compound_mode": {"type": "boolean"},
-            "compound_separator": {"type": "string"},
-            "compound_null_handling": {
-                "type": "string",
-                "enum": ["skip", "empty", "null"],
-            },
-        },
-        "required": ["field_name", "encryption_key"],
-    }
+from pamola_core.utils.helpers import filter_used_kwargs
 
 
 @register(version="1.0.0")
@@ -213,12 +121,18 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
     This operation maintains a bidirectional mapping between original values
     and generated pseudonyms, enabling reversibility when needed. All mappings
     are stored encrypted using AES-256-GCM.
+
+    Follows the standard PAMOLA 7-step operation lifecycle.
     """
+
+    # Tells AnonymizationOperation.process_data() to use the pseudonymization
+    # null-anonymize placeholder ("*REDACTED*") instead of "SUPPRESSED".
+    _is_pseudonymization: bool = True
 
     def __init__(
         self,
         field_name: str,
-        encryption_key: Union[str, bytes],
+        mapping_encryption_key: Union[str, bytes],
         additional_fields: Optional[List[str]] = None,
         mapping_file: Optional[Union[str, Path]] = None,
         mapping_format: str = "csv",
@@ -229,25 +143,11 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         create_if_not_exists: bool = True,
         backup_on_update: bool = True,
         persist_frequency: int = 1000,
-        mode: str = "REPLACE",
-        output_field_name: Optional[str] = None,
-        column_prefix: str = "_",
-        null_strategy: str = "PRESERVE",
-        batch_size: int = 10000,
-        use_cache: bool = True,  # Ignored - mapping is the cache
-        use_encryption: bool = True,  # Always true
-        condition_field: Optional[str] = None,
-        condition_values: Optional[List] = None,
-        condition_operator: Optional[str] = None,  # P-1: Made optional
-        ka_risk_field: Optional[str] = None,
-        risk_threshold: float = 5.0,
-        vulnerable_record_strategy: str = "pseudonymize",
-        output_file_format: str = "csv",
         quasi_identifiers: Optional[List[str]] = None,
         compound_mode: bool = False,
         compound_separator: str = "|",
         compound_null_handling: str = "skip",
-        description: str = "",
+        **kwargs,
     ):
         """
         Initialize consistent mapping pseudonymization operation.
@@ -256,8 +156,8 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         -----------
         field_name : str
             Primary field to pseudonymize
-        encryption_key : Union[str, bytes]
-            256-bit encryption key (hex string or bytes)
+        mapping_encryption_key : Union[str, bytes]
+            256-bit encryption key (hex string or bytes) for mapping storage
         additional_fields : Optional[List[str]]
             Additional fields for compound pseudonymization
         mapping_file : Optional[Union[str, Path]]
@@ -278,34 +178,6 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             Backup before updates (default: True)
         persist_frequency : int
             Save after N new mappings (default: 1000)
-        mode : str
-            "REPLACE" or "ENRICH" (default: "REPLACE")
-        output_field_name : Optional[str]
-            Output field name for ENRICH mode
-        column_prefix : str
-            Prefix for generated column names (default: "_")
-        null_strategy : str
-            How to handle nulls: "PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"
-        batch_size : int
-            Batch size for processing (default: 10000)
-        use_cache : bool
-            Ignored - mapping serves as cache
-        use_encryption : bool
-            Always true for mapping operations
-        condition_field : Optional[str]
-            Field for conditional processing
-        condition_values : Optional[List]
-            Values for conditional processing
-        condition_operator : Optional[str]
-            Operator for conditions (default: "in" if condition_field set)
-        ka_risk_field : Optional[str]
-            Field containing k-anonymity risk scores
-        risk_threshold : float
-            Risk threshold for vulnerable records (default: 5.0)
-        vulnerable_record_strategy : str
-            Strategy for vulnerable records (default: "pseudonymize")
-        output_file_format : str
-            Output format: "csv", "parquet", "arrow" (default: "csv")
         quasi_identifiers : Optional[List[str]]
             Quasi-identifiers for privacy metrics
         compound_mode : bool
@@ -314,533 +186,582 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             Separator for compound identifiers (default: "|")
         compound_null_handling : str
             How to handle nulls in compounds (default: "skip")
-        description : str
-            Operation description
+        **kwargs : dict
+            Additional parameters passed to AnonymizationOperation
+            (mode, null_strategy, condition_field, ka_risk_field, etc.)
         """
-        # P-1: Normalize condition_operator
-        if condition_field is not None and condition_operator is None:
-            condition_operator = "in"
-            logger.debug(
-                f"Set default condition_operator='in' for condition_field='{condition_field}'"
-            )
-
-        # P-2: Validate encryption key with better error handling
-        if isinstance(encryption_key, str):
-            # Assume hex-encoded
-            try:
-                self._encryption_key = bytes.fromhex(encryption_key)
-            except (ValidationError, ValueError) as e:
-                raise ValidationError(f"Invalid hex encryption key: {e}")
-        else:
-            self._encryption_key = encryption_key
-
-        # P-2: Wrap key size validation with custom error message
-        try:
-            validate_key_size(self._encryption_key, 256)
-        except Exception as e:
-            # Don't expose internal details about expected size
-            raise ValidationError("Invalid encryption key size") from e
-
-        # P-6: Validate pseudonym_length for random_string type
-        if pseudonym_type == "random_string":
-            prefix_len = len(pseudonym_prefix) if pseudonym_prefix else 0
-            suffix_len = len(pseudonym_suffix) if pseudonym_suffix else 0
-            effective_length = pseudonym_length - prefix_len - suffix_len
-
-            if effective_length < 4:
-                raise ValidationError(
-                    f"Pseudonym length ({pseudonym_length}) minus prefix/suffix "
-                    f"({prefix_len + suffix_len}) must be at least 4 characters"
-                )
-
-        # Validate compound mode
-        if compound_mode and not additional_fields:
-            raise ValidationError(
-                "compound_mode requires additional_fields to be specified"
-            )
-
-        # Ensure additional_fields is always a list
-        if additional_fields is None:
-            additional_fields = []
-
-        # Build config parameters
-        config_params = {
-            "field_name": field_name,
-            "additional_fields": additional_fields,
-            "mapping_file": str(mapping_file) if mapping_file else None,
-            "mapping_format": mapping_format,
-            "pseudonym_type": pseudonym_type,
-            "pseudonym_prefix": pseudonym_prefix,
-            "pseudonym_suffix": pseudonym_suffix,
-            "pseudonym_length": pseudonym_length,
-            "encryption_key": self._encryption_key.hex(),  # Store as hex
-            "create_if_not_exists": create_if_not_exists,
-            "backup_on_update": backup_on_update,
-            "persist_frequency": persist_frequency,
-            "mode": mode,
-            "output_field_name": output_field_name,
-            "column_prefix": column_prefix,
-            "null_strategy": null_strategy,
-            "batch_size": batch_size,
-            "use_cache": True,  # Always true (mapping is cache)
-            "use_encryption": True,  # Always true
-            "condition_field": condition_field,
-            "condition_values": condition_values,
-            "condition_operator": condition_operator or "in",  # Ensure non-None
-            "ka_risk_field": ka_risk_field,
-            "risk_threshold": risk_threshold,
-            "vulnerable_record_strategy": vulnerable_record_strategy,
-            "output_file_format": output_file_format,
-            "quasi_identifiers": quasi_identifiers,
-            "compound_mode": compound_mode,
-            "compound_separator": compound_separator,
-            "compound_null_handling": compound_null_handling,
-        }
-
-        # Create configuration
-        config = ConsistentMappingPseudonymizationConfig(**config_params)
-
-        # Use default description if none provided
-        if not description:
-            description = f"Consistent mapping pseudonymization for field '{field_name}' using {pseudonym_type}"
-
-        # Initialize base class
-        super().__init__(
-            field_name=field_name,
-            mode=mode,
-            output_field_name=output_field_name,
-            column_prefix=column_prefix,
-            null_strategy=null_strategy,
-            batch_size=batch_size,
-            use_cache=True,  # Always use mapping as cache
-            use_encryption=True,  # Always encrypt mappings
-            encryption_key=(
-                str(mapping_file) if mapping_file else None
-            ),  # Use as identifier
-            condition_field=condition_field,
-            condition_values=condition_values,
-            condition_operator=condition_operator or "in",  # Ensure non-None
-            ka_risk_field=ka_risk_field,
-            risk_threshold=risk_threshold,
-            vulnerable_record_strategy=vulnerable_record_strategy,
-            description=description,
+        # Description fallback
+        kwargs.setdefault(
+            "description",
+            f"Consistent mapping pseudonymization for '{field_name}' using {pseudonym_type}",
         )
 
-        # Store operation-specific parameters
-        self.additional_fields = additional_fields
-        self.mapping_file = mapping_file
-        self.mapping_format = mapping_format
-        self.pseudonym_type = pseudonym_type
-        self.pseudonym_prefix = pseudonym_prefix
-        self.pseudonym_suffix = pseudonym_suffix
-        self.pseudonym_length = pseudonym_length
-        self.create_if_not_exists = create_if_not_exists
-        self.backup_on_update = backup_on_update
-        self.persist_frequency = persist_frequency
-        self.output_file_format = output_file_format
-        self.quasi_identifiers = quasi_identifiers or []
-        self.compound_mode = compound_mode
-        self.compound_separator = compound_separator
-        self.compound_null_handling = compound_null_handling
+        # Validate and normalize mapping encryption key
+        if isinstance(mapping_encryption_key, str):
+            try:
+                _mapping_encryption_key = bytes.fromhex(mapping_encryption_key)
+            except ValueError as e:
+                raise ValidationError(f"Invalid hex encryption key: {e}")
+        else:
+            _mapping_encryption_key = mapping_encryption_key
 
-        # Version information
-        self.version = "1.0.2"
+        # Validate key size
+        try:
+            validate_key_size(_mapping_encryption_key, 256)
+        except Exception as e:
+            raise ValidationError("Invalid encryption key size") from e
+
+        # Normalize list-typed params at the source so the setattr loop below
+        # propagates real lists to self (avoids None vs [] inconsistency).
+        additional_fields = additional_fields or []
+        quasi_identifiers = quasi_identifiers or []
+
+        # Build config object (store key as hex for serialization)
+        config = ConsistentMappingPseudonymizationConfig(
+            field_name=field_name,
+            additional_fields=additional_fields,
+            mapping_file=str(mapping_file) if mapping_file else None,
+            mapping_format=mapping_format,
+            pseudonym_type=pseudonym_type,
+            pseudonym_prefix=pseudonym_prefix,
+            pseudonym_suffix=pseudonym_suffix,
+            pseudonym_length=pseudonym_length,
+            mapping_encryption_key=_mapping_encryption_key.hex(),
+            create_if_not_exists=create_if_not_exists,
+            backup_on_update=backup_on_update,
+            persist_frequency=persist_frequency,
+            quasi_identifiers=quasi_identifiers,
+            compound_mode=compound_mode,
+            compound_separator=compound_separator,
+            compound_null_handling=compound_null_handling,
+            **kwargs,
+        )
+
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
+
+        # Initialize base AnonymizationOperation
+        super().__init__(field_name=field_name, **kwargs)
+
+        # Copy config attributes to self
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+
+        # Operation metadata
+        self.operation_name = self.__class__.__name__
+        self.version = "1.1.0"
+
+        # Store encryption key as private bytes; remove the public hex attr set by
+        # the config setattr loop above to prevent accidental serialization/logging.
+        # (Defense-in-depth: ConsistentMappingPseudonymizationConfig.SENSITIVE_KEYS
+        # also redacts this key when save_config() writes config.json to disk.)
+        self._mapping_encryption_key = _mapping_encryption_key
+        if hasattr(self, "mapping_encryption_key"):
+            delattr(self, "mapping_encryption_key")
 
         # Initialize components
         self._pseudonym_generator = PseudonymGenerator(pseudonym_type)
 
-        # Will be initialized during execution
+        # Runtime state (initialized during execute)
         self._mapping_storage: Optional[MappingStorage] = None
         self._mapping: Dict[str, str] = {}
         self._reverse_mapping: Dict[str, str] = {}
         self._new_mappings_count = 0
+        self._total_new_mappings = (
+            0  # cumulative; never reset (unlike _new_mappings_count)
+        )
         self._total_lookups = 0
-        self._mapping_hits = 0  # P-7: Track hits for hit rate
+        self._mapping_hits = 0
         self._mapping_lock = threading.RLock()
-        self._output_field = None
         self._mapping_path: Optional[Path] = None
-        self._sequential_counter = 0  # For sequential pseudonyms
-        self._collision_count = 0  # Track collisions for random_string
-        self._generated_pseudonyms = set()  # Track all generated pseudonyms
-        self._lookup_times = []  # P-4: Track individual lookup times
+        self._sequential_counter = 0
+        self._collision_count = 0
+        self._generated_pseudonyms: set = set()
+        # Welford running mean for lookup timing (O(1) memory vs list-based)
+        self._lookup_time_count = 0
+        self._lookup_time_mean = 0.0
+        self._persist_count = 0
 
     def execute(
-        self, data_source, task_dir, reporter=None, progress_tracker=None, **kwargs
-    ):
+        self,
+        data_source: DataSource,
+        task_dir: Path,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
+    ) -> OperationResult:
         """
         Execute the consistent mapping pseudonymization operation.
 
-        This method overrides the base class execute to handle mapping
-        initialization, persistence, and proper thread safety.
+        Follows the standard 7-step PAMOLA lifecycle:
+        1. Data Loading & Validation
+        2. Cache check
+        3. Prepare output field
+        4. Processing (with mapping initialization)
+        5. Metrics
+        6. Visualization
+        7. Save output
+
+        Parameters
+        -----------
+        data_source : DataSource
+            Source of data for the operation
+        task_dir : Path
+            Directory where task artifacts should be saved
+        reporter : Any
+            Reporter object for tracking progress and artifacts
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Progress tracker for the operation
+        **kwargs
+            Additional parameters for the operation
+
+        Returns
+        --------
+        OperationResult
+            Results of the operation
         """
-        start_time = time.time()
-
-        # Create progress tracker if not provided
-        if progress_tracker is None:
-            progress_tracker = HierarchicalProgressTracker(
-                total=100,
-                description=f"Consistent mapping pseudonymization for {self.field_name}",
-                unit="steps",
-            )
-            should_close_tracker = True
-        else:
-            should_close_tracker = False
-
-        # Create DataWriter instance
-        writer = DataWriter(
-            task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-        )
-
         try:
-            # Update progress: Starting (5%)
-            progress_tracker.update(
-                5,
-                {
-                    "status": "initializing",
-                    "phase": "startup",
-                    "message": f"Starting mapping pseudonymization for field '{self.field_name}'",
-                },
+            # Start timing
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
             )
 
-            # Initialize mapping storage (5%)
-            self._initialize_mapping(task_dir)
-            progress_tracker.update(5, {"status": "mapping_initialized"})
+            # Initialize result object
+            result = OperationResult(status=OperationStatus.PENDING)
+            df = None
 
-            # Get the DataFrame
-            df, error_info = data_source.get_dataframe("main")
-            if df is None:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Failed to load data: {error_info.get('message')}",
-                )
+            dataset_name = kwargs.get("dataset_name", "main")
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            # Validate fields using the new validation framework
-            all_fields = [self.field_name] + self.additional_fields
-            for field in all_fields:
-                # Use check_field_exists from validation_utils
-                if not check_field_exists(df, field):
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=f"Field '{field}' not found in DataFrame",
-                    )
+            # Prepare directories and infrastructure
+            dirs = self._prepare_directories(task_dir)
 
-            # Determine output field name
-            self._output_field = generate_output_field_name(
-                self.field_name,
-                self.mode,
-                self.output_field_name,
-                operation_suffix="mapped",
-                column_prefix=self.column_prefix,
+            self.operation_cache = OperationCache(cache_dir=dirs["cache"])
+
+            # Initialize error handler early so outer except can use it
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
             )
 
-            # Store original for metrics
-            if self.compound_mode:
-                # For compound mode, create composite of all fields
-                original_series = create_composite_key(
-                    df, all_fields, self.compound_separator, self.compound_null_handling
-                )
-            else:
-                original_series = df[self.field_name].copy(deep=True)
-
-            # Update progress: Data loaded (10%)
-            progress_tracker.update(
-                10,
-                {
-                    "status": "data_loaded",
-                    "phase": "data_preparation",
-                    "records": len(df),
-                    "fields": len(all_fields),
-                    "compound_mode": self.compound_mode,
-                    "existing_mappings": len(self._mapping),
-                    "message": f"Loaded {len(df):,} records, {len(self._mapping):,} existing mappings",
-                },
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Apply risk-based filtering if configured
-            vulnerable_mask = None
-            vulnerable_count = 0
-            if self.ka_risk_field and self.ka_risk_field in df.columns:
-                vulnerable_mask = df[self.ka_risk_field] < self.risk_threshold
+            self.save_config(task_dir)
 
-                # Apply additional conditions
-                if self.condition_field and self.condition_field in df.columns:
-                    condition_mask = apply_condition_operator(
-                        df[self.condition_field],
-                        self.condition_values,
-                        self.condition_operator,
-                    )
-                    vulnerable_mask = vulnerable_mask & condition_mask
-
-                vulnerable_count = vulnerable_mask.sum()
-                self.logger.info(f"Identified {vulnerable_count} vulnerable records")
-
-                progress_tracker.update(
-                    5,
-                    {
-                        "status": "risk_analysis_complete",
-                        "vulnerable_records": vulnerable_count,
-                        "message": f"Risk analysis complete: {vulnerable_count:,} vulnerable records",
-                    },
-                )
-
-            # Process in batches (55% for P-9 fix)
-            total_batches = (len(df) + self.batch_size - 1) // self.batch_size
-            batch_progress = progress_tracker.create_subtask(
-                total=total_batches, description="Processing batches", unit="batches"
+            self.logger.info(
+                f"Visualization settings: theme={self.visualization_theme}, "
+                f"backend={self.visualization_backend}, strict={self.visualization_strict}, "
+                f"timeout={self.visualization_timeout}s"
             )
 
-            # Process each batch
-            for i in range(0, len(df), self.batch_size):
-                batch_indices = df.iloc[i : i + self.batch_size].index
+            settings_operation = load_settings_operation(
+                data_source, dataset_name, **kwargs
+            )
 
+            # Progress setup (7 main steps)
+            TOTAL_MAIN_STEPS = 6 + (
+                1 if self.use_cache and not self.force_recalculation else 0
+            )
+            main_progress = progress_tracker
+            current_steps = 0
+            if main_progress:
                 try:
-                    # Process batch
-                    batch_result = self._process_batch_safe(df.loc[batch_indices])
-                    df.loc[batch_indices] = batch_result
-
-                    # Check if we need to persist mappings
-                    if self._new_mappings_count >= self.persist_frequency:
-                        self._persist_mappings()
-
-                    # Memory cleanup for large batches
-                    if len(batch_indices) > 50000:
-                        force_garbage_collection()
-
+                    main_progress.total = TOTAL_MAIN_STEPS
+                    main_progress.update(
+                        current_steps,
+                        {
+                            "step": "Starting mapping pseudonymization",
+                            "field": self.field_name,
+                        },
+                    )
                 except Exception as e:
-                    self.logger.error(f"Error in batch {i // self.batch_size}: {e}")
-                    if not kwargs.get("continue_on_error", False):
-                        raise
+                    self.logger.warning(f"Could not update progress tracker: {e}")
 
-                batch_progress.update(
-                    1,
-                    {
-                        "batch": i // self.batch_size + 1,
-                        "processed_records": min(i + self.batch_size, len(df)),
-                        "new_mappings": self._new_mappings_count,
+            # ----------------------------------------------------------
+            # Step 1: Data Loading & Validation
+            # ----------------------------------------------------------
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", "field": self.field_name}
+                )
+
+            # Initialize mapping storage
+            try:
+                self._initialize_mapping(task_dir)
+            except Exception as e:
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.MAPPING_ERROR,
+                    context={"operation": self.operation_name, "field": self.field_name},
+                    message_kwargs={
+                        "context": f"initialize_mapping:{self.field_name}",
+                        "reason": str(e),
                     },
                 )
 
-            # Update main progress after batches (55% total)
-            progress_tracker.update(55, {"status": "batches_complete"})
+            try:
+                self._validate_configuration()
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
 
-            # Final save of any remaining mappings
-            if self._new_mappings_count > 0:
-                self._persist_mappings()
+                # Validate all required fields exist
+                all_fields = [self.field_name] + self.additional_fields
+                for field in all_fields:
+                    if not check_field_exists(df, field):
+                        raise FieldNotFoundError(
+                            field_name=field,
+                            available_fields=list(df.columns),
+                        )
+            except Exception as e:
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
+                )
 
-            # Get processed series for metrics
-            if self.mode == "REPLACE":
+            # ----------------------------------------------------------
+            # Step 2: Cache check
+            # ----------------------------------------------------------
+            if self.use_cache and not self.force_recalculation:
+                if main_progress:
+                    current_steps += 1
+                    main_progress.update(
+                        current_steps,
+                        {"step": "Checking cache", "field": self.field_name},
+                    )
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
+
+                if cache_result:
+                    self.logger.info(
+                        f"Using cached result for {self.field_name} pseudonymization"
+                    )
+                    if main_progress:
+                        main_progress.update(
+                            current_steps,
+                            {"step": "Complete (cached)", "field": self.field_name},
+                        )
+                    if reporter:
+                        reporter.add_operation(
+                            f"Mapping pseudonymization of {self.field_name} (cached)",
+                            details={"cached": True},
+                        )
+                    return cache_result
+
+            # ----------------------------------------------------------
+            # Step 3: Prepare output field
+            # ----------------------------------------------------------
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps,
+                    {"step": "Preparing output field", "field": self.field_name},
+                )
+
+            try:
+                self.output_field_name = self._prepare_output_field(df)
+                self.logger.info(f"Prepared output_field: '{self.output_field_name}'")
+                self._report_operation_details(reporter, self.output_field_name)
+            except Exception as e:
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "prepare_output_field", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
+                )
+
+            # ----------------------------------------------------------
+            # Step 4: Processing
+            # ----------------------------------------------------------
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Processing", "field": self.field_name}
+                )
+
+            try:
+                # Normalize integer dtype if required
+                df[self.field_name] = DataHelper.normalize_int_dtype_vectorized(
+                    df[self.field_name], safe_mode=False
+                )
+
+                # Store original data for metrics
+                all_fields = [self.field_name] + self.additional_fields
                 if self.compound_mode:
-                    # Re-create composite for comparison
-                    processed_series = create_composite_key(
+                    original_data = create_composite_key(
                         df,
                         all_fields,
                         self.compound_separator,
                         self.compound_null_handling,
                     )
                 else:
-                    processed_series = df[self.field_name].copy(deep=True)
-            else:
-                processed_series = df[self._output_field].copy(deep=True)
+                    original_data = df[self.field_name].copy(deep=True)
 
-            # Update progress: Processing complete (10%)
-            progress_tracker.update(
-                10,
-                {
-                    "status": "processing_complete",
-                    "phase": "post_processing",
-                    "total_mappings": len(self._mapping),
-                    "new_mappings_created": self._new_mappings_count,
-                },
-            )
+                # Create child progress tracker for batch processing
+                data_tracker = None
+                if main_progress and hasattr(main_progress, "create_subtask"):
+                    try:
+                        data_tracker = main_progress.create_subtask(
+                            total=3,
+                            description="Processing dataframe",
+                            unit="steps",
+                        )
+                    except Exception as e:
+                        self.logger.debug(
+                            f"Could not create child progress tracker: {e}"
+                        )
 
-            # Collect comprehensive metrics
-            timing_info = {
-                "start_time": start_time,
-                "end_time": time.time(),
-                "batch_count": total_batches,
-            }
+                # Apply conditional filtering then process
+                self.filter_mask, filtered_df = self._apply_conditional_filtering(df)
 
-            operation_metrics = self._collect_comprehensive_metrics(
-                original_series, processed_series, df, timing_info
-            )
+                if not filtered_df.empty:
+                    processed_df = self._process_data_with_config(
+                        df=filtered_df,
+                        progress_tracker=data_tracker,
+                    )
+                else:
+                    self.logger.warning(
+                        "Filtered DataFrame is empty. Skipping _process_data_with_config."
+                    )
+                    processed_df = df.copy(deep=True)
+                    processed_df[self.output_field_name] = original_data
 
-            # Save metrics
-            metrics_result = writer.write_metrics(
-                metrics=operation_metrics,
-                name=f"{self.field_name}_mapping_pseudonymization",
-                timestamp_in_name=True,
-            )
+                # Persist any remaining new mappings
+                if self._new_mappings_count > 0:
+                    self._persist_mappings()
 
-            # Log summary
-            summary = get_process_summary(operation_metrics.get("privacy_metrics", {}))
-            for key, message in summary.items():
-                self.logger.info(f"{key}: {message}")
+                # Handle vulnerable records if k-anonymity is enabled
+                if self.ka_risk_field and self.ka_risk_field in df.columns:
+                    processed_df = self._handle_vulnerable_records(
+                        processed_df, self.output_field_name
+                    )
 
-            # Update progress: Metrics saved (5%)
-            progress_tracker.update(5, {"status": "metrics_saved"})
+                # Get anonymized data for metrics
+                # In REPLACE compound mode, additional_fields are nulled out by process_batch,
+                # so use primary field directly
+                if self.mode == "REPLACE":
+                    anonymized_data = processed_df[self.field_name].copy(deep=True)
+                else:
+                    anonymized_data = processed_df[self.output_field_name].copy(
+                        deep=True
+                    )
 
-            # Generate visualizations (10%)
-            viz_progress = progress_tracker.create_subtask(
-                total=2, description="Generating visualizations", unit="charts"
-            )
+                if data_tracker:
+                    try:
+                        data_tracker.close()
+                    except Exception:
+                        pass
 
-            # Uniqueness comparison
-            comparison_viz = create_comparison_visualization(
-                original_series,
-                processed_series,
-                task_dir,
-                self.field_name,
-                "mapping_pseudonymization",
-                None,
-            )
-            if comparison_viz:
-                viz_progress.update(1)
-
-            # Mapping growth visualization
-            mapping_viz = None
-            if len(self._mapping) > 0:
-                mapping_viz = create_metric_visualization(
-                    "mapping_growth",
-                    {
-                        "Initial Mappings": len(self._mapping)
-                        - self._new_mappings_count,
-                        "New Mappings": self._new_mappings_count,
-                        "Total Mappings": len(self._mapping),
+            except Exception as e:
+                # Attempt to persist any completed mappings before returning error
+                try:
+                    if self._new_mappings_count > 0:
+                        self._persist_mappings()
+                except Exception:
+                    pass
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
                     },
-                    task_dir,
-                    self.field_name,
-                    "mapping_pseudonymization",
-                    None,
-                )
-                viz_progress.update(1)
-
-            # Update progress: Visualizations complete
-            progress_tracker.update(10, {"status": "visualizations_complete"})
-
-            # Write output if requested (5%)
-            output_path = None
-            if kwargs.get("write_output", True):
-                output_progress = progress_tracker.create_subtask(
-                    total=1, description="Writing output", unit="files"
                 )
 
-                # Optimize memory before writing
-                df, _ = optimize_dataframe_dtypes(df)
+            # Record end time
+            self.end_time = time.time()
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
-                # Write output
-                output_result = writer.write_dataframe(
-                    df=df,
-                    name=kwargs.get("output_name", "pseudonymized_data"),
-                    format=self.output_file_format,
-                    subdir="output",
-                    timestamp_in_name=kwargs.get("timestamp_output", True),
-                    encryption_key=self.encryption_key if self.use_encryption else None,
+            # ----------------------------------------------------------
+            # Step 5: Metrics Calculation
+            # ----------------------------------------------------------
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps,
+                    {"step": "Metrics Calculation", "field": self.field_name},
                 )
-                output_path = output_result.path
 
-                output_progress.update(1)
-                progress_tracker.update(5, {"status": "output_written"})
+            metrics = {}
+            try:
+                metrics = self._collect_comprehensive_metrics(
+                    original_data, anonymized_data, processed_df
+                )
 
-            # Create operation result
-            result = OperationResult(
-                status=OperationStatus.SUCCESS, execution_time=time.time() - start_time
+                metrics_file_name = f"{self.field_name}_mapping_pseudonymization_metrics_{operation_timestamp}"
+                self._save_metrics(
+                    metrics=metrics,
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    file_name=metrics_file_name,
+                )
+
+                summary = get_process_summary(metrics.get("privacy_metrics", {}))
+                for key, message in summary.items():
+                    self.logger.info(f"{key}: {message}")
+
+            except Exception as e:
+                self.logger.warning(f"Error calculating metrics: {str(e)}")
+                # Non-critical — continue execution
+
+            # ----------------------------------------------------------
+            # Step 6: Visualization
+            # ----------------------------------------------------------
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps,
+                    {"step": "Generating Visualizations", "field": self.field_name},
+                )
+
+            if self.generate_visualization and self.visualization_backend is not None:
+                try:
+                    kwargs_encryption = {
+                        "use_encryption": self.use_encryption,
+                        "encryption_key": self.encryption_key,
+                    }
+                    self._handle_visualizations(
+                        original_data=original_data,
+                        anonymized_data=anonymized_data,
+                        task_dir=task_dir,
+                        result=result,
+                        reporter=reporter,
+                        progress_tracker=main_progress,
+                        vis_theme=self.visualization_theme,
+                        vis_backend=self.visualization_backend,
+                        vis_strict=self.visualization_strict,
+                        vis_timeout=self.visualization_timeout,
+                        operation_timestamp=operation_timestamp,
+                        **kwargs_encryption,
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Error generating visualizations: {str(e)}")
+            else:
+                self.logger.info(
+                    "Skipping visualizations as generate_visualization is False or backend is not set"
+                )
+
+            # ----------------------------------------------------------
+            # Step 7: Save Output Data
+            # ----------------------------------------------------------
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps,
+                    {"step": "Save Output Data", "field": self.field_name},
+                )
+
+            if self.save_output:
+                try:
+                    safe_kwargs = filter_used_kwargs(
+                        kwargs,
+                        ConsistentMappingPseudonymizationOperation._save_output_data,
+                    )
+                    self._save_output_data(
+                        result_df=processed_df,
+                        writer=writer,
+                        result=result,
+                        reporter=reporter,
+                        progress_tracker=main_progress,
+                        timestamp=operation_timestamp,
+                        **safe_kwargs,
+                    )
+                except Exception as e:
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_name},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
+                    )
+
+            # Cache result if enabled
+            if self.use_cache:
+                try:
+                    self._save_to_cache(
+                        original_data=original_data,
+                        anonymized_data=anonymized_data,
+                        result=result,
+                        task_dir=task_dir,
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Cleanup memory
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                processed_df=processed_df,
+                original_data=original_data,
+                anonymized_data=anonymized_data,
             )
 
-            # Add metrics
-            result.add_metric("records_processed", len(df))
-            result.add_metric("pseudonym_type", self.pseudonym_type)
-            result.add_metric("total_mappings", len(self._mapping))
-            result.add_metric("new_mappings_created", self._new_mappings_count)
-            result.add_metric("mapping_file_path", str(self._mapping_path))
-            result.add_metric("reversible", True)
-            result.add_metric("vulnerable_records", int(vulnerable_count))
-
-            # P-7: Add missing metrics
-            if self._total_lookups > 0:
-                mapping_hit_rate = self._mapping_hits / self._total_lookups
-                result.add_metric("mapping_hit_rate", round(mapping_hit_rate, 4))
-                result.add_metric(
-                    "percent_new_mappings",
-                    round(self._new_mappings_count / self._total_lookups * 100, 2),
+            if reporter:
+                reporter.add_operation(
+                    f"Mapping pseudonymization of {self.field_name} completed",
+                    details={
+                        "records_processed": self.process_count,
+                        "execution_time": self.execution_time,
+                        "total_mappings": len(self._mapping),
+                        "new_mappings": self._total_new_mappings,
+                    },
                 )
 
-            # Add collision metric for random_string
-            if self.pseudonym_type == "random_string":
-                result.add_metric("collision_count", self._collision_count)
-
-            # Add effectiveness metrics
-            if "effectiveness" in operation_metrics:
-                for key, value in operation_metrics["effectiveness"].items():
-                    result.add_nested_metric("effectiveness", key, value)
-
-            # Add privacy metrics
-            if "privacy_metrics" in operation_metrics:
-                for key, value in operation_metrics["privacy_metrics"].items():
-                    if isinstance(value, (int, float)):
-                        result.add_nested_metric("privacy", key, value)
-
-            # Add artifacts
-            result.add_artifact(
-                artifact_type="json",
-                path=metrics_result.path,
-                description="Process metrics",
-                category="metrics",
-                tags=["metrics", "process", "mapping_pseudonymization"],
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation "
+                f"in {self.execution_time:.2f} seconds"
             )
-
-            if comparison_viz:
-                result.add_artifact(
-                    artifact_type="png",
-                    path=comparison_viz,
-                    description="Before/after comparison",
-                    category="visualization",
-                    tags=["visualization", "comparison", self.field_name],
-                )
-
-            if mapping_viz:
-                result.add_artifact(
-                    artifact_type="png",
-                    path=mapping_viz,
-                    description="Mapping statistics",
-                    category="visualization",
-                    tags=["visualization", "mapping", "growth"],
-                )
-
-            if output_path:
-                result.add_artifact(
-                    artifact_type=self.output_file_format,
-                    path=output_path,
-                    description="Pseudonymized dataset",
-                    category="output",
-                    tags=["data", "pseudonymized", "reversible"],
-                )
-
-            # Add mapping file as artifact
-            if self._mapping_path and self._mapping_path.exists():
-                result.add_artifact(
-                    artifact_type="encrypted_mapping",
-                    path=self._mapping_path,
-                    description="Encrypted pseudonym mappings",
-                    category="mapping",
-                    tags=["mapping", "encrypted", self.pseudonym_type],
-                )
-
-            # Final progress update (5%)
-            progress_tracker.update(5, {"status": "complete"})
-
             return result
 
         except Exception as e:
-            self.logger.error(f"Error in mapping pseudonymization: {str(e)}")
-            self.logger.debug(traceback.format_exc())
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=str(e),
-                execution_time=time.time() - start_time,
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
         finally:
-            if should_close_tracker:
-                progress_tracker.close()
+            # Release mapping storage reference to free memory between runs
+            self._mapping_storage = None
+            # Reset per-execution counters after every run (success or failure)
+            # so the next execute() call starts from a clean state.
+            self._new_mappings_count = 0
+            self._total_new_mappings = 0
+            self._total_lookups = 0
+            self._mapping_hits = 0
+            self._collision_count = 0
+            self._lookup_time_count = 0
+            self._lookup_time_mean = 0.0
+            self._persist_count = 0
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
@@ -856,8 +777,10 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         pd.DataFrame
             Processed DataFrame with pseudonymized values
         """
-        # Validate fields exist
-        all_fields = [self.field_name] + self.additional_fields
+        # Validate all fields exist in batch (should already be validated in execute, but double-check for safety).
+        # Defensive `list(... or [])` guard so this public method is safe to
+        # call independently (additional_fields may be None after config reload).
+        all_fields = [self.field_name] + list(self.additional_fields or [])
         for field in all_fields:
             if field not in batch.columns:
                 raise FieldNotFoundError(
@@ -867,141 +790,154 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
 
         # Create working series based on mode
         if self.compound_mode:
-            # Create compound identifier from multiple fields
             working_series = create_composite_key(
                 batch, all_fields, self.compound_separator, self.compound_null_handling
             )
         else:
             working_series = batch[self.field_name].copy(deep=True)
 
-        # P-3: Handle null values with proper error handling
-        try:
-            processed_series = process_nulls(
-                working_series, self.null_strategy, anonymize_value="*REDACTED*"
-            )
-        except (ValidationError, ValueError) as e:
-            # Handle ERROR strategy gracefully
-            self.logger.warning(
-                f"Null processing error: {e}. Continuing with PRESERVE strategy."
-            )
-            processed_series = working_series.copy(deep=True)
+        # Null handling is done by base class _process_data_with_config() before calling process_batch
 
         # Pseudonymize non-null values
-        non_null_mask = processed_series.notna()
-        non_null_values = processed_series[non_null_mask]
+        non_null_mask = working_series.notna()
+        non_null_values = working_series[non_null_mask]
 
         if len(non_null_values) > 0:
-            # Process each unique value
             for idx, value in non_null_values.items():
                 str_value = str(value)
 
-                # P-4: High-resolution timing for each lookup
-                lookup_start = time.perf_counter()
-
-                # Thread-safe mapping lookup/creation
                 with self._mapping_lock:
+                    # Measure only actual lookup/generation time, not lock wait
+                    lookup_start = time.perf_counter()
                     self._total_lookups += 1
 
                     if str_value in self._mapping:
-                        # Use existing mapping
                         pseudonym = self._mapping[str_value]
-                        self._mapping_hits += 1  # P-7: Track hits
+                        self._mapping_hits += 1
                     else:
-                        # Generate new unique pseudonym
                         pseudonym = self._generate_unique_pseudonym()
-
-                        # Add to mappings
                         self._mapping[str_value] = pseudonym
                         self._reverse_mapping[pseudonym] = str_value
                         self._new_mappings_count += 1
+                        self._total_new_mappings += 1
 
-                # P-4: Record lookup time
-                lookup_time = time.perf_counter() - lookup_start
-                self._lookup_times.append(lookup_time)
+                    # Welford running mean: update inside lock to avoid race on mean state
+                    lookup_time = time.perf_counter() - lookup_start
+                    self._lookup_time_count += 1
+                    delta = lookup_time - self._lookup_time_mean
+                    self._lookup_time_mean += delta / self._lookup_time_count
 
-                processed_series.at[idx] = pseudonym
+                working_series.at[idx] = pseudonym
 
-        # Update the DataFrame
+                # Persist at frequency threshold (within batch loop)
+                with self._mapping_lock:
+                    if self._new_mappings_count >= self.persist_frequency:
+                        self._persist_mappings()
+
+        # Update the DataFrame using self.output_field_name (set in Step 3)
         if self.mode == "REPLACE":
             if self.compound_mode:
-                # For compound mode, replace all source fields with first field
-                # and null out the rest
-                batch[self.field_name] = processed_series
-                for field in self.additional_fields:
+                # Replace primary field; null out additional fields
+                batch[self.field_name] = working_series
+                for field in self.additional_fields or []:
                     batch[field] = None
             else:
-                batch[self.field_name] = processed_series
+                batch[self.field_name] = working_series
         else:  # ENRICH
-            batch[self._output_field] = processed_series
+            batch[self.output_field_name] = working_series
 
         return batch
 
-    def _process_batch_safe(self, batch: pd.DataFrame) -> pd.DataFrame:
-        """Process a batch with error handling."""
-        try:
-            return self.process_batch(batch)
-        except Exception as e:
-            self.logger.warning(f"Batch processing failed: {e}")
-            if self.mode == "ENRICH" and self._output_field not in batch.columns:
-                batch[self._output_field] = None
-            return batch
+    def _validate_configuration(self) -> None:
+        """Validate operation configuration before execution."""
+        if self.pseudonym_type not in ["uuid", "sequential", "random_string"]:
+            raise InvalidParameterError(
+                param_name="pseudonym_type",
+                param_value=self.pseudonym_type,
+                reason=f"Unknown pseudonym type: {self.pseudonym_type}. "
+                f"Must be one of: uuid, sequential, random_string",
+            )
+
+        if self.mapping_format not in ["csv", "json"]:
+            raise InvalidParameterError(
+                param_name="mapping_format",
+                param_value=self.mapping_format,
+                reason=f"Unsupported mapping format: {self.mapping_format}. "
+                f"Must be one of: csv, json",
+            )
+
+        if self.pseudonym_type == "random_string":
+            prefix_len = len(self.pseudonym_prefix) if self.pseudonym_prefix else 0
+            suffix_len = len(self.pseudonym_suffix) if self.pseudonym_suffix else 0
+            if self.pseudonym_length - prefix_len - suffix_len < 4:
+                raise InvalidParameterError(
+                    param_name="pseudonym_length",
+                    param_value=self.pseudonym_length,
+                    reason=(
+                        f"Effective pseudonym length after prefix/suffix "
+                        f"({self.pseudonym_length - prefix_len - suffix_len}) must be at least 4"
+                    ),
+                )
+
+        if self.compound_mode and not self.additional_fields:
+            raise InvalidParameterError(
+                param_name="compound_mode",
+                param_value=self.compound_mode,
+                reason="compound_mode requires additional_fields to be specified",
+            )
+
+    def _get_cache_parameters(self) -> Dict[str, Any]:
+        """Return parameters that determine cache key uniqueness."""
+        return dict(
+            pseudonym_type=self.pseudonym_type,
+            pseudonym_prefix=self.pseudonym_prefix,
+            pseudonym_length=self.pseudonym_length,
+            mapping_format=self.mapping_format,
+            compound_mode=self.compound_mode,
+        )
 
     def _initialize_mapping(self, task_dir: Path) -> None:
         """Initialize mapping storage and load existing mappings."""
-        # Create maps directory
         maps_dir = task_dir / "maps"
         maps_dir.mkdir(exist_ok=True)
 
         # Determine mapping file path
         if not self.mapping_file:
-            # Auto-generate filename based on field and operation
             operation_name = f"{self.field_name}_mapping"
             if self.compound_mode:
                 operation_name = f"compound_{operation_name}"
             self.mapping_file = f"{operation_name}.{self.mapping_format}.enc"
 
-        # Create full path
         self._mapping_path = maps_dir / self.mapping_file
         self.logger.info(f"Mapping file path: {self._mapping_path}")
 
-        # Initialize storage
         self._mapping_storage = MappingStorage(
             mapping_file=self._mapping_path,
-            encryption_key=self._encryption_key,
+            encryption_key=self._mapping_encryption_key,
             format=self.mapping_format,
             backup_on_update=self.backup_on_update,
         )
 
-        # Load existing mappings
         try:
-            # P-5: Load with metadata support
+            # Load with metadata support
             loaded_data = self._mapping_storage.load()
 
-            # Check if it's the new format with metadata
             if isinstance(loaded_data, dict) and "_metadata" in loaded_data:
                 self._mapping = loaded_data.get("mappings", {})
                 metadata = loaded_data["_metadata"]
-
-                # P-5: Restore sequential counter from metadata
                 if self.pseudonym_type == "sequential":
                     self._sequential_counter = metadata.get("last_sequential", 0)
                     self.logger.info(
                         f"Restored sequential counter: {self._sequential_counter}"
                     )
             else:
-                # Legacy format - just mappings
+                # Legacy format
                 self._mapping = loaded_data
-
-                # P-5: Calculate sequential counter from existing mappings
                 if self.pseudonym_type == "sequential" and self._mapping:
                     self._calculate_sequential_counter()
 
-            # Build reverse mapping
             self._reverse_mapping = {v: k for k, v in self._mapping.items()}
-
-            # Track all existing pseudonyms for collision detection
             self._generated_pseudonyms = set(self._reverse_mapping.keys())
-
             self.logger.info(f"Loaded {len(self._mapping)} existing mappings")
 
         except (PamolaFileNotFoundError, FileNotFoundError):
@@ -1014,11 +950,35 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             else:
                 raise
 
+    def _persist_mappings(self) -> None:
+        """Save current mappings to encrypted file."""
+        with self._mapping_lock:
+            try:
+                # Save with metadata
+                save_data = {
+                    "mappings": self._mapping,
+                    "_metadata": {
+                        "last_sequential": self._sequential_counter,
+                        "total_mappings": len(self._mapping),
+                        "last_updated": datetime.now().isoformat(),
+                        "pseudonym_type": self.pseudonym_type,
+                        "version": self.version,
+                    },
+                }
+                self._mapping_storage.save(save_data)
+                self.logger.info(
+                    f"Persisted {len(self._mapping)} mappings ({self._new_mappings_count} new)"
+                )
+                self._new_mappings_count = 0
+                self._persist_count += 1
+            except Exception as e:
+                self.logger.error(f"Failed to persist mappings: {e}")
+                raise
+
     def _calculate_sequential_counter(self) -> None:
         """Calculate sequential counter from existing mappings."""
         max_seq = 0
         for pseudonym in self._reverse_mapping.keys():
-            # Extract number from pseudonym
             num_part = pseudonym
             if self.pseudonym_prefix:
                 num_part = num_part.replace(self.pseudonym_prefix, "")
@@ -1027,7 +987,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             try:
                 seq_num = int(num_part)
                 max_seq = max(max_seq, seq_num)
-            except (ValidationError, ValueError):
+            except ValueError:
                 continue
         self._sequential_counter = max_seq
 
@@ -1045,19 +1005,15 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 self._generated_pseudonyms, prefix=self.pseudonym_prefix
             )
         elif self.pseudonym_type == "sequential":
-            # Generate sequential pseudonym
             self._sequential_counter += 1
-            pseudonym = str(self._sequential_counter).zfill(6)  # Pad with zeros
+            # zfill width grows automatically beyond 999999 — no silent truncation
+            width = max(6, len(str(self._sequential_counter)))
+            pseudonym = str(self._sequential_counter).zfill(width)
             pseudonym = format_pseudonym_output(
                 pseudonym, self.pseudonym_prefix, self.pseudonym_suffix
             )
         elif self.pseudonym_type == "random_string":
-            # Generate random string of specified length
-            import secrets
-
             characters = string.ascii_letters + string.digits
-
-            # Calculate effective length
             prefix_len = len(self.pseudonym_prefix) if self.pseudonym_prefix else 0
             suffix_len = len(self.pseudonym_suffix) if self.pseudonym_suffix else 0
             random_len = self.pseudonym_length - prefix_len - suffix_len
@@ -1070,18 +1026,14 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 pseudonym = format_pseudonym_output(
                     random_part, self.pseudonym_prefix, self.pseudonym_suffix
                 )
-
-                # Check for collision
                 if pseudonym not in self._generated_pseudonyms:
                     break
-
                 attempts += 1
                 if attempts > 10:
                     self._collision_count += 1
                     self.logger.warning(
                         "High collision rate detected for random_string generation"
                     )
-
                 if attempts > 100:
                     raise PseudonymizationError(
                         field_name=self.field_name,
@@ -1097,45 +1049,28 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 reason=f"Unknown pseudonym type: {self.pseudonym_type}",
             )
 
-        # Track generated pseudonym
         self._generated_pseudonyms.add(pseudonym)
         return pseudonym
-
-    def _persist_mappings(self) -> None:
-        """Save current mappings to encrypted file."""
-        with self._mapping_lock:
-            try:
-                # P-5: Save with metadata
-                save_data = {
-                    "mappings": self._mapping,
-                    "_metadata": {
-                        "last_sequential": self._sequential_counter,
-                        "total_mappings": len(self._mapping),
-                        "last_updated": datetime.now().isoformat(),
-                        "pseudonym_type": self.pseudonym_type,
-                        "version": self.version,
-                    },
-                }
-
-                self._mapping_storage.save(save_data)
-                self.logger.info(
-                    f"Persisted {len(self._mapping)} mappings "
-                    f"({self._new_mappings_count} new)"
-                )
-                self._new_mappings_count = 0
-            except Exception as e:
-                self.logger.error(f"Failed to persist mappings: {e}")
-                raise
 
     def _collect_comprehensive_metrics(
         self,
         original_series: pd.Series,
         processed_series: pd.Series,
         full_df: pd.DataFrame,
-        timing_info: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Collect all metrics using commons utilities."""
-        # Use metric_utils to collect operation metrics
+        timing_info = {
+            "start_time": self.start_time,
+            "end_time": (
+                self.end_time
+                if hasattr(self, "end_time") and self.end_time
+                else time.time()
+            ),
+            "batch_count": max(
+                1, (len(full_df) + self.chunk_size - 1) // self.chunk_size
+            ),
+        }
+
         operation_metrics = collect_operation_metrics(
             operation_type="pseudonymization",
             original_data=original_series,
@@ -1149,79 +1084,69 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             timing_info=timing_info,
         )
 
-        # Add effectiveness metrics
+        # Effectiveness metrics
         effectiveness = calculate_anonymization_effectiveness(
             original_series, processed_series
         )
         operation_metrics["effectiveness"] = effectiveness
 
-        # P-4: Calculate accurate lookup time
-        if self._lookup_times:
-            avg_lookup_time_ms = (
-                sum(self._lookup_times) / len(self._lookup_times) * 1000
-            )
-        else:
-            avg_lookup_time_ms = 0.0
+        # Average lookup time from Welford running mean (O(1) memory, no list needed)
+        avg_lookup_time_ms = self._lookup_time_mean * 1000
 
-        # P-7: Calculate hit rate
+        # Hit rate and percent new (use cumulative counter, not reset-on-persist one)
         hit_rate = (
             self._mapping_hits / self._total_lookups if self._total_lookups > 0 else 0.0
         )
         percent_new = (
-            (self._new_mappings_count / self._total_lookups * 100)
+            (self._total_new_mappings / self._total_lookups * 100)
             if self._total_lookups > 0
             else 0.0
         )
 
-        # Add mapping-specific metrics
         metadata = self._mapping_storage.get_metadata() if self._mapping_storage else {}
 
-        mapping_metrics = {
+        mapping_metrics: Dict[str, Any] = {
             "pseudonym_type": self.pseudonym_type,
             "total_mappings": len(self._mapping),
-            "new_mappings_created": self._new_mappings_count,
+            "new_mappings_created": self._total_new_mappings,
             "mapping_file_size": metadata.get("size_bytes", 0),
             "mapping_file_path": str(self._mapping_path),
             "encryption_algorithm": "AES-256-GCM",
             "persist_frequency": self.persist_frequency,
             "reversible": True,
-            "lookup_time_avg": round(avg_lookup_time_ms, 4),  # P-4: Accurate time
-            "mapping_hit_rate": round(hit_rate, 4),  # P-7: Added
-            "percent_new_mappings": round(percent_new, 2),  # P-7: Added
+            "lookup_time_avg": round(avg_lookup_time_ms, 4),
+            "mapping_hit_rate": round(hit_rate, 4),
+            "percent_new_mappings": round(percent_new, 2),
             "total_lookups": self._total_lookups,
             "mapping_hits": self._mapping_hits,
+            "persistence_count": self._persist_count,
         }
 
-        # Add collision count for random_string
         if self.pseudonym_type == "random_string":
             mapping_metrics["collision_count"] = self._collision_count
 
         operation_metrics["mapping"] = mapping_metrics
 
-        # Add privacy metrics if quasi-identifiers available
+        # Privacy metrics if quasi-identifiers available
+        output_col = (
+            self.output_field_name if self.mode == "ENRICH" else self.field_name
+        )
         if self.quasi_identifiers and all(
             qi in full_df.columns for qi in self.quasi_identifiers
         ):
             privacy_metrics = calculate_batch_metrics(
                 original_batch=full_df[[self.field_name] + self.quasi_identifiers],
-                anonymized_batch=full_df[
-                    [self._output_field if self.mode == "ENRICH" else self.field_name]
-                    + self.quasi_identifiers
-                ],
+                anonymized_batch=full_df[[output_col] + self.quasi_identifiers],
                 original_field_name=self.field_name,
-                anonymized_field_name=(
-                    self._output_field if self.mode == "ENRICH" else self.field_name
-                ),
+                anonymized_field_name=output_col,
                 quasi_identifiers=self.quasi_identifiers,
             )
             operation_metrics["privacy_metrics"] = privacy_metrics
-
-            # Add additional privacy indicators
             privacy_metrics["disclosure_risk"] = calculate_simple_disclosure_risk(
                 full_df, self.quasi_identifiers
             )
 
-        # Add performance metrics
+        # Performance metrics
         performance = calculate_process_performance(
             timing_info["start_time"],
             timing_info["end_time"],
@@ -1231,6 +1156,10 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         operation_metrics["performance"] = performance
 
         return operation_metrics
+
+    # ------------------------------------------------------------------
+    # Public utility methods
+    # ------------------------------------------------------------------
 
     def get_reverse_mapping(self, pseudonym: str) -> Optional[str]:
         """
@@ -1261,7 +1190,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             Whether to include metadata
         """
         with self._mapping_lock:
-            # P-5: Always include metadata for proper restore
+            # Always include metadata for proper restore
             export_data = {
                 "mappings": self._mapping,
                 "_metadata": (
@@ -1272,26 +1201,44 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                         "last_sequential": self._sequential_counter,
                         "export_timestamp": datetime.now().isoformat(),
                         "version": self.version,
-                        "mapping_format": self.mapping_format,  # P-8: Include format
+                        "mapping_format": self.mapping_format,
                     }
                     if include_metadata
                     else {}
                 ),
             }
 
-            # P-8: Use mapping storage with correct format
+            # Use mapping storage with correct format
             temp_storage = MappingStorage(
                 mapping_file=output_path,
-                encryption_key=self._encryption_key,
-                format=self.mapping_format,  # P-8: Use configured format
+                encryption_key=self._mapping_encryption_key,
+                format=self.mapping_format,
                 backup_on_update=False,
             )
             temp_storage.save(export_data)
 
+    def __getstate__(self):
+        # Exclude non-picklable attrs containing threading locks so Dask's
+        # _normalize_pickle determinism check can serialize this object.
+        # Actual execution uses the original in-memory instance (not the unpickled one).
+        state = self.__dict__.copy()
+        state.pop("_mapping_lock", None)  # threading.RLock — not picklable
+        state.pop("_mapping_storage", None)  # MappingStorage — contains threading.RLock
+        state.pop(
+            "_pseudonym_generator", None
+        )  # PseudonymGenerator — contains threading.Lock
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._mapping_lock = threading.RLock()
+        self._mapping_storage = None
+        self._pseudonym_generator = None
+
 
 # Factory function
 def create_mapping_pseudonymization_operation(
-    field_name: str, encryption_key: Union[str, bytes], **kwargs
+    field_name: str, mapping_encryption_key: Union[str, bytes], **kwargs
 ) -> ConsistentMappingPseudonymizationOperation:
     """
     Create a consistent mapping pseudonymization operation with default settings.
@@ -1300,9 +1247,9 @@ def create_mapping_pseudonymization_operation(
     -----------
     field_name : str
         Field to pseudonymize
-    encryption_key : Union[str, bytes]
-        256-bit encryption key
-    **kwargs : dict
+    mapping_encryption_key : Union[str, bytes]
+        256-bit encryption key for mapping storage
+    **kwargs
         Additional parameters to override defaults
 
     Returns
@@ -1311,5 +1258,5 @@ def create_mapping_pseudonymization_operation(
         Configured mapping pseudonymization operation
     """
     return ConsistentMappingPseudonymizationOperation(
-        field_name=field_name, encryption_key=encryption_key, **kwargs
+        field_name=field_name, mapping_encryption_key=mapping_encryption_key, **kwargs
     )

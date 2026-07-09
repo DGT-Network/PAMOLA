@@ -275,14 +275,15 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 )
 
             # Add operation to reporter
-            reporter.add_operation(
-                f"Semantic categorization of field: {self.field_name}",
-                details={
-                    "field_name": self.field_name,
-                    "entity_type": self.entity_type,
-                    "operation_type": "text_semantic_categorization",
-                },
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Semantic categorization of field: {self.field_name}",
+                    details={
+                        "field_name": self.field_name,
+                        "entity_type": self.entity_type,
+                        "operation_type": "text_semantic_categorization",
+                    },
+                )
 
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
@@ -1619,7 +1620,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
         )
 
         # Add to reporter
-        reporter.add_artifact(artifact_type, str(path), description)
+        if reporter:
+            reporter.add_artifact(artifact_type, str(path), description)
 
     def _handle_visualizations(
         self,

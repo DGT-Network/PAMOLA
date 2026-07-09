@@ -83,6 +83,13 @@ class RecordSuppressionOpTooltip:
         "• Default: `_suppression_reason`"
     )
 
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
     force_recalculation = "What it does: Disables the caching mechanism for this run, forcing the operation to re-process all data from scratch."
 
     generate_visualization = (
@@ -104,6 +111,7 @@ class RecordSuppressionOpTooltip:
             "risk_threshold": cls.risk_threshold,
             "save_suppressed_records": cls.save_suppressed_records,
             "suppression_reason_field": cls.suppression_reason_field,
+            "use_cache": cls.use_cache,
             "force_recalculation": cls.force_recalculation,
             "generate_visualization": cls.generate_visualization,
         }

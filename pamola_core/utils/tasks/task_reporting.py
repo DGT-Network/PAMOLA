@@ -191,11 +191,12 @@ class TaskReporter:
             status: Status of the operation (success, warning, error)
             details: Additional details about the operation
         """
+        details = details or {}
         operation = {
             "operation": name,
             "timestamp": datetime.now().isoformat(),
             "status": status,
-            "details": details or {},
+            "details": details,
         }
 
         self.operations.append(operation)

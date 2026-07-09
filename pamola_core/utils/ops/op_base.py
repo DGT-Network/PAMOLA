@@ -327,8 +327,11 @@ class BaseOperation(ABC):
         REQ-OPS-004: BaseOperation.save_config(task_dir) writes config.json
                     atomically before execution begins.
         """
-        # Create configuration dictionary with operation metadata
-        config_dict = self.config.to_dict()
+        # Create configuration dictionary with operation metadata.
+        # Use to_safe_dict() so that sensitive parameters (encryption keys,
+        # passwords) declared in OperationConfig.SENSITIVE_KEYS are redacted
+        # before being written to disk.
+        config_dict = self.config.to_safe_dict()
         config_dict.update({"operation_name": self.name, "version": self.version})
 
         # Ensure task directory exists

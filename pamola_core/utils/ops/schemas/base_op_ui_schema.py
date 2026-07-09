@@ -80,7 +80,6 @@ class BaseOperationUIConfig(OperationConfig):
             "use_vectorization": {"x-component": "Checkbox"},
             "parallel_processes": {"x-component": "NumberPicker"},
             "chunk_size": {"x-component": "NumberPicker"},
-            "use_cache": {"x-component": "Checkbox"},
             "output_format": {
                 "x-component": "Select",
                 "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
@@ -96,6 +95,10 @@ class BaseOperationUIConfig(OperationConfig):
             "use_encryption": {"x-component": "Checkbox"},
             "encryption_mode": {"x-component": "Select"},
             "encryption_key": {"x-component": "Input"},
+            "use_cache": {
+                "x-component": "Checkbox",
+                "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+            },
             "force_recalculation": {
                 "x-component": "Checkbox",
                 "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,

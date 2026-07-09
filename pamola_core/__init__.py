@@ -25,8 +25,10 @@ __all__ = [
     "AttributeSuppressionOperation",
     "CategoricalGeneralizationOperation",
     "CellSuppressionOperation",
+    "ConsistentMappingPseudonymizationOperation",
     "DateTimeGeneralizationOperation",
     "FullMaskingOperation",
+    "HashBasedPseudonymizationOperation",
     "NumericGeneralizationOperation",
     "PartialMaskingOperation",
     "RecordSuppressionOperation",
@@ -106,8 +108,10 @@ from pamola_core.anonymization import (
     AttributeSuppressionOperation,
     CategoricalGeneralizationOperation,
     CellSuppressionOperation,
+    ConsistentMappingPseudonymizationOperation,
     DateTimeGeneralizationOperation,
     FullMaskingOperation,
+    HashBasedPseudonymizationOperation,
     NumericGeneralizationOperation,
     PartialMaskingOperation,
     RecordSuppressionOperation,
@@ -200,4 +204,3 @@ from pamola_core.utils import (
     optimize_dataframe_memory,
     safe_remove_temp_file,
 )
-

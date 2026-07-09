@@ -82,7 +82,7 @@ def run(
     elif op:
         _run_single_op(op, config, input_data, output, seed)
     else:
-        console.print("[red]✗ Provide either --task or --op.[/red]")
+        console.print("[red]X Provide either --task or --op.[/red]")
         console.print("  Run [bold]pamola-core run --help[/bold] for usage.")
         raise typer.Exit(EXIT_ERROR)
 
@@ -97,7 +97,7 @@ def _run_task(task_path: Path, output: Optional[Path], seed: Optional[int]):
     try:
         task_def = json.loads(task_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
-        console.print(f"[red]✗ Invalid JSON in task file:[/red] {e}")
+        console.print(f"[red]X Invalid JSON in task file:[/red] {e}")
         raise typer.Exit(EXIT_VALIDATION)
 
     # 2. Extract TaskRunner parameters
@@ -115,11 +115,11 @@ def _run_task(task_path: Path, output: Optional[Path], seed: Optional[int]):
 
     # 3. Validate required fields
     if not input_datasets:
-        console.print("[red]✗ Task JSON must define 'input_datasets'.[/red]")
+        console.print("[red]X Task JSON must define 'input_datasets'.[/red]")
         raise typer.Exit(EXIT_VALIDATION)
 
     if not operation_configs:
-        console.print("[yellow]⚠ Task has no operations defined.[/yellow]")
+        console.print("[yellow]Warning: Task has no operations defined.[/yellow]")
         raise typer.Exit(EXIT_VALIDATION)
 
     # If output is a plain name (no path separators), place it under ./output/
@@ -155,13 +155,13 @@ def _run_task(task_path: Path, output: Optional[Path], seed: Optional[int]):
     except typer.Exit:
         raise
     except Exception as e:
-        console.print(f"\n[red]✗ Task failed:[/red] {e}")
+        console.print(f"\n[red]X Task failed:[/red] {e}")
         raise typer.Exit(EXIT_ERROR)
 
     if success:
-        console.print("\n[green]✓ Task completed successfully.[/green]")
+        console.print("\n[green]OK Task completed successfully.[/green]")
     else:
-        console.print("\n[red]✗ Task completed with errors. Check logs for details.[/red]")
+        console.print("\n[red]X Task completed with errors. Check logs for details.[/red]")
         raise typer.Exit(EXIT_ERROR)
 
 
@@ -178,7 +178,7 @@ def _run_single_op(
     seed: Optional[int],
 ):
     if not input_path:
-        console.print("[red]✗ --input is required for single-op mode.[/red]")
+        console.print("[red]X --input is required for single-op mode.[/red]")
         raise typer.Exit(EXIT_ERROR)
 
     # Load operation parameters from config file
@@ -187,7 +187,7 @@ def _run_single_op(
         try:
             op_kwargs = json.loads(config_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
-            console.print(f"[red]✗ Invalid config JSON:[/red] {e}")
+            console.print(f"[red]X Invalid config JSON:[/red] {e}")
             raise typer.Exit(EXIT_VALIDATION)
 
     # Support structured config format: {"operation":..., "parameters":{...}, "scope":{...}}
@@ -237,11 +237,11 @@ def _run_single_op(
     except typer.Exit:
         raise
     except Exception as e:
-        console.print(f"\n[red]✗ Operation failed:[/red] {e}")
+        console.print(f"\n[red]X Operation failed:[/red] {e}")
         raise typer.Exit(EXIT_ERROR)
 
     if success:
-        console.print("\n[green]✓ Operation completed successfully.[/green]")
+        console.print("\n[green]OK Operation completed successfully.[/green]")
     else:
-        console.print("\n[red]✗ Operation failed. Check logs for details.[/red]")
+        console.print("\n[red]X Operation failed. Check logs for details.[/red]")
         raise typer.Exit(EXIT_ERROR)

@@ -30,6 +30,13 @@ class CategoricalTooltip:
 
     generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
 
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
     force_recalculation = "What it does: Ignore saved results. Check this to force the operation to run again instead of using a cached result."
 
     @classmethod
@@ -39,5 +46,6 @@ class CategoricalTooltip:
             "top_n": cls.top_n,
             "min_frequency": cls.min_frequency,
             "generate_visualization": cls.generate_visualization,
+            "use_cache": cls.use_cache,
             "force_recalculation": cls.force_recalculation,
         }

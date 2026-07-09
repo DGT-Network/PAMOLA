@@ -56,7 +56,6 @@ CORRELATION_MATRIX_EXCLUDE_FIELDS = [
     "output_field_name",
     "column_prefix",
     "null_strategy",
-    "use_cache",
     "output_format",
     "save_output",
     "visualization_theme",

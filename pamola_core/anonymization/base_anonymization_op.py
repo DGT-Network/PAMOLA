@@ -881,7 +881,14 @@ class AnonymizationOperation(FieldOperation):
             if self.null_strategy == "ANONYMIZE":
                 # Determine anonymize value
                 if getattr(self, "unknown_value", None) is not None:
+                    # For general anonymization, use the configured unknown value if available
                     anonymize_value = self.unknown_value
+                elif getattr(self, "_is_pseudonymization", False):
+                    # Pseudonymization ops opt in via the class-level
+                    # `_is_pseudonymization` marker. Use a fixed redaction
+                    # value so suppressed rows don't get confused with real
+                    # pseudonyms in downstream analysis.
+                    anonymize_value = "*REDACTED*"
                 else:
                     # fallback: get default
                     anonymize_value = "SUPPRESSED"
@@ -1760,8 +1767,9 @@ class AnonymizationOperation(FieldOperation):
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
+            op_label = getattr(self, "operation_name", None) or self.__class__.__name__
             self.logger.info(
-                f"Using cached result for {self.field_name} generalization"
+                f"Using cached result for {self.field_name} via {op_label}"
             )
 
             if not cached_result:
@@ -1772,7 +1780,7 @@ class AnonymizationOperation(FieldOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Generalization of {self.field_name} (cached)",
+                    f"{op_label} on {self.field_name} (cached)",
                     details={"null_strategy": self.null_strategy, "cached": True},
                 )
             return result

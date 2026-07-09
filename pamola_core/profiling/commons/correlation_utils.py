@@ -337,8 +337,7 @@ def calculate_correlation(df: pd.DataFrame,
     Dict[str, Any]
         Correlation information including coefficient, method, and p-value if applicable
     """
-    if task_logger is not None:
-        logger = task_logger
+    log = task_logger if task_logger is not None else logger
     # Determine field types
     is_numeric1 = pd.api.types.is_numeric_dtype(df[field1])
     is_numeric2 = pd.api.types.is_numeric_dtype(df[field2])
@@ -354,28 +353,40 @@ def calculate_correlation(df: pd.DataFrame,
         'p_value': None
     }
 
+    def _to_float_pair(s1: pd.Series, s2: pd.Series) -> Tuple[np.ndarray, np.ndarray]:
+        # scipy.stats.pearsonr/spearmanr/pointbiserialr require inexact (float) dtype
+        # and no NaNs. Bool columns satisfy is_numeric_dtype but break scipy.
+        a = pd.to_numeric(s1, errors='coerce').astype('float64', copy=False)
+        b = pd.to_numeric(s2, errors='coerce').astype('float64', copy=False)
+        mask = ~(a.isna() | b.isna())
+        return a[mask].to_numpy(), b[mask].to_numpy()
+
     try:
         if method == 'pearson':
             if not (is_numeric1 and is_numeric2):
-                logger.error("Pearson correlation requires both fields to be numeric.")
-            
-            x = pd.to_numeric(df[field1], errors='coerce')
-            y = pd.to_numeric(df[field2], errors='coerce')
+                log.error("Pearson correlation requires both fields to be numeric.")
 
-            coef, p_value = pearsonr(x, y)
-            correlation_info['coefficient'] = coef
-            correlation_info['p_value'] = p_value
+            x, y = _to_float_pair(df[field1], df[field2])
+            if len(x) < 2 or np.std(x) == 0 or np.std(y) == 0:
+                correlation_info['coefficient'] = 0.0
+                correlation_info['p_value'] = 1.0
+            else:
+                coef, p_value = pearsonr(x, y)
+                correlation_info['coefficient'] = coef
+                correlation_info['p_value'] = p_value
 
         elif method == 'spearman':
             if not (is_numeric1 and is_numeric2):
-                logger.error("Spearman correlation requires both fields to be numeric.")
-            
-            x = pd.to_numeric(df[field1], errors='coerce')
-            y = pd.to_numeric(df[field2], errors='coerce')
+                log.error("Spearman correlation requires both fields to be numeric.")
 
-            coef, p_value = spearmanr(x, y)
-            correlation_info['coefficient'] = coef
-            correlation_info['p_value'] = p_value
+            x, y = _to_float_pair(df[field1], df[field2])
+            if len(x) < 2:
+                correlation_info['coefficient'] = 0.0
+                correlation_info['p_value'] = 1.0
+            else:
+                coef, p_value = spearmanr(x, y)
+                correlation_info['coefficient'] = coef
+                correlation_info['p_value'] = p_value
 
         elif method == 'cramers_v':
             coef = calculate_cramers_v(df[field1], df[field2])
@@ -383,9 +394,9 @@ def calculate_correlation(df: pd.DataFrame,
 
         elif method == 'point_biserial':
             if is_numeric1 and not is_numeric2:
-                coef, p_value = calculate_point_biserial(df[field2], pd.to_numeric(df[field1], errors='coerce'))
+                coef, p_value = calculate_point_biserial(df[field2], df[field1])
             else:
-                coef, p_value = calculate_point_biserial(df[field1], pd.to_numeric(df[field2], errors='coerce'))
+                coef, p_value = calculate_point_biserial(df[field1], df[field2])
             correlation_info['coefficient'] = coef
             correlation_info['p_value'] = p_value
 
@@ -398,10 +409,10 @@ def calculate_correlation(df: pd.DataFrame,
 
         else:
             # Fallback to a simple method
-            logger.warning(f"Unknown correlation method: {method}. Using default.")
+            log.warning(f"Unknown correlation method: {method}. Using default.")
             if is_numeric1 and is_numeric2:
-                x = pd.to_numeric(df[field1], errors='coerce')
-                y = pd.to_numeric(df[field2], errors='coerce')
+                x = pd.to_numeric(df[field1], errors='coerce').astype('float64', copy=False)
+                y = pd.to_numeric(df[field2], errors='coerce').astype('float64', copy=False)
 
                 coef = x.corr(y)
                 correlation_info['method'] = 'pearson'
@@ -411,7 +422,7 @@ def calculate_correlation(df: pd.DataFrame,
                 correlation_info['coefficient'] = 0.0
 
     except Exception as e:
-        logger.error(f"Error calculating correlation: {e}")
+        log.error(f"Error calculating correlation: {e}")
         correlation_info['method'] = 'error'
         correlation_info['coefficient'] = 0.0
         correlation_info['error'] = str(e)
@@ -521,11 +532,21 @@ def calculate_point_biserial(binary_var: pd.Series, numeric_var: pd.Series) -> T
     Tuple[float, float]
         Correlation coefficient and p-value
     """
-    # Convert binary variable to 0/1
-    binary_values = pd.factorize(binary_var)[0]
+    # Coerce numeric side to float64 (scipy requires inexact dtype; bool would fail)
+    numeric_values = pd.to_numeric(numeric_var, errors='coerce').astype('float64', copy=False)
 
-    # Calculate point-biserial correlation
-    coef, p_value = pointbiserialr(binary_values, numeric_var)
+    # Drop pairwise NaNs to keep both arrays aligned
+    mask = ~numeric_values.isna() & ~binary_var.isna()
+    binary_clean = binary_var[mask]
+    numeric_clean = numeric_values[mask]
+
+    if len(binary_clean) < 2 or binary_clean.nunique() < 2 or np.std(numeric_clean) == 0:
+        return 0.0, 1.0
+
+    # Convert binary variable to 0/1
+    binary_values = pd.factorize(binary_clean)[0].astype('float64', copy=False)
+
+    coef, p_value = pointbiserialr(binary_values, numeric_clean.to_numpy())
     return float(coef), float(p_value)
 
 

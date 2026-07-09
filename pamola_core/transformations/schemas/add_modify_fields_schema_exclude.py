@@ -50,7 +50,6 @@ ADD_MODIFY_FIELDS_EXCLUDE_FIELDS = [
     "output_field_name",
     "column_prefix",
     "null_strategy",
-    "use_cache",
     "visualization_theme",
     "visualization_backend",
     "visualization_strict",

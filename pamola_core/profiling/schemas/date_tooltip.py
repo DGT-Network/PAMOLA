@@ -49,6 +49,15 @@ class DateOpTooltip:
         "• Example: Checking this for 'birth_date' field adds age_distribution to output showing counts like: ages 20-30: 150 people, ages 30-40: 200 people, ages 40-50: 175 people."
     )
 
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
+    force_recalculation = "What it does: Ignore saved results. Check this to force the operation to run again instead of using a cached result."
+
     generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions."
 
     @classmethod
@@ -61,4 +70,6 @@ class DateOpTooltip:
             "uid_column": cls.uid_column,
             "is_birth_date": cls.is_birth_date,
             "generate_visualization": cls.generate_visualization,
+            "use_cache": cls.use_cache,
+            "force_recalculation": cls.force_recalculation,
         }

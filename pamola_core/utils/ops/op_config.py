@@ -28,7 +28,7 @@ from enum import Enum
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, TypeVar, Generic, Union
+from typing import Any, ClassVar, Dict, FrozenSet, Optional, Type, TypeVar, Generic, Union
 from pamola_core.errors.exceptions import ConfigurationError
 
 # Configure logger
@@ -36,6 +36,9 @@ logger = logging.getLogger(__name__)
 
 # Type variable for configuration classes
 T = TypeVar("T")
+
+# Placeholder written to disk in place of sensitive parameter values.
+SENSITIVE_VALUE_PLACEHOLDER = "*REDACTED*"
 
 
 class OperationConfig(Generic[T]):
@@ -50,6 +53,12 @@ class OperationConfig(Generic[T]):
 
     # JSON Schema for configuration validation
     schema: Dict[str, Any] = {"type": "object", "properties": {}}
+
+    # Names of parameters that must NEVER be written to disk in plaintext
+    # (encryption keys, passwords, peppers, API tokens, etc.). Subclasses
+    # override to declare their secrets; save()/save_config() will replace
+    # the value with SENSITIVE_VALUE_PLACEHOLDER before serialization.
+    SENSITIVE_KEYS: ClassVar[FrozenSet[str]] = frozenset()
 
     def __init__(self, **kwargs):
         """
@@ -86,9 +95,24 @@ class OperationConfig(Generic[T]):
 
         validate_json_schema(params, self.schema, ConfigurationError)
 
+    def to_safe_dict(self) -> Dict[str, Any]:
+        """
+        Return a copy of parameters with SENSITIVE_KEYS values redacted.
+
+        Used by save()/save_config() to ensure secrets (encryption keys,
+        passwords) never reach disk in plaintext.
+        """
+        safe = self._params.copy()
+        for key in self.SENSITIVE_KEYS:
+            if key in safe:
+                safe[key] = SENSITIVE_VALUE_PLACEHOLDER
+        return safe
+
     def save(self, path: Union[str, Path]) -> None:
         """
         Save configuration to a JSON file.
+
+        SENSITIVE_KEYS are redacted before writing.
 
         Parameters
         -----------
@@ -101,7 +125,7 @@ class OperationConfig(Generic[T]):
         """
         path = Path(path) if isinstance(path, str) else path
         with open(path, "w") as f:
-            json.dump(self._params, f, indent=2)  # type: ignore
+            json.dump(self.json_safe(self.to_safe_dict()), f, indent=2)  # type: ignore
 
     @classmethod
     def load(cls: Type[T], path: Union[str, Path]) -> T:

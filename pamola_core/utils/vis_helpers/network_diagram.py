@@ -71,6 +71,7 @@ class PlotlyNetworkDiagram(PlotlyFigure):
 
 
                 # Create a lookup dictionary of node types (default to 'field')
+                node_labels = node_labels or {}
                 node_types = {n: node_labels.get(n, "field") for n in nodes}
 
                 # Separate nodes by type

@@ -27,7 +27,6 @@ SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS = [
     "output_field_name",
     "column_prefix",
     "null_strategy",
-    "use_cache",
     "engine",
     "use_dask",
     "npartitions",

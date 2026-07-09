@@ -29,26 +29,13 @@ _ALL_OP_CONFIGS = None
 
 
 def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
-    from pamola_core.anonymization.schemas.attribute_op_ui_schema import (
-        AttributeSuppressionUIConfig,
-    )
-    from pamola_core.anonymization.schemas.categorical_op_ui_schema import (
-        CategoricalGeneralizationUIConfig,
-    )
-    from pamola_core.anonymization.schemas.cell_op_ui_schema import (
-        CellSuppressionUIConfig,
-    )
-    from pamola_core.anonymization.schemas.datetime_op_ui_schema import (
-        DateTimeGeneralizationUIConfig,
-    )
-    from pamola_core.anonymization.schemas.full_masking_op_tooltip import (
-        FullMaskingOpTooltip,
-    )
-    from pamola_core.anonymization.schemas.full_masking_op_ui_schema import (
-        FullMaskingUIConfig,
-    )
+    # =============== Anonymization ===============
+    # NumericGeneralization
     from pamola_core.anonymization.schemas.numeric_op_core_schema import (
         NumericGeneralizationConfig,
+    )
+    from pamola_core.anonymization.schemas.numeric_op_schema_exclude import (
+        NUMERIC_GENERALIZATION_EXCLUDE_FIELDS,
     )
     from pamola_core.anonymization.schemas.numeric_op_tooltip import (
         NumericGeneralizationTooltip,
@@ -56,17 +43,62 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.anonymization.schemas.numeric_op_ui_schema import (
         NumericGeneralizationUIConfig,
     )
+    # CategoricalGeneralization
+    from pamola_core.anonymization.schemas.categorical_op_core_schema import (
+        CategoricalGeneralizationConfig,
+    )
+    from pamola_core.anonymization.schemas.categorical_op_schema_exclude import (
+        CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS,
+    )
+    from pamola_core.anonymization.schemas.categorical_op_tooltip import (
+        CategoricalOpTooltip,
+    )
+    from pamola_core.anonymization.schemas.categorical_op_ui_schema import (
+        CategoricalGeneralizationUIConfig,
+    )
+    # DateTimeGeneralization
+    from pamola_core.anonymization.schemas.datetime_op_core_schema import (
+        DateTimeGeneralizationConfig,
+    )
+    from pamola_core.anonymization.schemas.datetime_op_schema_exclude import (
+        DATETIME_GENERALIZATION_EXCLUDE_FIELDS,
+    )
+    from pamola_core.anonymization.schemas.datetime_op_tooltip import DateTimeOpTooltip
+    from pamola_core.anonymization.schemas.datetime_op_ui_schema import (
+        DateTimeGeneralizationUIConfig,
+    )
+    # FullMasking
+    from pamola_core.anonymization.schemas.full_masking_op_core_schema import (
+        FullMaskingConfig,
+    )
+    from pamola_core.anonymization.schemas.full_masking_op_schema_exclude import (
+        FULL_MASKING_EXCLUDE_FIELDS,
+    )
+    from pamola_core.anonymization.schemas.full_masking_op_tooltip import (
+        FullMaskingOpTooltip,
+    )
+    from pamola_core.anonymization.schemas.full_masking_op_ui_schema import (
+        FullMaskingUIConfig,
+    )
+    # PartialMasking
+    from pamola_core.anonymization.schemas.partial_masking_op_core_schema import (
+        PartialMaskingConfig,
+    )
+    from pamola_core.anonymization.schemas.partial_masking_op_schema_exclude import (
+        PARTIAL_MASKING_EXCLUDE_FIELDS,
+    )
     from pamola_core.anonymization.schemas.partial_masking_op_tooltip import (
         PartialMaskingOpTooltip,
     )
     from pamola_core.anonymization.schemas.partial_masking_op_ui_schema import (
         PartialMaskingUIConfig,
     )
-    from pamola_core.anonymization.schemas.record_op_tooltip import (
-        RecordSuppressionOpTooltip,
+    # UniformNumericNoise
+    from pamola_core.anonymization.schemas.uniform_numeric_op_core_schema import (
+        UniformNumericNoiseConfig,
     )
-    from pamola_core.anonymization.schemas.record_op_ui_schema import (
-        RecordSuppressionUIConfig,
+    from pamola_core.anonymization.schemas.uniform_numeric_op_schema_exclude import (
+        RECORD_EXCLUDE_FIELDS as UNIFORM_NUMERIC_EXCLUDE_FIELDS,
     )
     from pamola_core.anonymization.schemas.uniform_numeric_op_tooltip import (
         UniformNumericNoiseOpTooltip,
@@ -74,12 +106,87 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.anonymization.schemas.uniform_numeric_op_ui_schema import (
         UniformNumericNoiseUIConfig,
     )
+    # UniformTemporalNoise
+    from pamola_core.anonymization.schemas.uniform_temporal_op_core_schema import (
+        UniformTemporalNoiseConfig,
+    )
+    from pamola_core.anonymization.schemas.uniform_temporal_op_schema_exclude import (
+        RECORD_EXCLUDE_FIELDS as UNIFORM_TEMPORAL_EXCLUDE_FIELDS,
+    )
     from pamola_core.anonymization.schemas.uniform_temporal_op_tooltip import (
         UniformTemporalNoiseOpTooltip,
     )
     from pamola_core.anonymization.schemas.uniform_temporal_op_ui_schema import (
         UniformTemporalNoiseUIConfig,
     )
+    # AttributeSuppression
+    from pamola_core.anonymization.schemas.attribute_op_core_schema import (
+        AttributeSuppressionConfig,
+    )
+    from pamola_core.anonymization.schemas.attribute_op_schema_exclude import (
+        ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS,
+    )
+    from pamola_core.anonymization.schemas.attribute_op_tooltip import (
+        AttributeSuppressionOpTooltip,
+    )
+    from pamola_core.anonymization.schemas.attribute_op_ui_schema import (
+        AttributeSuppressionUIConfig,
+    )
+    # CellSuppression
+    from pamola_core.anonymization.schemas.cell_op_core_schema import (
+        CellSuppressionConfig,
+    )
+    from pamola_core.anonymization.schemas.cell_op_schema_exclude import (
+        CELL_EXCLUDE_FIELDS,
+    )
+    from pamola_core.anonymization.schemas.cell_op_tooltip import (
+        CellSuppressionOpTooltip,
+    )
+    from pamola_core.anonymization.schemas.cell_op_ui_schema import (
+        CellSuppressionUIConfig,
+    )
+    # RecordSuppression
+    from pamola_core.anonymization.schemas.record_op_core_schema import (
+        RecordSuppressionConfig,
+    )
+    from pamola_core.anonymization.schemas.record_op_schema_exclude import (
+        RECORD_EXCLUDE_FIELDS,
+    )
+    from pamola_core.anonymization.schemas.record_op_tooltip import (
+        RecordSuppressionOpTooltip,
+    )
+    from pamola_core.anonymization.schemas.record_op_ui_schema import (
+        RecordSuppressionUIConfig,
+    )
+    # HashBasedPseudonymization
+    from pamola_core.anonymization.schemas.hash_based_op_core_schema import (
+        HashBasedPseudonymizationConfig,
+    )
+    from pamola_core.anonymization.schemas.hash_based_op_schema_exclude import (
+        HASH_BASED_PSEUDONYMIZATION_EXCLUDE_FIELDS,
+    )
+    from pamola_core.anonymization.schemas.hash_based_op_tooltip import (
+        HashBasedPseudonymizationTooltip,
+    )
+    from pamola_core.anonymization.schemas.hash_based_op_ui_schema import (
+        HashBasedPseudonymizationUIConfig,
+    )
+    # ConsistentMappingPseudonymization
+    from pamola_core.anonymization.schemas.mapping_op_core_schema import (
+        ConsistentMappingPseudonymizationConfig,
+    )
+    from pamola_core.anonymization.schemas.mapping_op_schema_exclude import (
+        CONSISTENT_MAPPING_PSEUDONYMIZATION_EXCLUDE_FIELDS,
+    )
+    from pamola_core.anonymization.schemas.mapping_op_tooltip import (
+        ConsistentMappingPseudonymizationTooltip,
+    )
+    from pamola_core.anonymization.schemas.mapping_op_ui_schema import (
+        ConsistentMappingPseudonymizationUIConfig,
+    )
+
+    # =============== Fake Data ===============
+    # FakeEmail
     from pamola_core.fake_data.schemas.email_op_core_schema import (
         FakeEmailOperationConfig,
     )
@@ -90,6 +197,7 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.fake_data.schemas.email_op_ui_schema import (
         FakeEmailOperationUIConfig,
     )
+    # FakeName
     from pamola_core.fake_data.schemas.name_op_core_schema import (
         FakeNameOperationConfig,
     )
@@ -100,6 +208,7 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.fake_data.schemas.name_op_ui_schema import (
         FakeNameOperationUIConfig,
     )
+    # FakeOrganization
     from pamola_core.fake_data.schemas.organization_op_core_schema import (
         FakeOrganizationOperationConfig,
     )
@@ -112,16 +221,25 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.fake_data.schemas.organization_op_ui_schema import (
         FakeOrganizationOperationUIConfig,
     )
+    # FakePhone
     from pamola_core.fake_data.schemas.phone_op_core_schema import (
         FakePhoneOperationConfig,
     )
     from pamola_core.fake_data.schemas.phone_op_schema_exclude import (
         PHONE_FAKE_EXCLUDE_FIELDS,
     )
-
     from pamola_core.fake_data.schemas.phone_op_tooltip import FakePhoneOperationTooltip
     from pamola_core.fake_data.schemas.phone_op_ui_schema import (
         FakePhoneOperationUIConfig,
+    )
+
+    # =============== Profiling ===============
+    # KAnonymity
+    from pamola_core.profiling.schemas.anonymity_core_schema import (
+        KAnonymityProfilerOperationConfig,
+    )
+    from pamola_core.profiling.schemas.anonymity_schema_exclude import (
+        ANONYMITY_EXCLUDE_FIELDS,
     )
     from pamola_core.profiling.schemas.anonymity_tooltip import (
         KAnonymityProfilerOperationTooltip,
@@ -129,16 +247,42 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.profiling.schemas.anonymity_ui_schema import (
         KAnonymityProfilerOperationUIConfig,
     )
+    # DataAttributeProfiler
+    from pamola_core.profiling.schemas.attribute_core_schema import (
+        DataAttributeProfilerOperationConfig,
+    )
+    from pamola_core.profiling.schemas.attribute_schema_exclude import (
+        ATTRIBUTE_EXCLUDE_FIELDS,
+    )
     from pamola_core.profiling.schemas.attribute_tooltip import (
         DataAttributeProfilerOperationTooltip,
     )
     from pamola_core.profiling.schemas.attribute_ui_schema import (
         DataAttributeProfilerOperationUIConfig,
     )
+    # Categorical
+    from pamola_core.profiling.schemas.categorical_core_schema import (
+        CategoricalOperationConfig,
+    )
+    from pamola_core.profiling.schemas.categorical_schema_exclude import (
+        CATEGORICAL_EXCLUDE_FIELDS,
+    )
     from pamola_core.profiling.schemas.categorical_tooltip import CategoricalTooltip
     from pamola_core.profiling.schemas.categorical_ui_schema import (
         CategoricalOperationUIConfig,
     )
+    # Correlation
+    from pamola_core.profiling.schemas.correlation_core_schema import (
+        CorrelationOperationConfig,
+    )
+    from pamola_core.profiling.schemas.correlation_schema_exclude import (
+        CORRELATION_EXCLUDE_FIELDS,
+    )
+    from pamola_core.profiling.schemas.correlation_tooltip import CorrelationOpTooltip
+    from pamola_core.profiling.schemas.correlation_ui_schema import (
+        CorrelationOperationUIConfig,
+    )
+    # CorrelationMatrix
     from pamola_core.profiling.schemas.correlation_matrix_core_schema import (
         CorrelationMatrixOperationConfig,
     )
@@ -151,20 +295,44 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.profiling.schemas.correlation_matrix_ui_schema import (
         CorrelationMatrixOperationUIConfig,
     )
-    from pamola_core.profiling.schemas.correlation_ui_schema import (
-        CorrelationOperationUIConfig,
+    # Currency
+    from pamola_core.profiling.schemas.currency_core_schema import (
+        CurrencyOperationConfig,
     )
+    from pamola_core.profiling.schemas.currency_schema_exclude import (
+        CURRENCY_EXCLUDE_FIELDS,
+    )
+    from pamola_core.profiling.schemas.currency_tooltip import CurrencyOpTooltip
     from pamola_core.profiling.schemas.currency_ui_schema import (
         CurrencyOperationUIConfig,
     )
+    # Date
+    from pamola_core.profiling.schemas.date_core_schema import DateOperationConfig
+    from pamola_core.profiling.schemas.date_schema_exclude import DATE_EXCLUDE_FIELDS
+    from pamola_core.profiling.schemas.date_tooltip import DateOpTooltip
     from pamola_core.profiling.schemas.date_ui_schema import DateOperationUIConfig
+    # Email
+    from pamola_core.profiling.schemas.email_core_schema import EmailOperationConfig
+    from pamola_core.profiling.schemas.email_schema_exclude import EMAIL_EXCLUDE_FIELDS
     from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
     from pamola_core.profiling.schemas.email_ui_schema import EmailOperationUIConfig
+    # GroupAnalyzer
+    from pamola_core.profiling.schemas.group_core_schema import (
+        GroupAnalyzerOperationConfig,
+    )
+    from pamola_core.profiling.schemas.group_schema_exclude import GROUP_EXCLUDE_FIELDS
     from pamola_core.profiling.schemas.group_tooltip import (
         GroupAnalyzerOperationTooltip,
     )
     from pamola_core.profiling.schemas.group_ui_schema import (
         GroupAnalyzerOperationUIConfig,
+    )
+    # IdentityAnalysis
+    from pamola_core.profiling.schemas.identity_core_schema import (
+        IdentityAnalysisOperationConfig,
+    )
+    from pamola_core.profiling.schemas.identity_schema_exclude import (
+        IDENTITY_EXCLUDE_FIELDS,
     )
     from pamola_core.profiling.schemas.identity_tooltip import (
         IdentityAnalysisOperationTooltip,
@@ -172,18 +340,78 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.profiling.schemas.identity_ui_schema import (
         IdentityAnalysisOperationUIConfig,
     )
+    # MVFAnalysis
+    from pamola_core.profiling.schemas.mvf_core_schema import MVFAnalysisOperationConfig
+    from pamola_core.profiling.schemas.mvf_schema_exclude import MVF_EXCLUDE_FIELDS
     from pamola_core.profiling.schemas.mvf_tooltip import MVFAnalysisOperationTooltip
     from pamola_core.profiling.schemas.mvf_ui_schema import MVFAnalysisOperationUIConfig
+    # Numeric
+    from pamola_core.profiling.schemas.numeric_core_schema import NumericOperationConfig
+    from pamola_core.profiling.schemas.numeric_schema_exclude import (
+        NUMERIC_EXCLUDE_FIELDS,
+    )
     from pamola_core.profiling.schemas.numeric_tooltip import NumericOperationTooltip
     from pamola_core.profiling.schemas.numeric_ui_schema import NumericOperationUIConfig
+    # Phone
+    from pamola_core.profiling.schemas.phone_core_schema import PhoneOperationConfig
+    from pamola_core.profiling.schemas.phone_schema_exclude import PHONE_EXCLUDE_FIELDS
     from pamola_core.profiling.schemas.phone_tooltip import PhoneOperationTooltip
     from pamola_core.profiling.schemas.phone_ui_schema import PhoneOperationUIConfig
+    # TextSemanticCategorizer
+    from pamola_core.profiling.schemas.text_core_schema import (
+        TextSemanticCategorizerOperationConfig,
+    )
+    from pamola_core.profiling.schemas.text_schema_exclude import TEXT_EXCLUDE_FIELDS
     from pamola_core.profiling.schemas.text_tooltip import (
         TextSemanticCategorizerOperationTooltip,
     )
     from pamola_core.profiling.schemas.text_ui_schema import (
         TextSemanticCategorizerOperationUIConfig,
     )
+
+    # =============== Metrics ===============
+    # Fidelity
+    from pamola_core.metrics.schemas.fidelity_op_core_schema import (
+        FidelityConfig,
+    )
+    from pamola_core.metrics.schemas.fidelity_op_schema_exclude import (
+        FIDELITY_EXCLUDE_FIELDS,
+    )
+    from pamola_core.metrics.schemas.fidelity_op_tooltip import (
+        FidelityOperationTooltip,
+    )
+    from pamola_core.metrics.schemas.fidelity_op_ui_schema import (
+        FidelityUIConfig,
+    )
+    # Privacy
+    from pamola_core.metrics.schemas.privacy_op_core_schema import (
+        PrivacyMetricConfig,
+    )
+    from pamola_core.metrics.schemas.privacy_op_schema_exclude import (
+        PRIVACY_EXCLUDE_FIELDS,
+    )
+    from pamola_core.metrics.schemas.privacy_op_tooltip import (
+        PrivacyMetricOperationTooltip,
+    )
+    from pamola_core.metrics.schemas.privacy_op_ui_schema import (
+        PrivacyMetricUIConfig,
+    )
+    # Utility
+    from pamola_core.metrics.schemas.utility_op_core_schema import (
+        UtilityMetricConfig,
+    )
+    from pamola_core.metrics.schemas.utility_op_schema_exclude import (
+        UTILITY_EXCLUDE_FIELDS,
+    )
+    from pamola_core.metrics.schemas.utility_op_tooltip import (
+        UtilityMetricOperationTooltip,
+    )
+    from pamola_core.metrics.schemas.utility_op_ui_schema import (
+        UtilityMetricUIConfig,
+    )
+
+    # =============== Transformations ===============
+    # AddOrModifyFields
     from pamola_core.transformations.schemas.add_modify_fields_core_schema import (
         AddOrModifyFieldsOperationConfig,
     )
@@ -196,54 +424,7 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.transformations.schemas.add_modify_fields_ui_schema import (
         AddOrModifyFieldsOperationUIConfig,
     )
-    from pamola_core.transformations.schemas.aggregate_records_op_core_schema import (
-        AggregateRecordsOperationConfig,
-    )
-    from pamola_core.transformations.schemas.aggregate_records_op_schema_exclude import (
-        AGGREGATE_RECORDS_EXCLUDE_FIELDS,
-    )
-    from pamola_core.transformations.schemas.aggregate_records_op_tooltip import (
-        AggregateRecordsOperationTooltip,
-    )
-    from pamola_core.transformations.schemas.aggregate_records_op_ui_schema import (
-        AggregateRecordsOperationUIConfig,
-    )
-    from pamola_core.transformations.schemas.clean_invalid_values_core_schema import (
-        CleanInvalidValuesOperationConfig,
-    )
-    from pamola_core.transformations.schemas.clean_invalid_values_schema_exclude import (
-        CLEAN_INVALID_VALUES_EXCLUDE_FIELDS,
-    )
-    from pamola_core.transformations.schemas.clean_invalid_values_tooltip import (
-        CleanInvalidValuesOperationTooltip,
-    )
-    from pamola_core.transformations.schemas.clean_invalid_values_ui_schema import (
-        CleanInvalidValuesOperationUIConfig,
-    )
-    from pamola_core.transformations.schemas.impute_missing_values_op_core_schema import (
-        ImputeMissingValuesConfig,
-    )
-    from pamola_core.transformations.schemas.impute_missing_values_op_schema_exclude import (
-        IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS,
-    )
-    from pamola_core.transformations.schemas.impute_missing_values_op_tooltip import (
-        ImputeMissingValuesOperationTooltip,
-    )
-    from pamola_core.transformations.schemas.impute_missing_values_op_ui_schema import (
-        ImputeMissingValuesOperationUIConfig,
-    )
-    from pamola_core.transformations.schemas.merge_datasets_op_core_schema import (
-        MergeDatasetsOperationConfig,
-    )
-    from pamola_core.transformations.schemas.merge_datasets_op_schema_exclude import (
-        MERGE_DATASETS_EXCLUDE_FIELDS,
-    )
-    from pamola_core.transformations.schemas.merge_datasets_op_tooltip import (
-        MergeDatasetsOperationTooltip,
-    )
-    from pamola_core.transformations.schemas.merge_datasets_op_ui_schema import (
-        MergeDatasetsOperationUIConfig,
-    )
+    # RemoveFields
     from pamola_core.transformations.schemas.remove_fields_op_core_schema import (
         RemoveFieldsOperationConfig,
     )
@@ -256,6 +437,59 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.transformations.schemas.remove_fields_op_ui_schema import (
         RemoveFieldsOperationUIConfig,
     )
+    # AggregateRecords
+    from pamola_core.transformations.schemas.aggregate_records_op_core_schema import (
+        AggregateRecordsOperationConfig,
+    )
+    from pamola_core.transformations.schemas.aggregate_records_op_schema_exclude import (
+        AGGREGATE_RECORDS_EXCLUDE_FIELDS,
+    )
+    from pamola_core.transformations.schemas.aggregate_records_op_tooltip import (
+        AggregateRecordsOperationTooltip,
+    )
+    from pamola_core.transformations.schemas.aggregate_records_op_ui_schema import (
+        AggregateRecordsOperationUIConfig,
+    )
+    # CleanInvalidValues
+    from pamola_core.transformations.schemas.clean_invalid_values_core_schema import (
+        CleanInvalidValuesOperationConfig,
+    )
+    from pamola_core.transformations.schemas.clean_invalid_values_schema_exclude import (
+        CLEAN_INVALID_VALUES_EXCLUDE_FIELDS,
+    )
+    from pamola_core.transformations.schemas.clean_invalid_values_tooltip import (
+        CleanInvalidValuesOperationTooltip,
+    )
+    from pamola_core.transformations.schemas.clean_invalid_values_ui_schema import (
+        CleanInvalidValuesOperationUIConfig,
+    )
+    # ImputeMissingValues
+    from pamola_core.transformations.schemas.impute_missing_values_op_core_schema import (
+        ImputeMissingValuesConfig,
+    )
+    from pamola_core.transformations.schemas.impute_missing_values_op_schema_exclude import (
+        IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS,
+    )
+    from pamola_core.transformations.schemas.impute_missing_values_op_tooltip import (
+        ImputeMissingValuesOperationTooltip,
+    )
+    from pamola_core.transformations.schemas.impute_missing_values_op_ui_schema import (
+        ImputeMissingValuesOperationUIConfig,
+    )
+    # MergeDatasets
+    from pamola_core.transformations.schemas.merge_datasets_op_core_schema import (
+        MergeDatasetsOperationConfig,
+    )
+    from pamola_core.transformations.schemas.merge_datasets_op_schema_exclude import (
+        MERGE_DATASETS_EXCLUDE_FIELDS,
+    )
+    from pamola_core.transformations.schemas.merge_datasets_op_tooltip import (
+        MergeDatasetsOperationTooltip,
+    )
+    from pamola_core.transformations.schemas.merge_datasets_op_ui_schema import (
+        MergeDatasetsOperationUIConfig,
+    )
+    # SplitByIDValues
     from pamola_core.transformations.schemas.split_by_id_values_op_core_schema import (
         SplitByIDValuesOperationConfig,
     )
@@ -268,141 +502,13 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.transformations.schemas.split_by_id_values_op_ui_schema import (
         SplitByIDValuesOperationUIConfig,
     )
+    # SplitFields
     from pamola_core.transformations.schemas.split_fields_op_core_schema import (
         SplitFieldsOperationConfig,
     )
     from pamola_core.transformations.schemas.split_fields_op_schema_exclude import (
         SPLIT_FIELDS_EXCLUDE_FIELDS,
     )
-    from pamola_core.anonymization.schemas.categorical_op_core_schema import (
-        CategoricalGeneralizationConfig,
-    )
-    from pamola_core.anonymization.schemas.categorical_op_schema_exclude import (
-        CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS,
-    )
-    from pamola_core.anonymization.schemas.datetime_op_core_schema import (
-        DateTimeGeneralizationConfig,
-    )
-    from pamola_core.anonymization.schemas.datetime_op_schema_exclude import (
-        DATETIME_GENERALIZATION_EXCLUDE_FIELDS,
-    )
-    from pamola_core.anonymization.schemas.full_masking_op_core_schema import (
-        FullMaskingConfig,
-    )
-    from pamola_core.anonymization.schemas.full_masking_op_schema_exclude import (
-        FULL_MASKING_EXCLUDE_FIELDS,
-    )
-    from pamola_core.anonymization.schemas.numeric_op_schema_exclude import (
-        NUMERIC_GENERALIZATION_EXCLUDE_FIELDS,
-    )
-    from pamola_core.anonymization.schemas.partial_masking_op_core_schema import (
-        PartialMaskingConfig,
-    )
-    from pamola_core.anonymization.schemas.partial_masking_op_schema_exclude import (
-        PARTIAL_MASKING_EXCLUDE_FIELDS,
-    )
-    from pamola_core.anonymization.schemas.attribute_op_core_schema import (
-        AttributeSuppressionConfig,
-    )
-    from pamola_core.anonymization.schemas.attribute_op_schema_exclude import (
-        ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS,
-    )
-    from pamola_core.anonymization.schemas.cell_op_core_schema import (
-        CellSuppressionConfig,
-    )
-    from pamola_core.anonymization.schemas.cell_op_schema_exclude import (
-        CELL_EXCLUDE_FIELDS,
-    )
-    from pamola_core.anonymization.schemas.record_op_core_schema import (
-        RecordSuppressionConfig,
-    )
-    from pamola_core.anonymization.schemas.record_op_schema_exclude import (
-        RECORD_EXCLUDE_FIELDS,
-    )
-    from pamola_core.anonymization.schemas.uniform_numeric_op_core_schema import (
-        UniformNumericNoiseConfig,
-    )
-    from pamola_core.anonymization.schemas.uniform_numeric_op_schema_exclude import (
-        RECORD_EXCLUDE_FIELDS as UNIFORM_NUMERIC_EXCLUDE_FIELDS,
-    )
-    from pamola_core.anonymization.schemas.uniform_temporal_op_core_schema import (
-        UniformTemporalNoiseConfig,
-    )
-    from pamola_core.anonymization.schemas.uniform_temporal_op_schema_exclude import (
-        RECORD_EXCLUDE_FIELDS as UNIFORM_TEMPORAL_EXCLUDE_FIELDS,
-    )
-
-
-    from pamola_core.profiling.schemas.anonymity_core_schema import (
-        KAnonymityProfilerOperationConfig,
-    )
-    from pamola_core.profiling.schemas.anonymity_schema_exclude import (
-        ANONYMITY_EXCLUDE_FIELDS,
-    )
-    from pamola_core.profiling.schemas.attribute_core_schema import (
-        DataAttributeProfilerOperationConfig,
-    )
-    from pamola_core.profiling.schemas.attribute_schema_exclude import (
-        ATTRIBUTE_EXCLUDE_FIELDS,
-    )
-    from pamola_core.profiling.schemas.categorical_core_schema import (
-        CategoricalOperationConfig,
-    )
-    from pamola_core.profiling.schemas.categorical_schema_exclude import (
-        CATEGORICAL_EXCLUDE_FIELDS,
-    )
-    from pamola_core.profiling.schemas.correlation_core_schema import (
-        CorrelationOperationConfig,
-    )
-    from pamola_core.profiling.schemas.correlation_schema_exclude import (
-        CORRELATION_EXCLUDE_FIELDS,
-    )
-    from pamola_core.profiling.schemas.currency_core_schema import (
-        CurrencyOperationConfig,
-    )
-    from pamola_core.profiling.schemas.currency_schema_exclude import (
-        CURRENCY_EXCLUDE_FIELDS,
-    )
-    from pamola_core.profiling.schemas.date_core_schema import DateOperationConfig
-    from pamola_core.profiling.schemas.date_schema_exclude import DATE_EXCLUDE_FIELDS
-    from pamola_core.profiling.schemas.email_core_schema import EmailOperationConfig
-    from pamola_core.profiling.schemas.email_schema_exclude import EMAIL_EXCLUDE_FIELDS
-    from pamola_core.profiling.schemas.group_core_schema import (
-        GroupAnalyzerOperationConfig,
-    )
-    from pamola_core.profiling.schemas.group_schema_exclude import GROUP_EXCLUDE_FIELDS
-    from pamola_core.profiling.schemas.identity_core_schema import (
-        IdentityAnalysisOperationConfig,
-    )
-    from pamola_core.profiling.schemas.identity_schema_exclude import (
-        IDENTITY_EXCLUDE_FIELDS,
-    )
-    from pamola_core.profiling.schemas.mvf_core_schema import MVFAnalysisOperationConfig
-    from pamola_core.profiling.schemas.mvf_schema_exclude import MVF_EXCLUDE_FIELDS
-    from pamola_core.profiling.schemas.numeric_core_schema import NumericOperationConfig
-    from pamola_core.profiling.schemas.numeric_schema_exclude import (
-        NUMERIC_EXCLUDE_FIELDS,
-    )
-    from pamola_core.profiling.schemas.phone_core_schema import PhoneOperationConfig
-    from pamola_core.profiling.schemas.phone_schema_exclude import PHONE_EXCLUDE_FIELDS
-    from pamola_core.profiling.schemas.text_core_schema import (
-        TextSemanticCategorizerOperationConfig,
-    )
-    from pamola_core.profiling.schemas.text_schema_exclude import TEXT_EXCLUDE_FIELDS
-    from pamola_core.anonymization.schemas.datetime_op_tooltip import DateTimeOpTooltip
-    from pamola_core.anonymization.schemas.categorical_op_tooltip import (
-        CategoricalOpTooltip,
-    )
-    from pamola_core.anonymization.schemas.cell_op_tooltip import (
-        CellSuppressionOpTooltip,
-    )
-    from pamola_core.anonymization.schemas.attribute_op_tooltip import (
-        AttributeSuppressionOpTooltip,
-    )
-    from pamola_core.profiling.schemas.date_tooltip import DateOpTooltip
-    from pamola_core.profiling.schemas.currency_tooltip import CurrencyOpTooltip
-    from pamola_core.profiling.schemas.correlation_tooltip import CorrelationOpTooltip
-
     from pamola_core.transformations.schemas.split_fields_op_tooltip import (
         SplitFieldsOperationTooltip,
     )
@@ -471,6 +577,18 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
             RecordSuppressionUIConfig,
             RECORD_EXCLUDE_FIELDS,
             RecordSuppressionOpTooltip.as_dict(),
+        ),
+        (
+            HashBasedPseudonymizationConfig,
+            HashBasedPseudonymizationUIConfig,
+            HASH_BASED_PSEUDONYMIZATION_EXCLUDE_FIELDS,
+            HashBasedPseudonymizationTooltip.as_dict(),
+        ),
+        (
+            ConsistentMappingPseudonymizationConfig,
+            ConsistentMappingPseudonymizationUIConfig,
+            CONSISTENT_MAPPING_PSEUDONYMIZATION_EXCLUDE_FIELDS,
+            ConsistentMappingPseudonymizationTooltip.as_dict(),
         ),
         # -------------- Fake Data -------------------
         (
@@ -631,10 +749,25 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
             SPLIT_FIELDS_EXCLUDE_FIELDS,
             SplitFieldsOperationTooltip.as_dict(),
         ),
-        # # -------------- Metrics -------------
-        # (FidelityConfig, None, FIDELITY_EXCLUDE_FIELDS, None),
-        # (PrivacyMetricConfig, None, PRIVACY_EXCLUDE_FIELDS, None),
-        # (UtilityMetricConfig, None, UTILITY_EXCLUDE_FIELDS, None),
+        # -------------- Metrics ---------------------
+        (
+            FidelityConfig,
+            FidelityUIConfig,
+            FIDELITY_EXCLUDE_FIELDS,
+            FidelityOperationTooltip.as_dict(),
+        ),
+        (
+            PrivacyMetricConfig,
+            PrivacyMetricUIConfig,
+            PRIVACY_EXCLUDE_FIELDS,
+            PrivacyMetricOperationTooltip.as_dict(),
+        ),
+        (
+            UtilityMetricConfig,
+            UtilityMetricUIConfig,
+            UTILITY_EXCLUDE_FIELDS,
+            UtilityMetricOperationTooltip.as_dict(),
+        ),
     ]
     return configs
 

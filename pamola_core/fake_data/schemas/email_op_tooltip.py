@@ -131,10 +131,25 @@ class FakeEmailOperationTooltip:
         "    - replace: Generates a new fake email to fill in the blank.\n"
         "    • Recommended: preserve to maintain the original data's completeness characteristics."
     )
+
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
     force_recalculation = (
         "• What it does: Ignores any previously saved results (cache) for this exact operation and re-generates all data from scratch.\n"
         "    • Impact: Use this if you have changed a setting or the underlying data and need to ensure the results are fresh."
     )
+
+    generate_visualization = (
+        "What it does: Enables the creation of charts that help you visually understand the impact of the anonymization.\n"
+        "• Charts will show changes to either data values (for Generalization, Masking, etc.) or the dataset's structure (for Remove Rows/Columns), depending on the operation.\n"
+        "• Note: Enabled by default. Uncheck for faster execution if visuals are not needed."
+    )
+
     detailed_metrics = (
         "• What it does: Provides deeper insights into the operation's output.\n"
         "    • Impact: May slightly slow down processing due to the extra data collection.\n"
@@ -175,7 +190,9 @@ class FakeEmailOperationTooltip:
             "output_field_name": cls.output_field_name,
             "column_prefix": cls.column_prefix,
             "null_strategy": cls.null_strategy,
+            "use_cache": cls.use_cache,
             "force_recalculation": cls.force_recalculation,
+            "generate_visualization": cls.generate_visualization,
             "detailed_metrics": cls.detailed_metrics,
             "max_retries": cls.max_retries,
         }

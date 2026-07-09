@@ -57,6 +57,14 @@ class AggregateRecordsOperationTooltip:
 
     generate_visualization = "What it does: Controls whether visualization charts are generated showing aggregation impact and results"
 
+
+    use_cache = (
+        "What it does: Enables caching of operation results on disk.\n"
+        "• When enabled, repeated runs with the same inputs reuse cached output instead of recomputing.\n"
+        "• Must be enabled for 'Force Recalculation' to take effect.\n"
+        "• Default: False (disabled)."
+    )
+
     force_recalculation = (
         "What it does: Forces the operation to reprocess data even if valid cached results exist. When enabled, cache check is skipped and "
         "fresh aggregation is performed. New results may update the cache."
@@ -72,5 +80,6 @@ class AggregateRecordsOperationTooltip:
             "output_format": cls.output_format,
             "save_output": cls.save_output,
             "generate_visualization": cls.generate_visualization,
+            "use_cache": cls.use_cache,
             "force_recalculation": cls.force_recalculation,
         }
