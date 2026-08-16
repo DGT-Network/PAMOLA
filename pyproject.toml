@@ -1,20 +1,43 @@
 [project]
 name = "pamola-core"
-version = "1.0.0.dev3"
+version = "1.0.0.dev4"
 requires-python = ">=3.10,<3.13"
 
+# NOTE: an entry WITH an email lands in the `Author-email` core-metadata field;
+# an entry WITHOUT one lands in the bare `Author` field. Mixing the two styles
+# splits the credit across both fields and reads as if the email-less party were
+# the sole author. Keep every entry here in the name+email form.
 authors = [
-  { name = "Author", email = "author@example.com" },
+  { name = "REALM Inveo Inc.", email = "info@realminveo.com" },
 ]
 maintainers = [
-  { name = "Maintainer", email = "maintainer@example.com" }
+  { name = "REALM Inveo Inc.", email = "info@realminveo.com" }
 ]
 
 description = "Pamola Core library for data anonymization, privacy models, metrics, and utilities"
 readme = "README.md"
 license = { text = "BSD-3-Clause" }
 
+keywords = [
+    "privacy",
+    "anonymization",
+    "data-privacy",
+    "differential-privacy",
+    "k-anonymity",
+    "l-diversity",
+    "pseudonymization",
+    "pii",
+    "gdpr",
+    "data-protection",
+    "synthetic-data",
+    "re-identification-risk",
+]
+
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Legal Industry",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
@@ -22,31 +45,39 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
+urls.Homepage = "https://realmdata.io"
+urls.Repository = "https://github.com/DGT-Network/PAMOLA"
+urls.Changelog = "https://github.com/DGT-Network/PAMOLA/blob/main/CHANGELOG.md"
+urls."Bug Tracker" = "https://github.com/DGT-Network/PAMOLA/issues"
+
+# NOTE: eight dependencies were removed in 1.0.0.dev4 because nothing in
+# pamola_core or tests imports them: torch, sdv, uvicorn[standard], rstr,
+# deepdiff, diff-match-patch, multidict, bcrypt. `torch` appeared only as a
+# keyword string in resources/entities/skills_en.json and as an *optional*
+# capability probe (`DependencyManager.check_dependency('torch')`, which is
+# written to work when torch is absent) — it was never imported, while costing
+# every installation ~2.5 GB. `tensorflow` and `transformers` are probed the
+# same way and were already, correctly, absent from this list.
 dependencies = [
     "python-decouple==3.8",
     "pydantic[email]==2.12.4",
     "matplotlib==3.8.2",
     "seaborn==0.13.2",
     "pandas==2.2.2",
-    "torch==2.8.0",
     "scikit-learn==1.7.2",
-    "deepdiff==8.6.1",
-    "diff-match-patch==20241021",
-    "sdv==1.18.0",
     "faker==33.3.1",
     "scipy==1.15.3",
-    "uvicorn[standard]==0.38.0",
     "openpyxl==3.1.5",
     "xlrd==2.0.1",
-    "rstr==3.2.2",
     "recordlinkage==0.16",
     "plotly==6.4.0",
     "kaleido==1.2.0",
     "pillow==11.3.0",
-    "multidict==6.7.0",
-    "bcrypt==4.3.0",
     "wordcloud==1.9.4",
     "langdetect==1.0.9",
     "fasttext-wheel==0.9.2",
@@ -69,6 +100,21 @@ dependencies = [
     "PyYAML==6.0.2",
     "typer[all]==0.24.1",
     "jsonschema==4.25.1",
+    # Declared explicitly in 1.0.0.dev4. Every one of these is imported at
+    # MODULE scope by pamola_core, but none was listed — they arrived only as
+    # transitive dependencies of other packages, so the build was one upstream
+    # dependency-drop away from failing to import at all. Two of them
+    # (python-dotenv via uvicorn[standard], filelock via torch) were supplied
+    # exclusively by packages removed in this release; without these lines
+    # `import pamola_core` raises ModuleNotFoundError.
+    "python-dotenv==1.2.3",   # pamola_core/utils/env.py:7
+    "filelock==3.32.3",       # pamola_core/utils/tasks/context_manager.py:37
+    "joblib==1.5.3",          # anonymization/commons/processing_utils.py:23 (+18 more)
+    "rich==15.0.0",           # cli/commands/list_ops.py:12
+    "tqdm==4.70.0",           # utils/progress.py:67
+    "packaging==26.3",        # utils/ops/op_registry.py:37
+    "jinja2==3.1.6",          # utils/reporting/template_engine.py:14
+    "regex==2026.7.19",       # utils/nlp/minhash.py:30
 ]
 
 [project.optional-dependencies]
@@ -89,6 +135,11 @@ include = ["pamola_core*"]
 "pamola_core.errors.context" = ["*.yaml"]
 "pamola_core" = ["resources/**/*"]
 "pamola_core.catalogs" = ["*.yaml"]
+# Template docs shipped alongside operation_skeleton.py / task templates.
+# Without these the installed package has the skeletons but not the README
+# explaining how to use them.
+"pamola_core.utils.ops.templates" = ["*.md", "*.jsonc"]
+"pamola_core.utils.tasks.templates" = ["*.md"]
 
 # ── CLI entry point ────────────────────────────────────────────────────────
 # After `pip install pamola-core`, the `pamola-core` command becomes available
