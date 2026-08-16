@@ -184,8 +184,14 @@ For dataset-level utility scoring (classification / regression downstream models
 **From PyPI:**
 
 ```bash
-pip install pamola-core==1.0.0.dev3
+pip install --pre pamola-core
 ```
+
+> **The `--pre` flag is required.** Every `1.0.0` release so far is a
+> pre-release, and `pip` skips pre-releases by default — so a plain
+> `pip install pamola-core` will **not** give you this library. You can also
+> pin the exact version instead: `pip install pamola-core==1.0.0.dev4`.
+> The flag stops being necessary once `1.0.0` final ships.
 
 **From source:**
 
@@ -201,7 +207,13 @@ pip install -e .
 pip install -e ".[test]"   # adds pytest, pytest-cov
 ```
 
-> **Heads-up:** All scientific dependencies (numpy, pandas, scikit-learn, scipy, torch, dask, spacy, sdv, faker, cryptography, etc.) are pinned in the main `[project.dependencies]` table — no separate `[fast]/[ner]/[dp]` extras in this release.
+> **Heads-up:** All scientific dependencies (numpy, pandas, scikit-learn, scipy, dask, spacy, faker, cryptography, etc.) are pinned in the main `[project.dependencies]` table — no separate `[fast]/[ner]/[dp]` extras in this release.
+>
+> As of `1.0.0.dev4`, `torch` and `sdv` are **no longer installed**: nothing in
+> the library imported them. If you relied on them being pulled in as a side
+> effect, install them explicitly. Splitting the remaining heavy dependencies
+> (spacy, nltk, faiss, dask, the plotting stack) into optional extras is
+> planned for a later release.
 
 ---
 

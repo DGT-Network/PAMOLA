@@ -7,6 +7,83 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0.dev4] - 2026-08-16
+
+> **Scope:** Packaging and installability only. **No library code changed** —
+> `pamola_core/` is byte-identical to `1.0.0.dev3`. This release exists so that
+> installing `pamola-core` produces a correct, honest, and far smaller
+> environment.
+
+### Added
+
+- **Eight previously undeclared runtime dependencies.** Each is imported at
+  **module scope** by `pamola_core` but was never listed in
+  `[project.dependencies]`; every one of them arrived only as a *transitive*
+  dependency of some other package. The build was therefore one upstream
+  dependency-drop away from `import pamola_core` failing outright:
+
+  | Added | Imported at |
+  |---|---|
+  | `python-dotenv` | `utils/env.py:7` |
+  | `filelock` | `utils/tasks/context_manager.py:37` |
+  | `joblib` | `anonymization/commons/processing_utils.py:23` (+18 more) |
+  | `rich` | `cli/commands/list_ops.py:12` |
+  | `tqdm` | `utils/progress.py:67` |
+  | `packaging` | `utils/ops/op_registry.py:37` |
+  | `jinja2` | `utils/reporting/template_engine.py:14` |
+  | `regex` | `utils/nlp/minhash.py:30` |
+
+  Two of these were supplied **exclusively** by packages removed below —
+  `python-dotenv` by `uvicorn[standard]`, `filelock` by `torch` — so the
+  removals and these additions must ship together. `requests`, `transformers`,
+  `graphviz`, `pyage` and `git` are also imported but only lazily, inside
+  guarded optional-capability paths, and remain deliberately undeclared.
+
+### Removed
+
+- **Eight unused runtime dependencies**, none of which are imported anywhere in
+  `pamola_core/` or `tests/`: `torch`, `sdv`, `uvicorn[standard]`, `rstr`,
+  `deepdiff`, `diff-match-patch`, `multidict`, `bcrypt`.
+  `torch` occurred only as a keyword string in
+  `resources/entities/skills_en.json` and as an *optional* capability probe
+  (`DependencyManager.check_dependency('torch')`, written to work when torch is
+  absent) — while costing every installation roughly 2.5 GB. `tensorflow` and
+  `transformers` are probed the same way and were already correctly absent.
+
+  **Migration:** if you relied on `pamola-core` pulling in `torch` or `sdv` as a
+  side effect, add them to your own dependencies.
+
+### Fixed
+
+- **Package metadata.** `authors` / `maintainers` were placeholder values
+  (`Author <author@example.com>`, `Maintainer <maintainer@example.com>`) and
+  were published as such to PyPI for `dev1` … `dev3`. Now
+  `REALM Inveo Inc. <info@realminveo.com>`.
+- **Package URLs.** Added `[project.urls]` — Homepage, Repository, Changelog,
+  Bug Tracker. The PyPI page previously had no link back to the project.
+- **Discoverability.** Added `keywords` and `Development Status`,
+  `Intended Audience`, and `Topic` classifiers.
+- **Missing package data.** `utils/ops/templates/README.md`,
+  `utils/ops/templates/config_example.jsonc`, and
+  `utils/tasks/templates/README.md` were present in the repository but absent
+  from the built wheel, so installed users got the operation skeleton without
+  its documentation.
+- **CI dependency install.** Both workflows ran
+  `pip install -e ".[dev]" 2>/dev/null || pip install -e .`, but the `dev` extra
+  was removed in `1.0.0.dev2`; the failure was silently swallowed and the
+  project's own pinned test tooling was then overridden by an unpinned
+  `pip install pytest pytest-cov`. Both now use `pip install -e ".[test]"`.
+
+### Notes
+
+- `pip install pamola-core` **without** `--pre` still does not install this
+  library: a `0.0.1` name-reservation stub from 2026-02-23 is the only *final*
+  release on PyPI, and pip prefers it. Use `pip install --pre pamola-core` or
+  pin the version. Resolution of the stub is tracked separately.
+- Relaxing the remaining `==` pins and splitting heavy dependencies (spacy,
+  nltk, faiss, dask, the plotting stack) into optional extras is deferred to a
+  later release; it needs coordination with downstream consumers.
+
 ## [1.0.0.dev3] - 2026-06-01
 
 > **Scope:** This release is a **CORE pseudonymization & anonymization hardening** release. It does **not** introduce, modify, or imply any formal differential-privacy (DP-SGD) or DP-based synthetic-data-generation capability — those capabilities live in the separate BEST / SYNT packages and follow an independent roadmap.
