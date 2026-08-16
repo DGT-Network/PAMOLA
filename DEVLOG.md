@@ -115,13 +115,55 @@ keep small fixtures, all passports, all readmes and the generators in-repo,
 and move the `*_10k` / full-size CSVs to release assets or a `pamola-data`
 companion repo. **Nothing has been deleted; no history rewrite is proposed.**
 
+### Later the same day — test baseline, and a dependency graph held together by luck
+
+Provisioned the environment (closing F-13) and ran the suite end to end.
+
+**Baseline:** 5 477 tests, **5 477 passed** in a clean environment, 41–43 min
+single-process. Public-API coverage **85.13 %** (18 962 statements, 2 820
+missed, 63 files) — **the project's advertised 85 % is accurate.** Recommended
+`fail_under = 84`.
+
+Five tests fail on this machine only: ambient `PAMOLA_PROJECT_ROOT=D:\VK\_DEVEL\HHR`
+(left over from the predecessor project) overrides configs the tests build in
+`tmp_path`. Product behaviour is correct (`utils/paths.py:45`); the **tests** are
+not hermetic, and there is no root `conftest.py` where such an invariant could
+live. TD-PC-11.
+
+Running the suite also leaves 43 untracked files in the working tree, including
+inside `pamola_core/utils/resources/` and `configs/`. TD-PC-12.
+
+**The significant finding.** PR #101 removes eight unused dependencies. The
+static reference count behind that was correct — but it answers "does anything
+import this package", not "what did this package supply". A clean virtualenv
+built from the edited `pyproject.toml` could not import `pamola_core` at all:
+170 collection errors, `ModuleNotFoundError: No module named 'dotenv'`.
+
+An AST audit of every import against the declared list found **thirteen
+undeclared third-party modules, eight at module scope** — `python-dotenv`,
+`filelock`, `joblib`, `rich`, `tqdm`, `packaging`, `jinja2`, `regex`. All eight
+arrived only as *transitive* dependencies; two of them (`python-dotenv` via
+`uvicorn[standard]`, `filelock` via `torch`) were supplied **exclusively** by
+packages being removed. The package's importability rested on transitive luck,
+with no signal in `pyproject.toml`. The removals did not create that fragility —
+they revealed it. TD-PC-13, fixed in PR #101.
+
+After declaring all eight: **5 477 passed, 0 failed**; install size **954 MB**
+against 2 363 MB for the `dev3` set (−60 %).
+
 ### Actions taken
 
 - **PR #99** — `chore: merge main into develop (reconcile release history)`.
   Zero file changes: `git diff --stat origin/main origin/develop` was already
   empty, so the split was historical only and the merge is a no-op on content.
-- **PR (this branch)** — CC project setup: `CLAUDE.md`, `DEVLOG.md`,
-  `docs/prompts/`, `docs/output/`.
+- **PR #100 (this branch)** — CC project setup and reports: `CLAUDE.md`,
+  `DEVLOG.md`, `data/raw/POLICY.md`, `docs/prompts/`, `docs/output/`.
+- **PR #101** — `1.0.0.dev4` release prep: packaging metadata, package-data,
+  CI `[dev]`→`[test]`, README `--pre` note, and the dependency corrections
+  above. Verified on a clean environment before requesting merge.
+- **Yank runbook** — `docs/output/20260816_CC_PYPI_YANK_RUNBOOK.md`. Strict
+  ordering: publish `1.0.0.dev4` **first**, yank `0.0.1` second. Yanking first
+  would leave plain `pip install` failing outright rather than serving the stub.
 - Note: pushing `chore/sync-main-into-develop` reported
   `remote: Bypassed rule violations` — a repository ruleset is configured and
   was bypassed by the pushing account's permissions. Worth a look; CC did not
@@ -181,8 +223,11 @@ deliberate release preparation commit.
 | TD-PC-06 | `eval()` / `pickle.load()` on config-supplied input | Medium | CC | OPEN |
 | TD-PC-07 | Missing OSS governance files; PyPI long-lived token | Medium | Val | OPEN |
 | TD-PC-08 | Two documentation toolchains (Sphinx + MkDocs) + stale `site/` | Low | Val | OPEN |
-| TD-PC-09 | `pip install pamola-core` resolves to an empty, proprietary-licensed `0.0.1` stub | **High** | Val | OPEN |
-| TD-PC-10 | 3 template docs in repo not packaged in the wheel | Low | CC | OPEN |
+| TD-PC-09 | `pip install pamola-core` resolves to an empty, proprietary-licensed `0.0.1` stub | **High** | Val | OPEN — runbook ready |
+| TD-PC-10 | 3 template docs in repo not packaged in the wheel | Low | CC | **RESOLVED** — PR #101 |
+| TD-PC-11 | Test suite is not hermetic — ambient `PAMOLA_PROJECT_ROOT` breaks 5 tests; no root `conftest.py` exists | Medium | CC | OPEN |
+| TD-PC-12 | Test suite writes 43 files into the working tree, incl. `pamola_core/utils/resources/` and `configs/` | Medium | CC | OPEN |
+| TD-PC-13 | 8 module-scope imports were undeclared, arriving only transitively | **High** | CC | **RESOLVED** — PR #101 |
 
 Detail, evidence, and proposed remediation for each: see
 `docs/output/20260816_CC_REPO_AUDIT.md`.
