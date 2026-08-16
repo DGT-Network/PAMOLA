@@ -181,6 +181,8 @@ deliberate release preparation commit.
 | TD-PC-06 | `eval()` / `pickle.load()` on config-supplied input | Medium | CC | OPEN |
 | TD-PC-07 | Missing OSS governance files; PyPI long-lived token | Medium | Val | OPEN |
 | TD-PC-08 | Two documentation toolchains (Sphinx + MkDocs) + stale `site/` | Low | Val | OPEN |
+| TD-PC-09 | `pip install pamola-core` resolves to an empty, proprietary-licensed `0.0.1` stub | **High** | Val | OPEN |
+| TD-PC-10 | 3 template docs in repo not packaged in the wheel | Low | CC | OPEN |
 
 Detail, evidence, and proposed remediation for each: see
 `docs/output/20260816_CC_REPO_AUDIT.md`.
