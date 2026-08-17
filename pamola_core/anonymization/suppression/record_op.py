@@ -38,7 +38,7 @@ Changelog:
 from datetime import datetime
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 import pandas as pd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.metric_utils import (
@@ -80,9 +80,17 @@ class RecordSuppressionOperation(AnonymizationOperation):
     """
     Record Suppression Operation for removing entire rows from datasets.
 
+    Not batch-capable (``supports_batch = False``): this operation is driven
+    through :meth:`execute`, not :meth:`process_batch`. Removing rows means a
+    batch is not self-contained — "suppress within this batch" and "suppress
+    across the dataset" are different operations, and the class implements the
+    latter (see :meth:`process_batch_for_suppression` for the internal helper).
+
     Implements REQ-REC-001 through REQ-REC-005 from the PAMOLA.CORE
     Suppression Operations Sub-Specification.
     """
+
+    supports_batch: ClassVar[bool] = False
 
     def __init__(
         self,

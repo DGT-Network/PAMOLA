@@ -30,8 +30,13 @@ jobs:
       # Blocking. Rule set is configured in pyproject.toml [tool.ruff.lint];
       # it is deliberately narrow (E9 + F) so that it stays at zero and stays
       # enforced. Widen it there, one family per PR — not here.
+      # tests/ is linted too, deliberately. Linting only the package hid nine
+      # F811 redefinitions inside tests/ — and a redefined test function does
+      # not fail, it silently never runs. In at least one case the shadowed
+      # half was the more valuable of the pair (the public-API path), so the
+      # suite was reporting a pass for a test that never executed.
       - name: Ruff check (blocking)
-        run: ruff check pamola_core/ --no-fix
+        run: ruff check pamola_core/ tests/ --no-fix
 
       # Informational: shows what the wider rule families would flag, so the
       # ratchet in pyproject.toml can be raised with real numbers.

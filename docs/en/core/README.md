@@ -81,7 +81,6 @@ Privacy, fidelity, utility, and quality metrics.
 | [Disclosure Risk](./metrics/privacy/disclosure_risk.md) | prosecutor/journalist/marketer |
 | [Classification](./metrics/utility/classification.md) | F1, precision, recall |
 | [Regression](./metrics/utility/regression.md) | MSE, R2 |
-| [Quality metrics](./metrics/quality/) | KS, KL, Pearson, Wasserstein |
 
 ### [Fake Data](./fake_data/) (5 docs)
 Synthetic data generation operations.

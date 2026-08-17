@@ -55,7 +55,7 @@ import time
 import dask.dataframe as dd
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -125,6 +125,36 @@ class AnonymizationOperation(FieldOperation):
     integration with profiling results for risk-based processing, and
     automatic switching to Dask for large dataset processing.
     """
+
+    #: Whether this operation can be driven through :meth:`process_batch`,
+    #: i.e. as a pure in-memory DataFrame -> DataFrame transform, without the
+    #: full :meth:`execute` lifecycle and its file I/O.
+    #:
+    #: Subclasses that implement ``process_batch`` inherit ``True`` and need do
+    #: nothing. Subclasses that do not MUST set this to ``False`` explicitly, so
+    #: that the limitation is a declared, machine-readable property rather than
+    #: an exception discovered at runtime.
+    #:
+    #: Callers should branch on this flag:
+    #:
+    #: .. code-block:: python
+    #:
+    #:     if op.supports_batch:
+    #:         out = op.process_batch(df)
+    #:     else:
+    #:         op.execute(data_source, task_dir, reporter, tracker)
+    #:
+    #: Rationale: three suppression operations and two splitting operations
+    #: inherited an abstract ``process_batch`` that raised
+    #: ``FeatureNotImplementedError``. The limitation was real but undeclared -
+    #: the only way to discover it was to call the method and catch the error,
+    #: which is not something an embedding caller can reasonably be asked to do.
+    #: Batch semantics for record suppression are genuinely debatable (a batch
+    #: is not self-contained when the operation removes rows), so the contract
+    #: is narrowed to match reality rather than widened with an invented
+    #: meaning. Implementing ``process_batch`` for an operation later flips this
+    #: flag to ``True`` and is backwards compatible; the reverse would not be.
+    supports_batch: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -1644,9 +1674,18 @@ class AnonymizationOperation(FieldOperation):
         --------
         pd.DataFrame
             Processed DataFrame batch
+
+        Raises
+        -------
+        FeatureNotImplementedError
+            If ``supports_batch`` is False for this operation. Check the flag
+            instead of catching the exception - see the class attribute below.
         """
         raise FeatureNotImplementedError(
-            "Subclasses must implement process_batch method"
+            f"{type(self).__name__} does not support in-memory batch "
+            f"processing (supports_batch = {self.supports_batch}). Use "
+            f"execute() instead, or check the supports_batch class attribute "
+            f"before calling process_batch()."
         )
 
     def process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:

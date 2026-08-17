@@ -69,3 +69,29 @@ dmypy.json
 # Sphinx documentation build output
 docs/_build/
 docs/generated/
+
+# --- Artifacts the test suite writes into the working tree (TD-PC-12) --------
+# The suite writes ~43 files to fixed relative paths instead of tmp_path. This
+# is an interim guard, NOT the fix: the tests should use tmp_path, which would
+# also unblock `pytest -n auto`.
+#
+# The entry that matters most is pamola_core/utils/resources/: a test downloads
+# the fastText language-identification model (lid.176.bin, 125 MB) *into the
+# package tree*. It reached a commit once and GitHub rejected the push for
+# exceeding the 100 MB blob limit. A test writing into the code tree can also
+# mask a packaging bug - a resource the wheel fails to ship still resolves
+# locally from whatever a previous run left behind.
+pamola_core/utils/resources/
+/config.json
+/my_task/
+/output/
+/pamola_datasets/
+/task/
+/temp_task_dir/
+/test_task_dir/
+/test_tmp_dir/
+/test_vis_dir/
+configs/execution_log.json
+configs/test_task_*.json
+/cov_full.txt
+/cov_now.json
