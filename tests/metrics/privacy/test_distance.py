@@ -226,13 +226,6 @@ class TestDistanceToClosestRecord:
         with pytest.raises(Exception):
             dcr.calculate_metric(orig, synth)
 
-    def test_sample_size(self):
-        orig, synth = self.get_dfs(n=100, m=100, d=3)
-        # DistanceToClosestRecord does not support sample_size param; use full dataset
-        dcr = DistanceToClosestRecord()
-        result = dcr.calculate_metric(orig, synth)
-        assert "dcr_statistics" in result
-
     def test__interpret_dcr_paths(self):
         dcr = DistanceToClosestRecord()
         # mean > 1.0

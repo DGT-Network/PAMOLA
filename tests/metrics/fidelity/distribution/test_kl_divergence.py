@@ -112,7 +112,7 @@ class TestKLDivergence:
         kl_ungrouped = KLDivergence(key_fields=["val"]).calculate_metric(df1, df2)["kl_divergence"]
         assert kl_grouped >= 0 and kl_ungrouped >= 0
 
-    def test_kl_divergence_jensen_shannon_distance(self):
+    def test_kl_divergence_jensen_shannon_distance_via_calculate_metric(self):
         df1 = self.get_simple_df([1, 2, 3, 4, 5])
         df2 = self.get_simple_df([2, 3, 4, 5, 6])
         result = KLDivergence(key_fields=["val"]).calculate_metric(df1, df2)
@@ -131,7 +131,7 @@ class TestKLDivergence:
         result = KLDivergence(key_fields=["val"]).calculate_metric(df1, df2)
         assert result["effect_size"] in ["negligible", "small", "medium", "large"]
 
-    def test_kl_divergence_statistical_significance(self):
+    def test_kl_divergence_statistical_significance_via_calculate_metric(self):
         df1 = self.get_simple_df([1, 2, 3, 4, 5])
         df2 = self.get_simple_df([2, 3, 4, 5, 6])
         result = KLDivergence(key_fields=["val"]).calculate_metric(df1, df2)
