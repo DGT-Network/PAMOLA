@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD%203--Clause-blue.svg"></a>
   <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10--3.12-blue.svg"></a>
-  <a href="https://pypi.org/project/pamola-core/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-1.0.0.dev3-orange.svg"></a>
+  <a href="https://pypi.org/project/pamola-core/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-1.0.0.dev4-orange.svg"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-active%20development-orange.svg">
 </p>
 
@@ -83,7 +83,7 @@ anonymize_customers/
 └── logs/                 # Per-task execution log
 ```
 
-> **Security note (1.0.0.dev3):** `config.json` now redacts sensitive parameters (e.g. AES-256 mapping encryption keys) via `OperationConfig.SENSITIVE_KEYS`. See [CHANGELOG.md](CHANGELOG.md) for the full release notes.
+> **Security note (since 1.0.0.dev3):** `config.json` redacts sensitive parameters (e.g. AES-256 mapping encryption keys) via `OperationConfig.SENSITIVE_KEYS`. See [CHANGELOG.md](CHANGELOG.md) for the full release notes.
 
 ---
 
@@ -122,13 +122,17 @@ All classes below are exported from the top-level `pamola_core` package.
 | **Metrics** | `FidelityOperation` (KS, KL-divergence), `PrivacyMetricOperation` (DCR, NNDR, uniqueness, k-anonymity, l-diversity), `UtilityMetricOperation` (classification, regression) |
 | **Analysis helpers** | `analyze_dataset_summary`, `analyze_descriptive_stats`, `analyze_correlation`, `visualize_distribution_df`, `calculate_full_risk` |
 
-> **Note on attack simulation:** Internal modules under `pamola_core/attacks/` (linkage, attribute inference, membership inference, DCR/NNDR helpers) are used by `PrivacyMetricOperation`, but there are no public, registered `Attack*Operation` classes in CORE 1.0.0.dev3. Future releases may expose them.
+> **Note on attack simulation:** `pamola_core/attacks/` is an **internal** package with no stability guarantee, and it is deliberately narrow — it carries only the attacks that measure *anonymization* quality: `LinkageAttack` (including the CVPL variant) and `AttributeInference`. There are no public, registered `Attack*Operation` classes.
+>
+> Two corrections to earlier releases of this note. These modules are **not** used by `PrivacyMetricOperation` — that operation imports `pamola_core.metrics.privacy`. And DCR/NNDR live in `pamola_core.metrics.privacy.distance` and `.neighbor`; duplicate copies that had accumulated under `attacks/` were removed, as was membership inference, which measures model privacy rather than anonymization.
+>
+> **Singling-out is not implemented.** It is the third anonymization-facing criterion, and no report produced from this package covers it.
 
 ---
 
-## Pseudonymization Spotlight (1.0.0.dev3)
+## Pseudonymization Spotlight
 
-The 1.0.0.dev3 release hardened the pseudonymization stack:
+The `1.0.0.dev3` release hardened the pseudonymization stack:
 
 ```python
 from pamola_core import ConsistentMappingPseudonymizationOperation
@@ -254,12 +258,12 @@ PAMOLA.CORE follows [Semantic Versioning](https://semver.org/) and [PEP 440](htt
 
 ```python
 import pamola_core
-print(pamola_core.__version__)   # e.g. "1.0.0.dev3"
+print(pamola_core.__version__)   # e.g. "1.0.0.dev4"
 ```
 
 | Phase | Version | Branch | Tag | Install |
 |-------|---------|--------|-----|---------|
-| Dev (current) | `1.0.0.dev3` | `develop` | `v1.0.0.dev3` | `pip install pamola-core==1.0.0.dev3` |
+| Dev (current) | `1.0.0.dev4` | `develop` | `v1.0.0.dev4` | `pip install --pre pamola-core` |
 | Stable (planned) | `1.0.0` | `main` | `v1.0.0` | `pip install pamola-core` |
 
 - **Source of truth:** `pyproject.toml` → `version`

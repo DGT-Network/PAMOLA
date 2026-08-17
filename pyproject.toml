@@ -165,6 +165,33 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["F841"]
 
+# --- F811 quarantine in tests: six tests that never run ---------------------
+# Linting tests/ (added alongside this block) exposed eight F811 redefinitions.
+# In a test file this is worse than in source: a redefined test function does
+# not fail, it silently never executes - so the suite reports a pass for a test
+# that was never run. In at least one case the shadowed half is the better of
+# the pair:
+#
+#   test_kl_divergence.py:134  exercises the public calculate_metric path  <- DEAD
+#   test_kl_divergence.py:244  exercises the private _is_statistically_significant
+#
+# Quarantined per-file rather than fixed here, deliberately: un-shadowing a test
+# that has never executed can surface genuine failures, and that belongs in its
+# own change with its own verification - not bundled into a merge. Tracked as a
+# runbook item.
+#
+#   test_datetime_op_extended.py:436/452  test_process_value_rounding_day
+#   test_kl_divergence.py:134/244         test_kl_divergence_statistical_significance
+#   test_kl_divergence.py:115/262         test_kl_divergence_jensen_shannon_distance
+#   test_distance.py:90/229               test_sample_size
+#   test_categorical.py:17/778, 33/823, 46/838   DummyDataSource, Reporter, Progress
+#   test_correlation.py:109/902           TestCorrelationAnalyzer (whole class)
+"tests/anonymization/generalization/test_datetime_op_extended.py" = ["F811"]
+"tests/metrics/fidelity/distribution/test_kl_divergence.py" = ["F811"]
+"tests/metrics/privacy/test_distance.py" = ["F811"]
+"tests/profiling/analyzers/test_categorical.py" = ["F811"]
+"tests/profiling/analyzers/test_correlation.py" = ["F811"]
+
 # --- F811 quarantine: three real defects, scheduled, not swept -------------
 # Each of these redefines a name that was already defined earlier in the file,
 # so the FIRST definition is dead code. They are NOT mechanical duplicates —

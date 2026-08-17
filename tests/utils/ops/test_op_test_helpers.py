@@ -1,8 +1,8 @@
 """
-Unit tests for op_test_helpers module.
+Unit tests for tests/op_helpers module.
 
 These tests verify the functionality of the testing utilities provided by the
-op_test_helpers module, including MockDataSource, StubDataWriter, assertion helpers,
+tests/op_helpers module, including MockDataSource, StubDataWriter, assertion helpers,
 and test environment creation utilities.
 
 Run with: pytest -s tests/utils/ops/test_op_test_helpers.py
@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from pamola_core.utils.ops.op_test_helpers import (
+from tests.op_helpers import (
     MockDataSource, StubDataWriter, CallRecord,
     assert_artifact_exists, assert_metrics_content,
     create_test_operation_env

@@ -45,7 +45,7 @@ Dependencies:
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, ClassVar, Dict, Optional, Union
 import pandas as pd
 
 from pamola_core.errors.codes import ErrorCode
@@ -96,6 +96,10 @@ class GeneratorOperation(FieldOperation):
     generator-based approaches (e.g., fake names, fake emails, synthetic IDs),
     handling consistency, mapping stores, and metadata propagation.
     """
+
+    #: Generator operations rewrite field values, so they are batch-capable.
+    #: See :attr:`pamola_core.utils.ops.op_base.BaseOperation.supports_batch`.
+    supports_batch: ClassVar[bool] = True
 
     def __init__(
         self,

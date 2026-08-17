@@ -21,10 +21,14 @@ Scope
 -----
 This package carries only the attacks that measure **anonymization** quality:
 
-* ``LinkageAttack``      - record linkage, including the CVPL variant
-                           (TruncatedSVD + cosine similarity)
-* ``AttributeInference`` - attribute disclosure from quasi-identifiers
-* singling-out           - NOT YET IMPLEMENTED, see the note below
+* ``LinkageAttack``       - record linkage, including the CVPL variant
+                            (TruncatedSVD + cosine similarity)
+* ``AttributeInference``  - attribute disclosure from quasi-identifiers
+* ``SinglingOutAttack``   - isolation of a single record via quasi-identifiers
+                            (worst-case subset sweep + SUDA2/MSU attribution)
+
+Together these cover the three EDPB anonymisation criteria: singling-out,
+linkability and inference.
 
 Three modules were removed in the 1.0 cleanup:
 
@@ -42,11 +46,15 @@ DCR and NNDR remain fully available - import them from
 
 Singling-out
 ------------
-Singling-out is the third anonymization-facing attack and is **not implemented
-anywhere in this package yet**. It is tracked as block H1 of
-``docs/output/20260816_CC_RUNBOOK_1_0.md``. Until it lands, this package does
-not cover the singling-out criterion, and no report generated from it should
-claim otherwise.
+``singling_out`` provides two complementary views. The sweep answers "how
+exposed is this dataset" (worst-case quasi-identifier subset, with an
+independent-marginals baseline so the rate is interpretable). The SUDA2/MSU
+engine answers "which columns cause it", by finding the minimal attribute
+combinations that isolate each record and ranking attributes by contribution.
+
+The sweep and baseline are ported from PAMOLA.BEST ``ATK-SINGLING-001``
+(polars to pandas); the MSU/SUDA2 engine from the clean-room implementation in
+PAMOLA spikes. No GPL sources were used.
 """
 
 __all__ = [
@@ -57,6 +65,16 @@ __all__ = [
     "LinkageAttack",
     "AttributeInference",
     "AttributeInferenceAttack",
+    "SinglingOutAttack",
+    # Singling-out primitives
+    "singling_out_sweep",
+    "independent_marginals_baseline",
+    "minimal_sample_uniques",
+    "suda_scores",
+    "dis_risk",
+    "enumerate_subset_count",
+    "wilson_ci",
+    "RecordRisk",
     # Metrics
     "AttackMetrics",
 ]
@@ -68,5 +86,17 @@ from pamola_core.attacks.linkage_attack import LinkageAttack
 
 from pamola_core.attacks.attribute_inference import AttributeInference
 from pamola_core.attacks.attribute_inference import AttributeInference as AttributeInferenceAttack
+
+from pamola_core.attacks.singling_out import (
+    RecordRisk,
+    SinglingOutAttack,
+    dis_risk,
+    enumerate_subset_count,
+    independent_marginals_baseline,
+    minimal_sample_uniques,
+    singling_out_sweep,
+    suda_scores,
+    wilson_ci,
+)
 
 from pamola_core.attacks.attack_metrics import AttackMetrics

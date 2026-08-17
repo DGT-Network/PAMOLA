@@ -65,7 +65,7 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Optional, Any, Union, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
@@ -121,9 +121,16 @@ class CellSuppressionOperation(AnonymizationOperation):
     Operation for suppressing or replacing individual cell values based on rules,
     conditional logic, or statistical criteria.
 
+    Not batch-capable (``supports_batch = False``): this operation is driven
+    through :meth:`execute`, not :meth:`process_batch`. Statistical suppression
+    criteria are computed over the whole field, so a batch is not
+    self-contained.
+
     Implements REQ-CELL-001 through REQ-CELL-006 from the
     PAMOLA.CORE Suppression Operations Sub-Specification.
     """
+
+    supports_batch: ClassVar[bool] = False
 
     def __init__(
         self,

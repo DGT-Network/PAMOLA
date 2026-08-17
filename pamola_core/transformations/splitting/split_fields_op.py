@@ -28,7 +28,7 @@ for input/output, progress tracking, and result reporting.
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, List, Any, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 import pandas as pd
 from pamola_core.transformations.schemas.split_fields_op_core_schema import (
     SplitFieldsOperationConfig,
@@ -56,7 +56,13 @@ from pamola_core.utils.ops.op_registry import register
 
 @register(version="1.0.0")
 class SplitFieldsOperation(TransformationOperation):
-    """Operation for splitting a dataset into multiple groups of fields."""
+    """Operation for splitting a dataset into multiple groups of fields.
+
+    Not batch-capable: the operation turns one dataset into *several*, so it has
+    no single-DataFrame-in, single-DataFrame-out form. Use :meth:`execute`.
+    """
+
+    supports_batch: ClassVar[bool] = False
 
     def __init__(
         self,

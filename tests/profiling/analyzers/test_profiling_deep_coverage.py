@@ -214,7 +214,7 @@ class TestMVFProfiling:
 
     def test_mvf_with_nulls(self, reporter, tmp_path):
         from pamola_core.profiling.analyzers.mvf import MVFOperation
-        tags = [f"a,b" if i % 3 != 0 else None for i in range(200)]
+        tags = ["a,b" if i % 3 != 0 else None for i in range(200)]
         df = pd.DataFrame({"tags": tags, "id": range(200)})
         op = MVFOperation(field_name="tags")
         result = _run(op, df, tmp_path, reporter)
