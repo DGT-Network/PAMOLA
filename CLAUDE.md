@@ -37,9 +37,13 @@ Installing pulls `torch`, `sdv`, `spacy`, `faiss-cpu`, `dask[complete]` — expe
 
 `pamola-core` is a **library** (PyPI: `pamola-core`), not a service: file-oriented anonymization
 operations that read a `DataSource` and write a `task_dir`. It is the open-source core of PAMOLA,
-evolved from the earlier `HHR` package. The sibling project **BEST** (`D:\VK\_DEVEL\best`) is the
-computational engine and bridges ~40 of its operations into this library via
-`src/best/operations/core/_bridge_impl/`.
+evolved from the earlier `HHR` package. It is **independently usable** — nothing downstream is
+required to run it.
+
+The sibling project **BEST** (`D:\VK\_DEVEL\best`) is the governed execution system. It is *not*
+a runtime consumer of this library: it retired the `pamola-core` bridge on 2026-06-14 and its
+operations are native polars. What the two share is conceptual — DSL terms, privacy semantics,
+artifact vocabulary, metric definitions. See ADR-PC-05 in `DEVLOG.md`.
 
 Authoritative framework docs live in BOX: `C:\Users\valer\Box\DEVBOX\PAMOLA\core\` (`00_INDEX.md` …).
 Read BOX for intent, the repo for reality; when they disagree, that gap is a finding for `docs/output/`.
@@ -78,8 +82,9 @@ PAMOLA 7-step lifecycle:
 export in `pamola_core/__init__.py` `__all__` + entry in `.coveragerc` `[run] include` +
 `CHANGELOG.md` entry. `__all__` and `.coveragerc` together define the public API (SRS 4.1.11).
 
-**Public signatures and artifact filenames are a contract with BEST** — breaking them is a
-breaking change for BEST and needs an explicit decision recorded in `DEVLOG.md`.
+**Public signatures and artifact filenames are a contract with downstream OSS users** — the
+surface defined by `__all__` and `.coveragerc`. Breaking them needs an explicit decision
+recorded in `DEVLOG.md`. Do not justify or block a change with "BEST depends on it" (ADR-PC-05).
 
 ## Branching and release
 

@@ -70,6 +70,19 @@ dmypy.json
 docs/_build/
 docs/generated/
 
+# Agent working prompts — internal, not part of the published project.
+#
+# docs/prompts/ holds the system and handoff prompts that drive the assisting
+# agents (roles, session state, working conventions). They are development
+# scaffolding, not documentation of the library, and this is a public
+# repository: an internal prompt shipped next to the API reference reads as
+# project documentation and invites confusion about what the project promises.
+#
+# The record that *is* meant to be public lives in DEVLOG.md (decisions, ADRs,
+# debt) and docs/output/ (reports). Anything from a prompt that matters to a
+# reader of the repository belongs in one of those.
+docs/prompts/
+
 # --- Artifacts the test suite writes into the working tree (TD-PC-12) --------
 # The suite writes ~43 files to fixed relative paths instead of tmp_path. This
 # is an interim guard, NOT the fix: the tests should use tmp_path, which would

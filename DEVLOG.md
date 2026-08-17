@@ -13,6 +13,68 @@ DEVLOG is for *why and how*; CHANGELOG is for *what shipped*.
 
 ---
 
+## 2026-08-17 — 1.0 cleanup: ~12 600 lines removed, singling-out added
+
+Sections A and B of `docs/output/20260816_CC_RUNBOOK_1_0.md` executed, plus the
+decisions Val took on top of them. Session report:
+`docs/output/20260817_CC_SESSION_REPORT.md`.
+
+**Positioning changed, and it invalidated an ADR.** CD established that BEST
+retired the pamola-core bridge on **2026-06-14** (`BRIDGED_OP_CODES = 0`,
+`best/src/best/operations/constants.py:3`); BEST's core operations are native
+polars and `pamola-core` is not among its dependencies. ADR-PC-02 — "the BEST
+bridge is a public contract" — was therefore false when written, two months
+after the fact. Superseded by **ADR-PC-05**: *BEST is the governed execution
+system; CORE is the open privacy-engineering toolkit.* No decision in this
+repository may be justified by BEST depending on it.
+
+**Removed, ~12 600 lines, no functionality lost:**
+
+| What | Lines | Why |
+|---|---:|---|
+| LLM contour (`utils/nlp/llm/` + `text_transformer.py`) | 8 376 | Val's decision; a leaf of the dependency tree |
+| `attacks/attacks_test.py` | 641 | smoke harness that shipped to PyPI and pytest never collected |
+| `membership_inference` + two dead duplicates of DCR/NNDR | 326 | MIA is model privacy, not anonymization; the duplicates shadowed the live `metrics/privacy` implementations |
+| `op_test_helpers.py` → `tests/` | 827 | test scaffolding inside the wheel, neither exported nor covered |
+| `metrics/quality/` | 249 | zero consumers; `FidelityOperation` registers only `fidelity/distribution` |
+| `pipeline/`, `interface/`, `crypto/`, duplicate enum | ~60 | empty placeholder packages in the wheel |
+
+**Added:** `SinglingOutAttack` — the EDPB criterion the package did not cover.
+Ported, not written: three PAMOLA implementations were compared and the best was
+**not** BEST's. `spikes/i_piper/roles/msu.py` (MSU + SUDA2, Elliot) is already
+pandas and clean-room; BEST's contributes the worst-case sweep and the
+independent-marginals baseline, without which a uniqueness rate is
+uninterpretable. Both engines are kept because they answer different questions —
+*how exposed* versus *which columns cause it*.
+
+**Contract:** `supports_batch` declared on `BaseOperation`, so all 42 exported
+operations answer whether they can be batch-processed (19 True, 23 False)
+instead of raising `FeatureNotImplementedError` when tried. Narrowing was chosen
+over inventing batch semantics for record suppression; `False → True` later is
+backwards compatible, the reverse is not.
+
+**Gates now block:** ruff `E9 + F` over `pamola_core/` *and* `tests/`,
+`fail_under = 83`, public-API↔coverage drift test, batch-contract test.
+Twelve real defects surfaced the moment the lint gate stopped being advisory —
+the sharpest being six duplicated regex keys in `common/regex/patterns.py` that
+made every ambiguous date parse as US MDY, with the DMY entries dead on arrival.
+
+**Honesty fixes:** `FidelityMetricsType` dropped `JS`/`WASSERSTEIN`, which were
+declared but never registered, so they could not be selected; the test now
+compares the enum against the operation registry so the two cannot drift again.
+README moved to `dev4` and its attack note corrected — it had claimed modules
+were used by `PrivacyMetricOperation` that never were.
+
+**Numbers:** 5 551 tests, coverage 84.55 % (was 84.33 %), install 954 MB (was
+2 363 before dev4).
+
+**`docs/prompts/` is now git-ignored.** Agent working prompts are development
+scaffolding, not project documentation, and on a public repository they invite
+confusion about what the project promises. The public record is DEVLOG plus
+`docs/output/`.
+
+---
+
 ## 2026-08-16 (later) — `1.0.0.dev4` published; `0.0.1` stub yanked
 
 PRs #99, #100 and #101 merged into `develop`; `main` is now an ancestor of
@@ -212,7 +274,8 @@ enforcement, or distributed execution belongs in BEST, not here.
 
 ## ADR-PC-02: ~~BEST bridge is a public contract~~ — SUPERSEDED
 
-**Status: SUPERSEDED 2026-08-16 by ADR-PC-05. The premise was false.**
+**Status: SUPERSEDED by ADR-PC-05. The premise was false.**
+**Do not cite this ADR to justify any decision.**
 
 The original text claimed that BEST delegates ~40 operations to this library
 through `src/best/operations/core/_bridge.py`, and concluded that public
@@ -292,6 +355,33 @@ the version appears in `CHANGELOG.md` before publishing.
 **Consequence:** never hand-edit `version` in `pyproject.toml` outside a
 deliberate release preparation commit.
 
+## ADR-PC-05: CORE is an independent OSS library; BEST is not its consumer
+
+**Status:** Accepted 2026-08-17 (CD). **Supersedes ADR-PC-02.**
+
+**Context.** BEST retired the `pamola-core` bridge on 2026-06-14. It does not
+import this library, does not depend on it, and does not execute it. The two
+projects are siblings in one ecosystem, not a stack.
+
+**Rule.**
+- `pamola-core` is a standalone OSS Python library: operations, profiling,
+  metrics, reproducible artifacts, and a synthetic benchmark/demo layer. It is
+  designed to be installed and run on its own.
+- BEST owns runtime, orchestration, gates, budgets, evidence packs, and the
+  distributed substrate (Ray/S3/polars). None of that belongs here.
+- What the two share is **conceptual, not runtime**: DSL terms, privacy
+  semantics, artifact vocabulary, metric definitions — the checkable
+  definitions, not the call signatures.
+
+**Consequence.**
+- No change in this repository may be justified, blocked, or scoped by "BEST
+  depends on it." That premise is void.
+- Public-facing text (README, docs, reports) states *"usable independently;
+  shares privacy model and vocabulary with the PAMOLA ecosystem"* — never
+  *"compatible with the BEST bridge."*
+- Breaking-change policy still applies, but its beneficiary is **downstream OSS
+  users**, defined by ADR-PC-03's `__all__`, not by BEST.
+
 ---
 
 ## Technical Debt Register
@@ -310,8 +400,12 @@ deliberate release preparation commit.
 | TD-PC-08 | Two documentation toolchains (Sphinx + MkDocs) + stale `site/` | Low | Val | OPEN |
 | TD-PC-09 | `pip install pamola-core` resolves to an empty, proprietary-licensed `0.0.1` stub | **High** | Val | **RESOLVED** 2026-08-16 — `1.0.0.dev4` published, `0.0.1` yanked |
 | TD-PC-10 | 3 template docs in repo not packaged in the wheel | Low | CC | **RESOLVED** — PR #101 |
-| TD-PC-11 | Test suite is not hermetic — ambient `PAMOLA_PROJECT_ROOT` breaks 5 tests; no root `conftest.py` exists | Medium | CC | OPEN |
-| TD-PC-12 | Test suite writes 43 files into the working tree, incl. `pamola_core/utils/resources/` and `configs/` | Medium | CC | OPEN |
+| TD-PC-11 | Test suite is not hermetic — ambient `PAMOLA_PROJECT_ROOT` breaks 5 tests; no root `conftest.py` exists | Medium | CC | **RESOLVED** 2026-08-17 |
+| TD-PC-12 | Test suite writes 43 files into the working tree, incl. `pamola_core/utils/resources/` and `configs/` | **High** | CC | OPEN — `.gitignore` is a stopgap |
+| TD-PC-14 | `TestDataWriter` fails a different test each run | Medium | CC | OPEN — cause found: `_tkinter.TclError`, matplotlib picks the Tk backend. Fix is `Agg` in `tests/conftest.py` |
+| TD-PC-15 | Six tests in `tests/` are shadowed by F811 and never execute | Medium | CC | OPEN — quarantined per-file in `pyproject.toml` with each case analysed |
+| TD-PC-16 | `FidelityMetricsType` lost `JS`; a working `_jensen_shannon_divergence` helper exists in `statistical_fidelity.py` but is unreachable from `FidelityOperation` | Low | CC | OPEN |
+| TD-PC-17 | Ambiguous `dd/mm` vs `mm/dd` dates resolve to US convention; previously silent, now explicit in `common/regex/patterns.py` | Low | Val | OPEN — product decision |
 | TD-PC-13 | 8 module-scope imports were undeclared, arriving only transitively | **High** | CC | **RESOLVED** — PR #101 |
 
 Detail, evidence, and proposed remediation for each: see
