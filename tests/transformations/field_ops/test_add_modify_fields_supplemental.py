@@ -74,7 +74,6 @@ def _progress() -> MagicMock:
 class TestProcessBatchAddConditional:
     def test_add_conditional_numpy_bool_validation_error(self):
         """numpy bool_ from comparison triggers ValidationError — exercises condition evaluation path."""
-        from pamola_core.errors.exceptions import ValidationError
         op = _op(field_operations={
             "category": {
                 "operation_type": "add_conditional",
