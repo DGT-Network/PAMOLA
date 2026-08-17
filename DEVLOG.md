@@ -274,13 +274,13 @@ enforcement, or distributed execution belongs in BEST, not here.
 
 ## ADR-PC-02: BEST bridge is a public contract
 
-**Status:** Accepted (de facto, recorded here 2026-08-16)
-**Context:** BEST implements ~40 of its operations by delegating to this
-library through `src/best/operations/core/_bridge.py` and the five mixins in
-`_bridge_impl/`.
-**Rule:** public operation signatures, parameter names, and artifact
-filenames are a contract. Breaking them is a breaking change for BEST and
-requires an explicit decision recorded in this DEVLOG.
+**Status:** **SUPERSEDED by ADR-PC-05** (2026-08-17). Recorded 2026-08-16 on a
+premise that was already false: BEST retired the bridge on 2026-06-14
+(`BRIDGED_OP_CODES = 0`, `best/src/best/operations/constants.py:3`), its core
+operations are native polars, and `pamola-core` is not among its dependencies.
+Kept here for the record; **do not cite this ADR to justify any decision.**
+**Original rule (void):** public operation signatures, parameter names, and
+artifact filenames are a contract with BEST's `_bridge_impl/` mixins.
 
 ## ADR-PC-03: Public API is defined by `__init__.py` + `.coveragerc`
 
@@ -299,6 +299,33 @@ The workflow verifies tag ↔ branch, tag ↔ `pyproject.toml` version, and that
 the version appears in `CHANGELOG.md` before publishing.
 **Consequence:** never hand-edit `version` in `pyproject.toml` outside a
 deliberate release preparation commit.
+
+## ADR-PC-05: CORE is an independent OSS library; BEST is not its consumer
+
+**Status:** Accepted 2026-08-17 (CD). **Supersedes ADR-PC-02.**
+
+**Context.** BEST retired the `pamola-core` bridge on 2026-06-14. It does not
+import this library, does not depend on it, and does not execute it. The two
+projects are siblings in one ecosystem, not a stack.
+
+**Rule.**
+- `pamola-core` is a standalone OSS Python library: operations, profiling,
+  metrics, reproducible artifacts, and a synthetic benchmark/demo layer. It is
+  designed to be installed and run on its own.
+- BEST owns runtime, orchestration, gates, budgets, evidence packs, and the
+  distributed substrate (Ray/S3/polars). None of that belongs here.
+- What the two share is **conceptual, not runtime**: DSL terms, privacy
+  semantics, artifact vocabulary, metric definitions — the checkable
+  definitions, not the call signatures.
+
+**Consequence.**
+- No change in this repository may be justified, blocked, or scoped by "BEST
+  depends on it." That premise is void.
+- Public-facing text (README, docs, reports) states *"usable independently;
+  shares privacy model and vocabulary with the PAMOLA ecosystem"* — never
+  *"compatible with the BEST bridge."*
+- Breaking-change policy still applies, but its beneficiary is **downstream OSS
+  users**, defined by ADR-PC-03's `__all__`, not by BEST.
 
 ---
 
