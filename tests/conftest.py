@@ -23,7 +23,30 @@ variables explicitly via `monkeypatch.setenv`; the autouse fixture below runs
 first, so an explicit `setenv` inside a test always wins.
 """
 
+import os
+
 import pytest
+
+# --- Matplotlib must never reach a GUI backend during tests (TD-PC-14) -------
+#
+# Symptom: `TestDataWriter` failed a *different* test on each run, with
+# `_tkinter.TclError`. Cause: on a developer machine matplotlib auto-selects
+# `TkAgg`, and Tk objects are not safe across the threads the suite uses.
+#
+# The library already ships `matplotlib_agg_context()`
+# (`pamola_core/utils/vis_helpers/context.py:175`), but it deliberately
+# *restores* the previous backend on exit — correct for a library that must not
+# flip the host application's backend, and precisely wrong here: every guarded
+# block hands the process back to Tk.
+#
+# Setting the backend through the environment fixes both paths at once: the
+# ambient backend becomes `Agg`, so the context manager sees no difference,
+# never switches, and therefore never restores. This must run before the first
+# `import matplotlib.pyplot` anywhere, which the root conftest guarantees.
+#
+# `setdefault`, not assignment: a developer debugging a plot can still export
+# MPLBACKEND themselves and have it respected.
+os.environ.setdefault("MPLBACKEND", "Agg")
 
 # Environment variables that steer PAMOLA path/config resolution. Any variable
 # added here is neutralised for every test unless the test sets it itself.

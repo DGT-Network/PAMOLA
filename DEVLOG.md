@@ -402,11 +402,27 @@ projects are siblings in one ecosystem, not a stack.
 | TD-PC-10 | 3 template docs in repo not packaged in the wheel | Low | CC | **RESOLVED** — PR #101 |
 | TD-PC-11 | Test suite is not hermetic — ambient `PAMOLA_PROJECT_ROOT` breaks 5 tests; no root `conftest.py` exists | Medium | CC | **RESOLVED** 2026-08-17 |
 | TD-PC-12 | Test suite writes 43 files into the working tree, incl. `pamola_core/utils/resources/` and `configs/` | **High** | CC | OPEN — `.gitignore` is a stopgap |
-| TD-PC-14 | `TestDataWriter` fails a different test each run | Medium | CC | OPEN — cause found: `_tkinter.TclError`, matplotlib picks the Tk backend. Fix is `Agg` in `tests/conftest.py` |
+| TD-PC-14 | `TestDataWriter` fails a different test each run | Medium | CC | **RESOLVED** 2026-08-17 — PR #107. `MPLBACKEND=Agg` in `tests/conftest.py`. The library's `matplotlib_agg_context()` did not prevent it: it *restores* the GUI backend on exit, so the fix had to be at the environment level, not the call site. Causality verified by reproducing the flake under forced `TkAgg` |
 | TD-PC-15 | Six tests in `tests/` are shadowed by F811 and never execute | Medium | CC | OPEN — quarantined per-file in `pyproject.toml` with each case analysed |
 | TD-PC-16 | `FidelityMetricsType` lost `JS`; a working `_jensen_shannon_divergence` helper exists in `statistical_fidelity.py` but is unreachable from `FidelityOperation` | Low | CC | OPEN |
 | TD-PC-17 | Ambiguous `dd/mm` vs `mm/dd` dates resolve to US convention; previously silent, now explicit in `common/regex/patterns.py` | Low | Val | OPEN — product decision |
 | TD-PC-13 | 8 module-scope imports were undeclared, arriving only transitively | **High** | CC | **RESOLVED** — PR #101 |
+| TD-PC-18 | GitHub ruleset does not require blocking CI checks on `develop` | **High** | Val | OPEN — see below |
+
+**TD-PC-18 detail.** PR #105 made `pytest` and the coverage floor blocking
+*inside* the workflow, but that only decides whether the job goes red — not
+whether a pull request can merge. PR #106 was merged with `Test: pytest` still
+`pending`: the check is not configured as a **required status check** on
+`develop`. Together with the `Bypassed rule violations` message seen when
+pushing `chore/sync-main-into-develop`, the picture is that the gate fails
+loudly but does not hold the door.
+
+The specific PR was doc-only and harmless. The severity is **High** anyway,
+because this is a release-readiness property, not a property of that PR: as
+configured, a red or unfinished CI run cannot stop a merge to the branch that
+`v*dev*` tags are cut from. Owner is Val — repository settings, not code; CC
+has not altered and will not alter any ruleset. Until it is configured, CC does
+not enable auto-merge on any PR touching code or tests.
 
 Detail, evidence, and proposed remediation for each: see
 `docs/output/20260816_CC_REPO_AUDIT.md`.
