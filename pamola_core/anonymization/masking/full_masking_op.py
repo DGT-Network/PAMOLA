@@ -1077,7 +1077,6 @@ class FullMaskingOperation(AnonymizationOperation):
             "format_patterns": self.format_patterns,
             "numeric_output": self.numeric_output,
             "date_format": self.date_format,
-            "format_patterns": self.format_patterns,
         }
 
         return masking_summary

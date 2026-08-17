@@ -123,6 +123,69 @@ test = [
     "pytest-cov>=7.0",
 ]
 
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = ["docs", "examples", "site"]
+
+[tool.ruff.lint]
+# Two tiers, deliberately.
+#
+# `select` is the BLOCKING set in CI. It contains rule families that indicate
+# defects, not style: syntax errors, undefined names, repeated dictionary keys
+# (the later value silently wins), and redefinitions that leave the first
+# definition dead. Before this configuration existed the CI gate was
+# `--select E9,F63,F7,F82` with the full run pinned to `|| true`, so the whole
+# `F` family was advisory — and it was hiding twelve genuine defects
+# (9 x F601, 3 x F811).
+#
+# Everything else — annotation modernisation (UP006/UP045, ~6100 findings),
+# bugbear, bandit, datetime hygiene — is deliberately NOT selected yet. Turning
+# it on wholesale would mean an 11k-finding diff that nobody can review, which
+# is how a lint gate ends up back at `|| true`. Raise the set one family at a
+# time, each with its own PR. Current known counts, for the ratchet:
+#   E722 bare-except  73     B  bugbear      ~324     S  bandit + DTZ + RUF013  ~508
+#   E722 bare-except  73     E402 import-not-at-top  ~25
+select = [
+    "E9",  # pycodestyle: syntax / IO errors
+    "F",   # pyflakes: undefined names, repeated dict keys, redefinitions
+]
+
+ignore = [
+    # Availability probes: `try: import pyarrow / except ImportError`. The
+    # import is intentionally unused — its success IS the test. All 15
+    # occurrences are this pattern (io_helpers/format_utils.py, dask_utils.py,
+    # op_base.py, fake_data/generators/name.py).
+    "F401",
+    # 59 occurrences, mostly loop/unpacking leftovers. Real but cosmetic;
+    # scheduled as its own cleanup so it does not drown the defect signal.
+    "F841",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["F841"]
+
+# --- F811 quarantine: three real defects, scheduled, not swept -------------
+# Each of these redefines a name that was already defined earlier in the file,
+# so the FIRST definition is dead code. They are NOT mechanical duplicates —
+# the signatures differ — so deleting the dead half is a maintainer decision,
+# not a lint fix. Ignored per-file (never globally) so the gate can go blocking
+# now while the defects stay visible and individually attributed.
+#
+# visualization_utils.py:133 vs :1222 — `sample_large_dataset`
+#   L133  accepts pd.Series,               default DEFAULT_MAX_SAMPLES
+#   L1222 accepts Series | DataFrame,      default hardcoded 10000  <- wins
+#   Effect: DEFAULT_MAX_SAMPLES is silently not honoured.
+"pamola_core/anonymization/commons/visualization_utils.py" = ["F811"]
+#
+# reporting.py:776 vs :1178 — `generate_compliance_report`
+# reporting.py:986 vs :1227 — `generate_technical_report`
+#   The first of each pair is a method taking `self`; the second takes
+#   `processor` as its first positional parameter and wins. Any call written as
+#   `obj.generate_compliance_report(data=...)` therefore binds the instance to
+#   `processor`. This is an API defect, not a style issue.
+"pamola_core/privacy_models/l_diversity/reporting.py" = ["F811"]
+
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
