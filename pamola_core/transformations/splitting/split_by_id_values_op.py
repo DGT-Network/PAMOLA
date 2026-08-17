@@ -31,7 +31,7 @@ for input/output, progress tracking, and result reporting.
 from datetime import datetime
 import time
 from pathlib import Path
-from typing import Optional, Dict, List, Any, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
@@ -73,7 +73,13 @@ from pamola_core.transformations.schemas.split_by_id_values_op_core_schema impor
 
 @register(version="1.0.0")
 class SplitByIDValuesOperation(TransformationOperation):
-    """Operation for splitting a dataset by ID values or automatic partitioning."""
+    """Operation for splitting a dataset by ID values or automatic partitioning.
+
+    Not batch-capable: the operation turns one dataset into *several*, so it has
+    no single-DataFrame-in, single-DataFrame-out form. Use :meth:`execute`.
+    """
+
+    supports_batch: ClassVar[bool] = False
 
     def __init__(
         self,

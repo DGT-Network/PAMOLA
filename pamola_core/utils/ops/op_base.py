@@ -23,7 +23,7 @@ import os
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, ClassVar, Dict, List, Union, Optional
 import pandas as pd
 import dask.dataframe as dd
 
@@ -134,6 +134,24 @@ class BaseOperation(ABC):
     common functionality such as configuration management, logging,
     performance tracking, and output control.
     """
+
+    #: Whether this operation can be driven as a pure in-memory
+    #: ``DataFrame -> DataFrame`` transform via ``process_batch()``, rather than
+    #: only through the full :meth:`execute` lifecycle with its file I/O.
+    #:
+    #: Declared here, on the root base class, so that **every** operation
+    #: answers the question. A caller embedding this library should be able to
+    #: write ``if op.supports_batch:`` without a ``getattr`` default and without
+    #: knowing which intermediate base a given operation happens to derive from.
+    #:
+    #: The default is ``False`` — conservative on purpose. Profiling and metrics
+    #: operations summarise data rather than rewrite rows and have no batch form
+    #: at all; for them ``False`` is simply true. The transform bases
+    #: (``AnonymizationOperation``, ``TransformationOperation``,
+    #: ``BaseGeneratorOperation``) override it to ``True``, and the handful of
+    #: their subclasses that genuinely cannot be batched set it back to
+    #: ``False`` individually.
+    supports_batch: ClassVar[bool] = False
 
     def __init__(
         self,

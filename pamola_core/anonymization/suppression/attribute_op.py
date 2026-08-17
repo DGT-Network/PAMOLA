@@ -35,7 +35,7 @@ Changelog:
 from datetime import datetime
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 import pandas as pd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.metric_utils import (
@@ -85,9 +85,16 @@ class AttributeSuppressionOperation(AnonymizationOperation):
     """
     Operation for removing one or more columns (attributes) from datasets.
 
+    Not batch-capable (``supports_batch = False``): this operation is driven
+    through :meth:`execute`, not :meth:`process_batch`. Column removal is
+    applied through the Dask path (``_process_batch_dask``) or the full
+    lifecycle; there is no plain in-memory batch implementation.
+
     Implements REQ-ATTR-001 through REQ-ATTR-005 from the
     PAMOLA.CORE Suppression Operations Sub-Specification.
     """
+
+    supports_batch: ClassVar[bool] = False
 
     def __init__(
         self,

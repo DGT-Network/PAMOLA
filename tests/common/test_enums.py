@@ -143,7 +143,7 @@ class TestFidelityMetricsType:
 
     def test_fidelity_metrics_has_members(self):
         """FidelityMetricsType should have required members."""
-        required = {"KS", "KL", "JS", "WASSERSTEIN"}
+        required = {"KS", "KL"}
         members = {m.name for m in FidelityMetricsType}
         assert required.issubset(members)
 
@@ -155,13 +155,32 @@ class TestFidelityMetricsType:
         """KL metric should have correct value."""
         assert FidelityMetricsType.KL.value == "kl"
 
-    def test_js_metric_value(self):
-        """JS metric should have correct value."""
-        assert FidelityMetricsType.JS.value == "js"
+    def test_enum_matches_the_operation_registry(self):
+        """Every declared metric must be one FidelityOperation can actually produce.
 
-    def test_wasserstein_metric_value(self):
-        """WASSERSTEIN metric should have correct value."""
-        assert FidelityMetricsType.WASSERSTEIN.value == "wasserstein"
+        This is the invariant that JS and WASSERSTEIN violated: both were
+        declared here and documented as "optional/expandable", but neither was
+        ever registered in fidelity_ops, so selecting them could not yield a
+        metric. The enum is a menu, and a menu must not list dishes the kitchen
+        cannot cook - so the test compares against the registry rather than
+        against a hand-written list that can drift the same way.
+        """
+        from pamola_core.metrics.operations.fidelity_ops import (
+            FidelityOperation,  # noqa: F401  (import proves the module loads)
+        )
+        import pamola_core.metrics.operations.fidelity_ops as ops
+
+        registry = next(
+            v
+            for v in vars(ops).values()
+            if isinstance(v, dict) and {"ks", "kl"} <= set(v)
+        )
+        declared = {m.value for m in FidelityMetricsType}
+        assert declared == set(registry), (
+            f"FidelityMetricsType declares {sorted(declared)} but the "
+            f"FidelityOperation registry implements {sorted(registry)}. "
+            f"Add the implementation before adding the enum member."
+        )
 
     def test_all_fidelity_values_are_strings(self):
         """All fidelity metric values should be strings."""
@@ -180,7 +199,7 @@ class TestFidelityMetricsType:
     def test_iterate_metrics(self):
         """Should be able to iterate over all metrics."""
         metrics = list(FidelityMetricsType)
-        assert len(metrics) == 4
+        assert len(metrics) == 2
 
     def test_metric_comparison(self):
         """Should support equality comparison."""

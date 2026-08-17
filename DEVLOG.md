@@ -272,15 +272,70 @@ persistent state. Operations read a `DataSource` and write a `task_dir`.
 **Consequence:** anything requiring orchestration, a control plane, budget
 enforcement, or distributed execution belongs in BEST, not here.
 
-## ADR-PC-02: BEST bridge is a public contract
+## ADR-PC-02: ~~BEST bridge is a public contract~~ — SUPERSEDED
 
-**Status:** **SUPERSEDED by ADR-PC-05** (2026-08-17). Recorded 2026-08-16 on a
-premise that was already false: BEST retired the bridge on 2026-06-14
-(`BRIDGED_OP_CODES = 0`, `best/src/best/operations/constants.py:3`), its core
-operations are native polars, and `pamola-core` is not among its dependencies.
-Kept here for the record; **do not cite this ADR to justify any decision.**
-**Original rule (void):** public operation signatures, parameter names, and
-artifact filenames are a contract with BEST's `_bridge_impl/` mixins.
+**Status: SUPERSEDED by ADR-PC-05. The premise was false.**
+**Do not cite this ADR to justify any decision.**
+
+The original text claimed that BEST delegates ~40 operations to this library
+through `src/best/operations/core/_bridge.py`, and concluded that public
+signatures and artifact filenames are a contract with BEST.
+
+**The bridge was retired on 2026-06-14** — two months before this ADR was
+written. Verified in the BEST tree: `src/best/operations/constants.py:3`
+("The pamola-core bridge was retired 2026-06-14; every operation is now a
+native implementation"), `BRIDGED_OP_CODES = 0`, `src/best/api/deps.py:350`,
+and `pamola-core` does not appear in BEST's dependencies. Only stale `.pyc`
+files of `_bridge.py` remain.
+
+Raised by CD. I recorded the ADR from the state of the BEST source as I had
+read it earlier, without checking whether the bridge was still live — the
+`_bridge_impl/` directory names were still in my notes. The error propagated
+into `docs/prompts/20260816_SYSTEM_CC_PAMOLA_CORE.md`, the roadmap's argument
+against polars, and several PR descriptions. Corrections are in ADR-PC-05.
+
+## ADR-PC-05: CORE is a standalone library, not a BEST subordinate
+
+**Status:** Accepted 2026-08-16 (replaces ADR-PC-02)
+
+**Context.** BEST retired the pamola-core bridge on 2026-06-14 and reimplemented
+its core operations natively on polars. There is no runtime dependency in
+either direction.
+
+**Positioning.** *BEST is the governed execution system; CORE is the open
+privacy-engineering toolkit.* CORE must justify itself on its own terms:
+
+- easy entry — `pip install pamola-core`, a CSV or DataFrame, an operation, a
+  result;
+- honest privacy primitives — masking, generalization, suppression,
+  pseudonymization, noise;
+- measurability — fidelity / privacy / utility metrics;
+- reproducibility — config, metrics, artifacts and logs in a `task_dir` that
+  can be shown to an auditor;
+- teaching and demonstration value — readable notebooks and passported
+  synthetic datasets.
+
+**Consequences.**
+
+1. Nothing in CORE may be justified by "BEST depends on it". That argument is
+   void.
+2. Do not pull BEST concerns — orchestration, control plane, budgets,
+   governance gates, evidence packs — into CORE, and do not promise
+   BEST-grade governance in the README.
+3. Compatibility with BEST is conceptual (shared DGF/DSL vocabulary), not
+   runtime. Documentation should say so explicitly: *CORE can be used
+   independently; BEST may share concepts and specs but is not required.*
+4. The public API still needs freezing at 1.0 — but for external users, who
+   are now the only consumers, not for a sibling repository.
+
+**Note on the polars decision.** The roadmap argued against a polars migration
+partly on the grounds that "pandas in/out is the public contract the BEST
+bridge depends on". That argument falls with ADR-PC-02. The conclusion stands
+on the two surviving arguments — the measured gain is confined to string
+operations and is caused by row-wise `.apply` rather than by pandas, and CORE
+already carries three parallelism mechanisms — and gains a new one: for a
+library whose value proposition is a light, familiar `pip install`, pandas is
+what external users expect and a fourth engine is weight, not speed.
 
 ## ADR-PC-03: Public API is defined by `__init__.py` + `.coveragerc`
 

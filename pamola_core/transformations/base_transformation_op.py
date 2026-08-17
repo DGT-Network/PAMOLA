@@ -23,7 +23,7 @@ Key features:
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 import pandas as pd
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
@@ -57,9 +57,20 @@ import pamola_core.utils.helpers as helpers
 class TransformationOperation(BaseOperation):
     """Base class for all transformation operations.
 
+    .. note::
+       ``supports_batch`` (declared below) states whether the operation can be
+       driven as a pure in-memory DataFrame -> DataFrame transform through
+       :meth:`process_batch`, or only through the full :meth:`execute`
+       lifecycle. Subclasses that do not implement ``process_batch`` MUST set
+       it to ``False``.
+
+
     This class provides common functionality for all transformation operations,
     including data source handling, result processing, and metric generation.
     """
+
+    #: See the class note above. True unless a subclass declares otherwise.
+    supports_batch: ClassVar[bool] = True
 
     def __init__(
         self,
