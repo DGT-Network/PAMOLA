@@ -7,6 +7,64 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Removed
+
+- **`pamola_core.pipeline`, `pamola_core.interface`, `pamola_core.crypto`** —
+  empty placeholder packages (15 lines each: a licence header and
+  `__all__ = []`) that shipped in the wheel and created three public names with
+  nothing behind them. Zero references anywhere in the codebase.
+- **`pamola_core.attacks` narrowed to the anonymization-facing attacks.**
+  The package now carries `LinkageAttack` (including the CVPL variant) and
+  `AttributeInference` only.
+  - `MembershipInference` removed — membership inference is a model-privacy
+    question, not an anonymization one.
+  - `DistanceToClosestRecord` and `NearestNeighborDistanceRatio` removed from
+    `attacks/`: they duplicated `pamola_core.metrics.privacy.distance` and
+    `pamola_core.metrics.privacy.neighbor`, which are the live
+    implementations — `PrivacyMetricOperation` imports the metrics versions and
+    never imported these. **Both metrics remain fully available from
+    `pamola_core.metrics.privacy`; nothing is lost.**
+  - `attacks/attacks_test.py` removed — a 641-line smoke-test harness that
+    shipped to PyPI, was never collected by pytest, and duplicated the 98 real
+    tests in `tests/attacks/`.
+
+  **Migration:** import DCR and NNDR from `pamola_core.metrics.privacy` instead
+  of `pamola_core.attacks`.
+
+  Note: **singling-out is not implemented** in this package. The docstring of
+  `pamola_core/attacks/__init__.py` states this explicitly so that no report
+  generated from it claims coverage of that criterion.
+
+### Added
+
+- **`tests/conftest.py`** — an autouse fixture that clears ambient `PAMOLA_*`
+  environment variables, making the suite hermetic. Previously a developer
+  machine with `PAMOLA_PROJECT_ROOT` set failed five tests in
+  `tests/utils/tasks/` while CI stayed green.
+- **`tests/test_public_api_coverage_scope.py`** — asserts every name in
+  `pamola_core.__all__` resolves to a module inside the `.coveragerc` scope.
+  On its first run it caught `HashBasedPseudonymizationOperation` and
+  `ConsistentMappingPseudonymizationOperation` being exported but unmeasured.
+
+### Changed
+
+- **Quality gates now block instead of merely reporting.**
+  `[tool.ruff.lint]` in `pyproject.toml` defines a narrow blocking set
+  (`E9` + `F`); `.coveragerc` `fail_under` moves from `0` to `83` against a
+  measured 84.327 %. CI's ruff step loses its `|| true`; a non-blocking mypy
+  job is added.
+
+### Fixed
+
+- **Ambiguous date formats were silently resolved to US convention.**
+  In `common/regex/patterns.py` the key `\d{2}/\d{2}/\d{4}` was declared twice —
+  once mapping to `%d/%m/%Y` and once to `%m/%d/%Y` — and a dict literal keeps
+  the last value, so the DMY entries were dead and every ambiguous date parsed
+  as MDY. Six such keys. The duplicates are removed rather than reordered,
+  which preserves behaviour exactly while making the resolution explicit.
+- Three exact duplicate dictionary keys removed (`full_masking_op.py`,
+  `profiling/analyzers/anonymity.py`, `profiling/commons/phone_utils.py`).
+
 ## [1.0.0.dev4] - 2026-08-16
 
 > **Scope:** Packaging and installability only. **No library code changed** —
