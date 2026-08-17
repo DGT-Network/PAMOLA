@@ -44,9 +44,28 @@ class Reporter:
 
 
 class Progress:
-    """Stub progress tracker for tests."""
-    def update(self, *args, **kwargs):
-        pass
+    """Stub progress tracker for tests.
+
+    Signature note (TD-PC-15): this file used to declare `Progress` twice, ~760
+    lines apart, and because a test method resolves the name when it *runs*, the
+    tests below were already binding the *later* definition. This body is that
+    later definition, kept so behaviour is preserved: `update` takes two
+    required positional arguments, not `*args`. That is the accurate contract —
+    all seven `progress_tracker.update(...)` call sites in
+    `pamola_core/profiling/analyzers/categorical.py` pass `(1, {...})`.
+    Keeping the permissive stub instead would weaken tests that have in fact
+    been running against this one.
+    """
+
+    def __init__(self):
+        self.updates = []
+        self.total = 0
+
+    def update(self, step, info):
+        self.updates.append((step, info))
+
+    def create_subtask(self, total, description, unit):
+        return Progress()
 
     def close(self):
         pass
@@ -775,22 +794,6 @@ class TestAnalyzeCategoricalFields(unittest.TestCase):
         self.assertIn(error_message, result["cat1"].error_message)
                   
 # Add pytest-based tests for full coverage
-class DummyDataSource:
-    def __init__(self, df=None, error=None):
-        self.df = df
-        self.error = error
-        self.encryption_keys = {}
-        self.encryption_modes = {}
-
-    def get_dataframe(self, dataset_name, **kwargs):
-        if self.df is not None:
-            return self.df, None
-        return None, {"message": self.error or "No data"}
-
-    def apply_data_types(self, df, dataset_name=None, **kwargs):
-        return df
-
-
 def dummy_load_settings_operation(data_source, dataset_name, **kwargs):
     return {}
 
@@ -820,34 +823,10 @@ def dummy_dirs(tmp_path):
         'dictionaries': tmp_path / 'dictionaries'
     }
 
-class Reporter:
-    def __init__(self):
-        self.operations = []
-        self.artifacts = []
-
-    def add_operation(self, *args, **kwargs):
-        self.operations.append((args, kwargs))
-
-    def add_artifact(self, *args, **kwargs):
-        self.artifacts.append((args, kwargs))
-        
 @pytest.fixture
 def dummy_reporter():
     return Reporter()
 
-class Progress:
-    def __init__(self):
-        self.updates = []
-        self.total = 0
-
-    def update(self, step, info):
-        self.updates.append((step, info))
-
-    def create_subtask(self, total, description, unit):
-        return Progress()
-
-    def close(self):
-        pass
 @pytest.fixture
 def dummy_progress():
     return Progress()

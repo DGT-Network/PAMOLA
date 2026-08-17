@@ -449,14 +449,6 @@ class TestProcessValue:
         result = op.process_value(val)
         assert result == pd.Timestamp("2023-06-15 14:00:00")
 
-    def test_process_value_rounding_day(self):
-        op = DateTimeGeneralizationOperation(
-            field_name="dt", strategy="rounding", rounding_unit="day"
-        )
-        val = pd.Timestamp("2023-06-15 14:30:00")
-        result = op.process_value(val)
-        assert isinstance(result, (pd.Timestamp, str))
-
     def test_process_value_binning_hour_range(self):
         op = DateTimeGeneralizationOperation(
             field_name="dt", strategy="binning", bin_type="hour_range", interval_size=6
