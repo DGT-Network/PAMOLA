@@ -13,6 +13,37 @@ DEVLOG is for *why and how*; CHANGELOG is for *what shipped*.
 
 ---
 
+## 2026-08-16 (later) — `1.0.0.dev4` published; `0.0.1` stub yanked
+
+PRs #99, #100 and #101 merged into `develop`; `main` is now an ancestor of
+`develop` (`main...develop` = `0 34`, was `1 26`).
+
+Tagged `v1.0.0.dev4` and published. `release.yml` run 31976061553: validate,
+pytest on **3.10 / 3.11 / 3.12**, and publish — all green. Published artifact
+verified independently: version `1.0.0.dev4`, author `REALM Inveo Inc.`,
+4 `Project-URL`s, 46 `Requires-Dist` (all eight additions present, none of the
+eight removals), template docs shipped, 71 public symbols, install size 973 MB.
+
+Val then yanked `0.0.1` via the PyPI web UI. Post-conditions measured:
+
+| Command | Before | After |
+|---|---|---|
+| `pip install pamola-core` | installs the 3.9 kB stub, silently | **hard error** naming all versions |
+| `pip install --pre pamola-core` | `1.0.0.dev3` | `1.0.0.dev4` |
+| `pip install pamola-core==0.0.1` | installs | installs, with a yank WARNING + reason |
+
+**The open question is closed: pip does *not* fall back to pre-releases when
+the only final release is yanked.** So the README `--pre` note stays until
+`1.0.0` final ships — that, not the yank, is what makes plain `pip install`
+correct. What the yank bought is the change from a *silent, misleading* failure
+(an empty package that imports fine, then `AttributeError`s on every symbol) to
+a *loud, actionable* one.
+
+TD-PC-09 resolved. Full record and sign-off in
+`docs/output/20260816_CC_PYPI_YANK_RUNBOOK.md` §8.
+
+---
+
 ## Current State (2026-08-16)
 
 - **Version:** `1.0.0.dev3` — published to PyPI as
@@ -277,7 +308,7 @@ deliberate release preparation commit.
 | TD-PC-06 | `eval()` / `pickle.load()` on config-supplied input | Medium | CC | OPEN |
 | TD-PC-07 | Missing OSS governance files; PyPI long-lived token | Medium | Val | OPEN |
 | TD-PC-08 | Two documentation toolchains (Sphinx + MkDocs) + stale `site/` | Low | Val | OPEN |
-| TD-PC-09 | `pip install pamola-core` resolves to an empty, proprietary-licensed `0.0.1` stub | **High** | Val | OPEN — runbook ready |
+| TD-PC-09 | `pip install pamola-core` resolves to an empty, proprietary-licensed `0.0.1` stub | **High** | Val | **RESOLVED** 2026-08-16 — `1.0.0.dev4` published, `0.0.1` yanked |
 | TD-PC-10 | 3 template docs in repo not packaged in the wheel | Low | CC | **RESOLVED** — PR #101 |
 | TD-PC-11 | Test suite is not hermetic — ambient `PAMOLA_PROJECT_ROOT` breaks 5 tests; no root `conftest.py` exists | Medium | CC | OPEN |
 | TD-PC-12 | Test suite writes 43 files into the working tree, incl. `pamola_core/utils/resources/` and `configs/` | Medium | CC | OPEN |
