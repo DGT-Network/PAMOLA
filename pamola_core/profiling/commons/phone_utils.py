@@ -807,7 +807,6 @@ def analyze_phone_field_with_dask(df: pd.DataFrame, field_name: str, patterns_cs
         'format_error_count': format_error_count,
         'has_comment_count': has_comment_count,
         'has_extension_count': int(has_extension_count),
-        'extension_examples': [item for r in results for item in r.get('extension_examples', [])],
         'country_codes': {k: sum(r['country_codes'].get(k, 0) for r in results) for k in
                           set(k for r in results for k in r['country_codes'].keys())},
         'operator_codes': {k: sum(r['operator_codes'].get(k, 0) for r in results) for k in

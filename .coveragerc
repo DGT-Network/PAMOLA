@@ -18,6 +18,12 @@ include =
     pamola_core/anonymization/masking/partial_masking_op.py
     pamola_core/anonymization/noise/uniform_numeric_op.py
     pamola_core/anonymization/noise/uniform_temporal_op.py
+    # pseudonymization: 2 operation classes added in 1.0.0.dev3.
+    # They were exported from __init__.py but never added here, so the two
+    # newest security-sensitive operations sat outside the measured public-API
+    # scope. Caught by tests/test_public_api_coverage_scope.py.
+    pamola_core/anonymization/pseudonymization/hash_based_op.py
+    pamola_core/anonymization/pseudonymization/mapping_op.py
     pamola_core/anonymization/suppression/attribute_op.py
     pamola_core/anonymization/suppression/cell_op.py
     pamola_core/anonymization/suppression/record_op.py
@@ -84,4 +90,17 @@ include =
 
 [report]
 show_missing = true
-fail_under = 0
+# Ratchet, not a target. Measured 84.327% on 2026-08-16 over the scope above
+# (19,747 statements, 3,095 missed, 5,548 tests). Set one point below the
+# measurement: tight enough that a real regression fails the build, loose
+# enough that ordinary noise does not block unrelated work.
+#
+# Raise this as coverage rises; never lower it to make a build pass.
+#
+# Note on the number: the previously advertised figure was 85.13%. Coverage did
+# not fall — the *scope* became honest. The two pseudonymization operations
+# shipped in 1.0.0.dev3 were exported from the public API but had never been
+# added here, so 785 statements of the newest, security-sensitive code were
+# outside the measurement. tests/test_public_api_coverage_scope.py now prevents
+# that class of drift.
+fail_under = 83

@@ -27,11 +27,16 @@ jobs:
       - name: Install ruff
         run: pip install ruff
 
-      - name: Ruff check (errors only, no warnings)
-        run: ruff check pamola_core/ --select E9,F63,F7,F82 --no-fix
+      # Blocking. Rule set is configured in pyproject.toml [tool.ruff.lint];
+      # it is deliberately narrow (E9 + F) so that it stays at zero and stays
+      # enforced. Widen it there, one family per PR — not here.
+      - name: Ruff check (blocking)
+        run: ruff check pamola_core/ --no-fix
 
-      - name: Ruff check (full, non-blocking)
-        run: ruff check pamola_core/ --statistics || true
+      # Informational: shows what the wider rule families would flag, so the
+      # ratchet in pyproject.toml can be raised with real numbers.
+      - name: Ruff check (wider set, informational)
+        run: ruff check pamola_core/ --select E,W,B,S,UP,SIM,DTZ --statistics || true
 
   test:
     name: "Test: pytest"
@@ -54,6 +59,14 @@ jobs:
             --junitxml=reports/junit.xml \
             --cov --cov-report=html:reports/coverage-html \
             --cov-report=term
+
+      # Non-blocking for now: the codebase is typed but has never been type
+      # checked, so the first run's finding count is unknown. Promote to
+      # blocking once a baseline exists and has been driven to zero.
+      - name: Type check (mypy, informational)
+        run: |
+          pip install mypy
+          mypy pamola_core/ --ignore-missing-imports --no-error-summary || true
 
       - name: Upload test reports
         if: always()

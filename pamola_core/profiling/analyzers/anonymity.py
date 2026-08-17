@@ -1346,7 +1346,6 @@ class KAnonymityProfilerOperation(BaseOperation):
             "threshold_k": self.threshold_k,
             "max_combinations": self.max_combinations,
             "id_fields": self.id_fields,
-            "threshold_k": self.threshold_k,
         }
 
         return parameters

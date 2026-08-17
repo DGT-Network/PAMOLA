@@ -32,20 +32,28 @@ class CommonPatterns:
         r"[A-Za-z]+ \d{1,2}, \d{4} \d{2}:\d{2}": "%B %d, %Y %H:%M",
         r"[A-Za-z]+ \d{1,2}, \d{4} \d{1,2}:\d{2} [APMapm]{2}": "%B %d, %Y %I:%M %p",
         # DMY and MDY with time
+        #
+        # NOTE — ambiguity resolution. `dd/mm/yyyy` and `mm/dd/yyyy` share one
+        # regex, and so do the `-` variants. Both were previously listed twice,
+        # DMY first and MDY second. A dict literal keeps the LAST value, so the
+        # DMY entries were dead on arrival and every ambiguous date has always
+        # been parsed as **MDY (US convention)**.
+        #
+        # The duplicates are removed here rather than reordered: dropping a key
+        # that Python already discarded preserves behaviour exactly, while
+        # making the resolution visible instead of accidental.
+        #
+        # Whether MDY is the RIGHT default is a product question, not a lint
+        # one — a Canadian HR dataset and a US banking dataset disagree. Until
+        # it is decided, the behaviour is at least no longer hidden.
         r"\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}": "%d.%m.%Y %H:%M",
         r"\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}": "%d.%m.%Y %H:%M:%S",
-        r"\d{2}/\d{2}/\d{4} \d{2}:\d{2}": "%d/%m/%Y %H:%M",
-        r"\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}": "%d/%m/%Y %H:%M:%S",
-        r"\d{2}-\d{2}-\d{4} \d{2}:\d{2}": "%d-%m-%Y %H:%M",
-        r"\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}": "%d-%m-%Y %H:%M:%S",
         r"\d{2}/\d{2}/\d{4} \d{2}:\d{2}": "%m/%d/%Y %H:%M",
         r"\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}": "%m/%d/%Y %H:%M:%S",
         r"\d{2}-\d{2}-\d{4} \d{2}:\d{2}": "%m-%d-%Y %H:%M",
         r"\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}": "%m-%d-%Y %H:%M:%S",
-        # DMY & MDY no time
+        # DMY & MDY no time — same ambiguity, same resolution as above.
         r"\d{2}\.\d{2}\.\d{4}": "%d.%m.%Y",
-        r"\d{2}/\d{2}/\d{4}": "%d/%m/%Y",
-        r"\d{2}-\d{2}-\d{4}": "%d-%m-%Y",
         r"\d{2}/\d{2}/\d{4}": "%m/%d/%Y",
         r"\d{2}-\d{2}-\d{4}": "%m-%d-%Y",
         # YMD formats
