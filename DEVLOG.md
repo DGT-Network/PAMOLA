@@ -13,6 +13,91 @@ DEVLOG is for *why and how*; CHANGELOG is for *what shipped*.
 
 ---
 
+## 2026-08-17 (later) — the suite becomes trustworthy again
+
+PRs #105 → #108 merged. Two debts closed, two opened. The theme is not cleanup:
+it is that the test suite had stopped being a reliable instrument, in two
+different ways, and both are now fixed.
+
+**Numbers:** **5 555 passed**, 1 skipped, coverage **84.57 %** (floor 83).
+Install 954 MB. `ruff` clean over `pamola_core/` *and* `tests/`.
+
+### TD-PC-14 — the suite was flaky (PR #107)
+
+`TestDataWriter` failed a *different* test each run with `_tkinter.TclError`.
+Matplotlib auto-selects `TkAgg` on a developer machine and Tk is not safe across
+the threads the suite uses.
+
+The non-obvious part: the library **already** ships `matplotlib_agg_context()`
+(`pamola_core/utils/vis_helpers/context.py:175`), and it did not help — because
+it *restores* the previous backend on exit. That is correct for a library, which
+must not flip the host application's backend, and exactly wrong inside a test
+process: every guarded block hands control back to Tk. So the fix could not live
+at the call site. `os.environ.setdefault("MPLBACKEND", "Agg")` in
+`tests/conftest.py` makes the ambient backend `Agg`, so the context manager sees
+no difference, never switches, and never restores.
+
+Causality was demonstrated, not assumed: forcing `MPLBACKEND=TkAgg` reproduced
+the different-test-each-run symptom across two runs with disjoint failure sets;
+`Agg` gave three clean runs.
+
+### TD-PC-15 — the suite was measuring the wrong things (PR #108)
+
+Eight `F811` sites, quarantined in `pyproject.toml` since #105, turned out to be
+**three distinct defects**. Collapsing them under one rule name is what let them
+survive. Case-by-case analysis, written before any code changed:
+`docs/output/20260817_CC_TD_PC_15_ANALYSIS.md`.
+
+- **Four dead tests and one dead class.** Later definitions won; the earlier
+  bodies never ran, and the suite reported passes for them.
+- **In both `test_kl_divergence.py` pairs the *public* half was the dead one** —
+  so the computation was covered while the contract that `calculate_metric`
+  actually returns those keys was not tested at all. Renamed, not deleted: both
+  halves are legitimate tests. 38 → 40, both revived tests green.
+- **`test_process_value_rounding_day`**: the surviving twin asserted only
+  `isinstance(result, (Timestamp, str))` — a tautology an *unrounded* value
+  would satisfy. The shadowed twin asserts the exact rounded `Timestamp`. The
+  strict one, never executed until now, passes.
+- **The serious case — `test_categorical.py`.** Three helpers declared twice,
+  ~760 lines apart. A test method resolves a global when it *runs*, so the
+  `unittest` classes at the top of the file were binding the definitions at the
+  bottom. Two pairs were identical; `Progress` was not — `update(*args,
+  **kwargs)` early versus `update(self, step, info)` plus `create_subtask` late.
+  These tests had been passing *about a different object than the one written
+  beside them*.
+
+  Consolidated onto the **later** body, because that is the one that had
+  actually been running: preserving observed behaviour rather than rewriting
+  history under cover of a cleanup. Verified against production first — all
+  seven `progress_tracker.update(...)` sites in
+  `pamola_core/profiling/analyzers/categorical.py` pass `(1, {...})`, so the
+  strict signature is the accurate contract.
+
+**The control signal worked.** The analysis predicted 5 553 → 5 555 and CI
+returned exactly 5 555. That was the point of predicting it: a different number
+would have meant something else was shadowed and the analysis was incomplete.
+
+Quarantine for `tests/` is lifted entirely. The remaining `F811` entries are
+*source* defects in `visualization_utils.py` and `l_diversity/reporting.py` —
+different debt, untouched here.
+
+### Opened
+
+- **TD-PC-18 (High)** — the workflow gates block, but GitHub does not require
+  them: #106 merged with `Test: pytest` still `pending`. Until Val configures
+  the ruleset, CC merges by hand on green and enables auto-merge on nothing.
+- **TD-PC-19** — `test_sample_size` creates false coverage of sampling.
+
+### Positioning
+
+ADR-PC-02 was marked SUPERSEDED and **ADR-PC-05** written out: CORE is a
+standalone OSS library; BEST owns runtime and orchestration; what the two share
+is conceptual — DSL terms, privacy semantics, artifact vocabulary, metric
+definitions. `CLAUDE.md` carried the retired bridge claim into every session's
+context and was corrected too.
+
+---
+
 ## 2026-08-17 — 1.0 cleanup: ~12 600 lines removed, singling-out added
 
 Sections A and B of `docs/output/20260816_CC_RUNBOOK_1_0.md` executed, plus the
@@ -403,11 +488,28 @@ projects are siblings in one ecosystem, not a stack.
 | TD-PC-11 | Test suite is not hermetic — ambient `PAMOLA_PROJECT_ROOT` breaks 5 tests; no root `conftest.py` exists | Medium | CC | **RESOLVED** 2026-08-17 |
 | TD-PC-12 | Test suite writes 43 files into the working tree, incl. `pamola_core/utils/resources/` and `configs/` | **High** | CC | OPEN — `.gitignore` is a stopgap |
 | TD-PC-14 | `TestDataWriter` fails a different test each run | Medium | CC | **RESOLVED** 2026-08-17 — PR #107. `MPLBACKEND=Agg` in `tests/conftest.py`. The library's `matplotlib_agg_context()` did not prevent it: it *restores* the GUI backend on exit, so the fix had to be at the environment level, not the call site. Causality verified by reproducing the flake under forced `TkAgg` |
-| TD-PC-15 | Six tests in `tests/` are shadowed by F811 and never execute | Medium | CC | OPEN — quarantined per-file in `pyproject.toml` with each case analysed |
+| TD-PC-15 | Six tests in `tests/` are shadowed by F811 and never execute | Medium | CC | **RESOLVED** 2026-08-17 — PR #108. Quarantine lifted; `ruff F811` clean over `tests/` with no exemptions. Analysis: `docs/output/20260817_CC_TD_PC_15_ANALYSIS.md` |
 | TD-PC-16 | `FidelityMetricsType` lost `JS`; a working `_jensen_shannon_divergence` helper exists in `statistical_fidelity.py` but is unreachable from `FidelityOperation` | Low | CC | OPEN |
 | TD-PC-17 | Ambiguous `dd/mm` vs `mm/dd` dates resolve to US convention; previously silent, now explicit in `common/regex/patterns.py` | Low | Val | OPEN — product decision |
 | TD-PC-13 | 8 module-scope imports were undeclared, arriving only transitively | **High** | CC | **RESOLVED** — PR #101 |
 | TD-PC-18 | GitHub ruleset does not require blocking CI checks on `develop` | **High** | Val | OPEN — see below |
+| TD-PC-19 | `DistanceToClosestRecord` sampling behaviour is not covered by any test | Medium | CC/CD | OPEN — see below |
+
+**TD-PC-19 detail.** `tests/metrics/privacy/test_distance.py::test_sample_size`
+does not test sampling. Its own comment states that
+`DistanceToClosestRecord` *does not support* a `sample_size` parameter, and its
+sole assertion is `"dcr_statistics" in result` — which duplicates
+`test_single_column`. The name is the whole problem: a reader scanning the suite
+sees sampling behaviour as covered when nothing exercises it, and no test would
+fail if sampling were broken or silently removed.
+
+Surfaced while lifting the F811 quarantine (TD-PC-15) — the test had a
+byte-identical twin, and removing the duplicate made the survivor legible.
+Deliberately **not** fixed in PR #108: that PR restores measurement, and adding
+new coverage there would have mixed two claims in one change. Fixing this means
+deciding first whether `DistanceToClosestRecord` should support sampling at all;
+if not, the test should be renamed to what it actually asserts, or deleted as a
+duplicate.
 
 **TD-PC-18 detail.** PR #105 made `pytest` and the coverage floor blocking
 *inside* the workflow, but that only decides whether the job goes red — not
