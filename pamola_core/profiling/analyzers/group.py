@@ -31,7 +31,6 @@ from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional, Tuple, Set
 from datetime import datetime
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pamola_core.profiling.commons.group_utils import (
@@ -41,6 +40,7 @@ from pamola_core.profiling.commons.group_utils import (
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.exceptions import ValidationError
+from pamola_core.utils.optional_deps import require_optional
 from pamola_core.profiling.schemas.group_core_schema import GroupAnalyzerOperationConfig
 from pamola_core.utils.helpers import (
     build_base_cache,
@@ -946,7 +946,11 @@ class GroupAnalyzerOperation(FieldOperation):
                     **kwargs,
                 )
             except (ValidationError, TypeError, ValueError):
-                # Fallback to matplotlib for proper histogram
+                # Fallback to matplotlib for proper histogram. Imported here,
+                # not at module scope: matplotlib ships with the `viz` extra
+                # and this module is reachable from `import pamola_core`.
+                plt = require_optional("matplotlib.pyplot")
+
                 plt.figure(figsize=(10, 6))
                 plt.bar(list(data.keys()), list(data.values()), color="skyblue")
                 plt.title(f"Variability Distribution ({self.field_name})")
@@ -967,6 +971,8 @@ class GroupAnalyzerOperation(FieldOperation):
 
             # Fallback to basic matplotlib in case of error
             try:
+                plt = require_optional("matplotlib.pyplot")
+
                 plt.figure(figsize=(10, 6))
                 plt.bar(list(data.keys()), list(data.values()), color="skyblue")
                 plt.title(f"Variability Distribution ({self.field_name})")
@@ -1036,6 +1042,8 @@ class GroupAnalyzerOperation(FieldOperation):
                 )
             except (ValidationError, TypeError, ValueError):
                 # Fallback to matplotlib for the heatmap
+                plt = require_optional("matplotlib.pyplot")
+
                 plt.figure(figsize=(12, len(field_names) * 0.8))
                 im = plt.imshow(df_data.values, cmap="viridis")
 
@@ -1062,6 +1070,8 @@ class GroupAnalyzerOperation(FieldOperation):
 
             # Fallback to basic matplotlib in case of error
             try:
+                plt = require_optional("matplotlib.pyplot")
+
                 # Create a simple bar chart instead of a heatmap
                 field_avg_variances = {
                     field: metrics["avg_variance"]

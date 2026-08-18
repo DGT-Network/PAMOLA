@@ -62,11 +62,21 @@ TODO:
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple, Union
-import matplotlib
+from typing import Dict, List, Any, Optional, Tuple, Union, TYPE_CHECKING
 import numpy as np
 import pandas as pd
-import plotly
+
+# `matplotlib` and `plotly` are deliberately NOT imported here. This module is
+# reachable from `import pamola_core`, and both ship with the `viz` extra, so a
+# module-scope import would make the base install unimportable. Neither is used
+# at runtime in this file: the only references are the quoted annotations on
+# `_close_figure` (never evaluated) and a local `import matplotlib.pyplot`
+# inside the one branch that needs it. The TYPE_CHECKING block below keeps the
+# annotations resolvable for type checkers without importing anything at run
+# time.
+if TYPE_CHECKING:  # pragma: no cover
+    import matplotlib
+    import plotly
 from pamola_core.utils.vis_helpers.base import FigureFactory
 from pamola_core.utils.vis_helpers.context import visualization_context, register_figure
 

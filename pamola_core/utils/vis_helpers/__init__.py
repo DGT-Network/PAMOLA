@@ -18,151 +18,171 @@ Type: Internal (Non-Public API)
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-from pamola_core.utils.vis_helpers.registry import register_builtin_figures
+# Lazy re-exports (TD-PC-21 / viz import boundary).
+#
+# This module used to import all 63 names eagerly. Importing *any* submodule of
+# this package runs this file, and `pamola_core.utils.visualization` imports
+# `vis_helpers.base` — so `import pamola_core` pulled in every chart backend,
+# and with them matplotlib, plotly, wordcloud and matplotlib-venn. That is the
+# single reason the base install could not do without the plotting stack.
+#
+# The eager imports were never needed for correctness: figure classes register
+# themselves through `registry.register_builtin_figures()`, which
+# `FigureFactory.create_figure()` already calls on demand. They were convenience
+# re-exports, and nothing inside this repository imports them from the package
+# root — but an external caller might, so the names stay available through
+# PEP 562 module `__getattr__` instead of disappearing.
+#
+# Cost after the first access is a dict lookup: the resolved attribute is cached
+# in the module namespace.
 
-from pamola_core.utils.vis_helpers.base import BaseFigure
-from pamola_core.utils.vis_helpers.base import FigureFactory
-from pamola_core.utils.vis_helpers.base import FigureRegistry
-from pamola_core.utils.vis_helpers.base import MatplotlibFigure
-from pamola_core.utils.vis_helpers.base import PlotlyFigure
-from pamola_core.utils.vis_helpers.base import ensure_series
-from pamola_core.utils.vis_helpers.base import get_backend
-from pamola_core.utils.vis_helpers.base import prepare_dataframe
-from pamola_core.utils.vis_helpers.base import set_backend
-from pamola_core.utils.vis_helpers.base import sort_series
+import importlib
+from typing import Any
 
-from pamola_core.utils.vis_helpers.bar_plots import MatplotlibBarPlot
-from pamola_core.utils.vis_helpers.bar_plots import PlotlyBarPlot
+_NAME_TO_MODULE = {
+    "BaseFigure": "base",
+    "FigureFactory": "base",
+    "FigureRegistry": "base",
+    "MatplotlibBarPlot": "bar_plots",
+    "MatplotlibBoxPlot": "boxplot",
+    "MatplotlibCombinedChart": "combined_charts",
+    "MatplotlibCorrelationMatrix": "cor_matrix",
+    "MatplotlibCorrelationPair": "cor_pair",
+    "MatplotlibFigure": "base",
+    "MatplotlibHeatmap": "heatmap",
+    "MatplotlibHistogram": "histograms",
+    "MatplotlibLinePlot": "line_plots",
+    "MatplotlibNetworkDiagram": "network_diagram",
+    "MatplotlibPieChart": "pie_charts",
+    "MatplotlibScatterPlot": "scatter_plots",
+    "MatplotlibSpiderChart": "spider_charts",
+    "MatplotlibVennDiagram": "venn_diagram",
+    "PlotlyBarPlot": "bar_plots",
+    "PlotlyBoxPlot": "boxplot",
+    "PlotlyCombinedChart": "combined_charts",
+    "PlotlyCorrelationMatrix": "cor_matrix",
+    "PlotlyCorrelationPair": "cor_pair",
+    "PlotlyFigure": "base",
+    "PlotlyHeatmap": "heatmap",
+    "PlotlyHistogram": "histograms",
+    "PlotlyLinePlot": "line_plots",
+    "PlotlyNetworkDiagram": "network_diagram",
+    "PlotlyPieChart": "pie_charts",
+    "PlotlyScatterPlot": "scatter_plots",
+    "PlotlySpiderChart": "spider_charts",
+    "PlotlySunburstChart": "pie_charts",
+    "PlotlyVennDiagram": "venn_diagram",
+    "WordCloudGenerator": "word_clouds",
+    "apply_mask": "cor_utils",
+    "apply_theme_to_matplotlib_figure": "theme",
+    "apply_theme_to_plotly_figure": "theme",
+    "auto_visualization_context": "context",
+    "calculate_correlation": "cor_utils",
+    "calculate_symmetric_colorscale_range": "cor_utils",
+    "create_correlation_mask": "cor_utils",
+    "create_custom_theme": "theme",
+    "create_significance_mask": "cor_utils",
+    "create_text_colors_array": "cor_utils",
+    "ensure_series": "base",
+    "get_backend": "base",
+    "get_colorscale": "theme",
+    "get_current_theme": "theme",
+    "get_current_theme_name": "theme",
+    "get_figure_size": "context",
+    "get_matplotlib_colormap": "theme",
+    "get_theme_colors": "theme",
+    "matplotlib_agg_context": "context",
+    "null_context": "context",
+    "parse_annotation_format": "cor_utils",
+    "prepare_correlation_data": "cor_utils",
+    "prepare_dataframe": "base",
+    "prepare_hover_texts": "cor_utils",
+    "register_builtin_figures": "registry",
+    "register_figure": "context",
+    "set_backend": "base",
+    "set_theme": "theme",
+    "sort_series": "base",
+    "visualization_context": "context",
+}
 
-from pamola_core.utils.vis_helpers.boxplot import MatplotlibBoxPlot
-from pamola_core.utils.vis_helpers.boxplot import PlotlyBoxPlot
 
-from pamola_core.utils.vis_helpers.combined_charts import MatplotlibCombinedChart
-from pamola_core.utils.vis_helpers.combined_charts import PlotlyCombinedChart
+def __getattr__(name: str) -> Any:
+    """Resolve a re-exported name by importing its submodule on first use."""
+    module_name = _NAME_TO_MODULE.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = importlib.import_module(f"{__name__}.{module_name}")
+    value = getattr(module, name)
+    globals()[name] = value  # cache; __getattr__ is not consulted again
+    return value
 
-from pamola_core.utils.vis_helpers.cor_matrix import MatplotlibCorrelationMatrix
-from pamola_core.utils.vis_helpers.cor_matrix import PlotlyCorrelationMatrix
 
-from pamola_core.utils.vis_helpers.cor_pair import MatplotlibCorrelationPair
-from pamola_core.utils.vis_helpers.cor_pair import PlotlyCorrelationPair
+def __dir__() -> list:
+    return sorted(set(globals()) | set(_NAME_TO_MODULE))
 
-from pamola_core.utils.vis_helpers.heatmap import MatplotlibHeatmap
-from pamola_core.utils.vis_helpers.heatmap import PlotlyHeatmap
-
-from pamola_core.utils.vis_helpers.histograms import MatplotlibHistogram
-from pamola_core.utils.vis_helpers.histograms import PlotlyHistogram
-
-from pamola_core.utils.vis_helpers.line_plots import MatplotlibLinePlot
-from pamola_core.utils.vis_helpers.line_plots import PlotlyLinePlot
-
-from pamola_core.utils.vis_helpers.network_diagram import MatplotlibNetworkDiagram
-from pamola_core.utils.vis_helpers.network_diagram import PlotlyNetworkDiagram
-
-from pamola_core.utils.vis_helpers.pie_charts import MatplotlibPieChart
-from pamola_core.utils.vis_helpers.pie_charts import PlotlyPieChart
-from pamola_core.utils.vis_helpers.pie_charts import PlotlySunburstChart
-
-from pamola_core.utils.vis_helpers.scatter_plots import MatplotlibScatterPlot
-from pamola_core.utils.vis_helpers.scatter_plots import PlotlyScatterPlot
-
-from pamola_core.utils.vis_helpers.spider_charts import MatplotlibSpiderChart
-from pamola_core.utils.vis_helpers.spider_charts import PlotlySpiderChart
-
-from pamola_core.utils.vis_helpers.venn_diagram import MatplotlibVennDiagram
-from pamola_core.utils.vis_helpers.venn_diagram import PlotlyVennDiagram
-
-from pamola_core.utils.vis_helpers.word_clouds import WordCloudGenerator
-
-from pamola_core.utils.vis_helpers.cor_utils import apply_mask
-from pamola_core.utils.vis_helpers.cor_utils import calculate_correlation
-from pamola_core.utils.vis_helpers.cor_utils import calculate_symmetric_colorscale_range
-from pamola_core.utils.vis_helpers.cor_utils import create_correlation_mask
-from pamola_core.utils.vis_helpers.cor_utils import create_significance_mask
-from pamola_core.utils.vis_helpers.cor_utils import create_text_colors_array
-from pamola_core.utils.vis_helpers.cor_utils import parse_annotation_format
-from pamola_core.utils.vis_helpers.cor_utils import prepare_correlation_data
-from pamola_core.utils.vis_helpers.cor_utils import prepare_hover_texts
-
-from pamola_core.utils.vis_helpers.theme import apply_theme_to_matplotlib_figure
-from pamola_core.utils.vis_helpers.theme import apply_theme_to_plotly_figure
-from pamola_core.utils.vis_helpers.theme import create_custom_theme
-from pamola_core.utils.vis_helpers.theme import get_colorscale
-from pamola_core.utils.vis_helpers.theme import get_current_theme
-from pamola_core.utils.vis_helpers.theme import get_current_theme_name
-from pamola_core.utils.vis_helpers.theme import get_matplotlib_colormap
-from pamola_core.utils.vis_helpers.theme import get_theme_colors
-from pamola_core.utils.vis_helpers.theme import set_theme
-
-from pamola_core.utils.vis_helpers.context import auto_visualization_context
-from pamola_core.utils.vis_helpers.context import get_figure_size
-from pamola_core.utils.vis_helpers.context import matplotlib_agg_context
-from pamola_core.utils.vis_helpers.context import null_context
-from pamola_core.utils.vis_helpers.context import register_figure
-from pamola_core.utils.vis_helpers.context import visualization_context
 
 __all__ = [
-    'BaseFigure',
-    'PlotlyFigure',
-    'MatplotlibFigure',
-    'FigureFactory',
-    'FigureRegistry',
-    'set_backend',
-    'get_backend',
-    'ensure_series',
-    'sort_series',
-    'prepare_dataframe',
-    'set_theme',
-    'get_current_theme',
-    'get_current_theme_name',
-    'create_custom_theme',
-    'get_theme_colors',
-    'apply_theme_to_plotly_figure',
-    'apply_theme_to_matplotlib_figure',
-    'get_colorscale',
-    'get_matplotlib_colormap',
-    'visualization_context',
-    'matplotlib_agg_context',
-    'null_context',
-    'register_figure',
-    'get_figure_size',
-    'auto_visualization_context',
-    'PlotlyBarPlot',
-    'PlotlyCombinedChart',
-    'PlotlyPieChart',
-    'PlotlySunburstChart',
-    'PlotlySpiderChart',
-    'MatplotlibBarPlot',
-    'PlotlyHistogram',
-    'MatplotlibHistogram',
-    'PlotlyScatterPlot',
-    'PlotlyBoxPlot',
-    'MatplotlibBoxPlot',
-    'PlotlyHeatmap',
-    'MatplotlibHeatmap',
-    'PlotlyLinePlot',
-    'PlotlyCorrelationMatrix',
-    'PlotlyCorrelationPair',
-    'WordCloudGenerator',
-    'MatplotlibVennDiagram',
-    'PlotlyVennDiagram',
-    'MatplotlibCombinedChart',
-    'MatplotlibCorrelationMatrix',
-    'MatplotlibCorrelationPair',
-    'MatplotlibLinePlot',
-    'MatplotlibScatterPlot',
-    'MatplotlibPieChart',
-    'MatplotlibSpiderChart',
-    'PlotlyNetworkDiagram',
-    'MatplotlibNetworkDiagram',
-    'prepare_correlation_data',
-    'create_correlation_mask',
-    'apply_mask',
-    'create_text_colors_array',
-    'create_significance_mask',
-    'prepare_hover_texts',
-    'parse_annotation_format',
-    'calculate_symmetric_colorscale_range',
-    'calculate_correlation',
-    'register_builtin_figures',
+    "BaseFigure",
+    "PlotlyFigure",
+    "MatplotlibFigure",
+    "FigureFactory",
+    "FigureRegistry",
+    "set_backend",
+    "get_backend",
+    "ensure_series",
+    "sort_series",
+    "prepare_dataframe",
+    "set_theme",
+    "get_current_theme",
+    "get_current_theme_name",
+    "create_custom_theme",
+    "get_theme_colors",
+    "apply_theme_to_plotly_figure",
+    "apply_theme_to_matplotlib_figure",
+    "get_colorscale",
+    "get_matplotlib_colormap",
+    "visualization_context",
+    "matplotlib_agg_context",
+    "null_context",
+    "register_figure",
+    "get_figure_size",
+    "auto_visualization_context",
+    "PlotlyBarPlot",
+    "PlotlyCombinedChart",
+    "PlotlyPieChart",
+    "PlotlySunburstChart",
+    "PlotlySpiderChart",
+    "MatplotlibBarPlot",
+    "PlotlyHistogram",
+    "MatplotlibHistogram",
+    "PlotlyScatterPlot",
+    "PlotlyBoxPlot",
+    "MatplotlibBoxPlot",
+    "PlotlyHeatmap",
+    "MatplotlibHeatmap",
+    "PlotlyLinePlot",
+    "PlotlyCorrelationMatrix",
+    "PlotlyCorrelationPair",
+    "WordCloudGenerator",
+    "MatplotlibVennDiagram",
+    "PlotlyVennDiagram",
+    "MatplotlibCombinedChart",
+    "MatplotlibCorrelationMatrix",
+    "MatplotlibCorrelationPair",
+    "MatplotlibLinePlot",
+    "MatplotlibScatterPlot",
+    "MatplotlibPieChart",
+    "MatplotlibSpiderChart",
+    "PlotlyNetworkDiagram",
+    "MatplotlibNetworkDiagram",
+    "prepare_correlation_data",
+    "create_correlation_mask",
+    "apply_mask",
+    "create_text_colors_array",
+    "create_significance_mask",
+    "prepare_hover_texts",
+    "parse_annotation_format",
+    "calculate_symmetric_colorscale_range",
+    "calculate_correlation",
+    "register_builtin_figures",
 ]
-
