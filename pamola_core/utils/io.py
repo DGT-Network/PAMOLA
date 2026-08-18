@@ -65,10 +65,10 @@ from typing import Counter, Dict, List, Union, Optional, Iterator, Any, Tuple
 import dask
 import dask.dataframe as dd
 import pandas as pd
-import plotly.graph_objects as go
 from PIL import Image
 
 from pamola_core.errors.codes import ErrorCode
+from pamola_core.utils.optional_deps import optional_import
 from pamola_core.errors.exceptions import (
     DependencyMissingError,
     DataError,
@@ -1509,8 +1509,16 @@ def save_visualization(
         file_path, encryption_key, suffix=f".{format}"
     ) as output_path:
         try:
-            # Handle Plotly figure
-            if isinstance(figure, go.Figure):
+            # Handle Plotly figure.
+            #
+            # Imported here, not at module scope: plotly is a `viz` extra, and
+            # this module is on the path of `import pamola_core`, so a
+            # top-level import would make the base install unimportable.
+            # `optional_import` rather than `require_optional` because a
+            # missing plotly simply means the figure cannot be a plotly one —
+            # the matplotlib and PIL branches below still apply.
+            go = optional_import("plotly.graph_objects")
+            if go is not None and isinstance(figure, go.Figure):
                 if format.lower() == "html":
                     figure.write_html(output_path, **kwargs)
                 else:

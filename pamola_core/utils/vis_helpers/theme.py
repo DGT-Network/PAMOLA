@@ -17,16 +17,28 @@ isolated between concurrent execution contexts, eliminating state interference
 when multiple visualization operations run in parallel.
 """
 
+from __future__ import annotations
+
 import contextvars
 import logging
 from typing import List, Union
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 
-import matplotlib.pyplot as plt
-import plotly
-from matplotlib.colors import Colormap
-from matplotlib.figure import Figure
 from pamola_core.errors.exceptions import ValidationError
+from pamola_core.utils.optional_deps import require_optional
+
+# matplotlib and plotly are `viz` extras and this module is reachable from
+# `import pamola_core`, so nothing from them may be imported at module scope.
+#
+# `from __future__ import annotations` above makes every annotation in this
+# file a string, so `Figure` and `Colormap` can be named in signatures without
+# being importable — the runtime uses below fetch them explicitly. The
+# TYPE_CHECKING block keeps type checkers and linters able to resolve those
+# names; it is never executed at runtime.
+if TYPE_CHECKING:  # pragma: no cover
+    import plotly
+    from matplotlib.colors import Colormap
+    from matplotlib.figure import Figure
 
 # pamola_core/utils/vis_helpers/colormap.py
 
@@ -356,6 +368,8 @@ def apply_theme_to_matplotlib_figure(
         Themed figure
     """
     try:
+        Figure = require_optional("matplotlib.figure").Figure
+
         # Ensure it's a Matplotlib figure
         if not isinstance(fig, Figure):
             logger.warning("Cannot apply Matplotlib theme to non-Matplotlib figure")
@@ -514,6 +528,8 @@ def get_matplotlib_colormap(
         }
 
         cmap_name = colorscale_map.get(colorscale_name, "Blues")
+
+        plt = require_optional("matplotlib.pyplot")
 
         try:
             # plt.get_cmap returns a Colormap
