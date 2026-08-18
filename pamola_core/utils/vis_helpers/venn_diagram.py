@@ -179,11 +179,11 @@ class PlotlyVennDiagram(PlotlyFigure):
                 return fig
             except ImportError as e:
                 logger.error(
-                    f"Plotly is not available. Please install it with: pip install plotly. Error: {e}"
+                    f"Plotly is not available. It ships with the viz extra: pip install 'pamola-core[viz]'. Error: {e}"
                 )
                 return self.create_empty_figure(
                     title=title,
-                    message="Plotly is not available. Please install it with: pip install plotly.",
+                    message="Plotly is not available. It ships with the viz extra: pip install 'pamola-core[viz]'.",
                 )
             except Exception as e:
                 logger.error(f"Error creating Venn diagram: {e}")
@@ -313,7 +313,7 @@ class MatplotlibVennDiagram(MatplotlibFigure):
         """
         if venn2 is None:
             raise DependencyMissingError(
-                "matplotlib_venn is not installed. Run `pip install matplotlib-venn`."
+                "matplotlib_venn is not installed. It ships with the viz extra: pip install 'pamola-core[viz]'."
             )
 
         with visualization_context(backend=backend, theme=theme, strict=strict):
@@ -354,7 +354,7 @@ class MatplotlibVennDiagram(MatplotlibFigure):
                 # Define plt as None to ensure it's defined in except block
                 plt = None
                 logger.error(
-                    f"Matplotlib is not available. Please install it with: pip install matplotlib. Error: {imp_error}"
+                    f"Matplotlib is not available. It ships with the viz extra: pip install 'pamola-core[viz]'. Error: {imp_error}"
                 )
                 return None
             except Exception as e:

@@ -331,7 +331,7 @@ def check_dependencies(format: str) -> Tuple[bool, str]:
         except ImportError:
             return (
                 False,
-                "matplotlib is required for image operations. Please install it with 'pip install matplotlib'.",
+                "matplotlib is required for image operations. It ships with the viz extra: pip install 'pamola-core[viz]'.",
             )
 
     elif format.lower() == "encrypted":

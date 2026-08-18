@@ -483,7 +483,7 @@ class PlotlyHeatmap(PlotlyFigure):
                 return fig
             except ImportError as e:
                 logger.error(
-                    f"Plotly is not available. Please install it with: pip install plotly. Error: {e}"
+                    f"Plotly is not available. It ships with the viz extra: pip install 'pamola-core[viz]'. Error: {e}"
                 )
                 # Try to fall back to MatplotlibHeatmap
                 try:
