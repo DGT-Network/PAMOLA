@@ -7,8 +7,24 @@ recursive-include pamola_core/resources *
 recursive-include pamola_core/errors/context *.yaml
 recursive-include pamola_core/catalogs *.yaml
 
-# If there's sample test data, include it as well (if you want to publish the package with test data)
-recursive-include tests *.csv *.json *.yml *.yaml
+# The full test suite ships in the sdist, and only in the sdist (TD-PC-20).
+#
+# The previous line here was `recursive-include tests *.csv *.json *.yml *.yaml`,
+# which shipped nine JSON fixtures and — through setuptools' own defaults for
+# top-level test modules — exactly three of the 225 test files. That is worse
+# than either honest option: a distributor unpacking the sdist and running
+# pytest would collect three tests and see green, which reads as "the suite
+# passes" rather than "the suite is absent".
+#
+# `graft` rather than an extension list, because the goal is a *complete*
+# collection surface: a new fixture type must not silently fall outside the
+# pattern and reproduce the same partial-shipment bug. __pycache__ and compiled
+# files are removed by the global-exclude at the bottom of this file.
+#
+# The wheel stays free of tests regardless of this line: MANIFEST.in governs the
+# sdist, while `[tool.setuptools.packages.find] include = ["pamola_core*"]` is
+# what decides the wheel's contents. Both artifacts are checked in CI.
+graft tests
 
 # Exclude cache, compiled files, notebook checkpoints
 global-exclude __pycache__ *.py[cod] *.so *.dylib .DS_Store .ipynb_checkpoints
