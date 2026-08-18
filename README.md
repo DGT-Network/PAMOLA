@@ -205,13 +205,36 @@ cd PAMOLA
 pip install -e .
 ```
 
+**Visualization is optional:**
+
+```bash
+pip install --pre "pamola-core[viz]"
+```
+
+The base install writes JSON, CSV and Parquet, and never draws. Charts need
+matplotlib, plotly, seaborn, kaleido, wordcloud and matplotlib-venn, which are
+large, so they ship in the `viz` extra instead of the base install. Everything
+else — profiling, anonymization, transformations, metrics — works without them.
+
+Call a chart without the extra and you get a message naming what to install,
+not a `ModuleNotFoundError` about a package you never asked for:
+
+```text
+DependencyMissingError: no visualization backend is installed ...
+They ship with the viz extra: pip install 'pamola-core[viz]'
+```
+
+Operations that can draw accept `generate_visualization=False` and run normally
+on a base install.
+
 **Test extras:**
 
 ```bash
 pip install -e ".[test]"   # adds pytest, pytest-cov
+pip install -e ".[viz]"    # adds the plotting stack
 ```
 
-> **Heads-up:** All scientific dependencies (numpy, pandas, scikit-learn, scipy, dask, spacy, faker, cryptography, etc.) are pinned in the main `[project.dependencies]` table — no separate `[fast]/[ner]/[dp]` extras in this release.
+> **Heads-up:** Apart from `viz`, all scientific dependencies (numpy, pandas, scikit-learn, scipy, dask, spacy, faker, cryptography, etc.) are pinned in the main `[project.dependencies]` table — no separate `[fast]/[ner]/[dp]` extras in this release. Splitting the remaining heavy stacks into `[nlp]` and `[bigdata]` is planned; see FP-02b.
 >
 > As of `1.0.0.dev4`, `torch` and `sdv` are **no longer installed**: nothing in
 > the library imported them. If you relied on them being pulled in as a side

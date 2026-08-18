@@ -182,7 +182,7 @@ def matplotlib_agg_context() -> Generator[None, None, None]:
         import matplotlib
     except ImportError:
         # No matplotlib — just skip the whole context
-        logger.warning("Matplotlib is not installed; skipping Agg context.")
+        logger.warning("Matplotlib is not installed; skipping Agg context. It ships with the viz extra: pip install 'pamola-core[viz]'.")
         yield
         return
 

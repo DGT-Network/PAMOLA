@@ -198,7 +198,7 @@ class PlotlyFigure(BaseFigure):
             return fig
         except ImportError:
             logger.error(
-                "Plotly is not available. Please install it with: pip install plotly"
+                "Plotly is not available. It ships with the viz extra: pip install 'pamola-core[viz]'"
             )
             raise
         except Exception as e:
@@ -243,7 +243,7 @@ class MatplotlibFigure(BaseFigure):
             return fig
         except ImportError:
             logger.error(
-                "Matplotlib is not available. Please install it with: pip install matplotlib"
+                "Matplotlib is not available. It ships with the viz extra: pip install 'pamola-core[viz]'"
             )
             raise
         except Exception as e:

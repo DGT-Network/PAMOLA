@@ -65,7 +65,6 @@ from typing import Counter, Dict, List, Union, Optional, Iterator, Any, Tuple
 import dask
 import dask.dataframe as dd
 import pandas as pd
-from PIL import Image
 
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.utils.optional_deps import optional_import
@@ -1517,6 +1516,10 @@ def save_visualization(
             # `optional_import` rather than `require_optional` because a
             # missing plotly simply means the figure cannot be a plotly one —
             # the matplotlib and PIL branches below still apply.
+            # Pillow is in the same position as plotly: used only by this
+            # visualisation helper, so it ships with the `viz` extra and must
+            # not be imported at module scope.
+            Image = optional_import("PIL.Image")
             go = optional_import("plotly.graph_objects")
             if go is not None and isinstance(figure, go.Figure):
                 if format.lower() == "html":
@@ -1544,7 +1547,7 @@ def save_visualization(
                     figure.savefig(output_path, format=format, dpi=dpi, **kwargs)
 
             # Handle PIL Image
-            elif isinstance(figure, Image.Image):
+            elif Image is not None and isinstance(figure, Image.Image):
                 # Get DPI from kwargs or use default
                 dpi = kwargs.pop("dpi", 300)
                 figure.save(
@@ -1555,6 +1558,7 @@ def save_visualization(
             elif (
                 isinstance(figure, dict)
                 and "image" in figure
+                and Image is not None
                 and isinstance(figure["image"], Image.Image)
             ):
                 # Get DPI from kwargs or use default
@@ -1563,9 +1567,40 @@ def save_visualization(
                     output_path, format=format.upper(), dpi=(dpi, dpi), **kwargs
                 )
 
+            elif (
+                go is None
+                and optional_import("matplotlib") is None
+                and not hasattr(figure, "savefig")
+            ):
+                # Neither plotting backend is importable, so this figure cannot
+                # have come from one — the user is running a base install and
+                # asking it to draw. Say what to install.
+                #
+                # Pillow is deliberately not part of this test: it arrives
+                # transitively via dask[complete] -> bokeh even when `viz` is
+                # absent, so treating it as evidence of a drawing backend makes
+                # this branch unreachable on exactly the installs it exists for.
+                raise DependencyMissingError(
+                    dependency_name="matplotlib/plotly",
+                    reason=(
+                        "no visualization backend is installed, so "
+                        f"{type(figure).__name__} cannot be saved. They ship "
+                        "with the viz extra: pip install 'pamola-core[viz]'"
+                    ),
+                )
+
             else:
+                # NOTE: this call previously passed a single message argument,
+                # which raised TypeError from the constructor instead of the
+                # intended error — TypeValidationError requires param_name,
+                # expected_type and actual_type. It was unreachable while the
+                # plotting stack was a hard dependency, and surfaced the moment
+                # it became optional.
                 raise TypeValidationError(
-                    f"Unsupported visualization type: {type(figure)}"
+                    param_name="figure",
+                    expected_type="plotly Figure, matplotlib Figure, PIL Image "
+                    "or {'image': PIL Image}",
+                    actual_type=type(figure).__name__,
                 )
 
             logger.info(f"Visualization saved to {file_path}")
