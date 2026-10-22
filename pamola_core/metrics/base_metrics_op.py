@@ -246,8 +246,15 @@ class MetricsOperation(BaseOperation):
                     f"Original dataset '{self.original_dataset_name}' loaded with {len(original_df)} records."
                 )
 
+                # The result depends on both inputs, so both identify the entry.
+                transformed_df = self._get_dataset_by_name(
+                    data_source, self.transformed_dataset_name, **kwargs
+                )
+
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(original_df, reporter)
+                cache_result = self._check_cache(
+                    original_df, reporter, transformed_df=transformed_df
+                )
 
                 if cache_result:
                     self.logger.info(f"Using cached result for {self.operation_name}")
@@ -1143,8 +1150,46 @@ class MetricsOperation(BaseOperation):
         # cleanup memory from instance
         helpers.cleanup_memory(instance=self)
 
+    def _metrics_cache_key(
+        self, original_df: pd.DataFrame, transformed_df: pd.DataFrame
+    ) -> str:
+        """
+        Cache key for a metric: identifies BOTH inputs and everything that selects
+        what is compared.
+
+        The inherited key hashes one DataFrame. A metric compares two, so keying on
+        the original alone returned the previous score for a different transformed
+        dataset whenever the original and the configuration were unchanged.
+        """
+        from pamola_core.utils.ops.op_cache import operation_cache
+
+        parameters = dict(self._get_base_parameters())
+        parameters.update(
+            {
+                "original_dataset_name": self.original_dataset_name,
+                "transformed_dataset_name": self.transformed_dataset_name,
+                "columns": self.columns,
+                "column_mapping": self.column_mapping,
+                "sample_size": self.sample_size,
+                "seed": self.seed,
+                "config": self.config.to_dict() if self.config is not None else None,
+            }
+        )
+        data_hash = (
+            f"{helpers.generate_data_hash(original_df)}:"
+            f"{helpers.generate_data_hash(transformed_df)}"
+        )
+        return operation_cache.generate_cache_key(
+            operation_name=self.operation_name,
+            parameters=parameters,
+            data_hash=data_hash,
+        )
+
     def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
+        self,
+        df: pd.DataFrame,
+        reporter: Any,
+        transformed_df: Optional[pd.DataFrame] = None,
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for this operation.
@@ -1152,9 +1197,12 @@ class MetricsOperation(BaseOperation):
         Parameters
         ----------
         df : pd.DataFrame
-            DataFrame for the operation
+            Original DataFrame for the operation
         reporter : Any
             Reporter object for tracking progress and artifacts
+        transformed_df : pd.DataFrame, optional
+            Transformed DataFrame. Part of the cache identity; without it the key
+            covers the original only (legacy behaviour, kept for direct callers).
 
         Returns
         -------
@@ -1165,7 +1213,11 @@ class MetricsOperation(BaseOperation):
             return None
 
         try:
-            cache_key = self._generate_cache_key(df)
+            cache_key = (
+                self._metrics_cache_key(df, transformed_df)
+                if transformed_df is not None
+                else self._generate_cache_key(df)
+            )
             self.logger.debug(f"Checking cache for key: {cache_key}")
 
             cached_result = self.operation_cache.get_cache(
@@ -1224,8 +1276,8 @@ class MetricsOperation(BaseOperation):
             return False
 
         try:
-            # Generate cache key
-            cache_key = self._generate_cache_key(original_df)
+            # Generate cache key (both inputs, same as in _check_cache)
+            cache_key = self._metrics_cache_key(original_df, transformed_df)
 
             # Prepare cache data
             cache_data = helpers.build_base_cache(

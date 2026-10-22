@@ -71,6 +71,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **A cached metric no longer returns the score of a different transformed
+  dataset** (METR-CACHE-01). With `use_cache=True`, `MetricsOperation`
+  (fidelity, utility, privacy including DCR) checked the cache before loading the
+  transformed dataset and keyed it on the original DataFrame alone, so the same
+  original and configuration with new transformed data returned the previous
+  result. The key now covers both DataFrames, the dataset names, `columns`,
+  `column_mapping`, `sample_size`, `seed` and the operation config. The change is
+  confined to `metrics/base_metrics_op.py`; `BaseOperation._generate_cache_key` is
+  unchanged. Existing metric cache entries are not reused (the key differs).
 - **Cell and record suppression on a 0-row DataFrame** (DATA-02).
   `CellSuppressionOperation` and `RecordSuppressionOperation` returned `ERROR`
   with a raw `No objects to concatenate` from `pd.concat([])` - a normal shape
