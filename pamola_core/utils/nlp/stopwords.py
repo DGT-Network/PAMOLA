@@ -19,6 +19,7 @@ from pamola_core.utils.nlp.cache import (
     cache_function,
 )
 from pamola_core.utils.nlp.compatibility import check_dependency
+from pamola_core.utils.nlp.remote_resources import download_nltk_resource
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -67,9 +68,10 @@ def _ensure_nltk_resources() -> None:
             nltk.data.find("corpora/stopwords")
             logger.debug("NLTK stopwords corpus found and valid.")
         except (LookupError, zipfile.BadZipFile):
-            logger.info("Downloading or re-downloading NLTK 'stopwords'...")
-            nltk.download("stopwords", quiet=True, force=True)
-            logger.info("NLTK 'stopwords' downloaded successfully.")
+            # Offline by default: only fetched on explicit opt-in; otherwise
+            # the miss is recorded and the built-in stopword lists are used.
+            if download_nltk_resource(nltk, "stopwords", force=True):
+                logger.info("NLTK 'stopwords' downloaded successfully.")
     except Exception as e:
         logger.warning(f"Error ensuring NLTK stopwords: {e}")
 

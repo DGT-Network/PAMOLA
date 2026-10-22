@@ -23,6 +23,12 @@ from pamola_core.utils.nlp.cache import (
     get_cache,
     cache_function,
 )
+from pamola_core.utils.nlp.remote_resources import (
+    download_spacy_model,
+    get_degraded_resources,
+    remote_downloads_allowed,
+    require_remote_downloads,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +157,9 @@ class NLPModelManager:
         model = None
         try:
             model = load_fn(language, **params)
+        except ModelNotAvailableError:
+            # Already typed and actionable (e.g. offline-by-default refusal).
+            raise
         except Exception as e:
             logger.error("Error loading model '%s' for language '%s': %s", model_type, language, e)
             raise ModelLoadError(f"Failed to load {model_type} model for {language}: {str(e)}")
@@ -213,7 +222,11 @@ class NLPModelManager:
 
     def _load_spacy_model(self, language: str, **kwargs) -> Any:
         """
-        Load a spaCy model for the specified language. Installs it if missing.
+        Load a spaCy model for the specified language.
+
+        Offline by default: a model that is not installed is downloaded only
+        when remote downloads were explicitly enabled
+        (``PAMOLA_ALLOW_REMOTE_DOWNLOADS=1``).
 
         Parameters
         -----------
@@ -229,6 +242,8 @@ class NLPModelManager:
 
         Raises
         -------
+        ModelNotAvailableError
+            If the model is not installed and remote downloads are disabled.
         ModelLoadError
             If the spaCy model cannot be downloaded or loaded.
         """
@@ -253,20 +268,26 @@ class NLPModelManager:
         try:
             return spacy_module.load(model_name)
         except OSError:
-            # Attempt to download if not present
-            logger.info("Attempting to download spaCy model: %s", model_name)
-            try:
-                spacy_module.cli.download(model_name)
-                return spacy_module.load(model_name)
-            except Exception as e:
-                logger.error("Failed to download spaCy model %s: %s", model_name, e)
-                # Try a multilingual fallback if available
+            # Not installed locally. Download only on explicit opt-in.
+            if download_spacy_model(spacy_module, model_name):
                 try:
-                    return spacy_module.load("xx_ent_wiki_sm")
-                except Exception as fallback_error:
-                    raise ModelLoadError(
-                        f"Failed to load any spaCy model for '{language}': {fallback_error}"
+                    return spacy_module.load(model_name)
+                except Exception as e:
+                    logger.error("Failed to load spaCy model %s: %s", model_name, e)
+            # Try a locally installed multilingual fallback
+            try:
+                return spacy_module.load("xx_ent_wiki_sm")
+            except Exception as fallback_error:
+                if not remote_downloads_allowed():
+                    # Typed, actionable: tells the caller how to opt in.
+                    require_remote_downloads(
+                        f"spacy:{model_name}", f"spaCy model '{model_name}'"
                     )
+                reason = get_degraded_resources().get(f"spacy:{model_name}")
+                raise ModelLoadError(
+                    f"Failed to load any spaCy model for '{language}': "
+                    f"{reason or fallback_error}"
+                )
 
     def _load_transformers_model(self, language: str, **kwargs) -> Any:
         """
@@ -308,11 +329,25 @@ class NLPModelManager:
                 model_name = 'bert-base-multilingual-cased'
 
         try:
-            tokenizer = transformers_module.AutoTokenizer.from_pretrained(model_name)
-            model = transformers_module.AutoModel.from_pretrained(model_name)
+            # Offline by default: Hub downloads happen only on explicit opt-in.
+            local_only = not remote_downloads_allowed()
+            tokenizer = transformers_module.AutoTokenizer.from_pretrained(
+                model_name, local_files_only=local_only
+            )
+            model = transformers_module.AutoModel.from_pretrained(
+                model_name, local_files_only=local_only
+            )
             return (model, tokenizer)
         except Exception as e:
-            raise ModelLoadError(f"Error loading transformers model '{model_name}': {str(e)}")
+            hint = (
+                " Remote downloads are disabled (offline by default); set "
+                "PAMOLA_ALLOW_REMOTE_DOWNLOADS=1 to fetch it from the Hugging Face Hub."
+                if not remote_downloads_allowed()
+                else ""
+            )
+            raise ModelLoadError(
+                f"Error loading transformers model '{model_name}': {str(e)}.{hint}"
+            )
 
     def _load_ner_model(self, language: str, **kwargs) -> Any:
         """

@@ -47,6 +47,7 @@ from pamola_core.profiling.commons.text_utils import (
     find_dictionary_file,
 )
 from pamola_core.errors.codes import ErrorCode
+from pamola_core.utils.nlp.remote_resources import get_degraded_resources
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.schemas.text_core_schema import (
     TextSemanticCategorizerOperationConfig,
@@ -1542,6 +1543,13 @@ class TextSemanticCategorizerOperation(FieldOperation):
         result : OperationResult
             Operation result to add metrics to
         """
+        # Offline-by-default signal: if an NLP model/corpus could not be
+        # obtained (downloads disabled, or enabled but the network is down)
+        # the run used a weaker fallback. Say so instead of looking normal.
+        degraded_resources = get_degraded_resources()
+        if degraded_resources:
+            result.add_metric("nlp_resources_degraded", degraded_resources)
+
         # Add from metrics if available (for cached results)
         if "metrics" in analysis_results:
             for key, value in analysis_results["metrics"].items():

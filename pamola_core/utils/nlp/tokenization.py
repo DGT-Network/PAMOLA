@@ -45,6 +45,11 @@ from pamola_core.utils.nlp.cache import (
     cache_function,
 )
 
+from pamola_core.utils.nlp.remote_resources import (
+    download_nltk_resource,
+    download_spacy_model,
+)
+
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -89,14 +94,13 @@ if _NLTK_AVAILABLE:
             try:
                 nltk.data.find("tokenizers/punkt")
             except (LookupError, zipfile.BadZipFile):
-                logger.info("Re-downloading corrupted NLTK 'punkt' resource.")
-                nltk.download("punkt", quiet=True, force=True)
+                # Offline by default: fetched only on explicit opt-in.
+                download_nltk_resource(nltk, "punkt", force=True)
 
             try:
                 nltk.data.find("corpora/wordnet")
             except (LookupError, zipfile.BadZipFile):
-                logger.info("Re-downloading corrupted NLTK 'wordnet' resource.")
-                nltk.download("wordnet", quiet=True, force=True)
+                download_nltk_resource(nltk, "wordnet", force=True)
 
             _LEMMATIZERS["en"] = WordNetLemmatizer()
             logger.debug("Initialized NLTK WordNetLemmatizer for English")
@@ -218,11 +222,8 @@ class NGramExtractor:
                             nltk.data.find("corpora/stopwords")
                             logger.debug("NLTK stopwords corpus found and valid.")
                         except (LookupError, zipfile.BadZipFile):
-                            logger.info(
-                                "Downloading or re-downloading NLTK 'stopwords'..."
-                            )
-                            nltk.download("stopwords", quiet=True, force=True)
-                            logger.info("NLTK 'stopwords' downloaded successfully.")
+                            # Offline by default: fetched only on explicit opt-in.
+                            download_nltk_resource(nltk, "stopwords", force=True)
 
                         normalized_lang = normalize_language_code(self.language)
                         lang_map = {
@@ -1071,14 +1072,16 @@ class SpacyTokenizer(BaseTokenizer):
             self._nlp_models[lang] = nlp
             return nlp
         except OSError:
-            logger.info(f"Downloading spaCy model {model_name}")
+            # Offline by default: the model is fetched only on explicit opt-in;
+            # otherwise the caller falls back to the simple tokenizer.
+            if not download_spacy_model(spacy, model_name):
+                return None
             try:
-                spacy.cli.download(model_name)
                 nlp = spacy.load(model_name, disable=disable_components)
                 self._nlp_models[lang] = nlp
                 return nlp
             except Exception as e:
-                logger.error(f"Failed to download spaCy model '{model_name}': {e}")
+                logger.error(f"Failed to load spaCy model '{model_name}': {e}")
                 return None
 
     def _core_tokenize(self, text: str, **kwargs) -> List[str]:

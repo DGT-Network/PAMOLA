@@ -64,6 +64,9 @@ PAMOLA_ENV_VARS = (
     # fixture sets them again immediately afterwards.
     "PAMOLA_EXECUTION_LOG_PATH",
     "PAMOLA_MODEL_DIR",
+    # Offline by default (SEC-01): a developer who exported the opt-in must not
+    # change what the suite measures.
+    "PAMOLA_ALLOW_REMOTE_DOWNLOADS",
 )
 
 
@@ -77,6 +80,23 @@ def isolate_pamola_env(monkeypatch):
     """
     for name in PAMOLA_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def reset_remote_resource_state():
+    """Start every test with a clean degraded-resource registry and no override.
+
+    The registry is process-wide by design (one warning per missing resource
+    per process), so without this a test that records a missing model would
+    change the metrics of every later text-profiling test.
+    """
+    from pamola_core.utils.nlp import remote_resources
+
+    remote_resources.configure_remote_downloads(None)
+    remote_resources.reset_degraded_resources()
+    yield
+    remote_resources.configure_remote_downloads(None)
+    remote_resources.reset_degraded_resources()
 
 
 @pytest.fixture(autouse=True)

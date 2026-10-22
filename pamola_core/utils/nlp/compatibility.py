@@ -12,6 +12,10 @@ from typing import Dict, Any, Optional, List
 # Import from base to avoid circular dependencies
 from pamola_core.utils.nlp.base import DependencyManager
 from pamola_core.utils.nlp.cache import cache_function
+from pamola_core.utils.nlp.remote_resources import (
+    download_nltk_resource,
+    download_spacy_model,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -184,10 +188,17 @@ def setup_nlp_resources(download_if_missing: bool = True) -> Dict[str, bool]:
     """
     Check and (optionally) download key NLP resources (like NLTK or spaCy models).
 
+    pamola-core is offline by default: even with ``download_if_missing=True``
+    nothing is fetched unless remote downloads were explicitly enabled with
+    ``PAMOLA_ALLOW_REMOTE_DOWNLOADS=1`` (see
+    :mod:`pamola_core.utils.nlp.remote_resources`). Resources that stay
+    missing are recorded in the degraded-resource registry.
+
     Parameters
     ----------
     download_if_missing : bool
-        Whether to attempt auto-downloading missing data
+        Whether to request downloading of missing data (still subject to the
+        explicit remote-download opt-in)
 
     Returns
     -------
@@ -211,12 +222,7 @@ def setup_nlp_resources(download_if_missing: bool = True) -> Dict[str, bool]:
             except LookupError:
                 status[f'nltk_{res_name}'] = False
                 if download_if_missing:
-                    logger.info(f"Downloading NLTK resource: {res_name}")
-                    try:
-                        nltk.download(res_name, quiet=True)
-                        status[f'nltk_{res_name}'] = True
-                    except Exception as e:
-                        logger.error(f"Failed to download NLTK resource {res_name}: {e}")
+                    status[f'nltk_{res_name}'] = download_nltk_resource(nltk, res_name)
 
     # Check spaCy resources
     if check_dependency('spacy'):
@@ -232,12 +238,7 @@ def setup_nlp_resources(download_if_missing: bool = True) -> Dict[str, bool]:
             except OSError:
                 status[f'spacy_{model_name}'] = False
                 if download_if_missing:
-                    logger.info(f"Downloading spaCy model: {model_name} ({desc})")
-                    try:
-                        spacy.cli.download(model_name)
-                        # Just note success here; spacy.load check can be re-done as needed.
-                        status[f'spacy_{model_name}'] = True
-                    except Exception as e:
-                        logger.error(f"Failed to download spaCy model {model_name}: {e}")
+                    # Success is noted here; spacy.load check can be re-done as needed.
+                    status[f'spacy_{model_name}'] = download_spacy_model(spacy, model_name)
 
     return status

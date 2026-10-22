@@ -7,6 +7,28 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Security
+
+- **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the
+  network unless the caller opts in with `PAMOLA_ALLOW_REMOTE_DOWNLOADS=1` (or
+  `pamola_core.utils.nlp.remote_resources.configure_remote_downloads(True)`).
+  Before, default text profiling reached `dl.fbaipublicfiles.com` (FastText
+  model) and `raw.githubusercontent.com` (`spacy.cli.download`) — per record —
+  and still reported `SUCCESS`. Covered vectors: the FastText language model,
+  spaCy models (`NLPModelManager`, `SpacyTokenizer`, `setup_nlp_resources`),
+  NLTK corpora (including the import-time `punkt`/`wordnet` download in
+  `utils/nlp/tokenization.py`) and Hugging Face Hub models
+  (`local_files_only` unless opted in).
+  - **Behaviour change:** a model that is not installed locally is now an
+    error/fallback instead of an implicit download.
+    `NLPModelManager.get_model()` raises `ModelNotAvailableError` naming the
+    opt-in. Install the model, or set the environment variable.
+  - A resource that cannot be obtained (downloads disabled, or opted in with the
+    network down) is logged once and listed in
+    `remote_resources.get_degraded_resources()`; a failed download is not
+    retried per record. `TextSemanticCategorizerOperation` exposes the registry
+    as the `nlp_resources_degraded` result metric.
+
 ### Removed
 
 - **`pamola_core.pipeline`, `pamola_core.interface`, `pamola_core.crypto`** —
