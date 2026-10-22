@@ -1453,6 +1453,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             processed_data=processed_series,
             operation_params=operation_params,
             timing_info=timing_info,
+            include_raw_samples=self.include_raw_samples_in_metrics,
         )
 
         # Add effectiveness metrics

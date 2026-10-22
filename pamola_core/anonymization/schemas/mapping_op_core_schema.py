@@ -45,6 +45,17 @@ class ConsistentMappingPseudonymizationConfig(OperationConfig):
             {
                 "type": "object",
                 "properties": {
+                    "include_raw_samples_in_metrics": {
+                        "type": "boolean",
+                        "title": "Include Raw Samples In Metrics",
+                        "default": False,
+                        "description": (
+                            "Diagnostic only. If true, metrics/*.json may contain the most "
+                            "frequent raw (pre-transformation) values of low-cardinality "
+                            "fields. WARNING: this writes source values, possibly PII, "
+                            "into a generic metrics artifact. Keep false in production."
+                        ),
+                    },
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",

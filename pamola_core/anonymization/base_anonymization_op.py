@@ -174,6 +174,8 @@ class AnonymizationOperation(FieldOperation):
         ka_risk_field: Optional[str] = None,
         risk_threshold: float = 5.0,
         vulnerable_record_strategy: str = "suppress",
+        # Diagnostics
+        include_raw_samples_in_metrics: bool = False,
         **kwargs,
     ):
         """
@@ -199,6 +201,11 @@ class AnonymizationOperation(FieldOperation):
             Threshold under which records are considered vulnerable.
         vulnerable_record_strategy : str, optional
             Strategy for vulnerable records (e.g., "suppress", "mask").
+        include_raw_samples_in_metrics : bool, optional
+            Diagnostic option, default False. If True, ``metrics/*.json`` also
+            carries the most frequent raw (pre-transformation) values of
+            low-cardinality fields. WARNING: this writes source values,
+            possibly PII, into a generic metrics artifact.
         **kwargs : dict
             Additional parameters passed to :class:`FieldOperation`.
         """
@@ -222,6 +229,9 @@ class AnonymizationOperation(FieldOperation):
         self.ka_risk_field = ka_risk_field
         self.risk_threshold = risk_threshold
         self.vulnerable_record_strategy = vulnerable_record_strategy
+
+        # Diagnostics (SEC-05): raw samples in metrics are opt-in
+        self.include_raw_samples_in_metrics = bool(include_raw_samples_in_metrics)
 
         # Set up common variables & placeholder for filtering
         self.filter_mask = pd.Series(True, index=pd.Index([]))

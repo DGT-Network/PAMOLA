@@ -32,6 +32,13 @@ class HashBasedPseudonymizationConfig(OperationConfig):
     Used for runtime parameter validation and type checking.
     """
 
+    # The salt is secret material: with the salt (and no pepper) anyone can
+    # recompute pseudonyms for guessed identifiers. `salt_config` carries it
+    # as `salt_config["value"]`, so the whole entry is redacted when
+    # save_config() writes config.json (same mechanism as
+    # `mapping_encryption_key` in mapping_op_core_schema.py).
+    SENSITIVE_KEYS = frozenset({"salt_config"})
+
     schema = {
         "type": "object",
         "title": "Hash-Based Pseudonymization Operation Core Configuration",
@@ -41,6 +48,17 @@ class HashBasedPseudonymizationConfig(OperationConfig):
             {
                 "type": "object",
                 "properties": {
+                    "include_raw_samples_in_metrics": {
+                        "type": "boolean",
+                        "title": "Include Raw Samples In Metrics",
+                        "default": False,
+                        "description": (
+                            "Diagnostic only. If true, metrics/*.json may contain the most "
+                            "frequent raw (pre-transformation) values of low-cardinality "
+                            "fields. WARNING: this writes source values, possibly PII, "
+                            "into a generic metrics artifact. Keep false in production."
+                        ),
+                    },
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",

@@ -1082,6 +1082,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 "encryption": "AES-256-GCM",
             },
             timing_info=timing_info,
+            include_raw_samples=self.include_raw_samples_in_metrics,
         )
 
         # Effectiveness metrics

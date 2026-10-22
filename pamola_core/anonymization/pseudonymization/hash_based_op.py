@@ -952,6 +952,7 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
                 "use_pepper": self.use_pepper,
             },
             timing_info=timing_info,
+            include_raw_samples=self.include_raw_samples_in_metrics,
         )
 
         # Anonymization effectiveness

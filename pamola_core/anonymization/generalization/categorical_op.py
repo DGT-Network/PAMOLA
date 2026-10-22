@@ -914,6 +914,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             processed_data=anonymized_data,
             operation_params=operation_params,
             timing_info=timing_info,
+            include_raw_samples=self.include_raw_samples_in_metrics,
         )
 
         # Add category distribution analysis

@@ -29,6 +29,33 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     retried per record. `TextSemanticCategorizerOperation` exposes the registry
     as the `nlp_resources_degraded` result metric.
 
+- **Hash salt no longer written to `config.json` (SEC-03).**
+  `HashBasedPseudonymizationOperation` serialized `salt_config.value` in
+  plaintext. `salt_config` is now declared in `SENSITIVE_KEYS` of
+  `HashBasedPseudonymizationConfig` and written as `"***REDACTED***"` (the
+  `source` / `field_name` hints inside it are redacted with it). The operation
+  still uses the real salt; only the artifact changed.
+- **Raw source values no longer written to `metrics/*.json` (SEC-04, SEC-05).**
+  `get_value_distribution_summary()` embedded up to 10 raw values (and counts)
+  in `field_info.{original,processed}.top_values` for every field with at most
+  20 unique values -- for all masking, generalization and pseudonymization
+  operations, unconditionally. `top_values` is now omitted by default. The
+  counts and ratios (`total_count`, `null_count`, `unique_count`,
+  `uniqueness_ratio`) are unchanged.
+  - **New option** `include_raw_samples_in_metrics` (default `False`; on
+    `AnonymizationOperation` and in the core schemas of categorical/numeric
+    generalization, full/partial masking, hash-based and consistent-mapping
+    pseudonymization) restores `top_values` for diagnostics. **Enabling it
+    writes source values, possibly PII, into the metrics artifact.**
+  - `get_value_distribution_summary(..., include_raw_samples=False)` and
+    `collect_operation_metrics(..., include_raw_samples=False)` gain the
+    matching keyword.
+  - Consumers that read `field_info.*.top_values` must pass the option.
+- New recursive canary regression test
+  (`tests/anonymization/test_artifact_canaries.py`) runs masking and both
+  pseudonymization families and greps every non-data artifact, log record and
+  result metric for raw PII, salt and encryption-key canaries.
+
 ### Removed
 
 - **`pamola_core.pipeline`, `pamola_core.interface`, `pamola_core.crypto`** —
