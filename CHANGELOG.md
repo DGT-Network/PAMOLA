@@ -71,6 +71,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Operations no longer modify the caller's DataFrame** (DATA-01).
+  `NumericGeneralizationOperation`, `UniformNumericNoiseOperation` and
+  `AddOrModifyFieldsOperation` assigned columns on the object they were given
+  (`DataSource` stores and returns the caller's frame itself): the caller's dtypes
+  changed, and `AddOrModifyFields` added columns and rewrote values in it. The
+  fix is one contract rather than three patches: `_validate_and_get_dataframe` of
+  the anonymization, transformation and fake-data bases now returns a private
+  deep copy. Cost: one transient copy of the frame per `execute()` (about 0.25 s
+  and the frame's size again for a 1M-row, 13-column, 254 MB frame); Dask frames
+  are lazy and are not copied. There is no in-place mode.
 - **Ambiguous date formats were silently resolved to US convention.**
   In `common/regex/patterns.py` the key `\d{2}/\d{2}/\d{4}` was declared twice —
   once mapping to `%d/%m/%Y` and once to `%m/%d/%Y` — and a dict literal keeps

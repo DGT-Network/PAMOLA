@@ -529,6 +529,27 @@ class BaseOperation(ABC):
             engine = data_source.suggest_engine(name=dataset_name)
             return engine == "dask"
 
+    @staticmethod
+    def _own_dataframe(df: DataFrameType) -> DataFrameType:
+        """Return a frame this operation may freely modify.
+
+        ``DataSource`` hands out the very object the caller registered, so an
+        operation that assigns a column (dtype normalisation, a new field, a
+        noisy value) rewrites the caller's data. Operations that transform data
+        load it through ``_validate_and_get_dataframe``, which calls this right
+        after loading: the operation then works on its own deep copy and the
+        caller's frame is never touched.
+
+        The price is one transient copy of the frame per ``execute()``. A shallow
+        copy would be cheaper but only shields column rebinding; in-place value
+        writes (``.loc``/``.iloc``) still reach the caller's buffers, and
+        which one an operation uses is an implementation detail it should not
+        have to get right. Dask frames are immutable graphs and pass through.
+        """
+        if isinstance(df, dd.DataFrame):
+            return df
+        return df.copy(deep=True)
+
     def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
         """
         Prepare directories for artifacts following PAMOLA.CORE conventions.

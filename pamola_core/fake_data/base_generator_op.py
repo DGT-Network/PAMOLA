@@ -642,6 +642,9 @@ class GeneratorOperation(FieldOperation):
             self.logger.error(error_message)
             raise ValidationError(error_message)
 
+        # Work on our own copy: DataSource returns the caller's object itself.
+        df = self._own_dataframe(df)
+
         if self.field_name not in df.columns:
             error_message = f"Field {self.field_name} not found in DataFrame"
             self.logger.error(error_message)
