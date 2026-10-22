@@ -500,6 +500,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
         Union[pd.DataFrame, Dict[str, pd.DataFrame]]
             The processed DataFrame, or a dictionary of DataFrames if applicable.
         """
+        if isinstance(input_data, pd.DataFrame) and len(input_data) == 0:
+            return self._process_empty(input_data, reporter=reporter)
+
         if self.use_dask and self.npartitions > 1:
             self.logger.info("Parallel Enabled")
             self.logger.info("Parallel Engine: Dask")
@@ -536,6 +539,36 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 progress_tracker=progress_tracker,
                 reporter=reporter,
             )
+
+    def _process_empty(
+        self, input_data: pd.DataFrame, reporter: Optional[Any] = None
+    ) -> Tuple[pd.Series, pd.DataFrame]:
+        """
+        Handle a 0-row DataFrame: no record can be suppressed, schema is preserved.
+
+        A 0-row frame is a normal shape (an upstream filter removed every
+        record). Every engine below chunks the input and concatenates the
+        chunks, and concatenating no chunks raises, so the empty case is
+        answered here, once, with an empty mask and the unchanged schema.
+        """
+        self._original_record_count = 0
+        self._batch_number = 0
+        self._suppressed_records_count = 0
+        self._suppression_reasons = {}
+
+        self.logger.warning(
+            f"{self.operation_name}: input has 0 rows, nothing to suppress"
+        )
+        if reporter:
+            reporter.add_operation(
+                f"Operation {self.operation_name}",
+                status="info",
+                details={"message": "Input has 0 rows, nothing to suppress"},
+            )
+        return (
+            pd.Series(False, index=input_data.index, dtype=bool),
+            input_data.copy(deep=True),
+        )
 
     def _process_with_pandas(
         self,

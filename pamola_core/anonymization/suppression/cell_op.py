@@ -656,6 +656,9 @@ class CellSuppressionOperation(AnonymizationOperation):
         Union[pd.DataFrame, Dict[str, pd.DataFrame]]
             The processed DataFrame, or a dictionary of DataFrames if applicable.
         """
+        if isinstance(input_data, pd.DataFrame) and len(input_data) == 0:
+            return self._process_empty(input_data, reporter=reporter)
+
         if self.use_dask and self.npartitions > 1:
             return self._process_with_dask(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
@@ -670,6 +673,38 @@ class CellSuppressionOperation(AnonymizationOperation):
             return self._process_with_pandas(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
             )
+
+    def _process_empty(
+        self, input_data: pd.DataFrame, reporter: Optional[Any] = None
+    ) -> Tuple[pd.Series, pd.DataFrame]:
+        """
+        Handle a 0-row DataFrame: nothing to suppress, schema is preserved.
+
+        A 0-row frame is a normal shape (an upstream filter removed every
+        record). Every engine below chunks the input and concatenates the
+        chunks, and concatenating no chunks raises, so the empty case is
+        answered here, once, with an empty mask and the (ENRICH-aware) schema.
+        """
+        self._batch_number = 0
+        self._cells_suppressed = 0
+        self._total_cells_processed = 0
+        self._non_null_cells_processed = 0
+        self._suppression_by_strategy = {}
+
+        output_data = input_data.copy(deep=True)
+        if self.mode == "ENRICH" and self.output_field_name:
+            output_data[self.output_field_name] = output_data[self.field_name]
+
+        self.logger.warning(
+            f"{self.operation_name}: input has 0 rows, nothing to suppress"
+        )
+        if reporter:
+            reporter.add_operation(
+                f"Operation {self.operation_name}",
+                status="info",
+                details={"message": "Input has 0 rows, nothing to suppress"},
+            )
+        return pd.Series(False, index=input_data.index, dtype=bool), output_data
 
     def _process_with_pandas(
         self,

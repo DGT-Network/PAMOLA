@@ -71,6 +71,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Cell and record suppression on a 0-row DataFrame** (DATA-02).
+  `CellSuppressionOperation` and `RecordSuppressionOperation` returned `ERROR`
+  with a raw `No objects to concatenate` from `pd.concat([])` - a normal shape
+  after an upstream filter. They now return `SUCCESS` with a header-only output
+  that keeps the input's columns (plus the ENRICH column), zero counts in the
+  metrics, and one WARNING saying there was nothing to suppress. This matches
+  `AttributeSuppressionOperation` and the profilers, which already succeeded on
+  empty input.
 - **Operations no longer modify the caller's DataFrame** (DATA-01).
   `NumericGeneralizationOperation`, `UniformNumericNoiseOperation` and
   `AddOrModifyFieldsOperation` assigned columns on the object they were given
