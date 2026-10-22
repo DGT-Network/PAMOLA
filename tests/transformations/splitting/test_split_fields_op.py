@@ -72,6 +72,7 @@ class DummyProgress:
 @patch('pamola_core.transformations.base_transformation_op.load_data_operation')
 def test_execute_valid_case(mock_load_data, mock_load_settings, operation, sample_dataframe, tmp_path):
     mock_load_data.return_value = sample_dataframe
+    operation.generate_visualization = True  # this test asserts the visualization step runs
     reporter = DummyReporter()
     progress = DummyProgress()
     task_dir = tmp_path

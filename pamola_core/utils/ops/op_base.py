@@ -18,6 +18,7 @@ Key features:
 - Support for encryption of outputs
 """
 
+import functools
 import json
 import os
 import time
@@ -42,10 +43,50 @@ from pamola_core.utils.io import ensure_directory
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.base import BasePamolaError
 from pamola_core.errors.error_handler import ErrorHandler
-from pamola_core.errors.exceptions import ConfigSaveError
+from pamola_core.errors.exceptions import ConfigSaveError, DependencyMissingError
+from pamola_core.utils.optional_deps import require_optional
 
 # Configure module logger
 logger = pamola_logging.getLogger(__name__)
+
+# Modules an explicitly requested visualization needs, per rendering backend.
+# plotly writes PNGs through kaleido; both ship with the ``viz`` extra.
+_VISUALIZATION_BACKEND_MODULES: Dict[str, tuple] = {
+    "plotly": ("plotly", "kaleido"),
+    "matplotlib": ("matplotlib",),
+}
+
+
+def _guard_visualization_dependencies(execute):
+    """Wrap ``execute`` so a missing ``viz`` extra fails once, up front.
+
+    Without the check, an operation with ``generate_visualization=True`` on a
+    base install does all its work, then every layer of the plotting stack logs
+    its own copy of the failure (about twelve WARNING/ERROR lines with
+    tracebacks per call) and the result still says SUCCESS. The caller asked for
+    charts and cannot get them, so the operation returns one ERROR result that
+    names the extra to install, before any data is touched.
+    """
+
+    if getattr(execute, "_viz_dependency_guarded", False):
+        return execute
+
+    @functools.wraps(execute)
+    def guarded(self, *args, **kwargs):
+        try:
+            self.check_visualization_dependencies()
+        except DependencyMissingError as exc:
+            message = str(exc)
+            self.logger.error(message)
+            return OperationResult(
+                status=OperationStatus.ERROR,
+                error_message=message,
+                exception=exc,
+            )
+        return execute(self, *args, **kwargs)
+
+    guarded._viz_dependency_guarded = True
+    return guarded
 
 
 class OperationScope:
@@ -153,6 +194,33 @@ class BaseOperation(ABC):
     #: ``False`` individually.
     supports_batch: ClassVar[bool] = False
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # One framework-level check instead of one per ``execute`` override.
+        execute = cls.__dict__.get("execute")
+        if callable(execute):
+            cls.execute = _guard_visualization_dependencies(execute)
+
+    def check_visualization_dependencies(self) -> None:
+        """Raise ``DependencyMissingError`` if requested visualization cannot run.
+
+        A no-op unless ``generate_visualization`` is true and a backend is set,
+        so a default-constructed operation never imports a plotting library.
+
+        Raises
+        ------
+        DependencyMissingError
+            Naming the ``viz`` extra, when the selected backend (or kaleido for
+            plotly PNG export) is not installed.
+        """
+        if not getattr(self, "generate_visualization", False):
+            return
+        backend = getattr(self, "visualization_backend", None)
+        if backend is None:
+            return
+        for module in _VISUALIZATION_BACKEND_MODULES.get(str(backend).lower(), ()):
+            require_optional(module, extra="viz")
+
     def __init__(
         self,
         # Identification & Meta
@@ -188,7 +256,7 @@ class BaseOperation(ABC):
         encryption_key: Optional[Union[str, Path]] = None,
         # Runtime control flags
         force_recalculation: bool = False,
-        generate_visualization: bool = True,
+        generate_visualization: bool = False,
         save_output: bool = True,
         # Reproducibility
         seed: Optional[int] = None,
@@ -259,7 +327,11 @@ class BaseOperation(ABC):
         force_recalculation : bool, optional
             Force recomputation even if cached results exist (default=False).
         generate_visualization : bool, optional
-            Automatically generate visualization after processing (default=True).
+            Generate visualization artifacts during ``execute()`` (default=False).
+            Opt-in: it needs the ``viz`` extra and adds rendering time to every
+            run. When True the artifacts are produced and registered before
+            ``execute()`` returns; if the ``viz`` extra is missing the operation
+            returns one actionable dependency error.
         save_output : bool, optional
             Save processed output to disk (default=True)
         """

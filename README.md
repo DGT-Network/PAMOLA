@@ -224,8 +224,16 @@ DependencyMissingError: no visualization backend is installed ...
 They ship with the viz extra: pip install 'pamola-core[viz]'
 ```
 
-Operations that can draw accept `generate_visualization=False` and run normally
-on a base install.
+Visualization is **off by default**: operations only draw when you pass
+`generate_visualization=True`. A default run starts no render thread, writes no
+plot files and logs nothing about charts, with or without the `viz` extra. With
+`generate_visualization=True` the charts are written and registered as
+artifacts before `execute()` returns; on a base install that request returns a
+single `ERROR` result naming `pip install 'pamola-core[viz]'` instead of running
+and logging a traceback from every layer of the plotting stack.
+
+> **Behaviour change before `1.0.0`:** `generate_visualization` used to default to
+> `True`. Pass `generate_visualization=True` to keep the old behaviour.
 
 **Test extras:**
 

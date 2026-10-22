@@ -347,7 +347,7 @@ class TestDateOperation(unittest.TestCase):
         self.assertEqual(operation.field_name, 'created_at')
         self.assertEqual(operation.min_year, 1940)
         self.assertEqual(operation.max_year, 2005)
-        self.assertTrue(operation.generate_visualization)
+        self.assertFalse(operation.generate_visualization)  # opt-in since 1.0
         self.assertEqual(operation.profile_type, 'date')
         self.assertFalse(operation.is_birth_date)
 

@@ -1093,7 +1093,7 @@ def analyze_categorical_fields(
         Additional parameters for the operations:
         - top_n: int, number of top values to include in results (default: 15)
         - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
-        - generate_visualization: bool, whether to generate visualization (default: True)
+        - generate_visualization: bool, whether to generate visualization (default: False)
         - profile_type: str, type of profiling for organizing artifacts (default: 'categorical')
 
     Returns

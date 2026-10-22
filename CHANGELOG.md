@@ -54,6 +54,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   measured 84.327 %. CI's ruff step loses its `|| true`; a non-blocking mypy
   job is added.
 
+- **Visualization is opt-in: `generate_visualization` now defaults to `False`**
+  (VIZ-01, VIZ-02). One default, in `BaseOperation`; the core config schema
+  agrees. A default run no longer starts the render thread, writes plot files or
+  emits any visualization log line. The Section 15 baseline measured that thread
+  at 28-87 % of wall time across the operations tested.
+  **Migration:** pass `generate_visualization=True` (or set it in the operation
+  config) wherever charts were relied on.
+- **Explicit `generate_visualization=True` without the `viz` extra returns one
+  `ERROR` result** with an actionable message (`pip install 'pamola-core[viz]'`)
+  before any data is touched (VIZ-04). Previously the operation ran, logged about
+  twelve WARNING/ERROR lines with tracebacks from every layer of the plotting
+  stack, and still reported `SUCCESS` without charts. The check lives in
+  `BaseOperation` (`check_visualization_dependencies`, applied to every
+  subclass's `execute`), so no operation needs its own.
+
 ### Fixed
 
 - **Ambiguous date formats were silently resolved to US convention.**

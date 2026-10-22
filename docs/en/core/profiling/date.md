@@ -144,7 +144,7 @@ if result.status.name == "SUCCESS":
 | `task_dir` | Path | Yes | - | Directory for saving artifacts |
 | `reporter` | Any | Yes | - | Reporter object for tracking artifacts |
 | `progress_tracker` | HierarchicalProgressTracker | No | None | Progress tracking object |
-| `generate_visualization` | bool | No | True | Whether to create visualizations |
+| `generate_visualization` | bool | No | False | Whether to create visualizations |
 | `include_timestamp` | bool | No | True | Whether to include timestamps in filenames |
 | `profile_type` | str | No | "date" | Type of profiling for organizing artifacts |
 

@@ -43,6 +43,9 @@ class DummyReporter:
     def add_operation(self, name, details=None):
         self.operations.append((name, details))
 
+    def add_artifact(self, *args, **kwargs):
+        pass
+
 class DummyProgressTracker:
     def __init__(self):
         self.total = 0

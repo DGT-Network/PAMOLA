@@ -242,8 +242,8 @@ class BaseOperationConfig(OperationConfig):
             "generate_visualization": {
                 "type": "boolean",
                 "title": "Generate Visualization",
-                "description": "If true, automatically generate visualization outputs after processing.",
-                "default": True,
+                "description": "If true, generate visualization outputs during processing (requires the 'viz' extra).",
+                "default": False,
             },
         },
         "allOf": [

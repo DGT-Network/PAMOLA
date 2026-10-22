@@ -419,7 +419,7 @@ class TestCorrelationOperation(unittest.TestCase):
         reporter = MagicMock()
 
         # Instantiate and execute operation
-        op = CorrelationOperation(field1="cat", field2="val", use_cache=False)
+        op = CorrelationOperation(field1="cat", field2="val", use_cache=False, generate_visualization=True)
         result = op.execute(
             data_source=DummyDataSource(df=df),
             task_dir=Path("."),
@@ -458,7 +458,7 @@ class TestCorrelationOperation(unittest.TestCase):
         reporter = MagicMock()
 
         # Instantiate and execute operation
-        op = CorrelationOperation(field1="cat1", field2="cat2", use_cache=False)
+        op = CorrelationOperation(field1="cat1", field2="cat2", use_cache=False, generate_visualization=True)
         result = op.execute(
             data_source=DummyDataSource(df=df),
             task_dir=Path("."),
@@ -500,7 +500,7 @@ class TestCorrelationOperation(unittest.TestCase):
         reporter = MagicMock()
 
         # Instantiate and execute operation
-        op = CorrelationOperation(field1="cat", field2="val")
+        op = CorrelationOperation(field1="cat", field2="val", generate_visualization=True)
         result = op.execute(
             data_source=DummyDataSource(df=df),
             task_dir=Path("."),
@@ -525,7 +525,7 @@ class TestCorrelationMatrixOperation(unittest.TestCase):
         self.mock_progress_tracker = Mock()
         self.mock_progress_tracker.update = Mock()
         self.task_dir = Path("temp_task_dir")
-        self.operation = CorrelationMatrixOperation(fields=['A', 'B', 'C'])
+        self.operation = CorrelationMatrixOperation(fields=['A', 'B', 'C'], generate_visualization=True)
 
     @patch('pamola_core.profiling.commons.helpers.load_data_operation')
     @patch('pamola_core.profiling.analyzers.correlation.create_correlation_matrix')
@@ -614,7 +614,7 @@ class TestCorrelationMatrixOperation(unittest.TestCase):
         reporter = MagicMock()
 
         # Instantiate and execute operation
-        op = CorrelationMatrixOperation(fields=["A", "B", "C"])
+        op = CorrelationMatrixOperation(fields=["A", "B", "C"], generate_visualization=True)
         result = op.execute(
             data_source=DummyDataSource(df=df),
             task_dir=Path("."),
