@@ -93,6 +93,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `merge_low_freq` fix (PERF-FIX-1) started to populate the mapping; the `hierarchy` strategy leaked the same
   way before.
 
+- **`CorrelationMatrixOperation` no longer fails with default settings (assembly finding).** Since
+  visualization became opt-in (VIZ-01) the operation raised `cannot access local variable 'matrix_df'`
+  at the end of every default run (`matrix_df` was assigned only inside the heatmap branch). It is
+  initialised before the branch. Found by the all-profilers log-canary test.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the

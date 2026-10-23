@@ -1468,6 +1468,9 @@ class CorrelationMatrixOperation(BaseOperation):
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Saved analysis results"})
 
+            # The matrix frame exists only when a heatmap is requested (visualization is opt-in)
+            matrix_df = None
+
             # Generate visualization if requested
             if self.generate_visualization and "correlation_matrix" in analysis_results:
                 # Visualization parameters
