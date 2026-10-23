@@ -416,8 +416,9 @@ def identify_rare_categories(
         return rare_categories, detailed_info
 
     except Exception as e:
+        # "no rare categories" would be a wrong answer (the caller then changes nothing)
         logger.error(f"Error identifying rare categories: {str(e)}")
-        return set(), {}
+        raise
 
 
 def group_rare_categories(

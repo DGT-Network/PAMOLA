@@ -1943,11 +1943,20 @@ def apply_suppression_strategy(
 
     elif strategy == "constant":
         try:
-            suppression_value_casted = np.array([suppression_value]).astype(
-                original_dtype
-            )[0]
+            if isinstance(original_dtype, pd.CategoricalDtype):
+                # casting to a categorical dtype maps a value outside its categories to NaN
+                suppression_value_casted = suppression_value
+            else:
+                suppression_value_casted = np.array([suppression_value]).astype(
+                    original_dtype
+                )[0]
         except Exception:
             suppression_value_casted = suppression_value
+        if isinstance(original_dtype, pd.CategoricalDtype):
+            # The engine turns text columns of large frames into "category". A constant that
+            # is not one of the categories cannot be assigned to it, and batches that gained
+            # different categories cannot be compared or concatenated; work on plain values.
+            batch[working_field] = batch[working_field].astype(object)
         batch.loc[batch_mask, working_field] = suppression_value_casted
 
     elif strategy == "group_mean":
@@ -1999,6 +2008,8 @@ def apply_suppression_strategy(
     try:
         if pd.api.types.is_numeric_dtype(original_dtype):
             batch[working_field] = pd.to_numeric(batch[working_field], errors="coerce")
+        elif isinstance(original_dtype, pd.CategoricalDtype) and strategy == "constant":
+            pass  # converted to plain values above; casting back would turn the constant into NaN
         else:
             batch[working_field] = batch[working_field].astype(
                 original_dtype, errors="ignore"

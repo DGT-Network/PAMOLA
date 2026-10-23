@@ -550,7 +550,9 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     # Impute with constant
                     if imputation_strategy == "constant":
                         if constant_value and constant_value not in invalid_values:
-                            if (
+                            if isinstance(
+                                batch[output_field_name].dtype, CategoricalDtype
+                            ) and (
                                 constant_value
                                 not in batch[output_field_name].cat.categories
                             ):
