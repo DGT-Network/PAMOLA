@@ -195,3 +195,12 @@ def configure_operations(self):
 ## Conclusion
 
 The Attribute Profiling Module provides a robust, flexible solution for understanding dataset characteristics, with a focus on privacy risk assessment and data quality analysis.
+
+## Raw sample values (opt-in)
+
+`include_raw_samples_in_metrics` (default `False`). By default the profile (`attribute_roles_*.json`)
+contains no value from the data and `attribute_sample_*.json` is not written (`samples` is an empty
+list for every column). With `include_raw_samples_in_metrics=True` both carry `sample_size` raw values
+of every column - source values, possibly personal data. The values are drawn reproducibly:
+`random_state = seed` of the operation (0 when no `seed` is given), so two runs on the same data give
+the same samples.

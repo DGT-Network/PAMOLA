@@ -256,7 +256,7 @@ def infer_data_type(series: pd.Series) -> str:
 
     # Check for MVF in string format
     mvf_pattern = re.compile(r"\[.*]|\{.*}|.*;.*|.*,.*|.*\|.*")
-    sample = non_null.sample(min(100, len(non_null)))
+    sample = non_null.sample(min(100, len(non_null)), random_state=0)
     mvf_count = sample.astype(str).str.contains(mvf_pattern, regex=True, na=False).sum()
 
     if mvf_count >= len(sample) * 0.5:  # If at least 50% match MVF pattern
@@ -404,7 +404,7 @@ def is_mvf_field(series: pd.Series) -> bool:
     mvf_pattern = re.compile(r"\[.*]|\{.*}|.*;.*|.*,.*|.*\|.*")
 
     # Sample the data to avoid processing very large series
-    sample = non_null.sample(min(100, len(non_null)))
+    sample = non_null.sample(min(100, len(non_null)), random_state=0)
     mvf_count = sample.astype(str).str.contains(mvf_pattern, regex=True, na=False).sum()
 
     # If at least 50% match MVF pattern
@@ -424,7 +424,7 @@ def is_mvf_field(series: pd.Series) -> bool:
 
 
 def analyze_column_values(
-    df: pd.DataFrame, column: str, sample_size: int = 10
+    df: pd.DataFrame, column: str, sample_size: int = 10, random_state: Optional[int] = 0
 ) -> Dict[str, Any]:
     """
     Analyze comprehensive statistics and characteristics of a specific column in a DataFrame.
@@ -469,14 +469,14 @@ def analyze_column_values(
             # Truncate long text samples to improve readability
             samples = (
                 series.dropna()
-                .sample(min(sample_size, len(series.dropna())))
+                .sample(min(sample_size, len(series.dropna())), random_state=random_state)
                 .apply(lambda x: str(x)[:100] + "..." if len(str(x)) > 100 else str(x))
                 .tolist()
             )
         else:
             # Standard sampling for other data types
             samples = (
-                series.dropna().sample(min(sample_size, len(series.dropna()))).tolist()
+                series.dropna().sample(min(sample_size, len(series.dropna())), random_state=random_state).tolist()
             )
 
         # Add sampled values to statistics
@@ -737,6 +737,7 @@ def categorize_column(
     dictionary: Dict[str, Any],
     language: str = "en",
     sample_size: int = 10,
+    random_state: Optional[int] = 0,
 ) -> Dict[str, Any]:
     """
     Analyze and categorize a column based on both name and statistics.
@@ -760,7 +761,7 @@ def categorize_column(
         Dictionary with categorization results and analysis
     """
     # Analyze column values
-    stats = analyze_column_values(df, column, sample_size)
+    stats = analyze_column_values(df, column, sample_size, random_state)
 
     # Categorize by name (semantic)
     semantic_result = categorize_column_by_name(column, dictionary, language)
@@ -803,6 +804,7 @@ def analyze_dataset_attributes(
     language: str = "en",
     sample_size: int = 10,
     max_columns: Optional[int] = None,
+    random_state: Optional[int] = 0,
 ) -> Dict[str, Any]:
     """
     Analyze and categorize all columns in a dataset.
@@ -855,7 +857,7 @@ def analyze_dataset_attributes(
     for column in columns_to_analyze:
         try:
             column_result = categorize_column(
-                df, column, dictionary, language, sample_size
+                df, column, dictionary, language, sample_size, random_state
             )
             results["columns"][column] = column_result
 

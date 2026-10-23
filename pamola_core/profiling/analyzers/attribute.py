@@ -89,6 +89,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         language: str = Language.ENGLISH.value,
         sample_size: int = 10,
         max_columns: Optional[int] = None,
+        include_raw_samples_in_metrics: bool = False,
         **kwargs,
     ):
         """
@@ -103,7 +104,13 @@ class DataAttributeProfilerOperation(BaseOperation):
         language : str
             Language code for keyword matching (default Language.ENGLISH.value).
         sample_size : int
-            Number of sample values to inspect per column.
+            Number of sample values to extract per column - used only when
+            ``include_raw_samples_in_metrics`` is True.
+        include_raw_samples_in_metrics : bool
+            Diagnostic option, default False. If True, the profile (``attribute_roles_*.json``)
+            and ``attribute_sample_*.json`` carry ``sample_size`` raw values of every column,
+            drawn reproducibly (``seed``, 0 when unset). WARNING: those are source values,
+            possibly PII.
         max_columns : int | None
             Max number of columns to analyze.
         kwargs : dict
@@ -123,6 +130,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             language=language,
             sample_size=sample_size,
             max_columns=max_columns,
+            include_raw_samples_in_metrics=include_raw_samples_in_metrics,
             **kwargs,
         )
 
@@ -328,8 +336,10 @@ class DataAttributeProfilerOperation(BaseOperation):
                 df=df,
                 dictionary=dictionary,
                 language=self.language,
-                sample_size=self.sample_size,
+                # raw values only on explicit request: 0 samples otherwise
+                sample_size=self.sample_size if self.include_raw_samples_in_metrics else 0,
                 max_columns=self.max_columns,
+                random_state=0 if self.seed is None else self.seed,
             )
 
             # Step 4: Analysis
@@ -413,41 +423,43 @@ class DataAttributeProfilerOperation(BaseOperation):
                         "csv", str(entropy_path), "Attribute entropy and uniqueness"
                     )
 
-            # Save sample values for each column
-            sample_filename = f"attribute_sample_{operation_timestamp}.json"
-            sample_path = output_dir / sample_filename
+            # Raw sample values are written only on explicit request (ASB-4)
+            if self.include_raw_samples_in_metrics:
+                # Save sample values for each column
+                sample_filename = f"attribute_sample_{operation_timestamp}.json"
+                sample_path = output_dir / sample_filename
 
-            sample_data = {
-                col_name: {
-                    "role": col_data["role"],
-                    "inferred_type": col_data["statistics"].get(
-                        "inferred_type", "unknown"
-                    ),
-                    "samples": col_data["statistics"]["samples"],
+                sample_data = {
+                    col_name: {
+                        "role": col_data["role"],
+                        "inferred_type": col_data["statistics"].get(
+                            "inferred_type", "unknown"
+                        ),
+                        "samples": col_data["statistics"]["samples"],
+                    }
+                    for col_name, col_data in analysis_results["columns"].items()
+                    if "statistics" in col_data and "samples" in col_data["statistics"]
                 }
-                for col_name, col_data in analysis_results["columns"].items()
-                if "statistics" in col_data and "samples" in col_data["statistics"]
-            }
 
-            encryption_mode_sample_data = get_encryption_mode(
-                sample_data, self.use_encryption
-            )
-            write_json(
-                sample_data,
-                sample_path,
-                encryption_key=self.encryption_key,
-                encryption_mode=encryption_mode_sample_data,
-            )
-            result.add_artifact(
-                "json",
-                sample_path,
-                "Attribute sample values",
-                category=Constants.Artifact_Category_Dictionary,
-            )
-            if reporter:
-                reporter.add_artifact(
-                    "json", str(sample_path), "Attribute sample values"
+                encryption_mode_sample_data = get_encryption_mode(
+                    sample_data, self.use_encryption
                 )
+                write_json(
+                    sample_data,
+                    sample_path,
+                    encryption_key=self.encryption_key,
+                    encryption_mode=encryption_mode_sample_data,
+                )
+                result.add_artifact(
+                    "json",
+                    sample_path,
+                    "Attribute sample values",
+                    category=Constants.Artifact_Category_Dictionary,
+                )
+                if reporter:
+                    reporter.add_artifact(
+                        "json", str(sample_path), "Attribute sample values"
+                    )
 
             # Step 4: Saving Metrics
             if progress_tracker:

@@ -43,6 +43,21 @@ The Categorical Generalization module provides privacy-preserving transformation
 4. **Extensibility**: Easy to add new strategies or customize behavior
 5. **Observability**: Comprehensive logging with trace IDs and metrics
 
+## Artifacts that contain source categories
+
+Two artifacts of this operation contain **source category values by design**, because they are
+needed to interpret the generalized output:
+
+* `mappings/<field>_category_mapping_<timestamp>.json` - the mapping `source category -> generalized
+  category`. It is written only to the task's own output directory (`<task_dir>/mappings/`) and is
+  registered as a result artifact; the source categories never appear in `metrics/*.json`,
+  `OperationResult.metrics` or log messages (checked by `test_asb4_category_mapping_artifact.py`).
+  If a category value is itself personal data (a rare name, an identifier), treat this file with the
+  protection you give the source data, or do not keep it.
+* Visualizations, when explicitly requested (`generate_visualization=True`): distribution and
+  hierarchy charts are labelled with category values. Charts are off by default; a requested chart can
+  show category values, so do not publish it where the values are not allowed to appear.
+
 ## Constructor Signature
 
 ```python

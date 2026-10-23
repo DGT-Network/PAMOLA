@@ -46,6 +46,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `DataSource`. The unused `_calculate_k_anonymity_chunked` (which counted classes as vulnerable
   records) is removed.
 
+- **Raw values in profiling and generalization artifacts (ASB-4).** `DataAttributeProfilerOperation`
+  wrote `sample_size` random raw values of every column into `attribute_roles_*.json` and
+  `attribute_sample_*.json`, non-reproducibly. They are now behind `include_raw_samples_in_metrics`
+  (default `False`: no values, no sample file) and, when enabled, reproducible
+  (`random_state = seed`, 0 when unset; the internal MVF sniffing sample is seeded too). **Behaviour
+  change:** `samples` is `[]` and `attribute_sample_*.json` is not written unless the option is set.
+  The log-canary test now covers all 14 profiling operations (it covered 3). The category
+  generalization mapping (`mappings/*_category_mapping_*.json`) is documented as holding source
+  categories by design, with a test that it stays out of metrics, results and logs; requested charts
+  can show category values (documented).
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the
