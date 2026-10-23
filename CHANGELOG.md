@@ -362,6 +362,38 @@ unchanged public values (descriptions reworded).
   ones; `cvpl_lr_by_rung` and `candidate_union_trajectory` keep the per-rung and cumulative
   values, `headline_basis` says which rule applied. Bounded categorical encoding is reported
   (`bucketed_features`, `warnings`) and a `not_applicable` QID names the fix.
+- **CVPL review round (CDX-CVPL-1..17).** What changes in a number or a field:
+  - One admissibility predicate for planning, scanning and the union of rungs (the union headline
+    equals the trajectory end; a wildcard no longer overrides `null_policy="incompatible"` in the union).
+  - Open-ended intervals (`60+`) have a finite feature representation; a non-finite representation is
+    `not_measured` (`non_finite_representation`), never a zero. Integers beyond `2**53` compare exactly,
+    `-0.0 == 0.0`, an **invalid** value is distinct from a missing one on both sides (admissible with
+    nothing).
+  - Ground-truth identifiers compare as values inside a namespace (`1 == 1.0`, `1 != "1"`); numeric vs
+    text, booleans and other types give `ground_truth.status = "invalid"`.
+  - **Undefined cosines yield bounds, not point values**: a measure that an unknown candidate can
+    influence has status `bounded`, `value: null` and `lower`/`upper` (`cvpl_lr` included; breaking for
+    a consumer that read the old point value). A known false link no longer hides an unknown true one.
+  - **Two uniform strategies.** `cvpl_id_uniform_subjects_gt` (distinct candidate subjects, the previous
+    `cvpl_id_uniform_gt`) and `cvpl_id_uniform_rows_gt` (candidate released rows) are published; the
+    headline `cvpl_id_uniform_gt` is the larger population value and `cvpl_id_uniform_basis` names it.
+    The headline can therefore differ from earlier results when the release repeats a subject.
+  - Ties are formed only among accepted candidates (tolerance never re-admits a pair below `tau`).
+  - Partial ground truth: an anonymous released row makes release membership unknown, `gt_coverage` and
+    the known subset are then `0` / `null` (previously reported as full coverage and an invented subset).
+  - Missing/overflow categories use internal tags (a user value `__missing__` no longer collides).
+  - A hierarchy must name the generalized values present in the release, else the QID is
+    `not_applicable` (`generalized_values_not_in_hierarchy`).
+  - An empty candidate set is a measured zero even when the representation is degenerate.
+  - Memory: per-record accumulators live for one chunk, exact-fallback matches are aggregated by
+    equivalence class, group compatibility is streamed (4M-cell tiles) and planning stops at the
+    comparison budget. `n_compared` counts cosine evaluations only.
+  - Result cache identity includes the fitted projection (`projection.fingerprint`) and the algorithm
+    version; hierarchy mappings are never written to `config.json`, cache metadata or logs (digest and
+    size instead); `OperationResult.metrics` carries the full structured result (statuses, bounds,
+    nulls, trajectories); a cached run returns `SUCCESS` (it returned `PENDING`).
+  - Documented: CVPL is a white-box, upper-bound evaluation; duplicate-row invariance holds under a
+    fixed representation only; G2/G4 differ from BEST (pinned, legacy-only).
 - **CVPL linkage exposure metric** (`pamola_core.metrics.CVPLLinkageOperation`, engine in
   `pamola_core.metrics.privacy.cvpl`; ADR-CVPL-001). The operator chain
   blocking -> vectorization -> PCA -> cosine -> threshold, with the attacker's
