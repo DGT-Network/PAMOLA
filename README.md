@@ -119,10 +119,10 @@ All classes below are exported from the top-level `pamola_core` package.
 | **Profiling — Dataset-level** | `KAnonymityProfilerOperation`, `DataAttributeProfilerOperation` |
 | **Transformation** | `AddOrModifyFieldsOperation`, `RemoveFieldsOperation`, `CleanInvalidValuesOperation`, `ImputeMissingValuesOperation`, `AggregateRecordsOperation`, `MergeDatasetsOperation`, `SplitByIDValuesOperation`, `SplitFieldsOperation` |
 | **Fake Data** | `FakeNameOperation`, `FakeEmailOperation`, `FakePhoneOperation`, `FakeOrganizationOperation` |
-| **Metrics** | `FidelityOperation` (KS, KL-divergence), `PrivacyMetricOperation` (DCR, NNDR, uniqueness, k-anonymity, l-diversity), `UtilityMetricOperation` (classification, regression) |
+| **Metrics** | `FidelityOperation` (KS, KL-divergence), `PrivacyMetricOperation` (DCR, NNDR, uniqueness, k-anonymity, l-diversity), `CVPLLinkageOperation` (blocked, projected linkage exposure of a release against its source; see [docs](docs/en/core/metrics/privacy/cvpl.md)), `UtilityMetricOperation` (classification, regression) |
 | **Analysis helpers** | `analyze_dataset_summary`, `analyze_descriptive_stats`, `analyze_correlation`, `visualize_distribution_df`, `calculate_full_risk` |
 
-> **Note on attack simulation:** `pamola_core/attacks/` is an **internal** package with no stability guarantee, and it is deliberately narrow — it carries only the attacks that measure *anonymization* quality: `LinkageAttack` (including the CVPL variant) and `AttributeInference`. There are no public, registered `Attack*Operation` classes.
+> **Note on attack simulation:** `pamola_core/attacks/` is an **internal** package with no stability guarantee, and it is deliberately narrow — it carries only the attacks that measure *anonymization* quality: `LinkageAttack` (its TF-IDF / SVD "CVPLA" variant, which is **not** the CVPL metric below) and `AttributeInference`. The CVPL linkage metric lives in `pamola_core.metrics.privacy.cvpl` and is run through `CVPLLinkageOperation`. There are no public, registered `Attack*Operation` classes.
 >
 > Two corrections to earlier releases of this note. These modules are **not** used by `PrivacyMetricOperation` — that operation imports `pamola_core.metrics.privacy`. And DCR/NNDR live in `pamola_core.metrics.privacy.distance` and `.neighbor`; duplicate copies that had accumulated under `attacks/` were removed, as was membership inference, which measures model privacy rather than anonymization.
 >

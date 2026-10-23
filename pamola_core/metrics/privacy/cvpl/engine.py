@@ -661,7 +661,7 @@ def run_cvpl(
         else:
             base["cvpl_lr_status"] = _status(head["cvpl_lr"], "measured", denominator=n,
                                              lower=head["cvpl_lr_lower"], upper=head["cvpl_lr_upper"])
-            base.update(_gt_fields(last_measures, gt if use_gt else None, n, {}))
+            base.update(_gt_fields(last_measures, gt, n, {}))
         base["undefined_policy"] = (
             "a source record whose compatible candidates include a pair with undefined cosine "
             "(zero projected vector) and that has no link is counted in n_undetermined; it stays in the "

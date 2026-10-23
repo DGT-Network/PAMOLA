@@ -353,6 +353,27 @@ unchanged public values (descriptions reworded).
 ### Added
 
 - **Public API snapshot and guard (QA-03).** `tools/audit/api_snapshot/generate_snapshot.py` records every name exported in `__all__` by `pamola_core` and its public packages (kind, module, qualname, normalised signature) and the importable public modules; `tests/test_api_snapshot.py` fails with a readable diff when the public surface changes without `tools/audit/api_snapshot/api_snapshot.json` being regenerated. Baseline `snapshots/develop_9623aee.json` and the integrated tree `snapshots/final_tree_without_cvpl.json` are committed; replace `api_snapshot.json` with a snapshot of the assembled tree before the release.
+- **CVPL linkage exposure metric** (`pamola_core.metrics.CVPLLinkageOperation`, engine in
+  `pamola_core.metrics.privacy.cvpl`; ADR-CVPL-001). The operator chain
+  blocking -> vectorization -> PCA -> cosine -> threshold, with the attacker's
+  knowledge declared explicitly (`qids`, `auxiliary`; nothing is added implicitly), a
+  simple user-declared `blocking_ladder` (nested ladders are detected; the
+  existential rate is monotone along them, other rungs get a `candidate_union_trajectory`),
+  `fit_strategy` `joint` / `source_only` / `frozen`, wildcard / null policy, numeric-interval
+  and hierarchy-aware generalization (a generalized QID without a rule is `not_applicable`,
+  never an exact-match zero) and chunked execution with a pre-flight comparison budget
+  (`resource_limit`, not an out-of-memory failure). Three **different** measures, never
+  renamed into one another: `cvpl_lr` (a plausible link exists), `cvpl_id_uniform_gt`
+  (probability of the right subject under a uniform choice among candidates) and
+  `cvpl_top1_success_gt` (+ `precision_at_tau`), the last two only with an evaluation-only
+  ground truth that is never a feature and never leaves the process. A missing or partial
+  ground truth is `not_measured`, not zero. Zero projected vectors link deterministically
+  when the encoded vectors are equal (`n_exact_fallback`), otherwise they are reported
+  as `n_undetermined` with lower/upper bounds. The legacy weighted rate is emitted as
+  `cvpl_weighted_lr_legacy` (`weighted_existential_linkage_v1`) and is reproduced for the
+  historical fixtures G1, G3, G5. No pass/fail threshold; documented in
+  `docs/en/core/metrics/privacy/cvpl.md`. Independent of `pamola_core.attacks.linkage_attack`,
+  which is unchanged.
 - **`tests/conftest.py`** — an autouse fixture that clears ambient `PAMOLA_*`
   environment variables, making the suite hermetic. Previously a developer
   machine with `PAMOLA_PROJECT_ROOT` set failed five tests in
@@ -365,6 +386,10 @@ unchanged public values (descriptions reworded).
 ### Changed
 
 - **Public API changes of the 1.0 stabilization (review of the snapshot diff, QA-03).** Against develop@9623aee, in the integrated tree: **added** `DuplicateColumnError` and `OutputFieldExistsError` (`pamola_core.errors.exceptions`); **changed signatures** `BaseOperation` (new `overwrite_existing_output=False`, `generate_visualization` default `False`), `DataAttributeProfilerOperation` (new `include_raw_samples_in_metrics=False`), `analyze_dataset_attributes` (new `random_state=0`); **removed** the formal-DP, singling-out / SUDA attack helpers (`pamola_core.attacks.SinglingOutAttack`, `RecordRisk`, `dis_risk`, `minimal_sample_uniques`, `singling_out_sweep`, `enumerate_subset_count`, `independent_marginals_baseline`), `privacy_models.RiskInterpreter` and the modules `privacy_models.differential_privacy*`, `privacy_models.l_diversity.report_*`, `profiling.analyzers.email_dask` and `longtext`. The full list is in the PR description (`api_diff.md`); `CVPLLinkageOperation` appears with the CVPL branch.
+- `MetricsOperation` gains a class attribute `requires_aligned_inputs` (default `True`, so
+  every existing metric behaves as before). An operation whose two inputs are not row-aligned
+  by design (CVPL) sets it to `False` and receives both frames without the index
+  intersection and sampling.
 - **BREAKING: an existing ENRICH output column is no longer overwritten
   silently** (DATA-04, SRS 6.8). In ENRICH mode every operation used to log a
   WARNING and overwrite a column that already existed. It now fails with the new

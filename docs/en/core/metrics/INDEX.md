@@ -46,6 +46,7 @@ Evaluate disclosure risk and privacy preservation.
 
 ### Distance-Based
 - **[Distance to Closest Record](./privacy/distance.md)** - DCR privacy metric with FAISS support for large-scale nearest neighbor search
+- **[CVPL linkage exposure](./privacy/cvpl.md)** - Blocked, projected cosine linkage of a release against its source: existence of a link, and (with ground truth) the probability of the right identity; not a legal verdict
 
 ### Risk & Disclosure
 - **[Disclosure Risk](./privacy/disclosure_risk.md)** - Prosecutor, journalist, marketer risk models
