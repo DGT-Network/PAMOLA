@@ -96,8 +96,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - **File layout changed.** New files start with the signature
     `PAMOLA-MAP` followed by length-prefixed AES-GCM frames (see the module
     docstring of `anonymization/commons/mapping_storage.py`). Files from earlier
-    releases are read transparently and converted on the first append. A mapping
-    file written by this release cannot be read by an older release.
+    releases are read transparently and converted on the first append. Mapping
+    files written by 1.0 are not readable by 1.0.0.dev* releases (the reader
+    for the old layout is covered by tests).
   - **Consistency model:** one writer per file; `save()` is an atomic replace;
     `append()` is a single fsync'd write; a crash mid-append is reported as a
     truncated file on the next load (restore the `.bak.*` copy).
