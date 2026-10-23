@@ -1,0 +1,2810 @@
+{
+ "api": {
+  "pamola_core.analysis:analyze_correlation": {
+   "kind": "function",
+   "module": "pamola_core.analysis.correlation",
+   "qualname": "analyze_correlation",
+   "signature": "(df, columns=None, method='pearson', plot=True, output_chart='heatmap', analysis_dir='', viz_format='html')"
+  },
+  "pamola_core.analysis:analyze_dataset_summary": {
+   "kind": "function",
+   "module": "pamola_core.analysis.dataset_summary",
+   "qualname": "analyze_dataset_summary",
+   "signature": "(df)"
+  },
+  "pamola_core.analysis:analyze_descriptive_stats": {
+   "kind": "function",
+   "module": "pamola_core.analysis.descriptive_stats",
+   "qualname": "analyze_descriptive_stats",
+   "signature": "(df, field_names=None, describe_order=None, extra_statistics=None)"
+  },
+  "pamola_core.analysis:calculate_full_risk": {
+   "kind": "function",
+   "module": "pamola_core.analysis.privacy_risk",
+   "qualname": "calculate_full_risk",
+   "signature": "(df, quasi_identifiers, sensitive_attributes, weights=None)"
+  },
+  "pamola_core.analysis:visualize_distribution_df": {
+   "kind": "function",
+   "module": "pamola_core.analysis.distribution",
+   "qualname": "visualize_distribution_df",
+   "signature": "(df, viz_dir, numeric_bar_charts=False, n_bins=10, field_names=None, viz_format='html')"
+  },
+  "pamola_core.anonymization:AttributeSuppressionOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.suppression.attribute_op",
+   "qualname": "AttributeSuppressionOperation",
+   "signature": "(field_name, additional_fields=None, suppression_mode='REMOVE', save_suppressed_schema=True, **kwargs)"
+  },
+  "pamola_core.anonymization:CategoricalGeneralizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.generalization.categorical_op",
+   "qualname": "CategoricalGeneralizationOperation",
+   "signature": "(field_name, strategy='hierarchy', external_dictionary_path=None, dictionary_format='auto', hierarchy_level=1, min_group_size=10, freq_threshold=0.01, max_categories=1000000, allow_unknown=True, unknown_value='OTHER', group_rare_as='OTHER', rare_value_template='OTHER_{n}', text_normalization='basic', case_sensitive=False, fuzzy_matching=False, similarity_threshold=0.85, privacy_check_enabled=True, min_acceptable_k=5, max_acceptable_disclosure_risk=0.2, quasi_identifiers=None, **kwargs)"
+  },
+  "pamola_core.anonymization:CellSuppressionOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.suppression.cell_op",
+   "qualname": "CellSuppressionOperation",
+   "signature": "(field_name, suppression_strategy='null', suppression_value=None, group_by_field=None, min_group_size=5, suppress_if=None, outlier_method='iqr', outlier_threshold=1.5, rare_threshold=10, **kwargs)"
+  },
+  "pamola_core.anonymization:ConsistentMappingPseudonymizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.pseudonymization.mapping_op",
+   "qualname": "ConsistentMappingPseudonymizationOperation",
+   "signature": "(field_name, mapping_encryption_key, additional_fields=None, mapping_file=None, mapping_format='csv', pseudonym_type='uuid', pseudonym_prefix=None, pseudonym_suffix=None, pseudonym_length=36, create_if_not_exists=True, backup_on_update=True, persist_frequency=1000, quasi_identifiers=None, compound_mode=False, compound_separator='|', compound_null_handling='skip', **kwargs)"
+  },
+  "pamola_core.anonymization:DateTimeGeneralizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.generalization.datetime_op",
+   "qualname": "DateTimeGeneralizationOperation",
+   "signature": "(field_name, strategy='rounding', rounding_unit='day', bin_type='day_range', interval_size=7, reference_date=None, custom_bins=None, keep_components=None, strftime_output_format=None, timezone_handling='preserve', default_timezone='UTC', input_formats=None, min_privacy_threshold=0.3, quasi_identifiers=None, **kwargs)"
+  },
+  "pamola_core.anonymization:FullMaskingOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.masking.full_masking_op",
+   "qualname": "FullMaskingOperation",
+   "signature": "(field_name, mask_char='*', preserve_length=True, fixed_length=None, random_mask=False, mask_char_pool=None, preserve_format=False, format_patterns=None, numeric_output='string', date_format=None, **kwargs)"
+  },
+  "pamola_core.anonymization:HashBasedPseudonymizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.pseudonymization.hash_based_op",
+   "qualname": "HashBasedPseudonymizationOperation",
+   "signature": "(field_name, additional_fields=None, algorithm='sha3_256', salt_config=None, salt_file=None, use_pepper=True, pepper_length=32, hash_output_format='hex', output_length=None, output_prefix=None, output_suffix=None, quasi_identifiers=None, compound_mode=False, compound_separator='|', compound_null_handling='skip', **kwargs)"
+  },
+  "pamola_core.anonymization:NumericGeneralizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.generalization.numeric_op",
+   "qualname": "NumericGeneralizationOperation",
+   "signature": "(field_name, strategy='binning', bin_count=10, binning_method='equal_width', precision=0, range_limits=None, quasi_identifiers=None, **kwargs)"
+  },
+  "pamola_core.anonymization:PartialMaskingOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.masking.partial_masking_op",
+   "qualname": "PartialMaskingOperation",
+   "signature": "(field_name, mask_char='*', mask_strategy='fixed', mask_percentage=None, unmasked_prefix=0, unmasked_suffix=0, unmasked_positions=None, pattern_type=None, mask_pattern=None, preserve_pattern=None, preserve_separators=True, preserve_word_boundaries=False, case_sensitive=True, random_mask=False, mask_char_pool=None, preset_type=None, preset_name=None, consistency_fields=None, **kwargs)"
+  },
+  "pamola_core.anonymization:RecordSuppressionOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.suppression.record_op",
+   "qualname": "RecordSuppressionOperation",
+   "signature": "(field_name, suppression_mode='REMOVE', suppression_condition='null', suppression_values=None, suppression_range=None, save_suppressed_records=False, suppression_reason_field='_suppression_reason', **kwargs)"
+  },
+  "pamola_core.anonymization:UniformNumericNoiseOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.noise.uniform_numeric_op",
+   "qualname": "UniformNumericNoiseOperation",
+   "signature": "(field_name, noise_range, noise_type='additive', output_min=None, output_max=None, preserve_zero=False, round_to_integer=None, scale_by_std=False, scale_factor=1.0, random_seed=None, use_secure_random=True, **kwargs)"
+  },
+  "pamola_core.anonymization:UniformTemporalNoiseOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.noise.uniform_temporal_op",
+   "qualname": "UniformTemporalNoiseOperation",
+   "signature": "(field_name, noise_range_days=None, noise_range_hours=None, noise_range_minutes=None, noise_range_seconds=None, noise_range=None, direction='both', min_datetime=None, max_datetime=None, preserve_special_dates=False, special_dates=None, preserve_weekends=False, preserve_time_of_day=False, output_granularity=None, random_seed=None, use_secure_random=True, **kwargs)"
+  },
+  "pamola_core.attacks:AttackInitialization": {
+   "kind": "class",
+   "module": "pamola_core.attacks.base",
+   "qualname": "AttackInitialization",
+   "signature": "()"
+  },
+  "pamola_core.attacks:AttackMetrics": {
+   "kind": "class",
+   "module": "pamola_core.attacks.attack_metrics",
+   "qualname": "AttackMetrics",
+   "signature": "()"
+  },
+  "pamola_core.attacks:AttributeInference": {
+   "kind": "class",
+   "module": "pamola_core.attacks.attribute_inference",
+   "qualname": "AttributeInference",
+   "signature": "()"
+  },
+  "pamola_core.attacks:AttributeInferenceAttack": {
+   "kind": "class",
+   "module": "pamola_core.attacks.attribute_inference",
+   "qualname": "AttributeInference",
+   "signature": "()"
+  },
+  "pamola_core.attacks:BaseAttack": {
+   "kind": "class",
+   "module": "pamola_core.attacks.base",
+   "qualname": "AttackInitialization",
+   "signature": "()"
+  },
+  "pamola_core.attacks:LinkageAttack": {
+   "kind": "class",
+   "module": "pamola_core.attacks.linkage_attack",
+   "qualname": "LinkageAttack",
+   "signature": "(fs_threshold=None, n_components=2)"
+  },
+  "pamola_core.attacks:RecordRisk": {
+   "kind": "class",
+   "module": "pamola_core.attacks.singling_out",
+   "qualname": "RecordRisk",
+   "signature": "(index, msus=<factory>, min_msu_size=0, suda_score=0.0)"
+  },
+  "pamola_core.attacks:SinglingOutAttack": {
+   "kind": "class",
+   "module": "pamola_core.attacks.singling_out",
+   "qualname": "SinglingOutAttack",
+   "signature": "(max_combo=4, threshold=0.0, baseline_draws=10, seed=42)"
+  },
+  "pamola_core.attacks:dis_risk": {
+   "kind": "function",
+   "module": "pamola_core.attacks.singling_out",
+   "qualname": "dis_risk",
+   "signature": "(df, quasi_identifiers, max_size=None)"
+  },
+  "pamola_core.attacks:enumerate_subset_count": {
+   "kind": "function",
+   "module": "pamola_core.attacks.singling_out",
+   "qualname": "enumerate_subset_count",
+   "signature": "(n_qid, max_combo)"
+  },
+  "pamola_core.attacks:independent_marginals_baseline": {
+   "kind": "function",
+   "module": "pamola_core.attacks.singling_out",
+   "qualname": "independent_marginals_baseline",
+   "signature": "(df, subset, draws=10, seed=42)"
+  },
+  "pamola_core.attacks:minimal_sample_uniques": {
+   "kind": "function",
+   "module": "pamola_core.attacks.singling_out",
+   "qualname": "minimal_sample_uniques",
+   "signature": "(df, quasi_identifiers, max_size=None)"
+  },
+  "pamola_core.attacks:singling_out_sweep": {
+   "kind": "function",
+   "module": "pamola_core.attacks.singling_out",
+   "qualname": "singling_out_sweep",
+   "signature": "(df, quasi_identifiers, max_combo=4, threshold=0.0)"
+  },
+  "pamola_core.attacks:suda_scores": {
+   "kind": "function",
+   "module": "pamola_core.attacks.singling_out",
+   "qualname": "suda_scores",
+   "signature": "(df, quasi_identifiers, max_size=None)"
+  },
+  "pamola_core.attacks:wilson_ci": {
+   "kind": "function",
+   "module": "pamola_core.attacks.singling_out",
+   "qualname": "wilson_ci",
+   "signature": "(p_hat, n, z=1.959963984540054)"
+  },
+  "pamola_core.cli:app": {
+   "kind": "callable",
+   "module": "typer.main",
+   "qualname": "app",
+   "signature": "(*args, **kwargs)"
+  },
+  "pamola_core.errors.codes:ERROR_CODE_METADATA": {
+   "kind": "constant",
+   "module": "",
+   "qualname": "",
+   "signature": "dict"
+  },
+  "pamola_core.errors.codes:ErrorCode": {
+   "kind": "class",
+   "module": "pamola_core.errors.codes.registry",
+   "qualname": "ErrorCode",
+   "signature": "()"
+  },
+  "pamola_core.errors.codes:format_error_help": {
+   "kind": "function",
+   "module": "pamola_core.errors.codes.utils",
+   "qualname": "format_error_help",
+   "signature": "(error_code)"
+  },
+  "pamola_core.errors.codes:get_error_info": {
+   "kind": "function",
+   "module": "pamola_core.errors.codes.utils",
+   "qualname": "get_error_info",
+   "signature": "(error_code)"
+  },
+  "pamola_core.errors.codes:get_error_metadata": {
+   "kind": "function",
+   "module": "pamola_core.errors.codes.metadata",
+   "qualname": "get_error_metadata",
+   "signature": "(error_code)"
+  },
+  "pamola_core.errors.codes:validate_error_code_usage": {
+   "kind": "function",
+   "module": "pamola_core.errors.codes.utils",
+   "qualname": "validate_error_code_usage",
+   "signature": "(error_code, exception_type)"
+  },
+  "pamola_core.errors.context:ErrorContext": {
+   "kind": "class",
+   "module": "pamola_core.errors.context.suggestions",
+   "qualname": "ErrorContext",
+   "signature": "()"
+  },
+  "pamola_core.errors.exceptions:AgeToolError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "AgeToolError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ArtifactError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "ArtifactError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:BatchProcessingError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "BatchProcessingError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:CacheError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "CacheError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:CheckpointError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "CheckpointError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ChunkProcessingError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "ChunkProcessingError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ColumnNotFoundError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "ColumnNotFoundError",
+   "signature": "(column_name, available_columns=None, dataset_name=None)"
+  },
+  "pamola_core.errors.exceptions:ConditionalValidationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "ConditionalValidationError",
+   "signature": "(condition_field, condition_operator, reason)"
+  },
+  "pamola_core.errors.exceptions:ConfigSaveError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "ConfigSaveError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ConfigurationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "ConfigurationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ContextManagerError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "ContextManagerError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:CryptoError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "CryptoError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:CryptoKeyError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "CryptoKeyError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DataError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "DataError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DataFrameProcessingError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "DataFrameProcessingError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DataRedactionError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "DataRedactionError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DataWriteError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "DataWriteError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DateTimeGeneralizationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.resources",
+   "qualname": "DateTimeGeneralizationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DateTimeParsingError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.resources",
+   "qualname": "DateTimeParsingError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DecryptionError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "DecryptionError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DependencyError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "DependencyError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DependencyFailedError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "DependencyFailedError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DependencyMissingError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "DependencyMissingError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DirectoryCreationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.filesystem",
+   "qualname": "DirectoryCreationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:DirectoryManagerError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.filesystem",
+   "qualname": "DirectoryManagerError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:EncryptionError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "EncryptionError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:EncryptionInitializationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "EncryptionInitializationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ExecutionError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "ExecutionError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ExecutionLogError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "ExecutionLogError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:FakeDataError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.resources",
+   "qualname": "FakeDataError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:FeatureNotImplementedError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "FeatureNotImplementedError",
+   "signature": "(message)"
+  },
+  "pamola_core.errors.exceptions:FieldNotFoundError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "FieldNotFoundError",
+   "signature": "(field_name, available_fields=None, dataset_name=None)"
+  },
+  "pamola_core.errors.exceptions:FieldTypeError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "FieldTypeError",
+   "signature": "(field_name, expected_type, actual_type, convertible=False)"
+  },
+  "pamola_core.errors.exceptions:FieldValueError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "FieldValueError",
+   "signature": "(field_name, reason, invalid_count=None, examples=None)"
+  },
+  "pamola_core.errors.exceptions:FileValidationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "FileValidationError",
+   "signature": "(file_path, reason, error_code=None)"
+  },
+  "pamola_core.errors.exceptions:FormatError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "FormatError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:HashCollisionError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "HashCollisionError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:InsufficientPrivacyError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.resources",
+   "qualname": "InsufficientPrivacyError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:InvalidDataFormatError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "InvalidDataFormatError",
+   "signature": "(field_name, data_type, format_description, sample_invalid=None)"
+  },
+  "pamola_core.errors.exceptions:InvalidFileFormatError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "InvalidFileFormatError",
+   "signature": "(file_path, expected_formats, actual_format=None)"
+  },
+  "pamola_core.errors.exceptions:InvalidParameterError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "InvalidParameterError",
+   "signature": "(param_name, param_value, reason, valid_range=None)"
+  },
+  "pamola_core.errors.exceptions:InvalidStrategyError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "InvalidStrategyError",
+   "signature": "(strategy, valid_strategies, operation_type=None)"
+  },
+  "pamola_core.errors.exceptions:KeyGenerationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "KeyGenerationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:KeyLoadingError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "KeyLoadingError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:KeyStoreError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "KeyStoreError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:LLMConnectionError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "LLMConnectionError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:LLMError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "LLMError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:LLMGenerationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "LLMGenerationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:LLMResponseError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "LLMResponseError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:LegacyMigrationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "LegacyMigrationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:MappingError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.resources",
+   "qualname": "MappingError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:MappingStorageError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.resources",
+   "qualname": "MappingStorageError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:MarkerValidationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "MarkerValidationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:MasterKeyError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "MasterKeyError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:MaxRetriesExceededError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "MaxRetriesExceededError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:MissingParameterError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "MissingParameterError",
+   "signature": "(param_name, operation=None)"
+  },
+  "pamola_core.errors.exceptions:ModeError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "ModeError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ModelLoadError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "ModelLoadError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ModelNotAvailableError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "ModelNotAvailableError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:MultipleValidationErrors": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "MultipleValidationErrors",
+   "signature": "(errors)"
+  },
+  "pamola_core.errors.exceptions:NLPError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "NLPError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:NonRetriableError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "NonRetriableError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:OpsError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "OpsError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:PamolaFileNotFoundError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "PamolaFileNotFoundError",
+   "signature": "(file_path)"
+  },
+  "pamola_core.errors.exceptions:PathSecurityError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.filesystem",
+   "qualname": "PathSecurityError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:PathValidationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.filesystem",
+   "qualname": "PathValidationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ProcessingError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "ProcessingError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:PromptValidationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "PromptValidationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ProviderError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "ProviderError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:PseudonymizationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "PseudonymizationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:RangeValidationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "RangeValidationError",
+   "signature": "(field_name, min_value=None, max_value=None, actual_min=None, actual_max=None)"
+  },
+  "pamola_core.errors.exceptions:ReportingError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.resources",
+   "qualname": "ReportingError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:ResourceError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.resources",
+   "qualname": "ResourceError",
+   "signature": "(message=None, operation=None, reason=None)"
+  },
+  "pamola_core.errors.exceptions:ResourceNotFoundError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "ResourceNotFoundError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:StateRestorationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "StateRestorationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:StateSerializationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "StateSerializationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:TaskDependencyError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "TaskDependencyError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:TaskError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "TaskError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:TaskExecutionError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "TaskExecutionError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:TaskFinalizationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "TaskFinalizationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:TaskInitializationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "TaskInitializationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:TaskKeyError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.crypto",
+   "qualname": "TaskKeyError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:TaskRegistryError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "TaskRegistryError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:TypeValidationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "TypeValidationError",
+   "signature": "(param_name, expected_type, actual_type, message=None)"
+  },
+  "pamola_core.errors.exceptions:UnsupportedLanguageError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.nlp",
+   "qualname": "UnsupportedLanguageError",
+   "signature": "(language=None, supported_languages=None)"
+  },
+  "pamola_core.errors.exceptions:ValidationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "ValidationError",
+   "signature": "(message, field_name=None, error_code=None, details=None)"
+  },
+  "pamola_core.errors.exceptions:ValidationErrorInfo": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "ValidationErrorInfo",
+   "signature": "(field_name, error_type, message, details)"
+  },
+  "pamola_core.errors.exceptions:VisualizationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.core_domain",
+   "qualname": "VisualizationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.errors.exceptions:raise_if_errors": {
+   "kind": "function",
+   "module": "pamola_core.errors.exceptions.validation",
+   "qualname": "raise_if_errors",
+   "signature": "(errors)"
+  },
+  "pamola_core.errors.messages:ErrorMessages": {
+   "kind": "class",
+   "module": "pamola_core.errors.messages.registry",
+   "qualname": "ErrorMessages",
+   "signature": "()"
+  },
+  "pamola_core.errors.messages:format_message": {
+   "kind": "function",
+   "module": "pamola_core.errors.messages.utils",
+   "qualname": "format_message",
+   "signature": "(template_str, **kwargs)"
+  },
+  "pamola_core.errors.messages:validate_template_params_str": {
+   "kind": "function",
+   "module": "pamola_core.errors.messages.utils",
+   "qualname": "validate_template_params_str",
+   "signature": "(template_str, **kwargs)"
+  },
+  "pamola_core.fake_data:FakeEmailOperation": {
+   "kind": "class",
+   "module": "pamola_core.fake_data.operations.email_op",
+   "qualname": "FakeEmailOperation",
+   "signature": "(field_name, domains=None, format=None, format_ratio=None, first_name_field=None, last_name_field=None, full_name_field=None, name_format=None, validate_source=True, handle_invalid_email='generate_new', nicknames_dict=None, max_length=254, separator_options=None, number_suffix_probability=0.4, preserve_domain_ratio=0.5, business_domain_ratio=0.2, detailed_metrics=False, max_retries=3, key=None, context_salt=None, **kwargs)"
+  },
+  "pamola_core.fake_data:FakeNameOperation": {
+   "kind": "class",
+   "module": "pamola_core.fake_data.operations.name_op",
+   "qualname": "FakeNameOperation",
+   "signature": "(field_name, language='en', gender_field=None, gender_from_name=False, format=None, f_m_ratio=0.5, use_faker=False, case='title', dictionaries=None, key=None, context_salt=None, **kwargs)"
+  },
+  "pamola_core.fake_data:FakeOrganizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.fake_data.operations.organization_op",
+   "qualname": "FakeOrganizationOperation",
+   "signature": "(field_name, organization_type='general', dictionaries=None, prefixes=None, suffixes=None, add_prefix_probability=0.3, add_suffix_probability=0.5, region='en', preserve_type=True, industry=None, collect_type_distribution=True, type_field=None, region_field=None, detailed_metrics=False, max_retries=3, key=None, context_salt=None, **kwargs)"
+  },
+  "pamola_core.fake_data:FakePhoneOperation": {
+   "kind": "class",
+   "module": "pamola_core.fake_data.operations.phone_op",
+   "qualname": "FakePhoneOperation",
+   "signature": "(field_name, country_codes=None, operator_codes_dict=None, format=None, validate_source=True, handle_invalid_phone='generate_new', default_country='us', preserve_country_code=True, preserve_operator_code=False, region=None, detailed_metrics=False, max_retries=3, key=None, context_salt=None, country_code_field=None, **kwargs)"
+  },
+  "pamola_core.io:read_csv": {
+   "kind": "function",
+   "module": "pamola_core.io.csv",
+   "qualname": "read_csv",
+   "signature": "(path, **kwargs)"
+  },
+  "pamola_core.io:read_excel": {
+   "kind": "function",
+   "module": "pamola_core.io.excel",
+   "qualname": "read_excel",
+   "signature": "(path, **kwargs)"
+  },
+  "pamola_core.io:read_json": {
+   "kind": "function",
+   "module": "pamola_core.io.json",
+   "qualname": "read_json",
+   "signature": "(path, **kwargs)"
+  },
+  "pamola_core.io:read_parquet": {
+   "kind": "function",
+   "module": "pamola_core.io.parquet",
+   "qualname": "read_parquet",
+   "signature": "(path, **kwargs)"
+  },
+  "pamola_core.metrics.commons:DataQualityCalculator": {
+   "kind": "class",
+   "module": "pamola_core.metrics.commons.quality_scoring",
+   "qualname": "DataQualityCalculator",
+   "signature": "(weights=None)"
+  },
+  "pamola_core.metrics.commons:QualityWeights": {
+   "kind": "class",
+   "module": "pamola_core.metrics.commons.quality_scoring",
+   "qualname": "QualityWeights",
+   "signature": "(completeness=0.5, validity=0.3, diversity=0.2)"
+  },
+  "pamola_core.metrics.commons:RuleCode": {
+   "kind": "class",
+   "module": "pamola_core.metrics.commons.validation_rules",
+   "qualname": "RuleCode",
+   "signature": "(value, names=None, *, module=None, qualname=None, type=None, start=1, boundary=None)"
+  },
+  "pamola_core.metrics.commons:SchemaManager": {
+   "kind": "class",
+   "module": "pamola_core.metrics.commons.schema_manager",
+   "qualname": "SchemaManager",
+   "signature": "()"
+  },
+  "pamola_core.metrics.commons:calculate_predicted_utility": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons.predicted_utility_scoring",
+   "qualname": "calculate_predicted_utility",
+   "signature": "(df, require_fields=None, unique_fields=None, check_balance_fields=None, dtypes_dict=None, weights=None)"
+  },
+  "pamola_core.metrics.commons:calculate_provisional_risk": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons.risk_scoring",
+   "qualname": "calculate_provisional_risk",
+   "signature": "(df, direct_identifiers=None, quasi_identifiers=None, sensitives=None, dictionary_path=None, weights=None, sigmoid_midpoints=None, penalty_sensitive=None)"
+  },
+  "pamola_core.metrics.commons:calculate_quality_with_rules": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons",
+   "qualname": "calculate_quality_with_rules",
+   "signature": "(df, schema=None, weights=None, analyze_scope='dataset', columns=None)"
+  },
+  "pamola_core.metrics.commons:create_quality_calculator": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons",
+   "qualname": "create_quality_calculator",
+   "signature": "(weights=None)"
+  },
+  "pamola_core.metrics.commons:create_schema_from_dataframe": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons",
+   "qualname": "create_schema_from_dataframe",
+   "signature": "(df, auto_detect=True)"
+  },
+  "pamola_core.metrics:FidelityOperation": {
+   "kind": "class",
+   "module": "pamola_core.metrics.operations.fidelity_ops",
+   "qualname": "FidelityOperation",
+   "signature": "(name='fidelity_metrics', fidelity_metrics=None, metric_params=None, **kwargs)"
+  },
+  "pamola_core.metrics:PrivacyMetricOperation": {
+   "kind": "class",
+   "module": "pamola_core.metrics.operations.privacy_ops",
+   "qualname": "PrivacyMetricOperation",
+   "signature": "(name='privacy_metrics', privacy_metrics=None, metric_params=None, **kwargs)"
+  },
+  "pamola_core.metrics:RuleCode": {
+   "kind": "class",
+   "module": "pamola_core.metrics.commons.validation_rules",
+   "qualname": "RuleCode",
+   "signature": "(value, names=None, *, module=None, qualname=None, type=None, start=1, boundary=None)"
+  },
+  "pamola_core.metrics:SchemaManager": {
+   "kind": "class",
+   "module": "pamola_core.metrics.commons.schema_manager",
+   "qualname": "SchemaManager",
+   "signature": "()"
+  },
+  "pamola_core.metrics:UtilityMetricOperation": {
+   "kind": "class",
+   "module": "pamola_core.metrics.operations.utility_ops",
+   "qualname": "UtilityMetricOperation",
+   "signature": "(name='utility_metrics', utility_metrics=None, metric_params=None, **kwargs)"
+  },
+  "pamola_core.metrics:calculate_predicted_utility": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons.predicted_utility_scoring",
+   "qualname": "calculate_predicted_utility",
+   "signature": "(df, require_fields=None, unique_fields=None, check_balance_fields=None, dtypes_dict=None, weights=None)"
+  },
+  "pamola_core.metrics:calculate_provisional_risk": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons.risk_scoring",
+   "qualname": "calculate_provisional_risk",
+   "signature": "(df, direct_identifiers=None, quasi_identifiers=None, sensitives=None, dictionary_path=None, weights=None, sigmoid_midpoints=None, penalty_sensitive=None)"
+  },
+  "pamola_core.metrics:calculate_quality_with_rules": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons",
+   "qualname": "calculate_quality_with_rules",
+   "signature": "(df, schema=None, weights=None, analyze_scope='dataset', columns=None)"
+  },
+  "pamola_core.privacy_models:AnonymizationStrategy": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.apply_model",
+   "qualname": "AnonymizationStrategy",
+   "signature": "(processor)"
+  },
+  "pamola_core.privacy_models:AttributeDisclosureRiskAnalyzer": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.attribute_risk",
+   "qualname": "AttributeDisclosureRiskAnalyzer",
+   "signature": "(l_threshold=3, diversity_type='distinct', c_value=1.0, high_risk_threshold=50.0)"
+  },
+  "pamola_core.privacy_models:BasePrivacyModelProcessor": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.base",
+   "qualname": "BasePrivacyModelProcessor",
+   "signature": "()"
+  },
+  "pamola_core.privacy_models:DifferentialPrivacyModel": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.differential_privacy.calculation",
+   "qualname": "DifferentialPrivacyProcessor",
+   "signature": "(epsilon, sensitivity, mechanism='laplace')"
+  },
+  "pamola_core.privacy_models:DifferentialPrivacyProcessor": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.differential_privacy.calculation",
+   "qualname": "DifferentialPrivacyProcessor",
+   "signature": "(epsilon, sensitivity, mechanism='laplace')"
+  },
+  "pamola_core.privacy_models:FullMaskingStrategy": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.apply_model",
+   "qualname": "FullMaskingStrategy",
+   "signature": "(processor)"
+  },
+  "pamola_core.privacy_models:KAnonymityModel": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.k_anonymity.calculation",
+   "qualname": "KAnonymityProcessor",
+   "signature": "(k=3, adaptive_k=None, suppression=True, mask_value='MASKED', use_dask=False, log_level='INFO', progress_tracking=True, config_override=None)"
+  },
+  "pamola_core.privacy_models:KAnonymityProcessor": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.k_anonymity.calculation",
+   "qualname": "KAnonymityProcessor",
+   "signature": "(k=3, adaptive_k=None, suppression=True, mask_value='MASKED', use_dask=False, log_level='INFO', progress_tracking=True, config_override=None)"
+  },
+  "pamola_core.privacy_models:KAnonymityReport": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.k_anonymity.ka_reporting",
+   "qualname": "KAnonymityReport",
+   "signature": "(report_data)"
+  },
+  "pamola_core.privacy_models:LDiversityCalculator": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.calculation",
+   "qualname": "LDiversityCalculator",
+   "signature": "(l=3, diversity_type='distinct', c_value=1.0, k=2, config_override=None, use_dask=False, log_level='INFO', adaptive_l=None)"
+  },
+  "pamola_core.privacy_models:LDiversityMetricsCalculator": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.metrics",
+   "qualname": "LDiversityMetricsCalculator",
+   "signature": "(processor=None)"
+  },
+  "pamola_core.privacy_models:LDiversityModel": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.calculation",
+   "qualname": "LDiversityCalculator",
+   "signature": "(l=3, diversity_type='distinct', c_value=1.0, k=2, config_override=None, use_dask=False, log_level='INFO', adaptive_l=None)"
+  },
+  "pamola_core.privacy_models:LDiversityModelApplicator": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.apply_model",
+   "qualname": "LDiversityModelApplicator",
+   "signature": "(processor=None, config=None)"
+  },
+  "pamola_core.privacy_models:LDiversityPrivacyRiskAssessor": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.privacy",
+   "qualname": "LDiversityPrivacyRiskAssessor",
+   "signature": "(processor=None, risk_threshold=0.5)"
+  },
+  "pamola_core.privacy_models:LDiversityReport": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.reporting",
+   "qualname": "LDiversityReport",
+   "signature": "(processor=None, report_data=None, diversity_type=None)"
+  },
+  "pamola_core.privacy_models:PartialMaskingStrategy": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.apply_model",
+   "qualname": "PartialMaskingStrategy",
+   "signature": "(processor)"
+  },
+  "pamola_core.privacy_models:PrivacyModel": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.base",
+   "qualname": "BasePrivacyModelProcessor",
+   "signature": "()"
+  },
+  "pamola_core.privacy_models:RiskInterpreter": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.interpretation",
+   "qualname": "RiskInterpreter",
+   "signature": "(domain='general', regulation=None, custom_thresholds=None)"
+  },
+  "pamola_core.privacy_models:SuppressionStrategy": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.l_diversity.apply_model",
+   "qualname": "SuppressionStrategy",
+   "signature": "(processor)"
+  },
+  "pamola_core.privacy_models:TCloseness": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.t_closeness.calculation",
+   "qualname": "TCloseness",
+   "signature": "(quasi_identifiers, sensitive_column, t)"
+  },
+  "pamola_core.privacy_models:TClosenessModel": {
+   "kind": "class",
+   "module": "pamola_core.privacy_models.t_closeness.calculation",
+   "qualname": "TCloseness",
+   "signature": "(quasi_identifiers, sensitive_column, t)"
+  },
+  "pamola_core.profiling:CategoricalOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.categorical",
+   "qualname": "CategoricalOperation",
+   "signature": "(field_name, top_n=15, min_frequency=1, profile_type='categorical', analyze_anomalies=True, **kwargs)"
+  },
+  "pamola_core.profiling:CorrelationMatrixOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.correlation",
+   "qualname": "CorrelationMatrixOperation",
+   "signature": "(fields, methods=None, min_threshold=0.3, null_handling='drop', **kwargs)"
+  },
+  "pamola_core.profiling:CorrelationOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.correlation",
+   "qualname": "CorrelationOperation",
+   "signature": "(field1, field2, method=None, null_handling='drop', mvf_parser=None, **kwargs)"
+  },
+  "pamola_core.profiling:CurrencyOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.currency",
+   "qualname": "CurrencyOperation",
+   "signature": "(field_name, locale='en_US', bins=10, detect_outliers=True, test_normality=True, **kwargs)"
+  },
+  "pamola_core.profiling:DataAttributeProfilerOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.attribute",
+   "qualname": "DataAttributeProfilerOperation",
+   "signature": "(name='DataAttributeProfiler', dictionary_path=None, language='en', sample_size=10, max_columns=None, **kwargs)"
+  },
+  "pamola_core.profiling:DateOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.date",
+   "qualname": "DateOperation",
+   "signature": "(field_name, min_year=1940, max_year=2005, id_column=None, uid_column=None, profile_type='date', is_birth_date=None, **kwargs)"
+  },
+  "pamola_core.profiling:EmailOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.email",
+   "qualname": "EmailOperation",
+   "signature": "(field_name, top_n=20, min_frequency=1, profile_type='email', analyze_privacy_risk=True, **kwargs)"
+  },
+  "pamola_core.profiling:GroupAnalyzerOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.group",
+   "qualname": "GroupAnalyzerOperation",
+   "signature": "(field_name, fields_config, text_length_threshold=100, variance_threshold=0.2, large_group_threshold=100, large_group_variance_threshold=0.05, hash_algorithm='md5', minhash_similarity_threshold=0.7, **kwargs)"
+  },
+  "pamola_core.profiling:IdentityAnalysisOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.identity",
+   "qualname": "IdentityAnalysisOperation",
+   "signature": "(uid_field, reference_fields, id_field=None, top_n=15, check_cross_matches=True, min_similarity=0.8, fuzzy_matching=False, **kwargs)"
+  },
+  "pamola_core.profiling:KAnonymityProfilerOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.anonymity",
+   "qualname": "KAnonymityProfilerOperation",
+   "signature": "(name='KAnonymityProfiler', quasi_identifiers=None, analysis_mode='ANALYZE', threshold_k=5, export_metrics=True, max_combinations=50, output_field_suffix='k_anon', quasi_identifier_sets=None, id_fields=None, **kwargs)"
+  },
+  "pamola_core.profiling:MVFOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.mvf",
+   "qualname": "MVFOperation",
+   "signature": "(field_name, top_n=20, min_frequency=1, format_type=None, parse_kwargs=None, **kwargs)"
+  },
+  "pamola_core.profiling:NumericOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.numeric",
+   "qualname": "NumericOperation",
+   "signature": "(field_name, bins=10, detect_outliers=True, test_normality=True, near_zero_threshold=1e-10, profile_type='numeric', **kwargs)"
+  },
+  "pamola_core.profiling:PhoneOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.phone",
+   "qualname": "PhoneOperation",
+   "signature": "(field_name, min_frequency=1, patterns_csv=None, country_codes=None, **kwargs)"
+  },
+  "pamola_core.profiling:TextSemanticCategorizerOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.text",
+   "qualname": "TextSemanticCategorizerOperation",
+   "signature": "(field_name, id_field=None, entity_type='generic', dictionary_path=None, min_word_length=3, clustering_threshold=0.7, use_ner=True, perform_categorization=True, perform_clustering=True, match_strategy='specific_first', **kwargs)"
+  },
+  "pamola_core.profiling:analyze_dataset_attributes": {
+   "kind": "function",
+   "module": "pamola_core.profiling.commons.attribute_utils",
+   "qualname": "analyze_dataset_attributes",
+   "signature": "(df, dictionary=None, dictionary_path=None, language='en', sample_size=10, max_columns=None)"
+  },
+  "pamola_core.transformations:AddOrModifyFieldsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.field_ops.add_modify_fields",
+   "qualname": "AddOrModifyFieldsOperation",
+   "signature": "(name='add_modify_fields_operation', field_operations=None, lookup_tables=None, **kwargs)"
+  },
+  "pamola_core.transformations:AggregateRecordsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.grouping.aggregate_records_op",
+   "qualname": "AggregateRecordsOperation",
+   "signature": "(name='aggregate_records_operation', group_by_fields=None, aggregations=None, custom_aggregations=None, **kwargs)"
+  },
+  "pamola_core.transformations:CleanInvalidValuesOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.cleaning.clean_invalid_values",
+   "qualname": "CleanInvalidValuesOperation",
+   "signature": "(name='clean_invalid_values_operation', field_constraints=None, whitelist_path=None, blacklist_path=None, null_replacement=None, **kwargs)"
+  },
+  "pamola_core.transformations:ImputeMissingValuesOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.imputation.impute_missing_values",
+   "qualname": "ImputeMissingValuesOperation",
+   "signature": "(name='impute_missing_values_operation', field_strategies=None, invalid_values=None, **kwargs)"
+  },
+  "pamola_core.transformations:MergeDatasetsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.merging.merge_datasets_op",
+   "qualname": "MergeDatasetsOperation",
+   "signature": "(name='merge_datasets_operation', left_dataset_name='main', right_dataset_name=None, right_dataset_path=None, left_key=None, right_key=None, join_type='left', relationship_type='auto', suffixes=('_x', '_y'), **kwargs)"
+  },
+  "pamola_core.transformations:RemoveFieldsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.field_ops.remove_fields",
+   "qualname": "RemoveFieldsOperation",
+   "signature": "(name='remove_fields_operation', fields_to_remove=None, pattern=None, **kwargs)"
+  },
+  "pamola_core.transformations:SplitByIDValuesOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.splitting.split_by_id_values_op",
+   "qualname": "SplitByIDValuesOperation",
+   "signature": "(name='split_by_id_values_operation', id_field=None, value_groups=None, number_of_partitions=1, partition_method='equal_size', **kwargs)"
+  },
+  "pamola_core.transformations:SplitFieldsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.splitting.split_fields_op",
+   "qualname": "SplitFieldsOperation",
+   "signature": "(name='split_fields_operation', id_field=None, field_groups=None, include_id_field=True, **kwargs)"
+  },
+  "pamola_core.utils.crypto_helpers:get_key_for_task": {
+   "kind": "function",
+   "module": "pamola_core.utils.crypto_helpers.key_store",
+   "qualname": "get_key_for_task",
+   "signature": "(task_id)"
+  },
+  "pamola_core.utils.io_helpers:decrypt_data": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_utils",
+   "qualname": "decrypt_data",
+   "signature": "(data, key=None, mode=None, task_id=None, **kwargs)"
+  },
+  "pamola_core.utils.io_helpers:decrypt_file": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_utils",
+   "qualname": "decrypt_file",
+   "signature": "(source_path, destination_path, key=None, mode=None, task_id=None, **kwargs)"
+  },
+  "pamola_core.utils.io_helpers:detect_encryption_mode": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_router",
+   "qualname": "detect_encryption_mode",
+   "signature": "(file_path)"
+  },
+  "pamola_core.utils.io_helpers:encrypt_file": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_utils",
+   "qualname": "encrypt_file",
+   "signature": "(source_path, destination_path, key=None, mode='simple', task_id=None, description=None, **kwargs)"
+  },
+  "pamola_core.utils.io_helpers:safe_remove_temp_file": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.directory_utils",
+   "qualname": "safe_remove_temp_file",
+   "signature": "(file_path, logger_obj=None)"
+  },
+  "pamola_core.utils.nlp.entity:BaseEntityExtractor": {
+   "kind": "class",
+   "module": "pamola_core.utils.nlp.entity.base",
+   "qualname": "BaseEntityExtractor",
+   "signature": "(language='auto', dictionary_path=None, match_strategy='specific_first', use_ner=True, min_confidence=0.5, use_cache=True, **kwargs)"
+  },
+  "pamola_core.utils.nlp.entity:GenericDictionaryExtractor": {
+   "kind": "class",
+   "module": "pamola_core.utils.nlp.entity.dictionary",
+   "qualname": "GenericDictionaryExtractor",
+   "signature": "(**kwargs)"
+  },
+  "pamola_core.utils.nlp.entity:JobPositionExtractor": {
+   "kind": "class",
+   "module": "pamola_core.utils.nlp.entity.job",
+   "qualname": "JobPositionExtractor",
+   "signature": "(**kwargs)"
+  },
+  "pamola_core.utils.nlp.entity:OrganizationExtractor": {
+   "kind": "class",
+   "module": "pamola_core.utils.nlp.entity.organization",
+   "qualname": "OrganizationExtractor",
+   "signature": "(**kwargs)"
+  },
+  "pamola_core.utils.nlp.entity:SkillExtractor": {
+   "kind": "class",
+   "module": "pamola_core.utils.nlp.entity.skill",
+   "qualname": "SkillExtractor",
+   "signature": "(**kwargs)"
+  },
+  "pamola_core.utils.nlp.entity:TransactionPurposeExtractor": {
+   "kind": "class",
+   "module": "pamola_core.utils.nlp.entity.transaction",
+   "qualname": "TransactionPurposeExtractor",
+   "signature": "(**kwargs)"
+  },
+  "pamola_core.utils.nlp.entity:create_entity_extractor": {
+   "kind": "function",
+   "module": "pamola_core.utils.nlp.entity",
+   "qualname": "create_entity_extractor",
+   "signature": "(entity_type, language='auto', dictionary_path=None, match_strategy='specific_first', use_ner=True, min_confidence=0.5, **kwargs)"
+  },
+  "pamola_core.utils.nlp.entity:extract_entities": {
+   "kind": "function",
+   "module": "pamola_core.utils.nlp.entity",
+   "qualname": "extract_entities",
+   "signature": "(texts, entity_type='generic', language='auto', dictionary_path=None, match_strategy='specific_first', use_ner=True, **kwargs)"
+  },
+  "pamola_core.utils.ops:BaseOperation": {
+   "kind": "class",
+   "module": "pamola_core.utils.ops.op_base",
+   "qualname": "BaseOperation",
+   "signature": "(name='', description='', scope=None, config=None, optimize_memory=True, adaptive_chunk_size=True, mode='REPLACE', column_prefix='_', output_field_name=None, null_strategy='PRESERVE', engine='auto', use_dask=False, npartitions=None, dask_partition_size=None, use_vectorization=False, parallel_processes=None, chunk_size=10000, use_cache=False, output_format='csv', visualization_theme=None, visualization_backend='plotly', visualization_strict=False, visualization_timeout=120, use_encryption=False, encryption_mode=None, encryption_key=None, force_recalculation=False, generate_visualization=True, save_output=True, seed=None)"
+  },
+  "pamola_core.utils.ops:DataSource": {
+   "kind": "class",
+   "module": "pamola_core.utils.ops.op_data_source",
+   "qualname": "DataSource",
+   "signature": "(dataframes=None, file_paths=None, encryption_keys=None, encryption_modes=None, data_types=None)"
+  },
+  "pamola_core.utils.ops:OperationStatus": {
+   "kind": "class",
+   "module": "pamola_core.utils.ops.op_result",
+   "qualname": "OperationStatus",
+   "signature": "(value, names=None, *, module=None, qualname=None, type=None, start=1, boundary=None)"
+  },
+  "pamola_core.utils.optional_deps:optional_import": {
+   "kind": "function",
+   "module": "pamola_core.utils.optional_deps",
+   "qualname": "optional_import",
+   "signature": "(module_name)"
+  },
+  "pamola_core.utils.optional_deps:require_optional": {
+   "kind": "function",
+   "module": "pamola_core.utils.optional_deps",
+   "qualname": "require_optional",
+   "signature": "(module_name, extra=None)"
+  },
+  "pamola_core.utils.tasks:BaseTask": {
+   "kind": "class",
+   "module": "pamola_core.utils.tasks.base_task",
+   "qualname": "BaseTask",
+   "signature": "(task_id, task_type, description, input_datasets=None, data_types=None, auxiliary_datasets=None, version='1.0.0', use_encryption=False, encryption_keys=None, task_dir=None)"
+  },
+  "pamola_core.utils.tasks:TaskConfig": {
+   "kind": "class",
+   "module": "pamola_core.utils.tasks.task_config",
+   "qualname": "TaskConfig",
+   "signature": "(config_dict, task_id, task_type, env_override=True, progress_manager=None)"
+  },
+  "pamola_core.utils.tasks:TaskInitializationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "TaskInitializationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.utils.vis_helpers:BaseFigure": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "BaseFigure",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:FigureFactory": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "FigureFactory",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:FigureRegistry": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "FigureRegistry",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibBarPlot": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.bar_plots",
+   "qualname": "MatplotlibBarPlot",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibBoxPlot": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.boxplot",
+   "qualname": "MatplotlibBoxPlot",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibCombinedChart": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.combined_charts",
+   "qualname": "MatplotlibCombinedChart",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibCorrelationMatrix": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.cor_matrix",
+   "qualname": "MatplotlibCorrelationMatrix",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibCorrelationPair": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.cor_pair",
+   "qualname": "MatplotlibCorrelationPair",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibFigure": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "MatplotlibFigure",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibHeatmap": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.heatmap",
+   "qualname": "MatplotlibHeatmap",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibHistogram": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.histograms",
+   "qualname": "MatplotlibHistogram",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibLinePlot": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.line_plots",
+   "qualname": "MatplotlibLinePlot",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibNetworkDiagram": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.network_diagram",
+   "qualname": "MatplotlibNetworkDiagram",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibPieChart": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.pie_charts",
+   "qualname": "MatplotlibPieChart",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibScatterPlot": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.scatter_plots",
+   "qualname": "MatplotlibScatterPlot",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibSpiderChart": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.spider_charts",
+   "qualname": "MatplotlibSpiderChart",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:MatplotlibVennDiagram": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.venn_diagram",
+   "qualname": "MatplotlibVennDiagram",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyBarPlot": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.bar_plots",
+   "qualname": "PlotlyBarPlot",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyBoxPlot": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.boxplot",
+   "qualname": "PlotlyBoxPlot",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyCombinedChart": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.combined_charts",
+   "qualname": "PlotlyCombinedChart",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyCorrelationMatrix": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.cor_matrix",
+   "qualname": "PlotlyCorrelationMatrix",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyCorrelationPair": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.cor_pair",
+   "qualname": "PlotlyCorrelationPair",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyFigure": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "PlotlyFigure",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyHeatmap": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.heatmap",
+   "qualname": "PlotlyHeatmap",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyHistogram": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.histograms",
+   "qualname": "PlotlyHistogram",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyLinePlot": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.line_plots",
+   "qualname": "PlotlyLinePlot",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyNetworkDiagram": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.network_diagram",
+   "qualname": "PlotlyNetworkDiagram",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyPieChart": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.pie_charts",
+   "qualname": "PlotlyPieChart",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyScatterPlot": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.scatter_plots",
+   "qualname": "PlotlyScatterPlot",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlySpiderChart": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.spider_charts",
+   "qualname": "PlotlySpiderChart",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlySunburstChart": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.pie_charts",
+   "qualname": "PlotlySunburstChart",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:PlotlyVennDiagram": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.venn_diagram",
+   "qualname": "PlotlyVennDiagram",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:WordCloudGenerator": {
+   "kind": "class",
+   "module": "pamola_core.utils.vis_helpers.word_clouds",
+   "qualname": "WordCloudGenerator",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:apply_mask": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.cor_utils",
+   "qualname": "apply_mask",
+   "signature": "(matrix, mask)"
+  },
+  "pamola_core.utils.vis_helpers:apply_theme_to_matplotlib_figure": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.theme",
+   "qualname": "apply_theme_to_matplotlib_figure",
+   "signature": "(fig, theme=None)"
+  },
+  "pamola_core.utils.vis_helpers:apply_theme_to_plotly_figure": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.theme",
+   "qualname": "apply_theme_to_plotly_figure",
+   "signature": "(fig, theme=None)"
+  },
+  "pamola_core.utils.vis_helpers:auto_visualization_context": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.context",
+   "qualname": "auto_visualization_context",
+   "signature": "(func)"
+  },
+  "pamola_core.utils.vis_helpers:calculate_correlation": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.cor_utils",
+   "qualname": "calculate_correlation",
+   "signature": "(x, y)"
+  },
+  "pamola_core.utils.vis_helpers:calculate_symmetric_colorscale_range": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.cor_utils",
+   "qualname": "calculate_symmetric_colorscale_range",
+   "signature": "(matrix)"
+  },
+  "pamola_core.utils.vis_helpers:create_correlation_mask": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.cor_utils",
+   "qualname": "create_correlation_mask",
+   "signature": "(matrix, mask_upper=False, mask_diagonal=False)"
+  },
+  "pamola_core.utils.vis_helpers:create_custom_theme": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.theme",
+   "qualname": "create_custom_theme",
+   "signature": "(name, config, strict=False)"
+  },
+  "pamola_core.utils.vis_helpers:create_significance_mask": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.cor_utils",
+   "qualname": "create_significance_mask",
+   "signature": "(matrix, masked_matrix, threshold)"
+  },
+  "pamola_core.utils.vis_helpers:create_text_colors_array": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.cor_utils",
+   "qualname": "create_text_colors_array",
+   "signature": "(matrix)"
+  },
+  "pamola_core.utils.vis_helpers:ensure_series": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "ensure_series",
+   "signature": "(data)"
+  },
+  "pamola_core.utils.vis_helpers:get_backend": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "get_backend",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:get_colorscale": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.theme",
+   "qualname": "get_colorscale",
+   "signature": "(theme=None)"
+  },
+  "pamola_core.utils.vis_helpers:get_current_theme": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.theme",
+   "qualname": "get_current_theme",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:get_current_theme_name": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.theme",
+   "qualname": "get_current_theme_name",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:get_figure_size": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.context",
+   "qualname": "get_figure_size",
+   "signature": "(size=None)"
+  },
+  "pamola_core.utils.vis_helpers:get_matplotlib_colormap": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.theme",
+   "qualname": "get_matplotlib_colormap",
+   "signature": "(theme=None)"
+  },
+  "pamola_core.utils.vis_helpers:get_theme_colors": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.theme",
+   "qualname": "get_theme_colors",
+   "signature": "(n_colors=10)"
+  },
+  "pamola_core.utils.vis_helpers:matplotlib_agg_context": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.context",
+   "qualname": "matplotlib_agg_context",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:null_context": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.context",
+   "qualname": "null_context",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:parse_annotation_format": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.cor_utils",
+   "qualname": "parse_annotation_format",
+   "signature": "(annotation_format)"
+  },
+  "pamola_core.utils.vis_helpers:prepare_correlation_data": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.cor_utils",
+   "qualname": "prepare_correlation_data",
+   "signature": "(data)"
+  },
+  "pamola_core.utils.vis_helpers:prepare_dataframe": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "prepare_dataframe",
+   "signature": "(data, orient='dict')"
+  },
+  "pamola_core.utils.vis_helpers:prepare_hover_texts": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.cor_utils",
+   "qualname": "prepare_hover_texts",
+   "signature": "(matrix, x_labels, y_labels, methods=None, method_labels=None)"
+  },
+  "pamola_core.utils.vis_helpers:register_builtin_figures": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.registry",
+   "qualname": "register_builtin_figures",
+   "signature": "()"
+  },
+  "pamola_core.utils.vis_helpers:register_figure": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.context",
+   "qualname": "register_figure",
+   "signature": "(fig, context_info=None)"
+  },
+  "pamola_core.utils.vis_helpers:set_backend": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "set_backend",
+   "signature": "(backend, strict=False)"
+  },
+  "pamola_core.utils.vis_helpers:set_theme": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.theme",
+   "qualname": "set_theme",
+   "signature": "(theme_name, strict=False)"
+  },
+  "pamola_core.utils.vis_helpers:sort_series": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.base",
+   "qualname": "sort_series",
+   "signature": "(series, sort_by='value', ascending=False, max_items=None)"
+  },
+  "pamola_core.utils.vis_helpers:visualization_context": {
+   "kind": "function",
+   "module": "pamola_core.utils.vis_helpers.context",
+   "qualname": "visualization_context",
+   "signature": "(backend=None, theme=None, auto_close=True, strict=False, headless=True)"
+  },
+  "pamola_core.utils:BaseOperation": {
+   "kind": "class",
+   "module": "pamola_core.utils.ops.op_base",
+   "qualname": "BaseOperation",
+   "signature": "(name='', description='', scope=None, config=None, optimize_memory=True, adaptive_chunk_size=True, mode='REPLACE', column_prefix='_', output_field_name=None, null_strategy='PRESERVE', engine='auto', use_dask=False, npartitions=None, dask_partition_size=None, use_vectorization=False, parallel_processes=None, chunk_size=10000, use_cache=False, output_format='csv', visualization_theme=None, visualization_backend='plotly', visualization_strict=False, visualization_timeout=120, use_encryption=False, encryption_mode=None, encryption_key=None, force_recalculation=False, generate_visualization=True, save_output=True, seed=None)"
+  },
+  "pamola_core.utils:BaseTask": {
+   "kind": "class",
+   "module": "pamola_core.utils.tasks.base_task",
+   "qualname": "BaseTask",
+   "signature": "(task_id, task_type, description, input_datasets=None, data_types=None, auxiliary_datasets=None, version='1.0.0', use_encryption=False, encryption_keys=None, task_dir=None)"
+  },
+  "pamola_core.utils:DataSource": {
+   "kind": "class",
+   "module": "pamola_core.utils.ops.op_data_source",
+   "qualname": "DataSource",
+   "signature": "(dataframes=None, file_paths=None, encryption_keys=None, encryption_modes=None, data_types=None)"
+  },
+  "pamola_core.utils:OperationStatus": {
+   "kind": "class",
+   "module": "pamola_core.utils.ops.op_result",
+   "qualname": "OperationStatus",
+   "signature": "(value, names=None, *, module=None, qualname=None, type=None, start=1, boundary=None)"
+  },
+  "pamola_core.utils:TaskConfig": {
+   "kind": "class",
+   "module": "pamola_core.utils.tasks.task_config",
+   "qualname": "TaskConfig",
+   "signature": "(config_dict, task_id, task_type, env_override=True, progress_manager=None)"
+  },
+  "pamola_core.utils:TaskInitializationError": {
+   "kind": "class",
+   "module": "pamola_core.errors.exceptions.tasks",
+   "qualname": "TaskInitializationError",
+   "signature": "(message=None, *, error_code=None, details=None, **params)"
+  },
+  "pamola_core.utils:decrypt_data": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_utils",
+   "qualname": "decrypt_data",
+   "signature": "(data, key=None, mode=None, task_id=None, **kwargs)"
+  },
+  "pamola_core.utils:decrypt_file": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_utils",
+   "qualname": "decrypt_file",
+   "signature": "(source_path, destination_path, key=None, mode=None, task_id=None, **kwargs)"
+  },
+  "pamola_core.utils:detect_encryption_mode": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_router",
+   "qualname": "detect_encryption_mode",
+   "signature": "(file_path)"
+  },
+  "pamola_core.utils:encrypt_file": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_utils",
+   "qualname": "encrypt_file",
+   "signature": "(source_path, destination_path, key=None, mode='simple', task_id=None, description=None, **kwargs)"
+  },
+  "pamola_core.utils:get_key_for_task": {
+   "kind": "function",
+   "module": "pamola_core.utils.crypto_helpers.key_store",
+   "qualname": "get_key_for_task",
+   "signature": "(task_id)"
+  },
+  "pamola_core.utils:load_data_operation": {
+   "kind": "function",
+   "module": "pamola_core.utils.io",
+   "qualname": "load_data_operation",
+   "signature": "(data_source, dataset_name='main', **kwargs)"
+  },
+  "pamola_core.utils:load_settings_operation": {
+   "kind": "function",
+   "module": "pamola_core.utils.io",
+   "qualname": "load_settings_operation",
+   "signature": "(data_source, data_source_name, **kwargs)"
+  },
+  "pamola_core.utils:optimize_dataframe_memory": {
+   "kind": "function",
+   "module": "pamola_core.utils.io",
+   "qualname": "optimize_dataframe_memory",
+   "signature": "(df, categorical_threshold=0.5, inplace=False)"
+  },
+  "pamola_core.utils:safe_remove_temp_file": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.directory_utils",
+   "qualname": "safe_remove_temp_file",
+   "signature": "(file_path, logger_obj=None)"
+  },
+  "pamola_core:AddOrModifyFieldsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.field_ops.add_modify_fields",
+   "qualname": "AddOrModifyFieldsOperation",
+   "signature": "(name='add_modify_fields_operation', field_operations=None, lookup_tables=None, **kwargs)"
+  },
+  "pamola_core:AggregateRecordsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.grouping.aggregate_records_op",
+   "qualname": "AggregateRecordsOperation",
+   "signature": "(name='aggregate_records_operation', group_by_fields=None, aggregations=None, custom_aggregations=None, **kwargs)"
+  },
+  "pamola_core:AttributeSuppressionOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.suppression.attribute_op",
+   "qualname": "AttributeSuppressionOperation",
+   "signature": "(field_name, additional_fields=None, suppression_mode='REMOVE', save_suppressed_schema=True, **kwargs)"
+  },
+  "pamola_core:BaseOperation": {
+   "kind": "class",
+   "module": "pamola_core.utils.ops.op_base",
+   "qualname": "BaseOperation",
+   "signature": "(name='', description='', scope=None, config=None, optimize_memory=True, adaptive_chunk_size=True, mode='REPLACE', column_prefix='_', output_field_name=None, null_strategy='PRESERVE', engine='auto', use_dask=False, npartitions=None, dask_partition_size=None, use_vectorization=False, parallel_processes=None, chunk_size=10000, use_cache=False, output_format='csv', visualization_theme=None, visualization_backend='plotly', visualization_strict=False, visualization_timeout=120, use_encryption=False, encryption_mode=None, encryption_key=None, force_recalculation=False, generate_visualization=True, save_output=True, seed=None)"
+  },
+  "pamola_core:BaseTask": {
+   "kind": "class",
+   "module": "pamola_core.utils.tasks.base_task",
+   "qualname": "BaseTask",
+   "signature": "(task_id, task_type, description, input_datasets=None, data_types=None, auxiliary_datasets=None, version='1.0.0', use_encryption=False, encryption_keys=None, task_dir=None)"
+  },
+  "pamola_core:CategoricalGeneralizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.generalization.categorical_op",
+   "qualname": "CategoricalGeneralizationOperation",
+   "signature": "(field_name, strategy='hierarchy', external_dictionary_path=None, dictionary_format='auto', hierarchy_level=1, min_group_size=10, freq_threshold=0.01, max_categories=1000000, allow_unknown=True, unknown_value='OTHER', group_rare_as='OTHER', rare_value_template='OTHER_{n}', text_normalization='basic', case_sensitive=False, fuzzy_matching=False, similarity_threshold=0.85, privacy_check_enabled=True, min_acceptable_k=5, max_acceptable_disclosure_risk=0.2, quasi_identifiers=None, **kwargs)"
+  },
+  "pamola_core:CategoricalOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.categorical",
+   "qualname": "CategoricalOperation",
+   "signature": "(field_name, top_n=15, min_frequency=1, profile_type='categorical', analyze_anomalies=True, **kwargs)"
+  },
+  "pamola_core:CellSuppressionOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.suppression.cell_op",
+   "qualname": "CellSuppressionOperation",
+   "signature": "(field_name, suppression_strategy='null', suppression_value=None, group_by_field=None, min_group_size=5, suppress_if=None, outlier_method='iqr', outlier_threshold=1.5, rare_threshold=10, **kwargs)"
+  },
+  "pamola_core:CleanInvalidValuesOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.cleaning.clean_invalid_values",
+   "qualname": "CleanInvalidValuesOperation",
+   "signature": "(name='clean_invalid_values_operation', field_constraints=None, whitelist_path=None, blacklist_path=None, null_replacement=None, **kwargs)"
+  },
+  "pamola_core:ConsistentMappingPseudonymizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.pseudonymization.mapping_op",
+   "qualname": "ConsistentMappingPseudonymizationOperation",
+   "signature": "(field_name, mapping_encryption_key, additional_fields=None, mapping_file=None, mapping_format='csv', pseudonym_type='uuid', pseudonym_prefix=None, pseudonym_suffix=None, pseudonym_length=36, create_if_not_exists=True, backup_on_update=True, persist_frequency=1000, quasi_identifiers=None, compound_mode=False, compound_separator='|', compound_null_handling='skip', **kwargs)"
+  },
+  "pamola_core:CorrelationMatrixOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.correlation",
+   "qualname": "CorrelationMatrixOperation",
+   "signature": "(fields, methods=None, min_threshold=0.3, null_handling='drop', **kwargs)"
+  },
+  "pamola_core:CorrelationOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.correlation",
+   "qualname": "CorrelationOperation",
+   "signature": "(field1, field2, method=None, null_handling='drop', mvf_parser=None, **kwargs)"
+  },
+  "pamola_core:CurrencyOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.currency",
+   "qualname": "CurrencyOperation",
+   "signature": "(field_name, locale='en_US', bins=10, detect_outliers=True, test_normality=True, **kwargs)"
+  },
+  "pamola_core:DataAttributeProfilerOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.attribute",
+   "qualname": "DataAttributeProfilerOperation",
+   "signature": "(name='DataAttributeProfiler', dictionary_path=None, language='en', sample_size=10, max_columns=None, **kwargs)"
+  },
+  "pamola_core:DataSource": {
+   "kind": "class",
+   "module": "pamola_core.utils.ops.op_data_source",
+   "qualname": "DataSource",
+   "signature": "(dataframes=None, file_paths=None, encryption_keys=None, encryption_modes=None, data_types=None)"
+  },
+  "pamola_core:DateOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.date",
+   "qualname": "DateOperation",
+   "signature": "(field_name, min_year=1940, max_year=2005, id_column=None, uid_column=None, profile_type='date', is_birth_date=None, **kwargs)"
+  },
+  "pamola_core:DateTimeGeneralizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.generalization.datetime_op",
+   "qualname": "DateTimeGeneralizationOperation",
+   "signature": "(field_name, strategy='rounding', rounding_unit='day', bin_type='day_range', interval_size=7, reference_date=None, custom_bins=None, keep_components=None, strftime_output_format=None, timezone_handling='preserve', default_timezone='UTC', input_formats=None, min_privacy_threshold=0.3, quasi_identifiers=None, **kwargs)"
+  },
+  "pamola_core:EmailOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.email",
+   "qualname": "EmailOperation",
+   "signature": "(field_name, top_n=20, min_frequency=1, profile_type='email', analyze_privacy_risk=True, **kwargs)"
+  },
+  "pamola_core:FakeEmailOperation": {
+   "kind": "class",
+   "module": "pamola_core.fake_data.operations.email_op",
+   "qualname": "FakeEmailOperation",
+   "signature": "(field_name, domains=None, format=None, format_ratio=None, first_name_field=None, last_name_field=None, full_name_field=None, name_format=None, validate_source=True, handle_invalid_email='generate_new', nicknames_dict=None, max_length=254, separator_options=None, number_suffix_probability=0.4, preserve_domain_ratio=0.5, business_domain_ratio=0.2, detailed_metrics=False, max_retries=3, key=None, context_salt=None, **kwargs)"
+  },
+  "pamola_core:FakeNameOperation": {
+   "kind": "class",
+   "module": "pamola_core.fake_data.operations.name_op",
+   "qualname": "FakeNameOperation",
+   "signature": "(field_name, language='en', gender_field=None, gender_from_name=False, format=None, f_m_ratio=0.5, use_faker=False, case='title', dictionaries=None, key=None, context_salt=None, **kwargs)"
+  },
+  "pamola_core:FakeOrganizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.fake_data.operations.organization_op",
+   "qualname": "FakeOrganizationOperation",
+   "signature": "(field_name, organization_type='general', dictionaries=None, prefixes=None, suffixes=None, add_prefix_probability=0.3, add_suffix_probability=0.5, region='en', preserve_type=True, industry=None, collect_type_distribution=True, type_field=None, region_field=None, detailed_metrics=False, max_retries=3, key=None, context_salt=None, **kwargs)"
+  },
+  "pamola_core:FakePhoneOperation": {
+   "kind": "class",
+   "module": "pamola_core.fake_data.operations.phone_op",
+   "qualname": "FakePhoneOperation",
+   "signature": "(field_name, country_codes=None, operator_codes_dict=None, format=None, validate_source=True, handle_invalid_phone='generate_new', default_country='us', preserve_country_code=True, preserve_operator_code=False, region=None, detailed_metrics=False, max_retries=3, key=None, context_salt=None, country_code_field=None, **kwargs)"
+  },
+  "pamola_core:FidelityOperation": {
+   "kind": "class",
+   "module": "pamola_core.metrics.operations.fidelity_ops",
+   "qualname": "FidelityOperation",
+   "signature": "(name='fidelity_metrics', fidelity_metrics=None, metric_params=None, **kwargs)"
+  },
+  "pamola_core:FullMaskingOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.masking.full_masking_op",
+   "qualname": "FullMaskingOperation",
+   "signature": "(field_name, mask_char='*', preserve_length=True, fixed_length=None, random_mask=False, mask_char_pool=None, preserve_format=False, format_patterns=None, numeric_output='string', date_format=None, **kwargs)"
+  },
+  "pamola_core:GroupAnalyzerOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.group",
+   "qualname": "GroupAnalyzerOperation",
+   "signature": "(field_name, fields_config, text_length_threshold=100, variance_threshold=0.2, large_group_threshold=100, large_group_variance_threshold=0.05, hash_algorithm='md5', minhash_similarity_threshold=0.7, **kwargs)"
+  },
+  "pamola_core:HashBasedPseudonymizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.pseudonymization.hash_based_op",
+   "qualname": "HashBasedPseudonymizationOperation",
+   "signature": "(field_name, additional_fields=None, algorithm='sha3_256', salt_config=None, salt_file=None, use_pepper=True, pepper_length=32, hash_output_format='hex', output_length=None, output_prefix=None, output_suffix=None, quasi_identifiers=None, compound_mode=False, compound_separator='|', compound_null_handling='skip', **kwargs)"
+  },
+  "pamola_core:IdentityAnalysisOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.identity",
+   "qualname": "IdentityAnalysisOperation",
+   "signature": "(uid_field, reference_fields, id_field=None, top_n=15, check_cross_matches=True, min_similarity=0.8, fuzzy_matching=False, **kwargs)"
+  },
+  "pamola_core:ImputeMissingValuesOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.imputation.impute_missing_values",
+   "qualname": "ImputeMissingValuesOperation",
+   "signature": "(name='impute_missing_values_operation', field_strategies=None, invalid_values=None, **kwargs)"
+  },
+  "pamola_core:KAnonymityProfilerOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.anonymity",
+   "qualname": "KAnonymityProfilerOperation",
+   "signature": "(name='KAnonymityProfiler', quasi_identifiers=None, analysis_mode='ANALYZE', threshold_k=5, export_metrics=True, max_combinations=50, output_field_suffix='k_anon', quasi_identifier_sets=None, id_fields=None, **kwargs)"
+  },
+  "pamola_core:MVFOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.mvf",
+   "qualname": "MVFOperation",
+   "signature": "(field_name, top_n=20, min_frequency=1, format_type=None, parse_kwargs=None, **kwargs)"
+  },
+  "pamola_core:MergeDatasetsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.merging.merge_datasets_op",
+   "qualname": "MergeDatasetsOperation",
+   "signature": "(name='merge_datasets_operation', left_dataset_name='main', right_dataset_name=None, right_dataset_path=None, left_key=None, right_key=None, join_type='left', relationship_type='auto', suffixes=('_x', '_y'), **kwargs)"
+  },
+  "pamola_core:NumericGeneralizationOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.generalization.numeric_op",
+   "qualname": "NumericGeneralizationOperation",
+   "signature": "(field_name, strategy='binning', bin_count=10, binning_method='equal_width', precision=0, range_limits=None, quasi_identifiers=None, **kwargs)"
+  },
+  "pamola_core:NumericOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.numeric",
+   "qualname": "NumericOperation",
+   "signature": "(field_name, bins=10, detect_outliers=True, test_normality=True, near_zero_threshold=1e-10, profile_type='numeric', **kwargs)"
+  },
+  "pamola_core:OperationStatus": {
+   "kind": "class",
+   "module": "pamola_core.utils.ops.op_result",
+   "qualname": "OperationStatus",
+   "signature": "(value, names=None, *, module=None, qualname=None, type=None, start=1, boundary=None)"
+  },
+  "pamola_core:PartialMaskingOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.masking.partial_masking_op",
+   "qualname": "PartialMaskingOperation",
+   "signature": "(field_name, mask_char='*', mask_strategy='fixed', mask_percentage=None, unmasked_prefix=0, unmasked_suffix=0, unmasked_positions=None, pattern_type=None, mask_pattern=None, preserve_pattern=None, preserve_separators=True, preserve_word_boundaries=False, case_sensitive=True, random_mask=False, mask_char_pool=None, preset_type=None, preset_name=None, consistency_fields=None, **kwargs)"
+  },
+  "pamola_core:PhoneOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.phone",
+   "qualname": "PhoneOperation",
+   "signature": "(field_name, min_frequency=1, patterns_csv=None, country_codes=None, **kwargs)"
+  },
+  "pamola_core:PrivacyMetricOperation": {
+   "kind": "class",
+   "module": "pamola_core.metrics.operations.privacy_ops",
+   "qualname": "PrivacyMetricOperation",
+   "signature": "(name='privacy_metrics', privacy_metrics=None, metric_params=None, **kwargs)"
+  },
+  "pamola_core:RecordSuppressionOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.suppression.record_op",
+   "qualname": "RecordSuppressionOperation",
+   "signature": "(field_name, suppression_mode='REMOVE', suppression_condition='null', suppression_values=None, suppression_range=None, save_suppressed_records=False, suppression_reason_field='_suppression_reason', **kwargs)"
+  },
+  "pamola_core:RemoveFieldsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.field_ops.remove_fields",
+   "qualname": "RemoveFieldsOperation",
+   "signature": "(name='remove_fields_operation', fields_to_remove=None, pattern=None, **kwargs)"
+  },
+  "pamola_core:RuleCode": {
+   "kind": "class",
+   "module": "pamola_core.metrics.commons.validation_rules",
+   "qualname": "RuleCode",
+   "signature": "(value, names=None, *, module=None, qualname=None, type=None, start=1, boundary=None)"
+  },
+  "pamola_core:SchemaManager": {
+   "kind": "class",
+   "module": "pamola_core.metrics.commons.schema_manager",
+   "qualname": "SchemaManager",
+   "signature": "()"
+  },
+  "pamola_core:SplitByIDValuesOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.splitting.split_by_id_values_op",
+   "qualname": "SplitByIDValuesOperation",
+   "signature": "(name='split_by_id_values_operation', id_field=None, value_groups=None, number_of_partitions=1, partition_method='equal_size', **kwargs)"
+  },
+  "pamola_core:SplitFieldsOperation": {
+   "kind": "class",
+   "module": "pamola_core.transformations.splitting.split_fields_op",
+   "qualname": "SplitFieldsOperation",
+   "signature": "(name='split_fields_operation', id_field=None, field_groups=None, include_id_field=True, **kwargs)"
+  },
+  "pamola_core:TaskConfig": {
+   "kind": "class",
+   "module": "pamola_core.utils.tasks.task_config",
+   "qualname": "TaskConfig",
+   "signature": "(config_dict, task_id, task_type, env_override=True, progress_manager=None)"
+  },
+  "pamola_core:TextSemanticCategorizerOperation": {
+   "kind": "class",
+   "module": "pamola_core.profiling.analyzers.text",
+   "qualname": "TextSemanticCategorizerOperation",
+   "signature": "(field_name, id_field=None, entity_type='generic', dictionary_path=None, min_word_length=3, clustering_threshold=0.7, use_ner=True, perform_categorization=True, perform_clustering=True, match_strategy='specific_first', **kwargs)"
+  },
+  "pamola_core:UniformNumericNoiseOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.noise.uniform_numeric_op",
+   "qualname": "UniformNumericNoiseOperation",
+   "signature": "(field_name, noise_range, noise_type='additive', output_min=None, output_max=None, preserve_zero=False, round_to_integer=None, scale_by_std=False, scale_factor=1.0, random_seed=None, use_secure_random=True, **kwargs)"
+  },
+  "pamola_core:UniformTemporalNoiseOperation": {
+   "kind": "class",
+   "module": "pamola_core.anonymization.noise.uniform_temporal_op",
+   "qualname": "UniformTemporalNoiseOperation",
+   "signature": "(field_name, noise_range_days=None, noise_range_hours=None, noise_range_minutes=None, noise_range_seconds=None, noise_range=None, direction='both', min_datetime=None, max_datetime=None, preserve_special_dates=False, special_dates=None, preserve_weekends=False, preserve_time_of_day=False, output_granularity=None, random_seed=None, use_secure_random=True, **kwargs)"
+  },
+  "pamola_core:UtilityMetricOperation": {
+   "kind": "class",
+   "module": "pamola_core.metrics.operations.utility_ops",
+   "qualname": "UtilityMetricOperation",
+   "signature": "(name='utility_metrics', utility_metrics=None, metric_params=None, **kwargs)"
+  },
+  "pamola_core:__version__": {
+   "kind": "constant",
+   "module": "",
+   "qualname": "",
+   "signature": "str"
+  },
+  "pamola_core:analyze_correlation": {
+   "kind": "function",
+   "module": "pamola_core.analysis.correlation",
+   "qualname": "analyze_correlation",
+   "signature": "(df, columns=None, method='pearson', plot=True, output_chart='heatmap', analysis_dir='', viz_format='html')"
+  },
+  "pamola_core:analyze_dataset_attributes": {
+   "kind": "function",
+   "module": "pamola_core.profiling.commons.attribute_utils",
+   "qualname": "analyze_dataset_attributes",
+   "signature": "(df, dictionary=None, dictionary_path=None, language='en', sample_size=10, max_columns=None)"
+  },
+  "pamola_core:analyze_dataset_summary": {
+   "kind": "function",
+   "module": "pamola_core.analysis.dataset_summary",
+   "qualname": "analyze_dataset_summary",
+   "signature": "(df)"
+  },
+  "pamola_core:analyze_descriptive_stats": {
+   "kind": "function",
+   "module": "pamola_core.analysis.descriptive_stats",
+   "qualname": "analyze_descriptive_stats",
+   "signature": "(df, field_names=None, describe_order=None, extra_statistics=None)"
+  },
+  "pamola_core:calculate_full_risk": {
+   "kind": "function",
+   "module": "pamola_core.analysis.privacy_risk",
+   "qualname": "calculate_full_risk",
+   "signature": "(df, quasi_identifiers, sensitive_attributes, weights=None)"
+  },
+  "pamola_core:calculate_predicted_utility": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons.predicted_utility_scoring",
+   "qualname": "calculate_predicted_utility",
+   "signature": "(df, require_fields=None, unique_fields=None, check_balance_fields=None, dtypes_dict=None, weights=None)"
+  },
+  "pamola_core:calculate_provisional_risk": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons.risk_scoring",
+   "qualname": "calculate_provisional_risk",
+   "signature": "(df, direct_identifiers=None, quasi_identifiers=None, sensitives=None, dictionary_path=None, weights=None, sigmoid_midpoints=None, penalty_sensitive=None)"
+  },
+  "pamola_core:calculate_quality_with_rules": {
+   "kind": "function",
+   "module": "pamola_core.metrics.commons",
+   "qualname": "calculate_quality_with_rules",
+   "signature": "(df, schema=None, weights=None, analyze_scope='dataset', columns=None)"
+  },
+  "pamola_core:decrypt_data": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_utils",
+   "qualname": "decrypt_data",
+   "signature": "(data, key=None, mode=None, task_id=None, **kwargs)"
+  },
+  "pamola_core:decrypt_file": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_utils",
+   "qualname": "decrypt_file",
+   "signature": "(source_path, destination_path, key=None, mode=None, task_id=None, **kwargs)"
+  },
+  "pamola_core:detect_encryption_mode": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_router",
+   "qualname": "detect_encryption_mode",
+   "signature": "(file_path)"
+  },
+  "pamola_core:encrypt_file": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.crypto_utils",
+   "qualname": "encrypt_file",
+   "signature": "(source_path, destination_path, key=None, mode='simple', task_id=None, description=None, **kwargs)"
+  },
+  "pamola_core:get_key_for_task": {
+   "kind": "function",
+   "module": "pamola_core.utils.crypto_helpers.key_store",
+   "qualname": "get_key_for_task",
+   "signature": "(task_id)"
+  },
+  "pamola_core:load_data_operation": {
+   "kind": "function",
+   "module": "pamola_core.utils.io",
+   "qualname": "load_data_operation",
+   "signature": "(data_source, dataset_name='main', **kwargs)"
+  },
+  "pamola_core:load_settings_operation": {
+   "kind": "function",
+   "module": "pamola_core.utils.io",
+   "qualname": "load_settings_operation",
+   "signature": "(data_source, data_source_name, **kwargs)"
+  },
+  "pamola_core:optimize_dataframe_memory": {
+   "kind": "function",
+   "module": "pamola_core.utils.io",
+   "qualname": "optimize_dataframe_memory",
+   "signature": "(df, categorical_threshold=0.5, inplace=False)"
+  },
+  "pamola_core:read_csv": {
+   "kind": "function",
+   "module": "pamola_core.io.csv",
+   "qualname": "read_csv",
+   "signature": "(path, **kwargs)"
+  },
+  "pamola_core:read_excel": {
+   "kind": "function",
+   "module": "pamola_core.io.excel",
+   "qualname": "read_excel",
+   "signature": "(path, **kwargs)"
+  },
+  "pamola_core:read_json": {
+   "kind": "function",
+   "module": "pamola_core.io.json",
+   "qualname": "read_json",
+   "signature": "(path, **kwargs)"
+  },
+  "pamola_core:read_parquet": {
+   "kind": "function",
+   "module": "pamola_core.io.parquet",
+   "qualname": "read_parquet",
+   "signature": "(path, **kwargs)"
+  },
+  "pamola_core:safe_remove_temp_file": {
+   "kind": "function",
+   "module": "pamola_core.utils.io_helpers.directory_utils",
+   "qualname": "safe_remove_temp_file",
+   "signature": "(file_path, logger_obj=None)"
+  },
+  "pamola_core:visualize_distribution_df": {
+   "kind": "function",
+   "module": "pamola_core.analysis.distribution",
+   "qualname": "visualize_distribution_df",
+   "signature": "(df, viz_dir, numeric_bar_charts=False, n_bins=10, field_names=None, viz_format='html')"
+  }
+ },
+ "format": 1,
+ "import_errors": {},
+ "modules": [
+  "pamola_core",
+  "pamola_core.analysis",
+  "pamola_core.analysis.correlation",
+  "pamola_core.analysis.dataset_summary",
+  "pamola_core.analysis.descriptive_stats",
+  "pamola_core.analysis.distribution",
+  "pamola_core.analysis.field_analysis",
+  "pamola_core.analysis.privacy_risk",
+  "pamola_core.anonymization",
+  "pamola_core.anonymization.base_anonymization_op",
+  "pamola_core.anonymization.commons",
+  "pamola_core.anonymization.commons.categorical_config",
+  "pamola_core.anonymization.commons.categorical_strategies",
+  "pamola_core.anonymization.commons.category_mapping",
+  "pamola_core.anonymization.commons.category_utils",
+  "pamola_core.anonymization.commons.data_utils",
+  "pamola_core.anonymization.commons.hierarchy_dictionary",
+  "pamola_core.anonymization.commons.mapping_storage",
+  "pamola_core.anonymization.commons.masking_patterns",
+  "pamola_core.anonymization.commons.masking_presets",
+  "pamola_core.anonymization.commons.metric_utils",
+  "pamola_core.anonymization.commons.noise_utils",
+  "pamola_core.anonymization.commons.privacy_metric_utils",
+  "pamola_core.anonymization.commons.processing_utils",
+  "pamola_core.anonymization.commons.pseudonymization_utils",
+  "pamola_core.anonymization.commons.statistical_utils",
+  "pamola_core.anonymization.commons.text_processing_utils",
+  "pamola_core.anonymization.commons.validation",
+  "pamola_core.anonymization.commons.validation.base",
+  "pamola_core.anonymization.commons.validation.decorators",
+  "pamola_core.anonymization.commons.validation.field_validators",
+  "pamola_core.anonymization.commons.validation.file_validators",
+  "pamola_core.anonymization.commons.validation.strategy_validators",
+  "pamola_core.anonymization.commons.validation.type_validators",
+  "pamola_core.anonymization.commons.validation_utils",
+  "pamola_core.anonymization.commons.visualization_utils",
+  "pamola_core.anonymization.generalization",
+  "pamola_core.anonymization.generalization.categorical_op",
+  "pamola_core.anonymization.generalization.datetime_op",
+  "pamola_core.anonymization.generalization.numeric_op",
+  "pamola_core.anonymization.masking",
+  "pamola_core.anonymization.masking.full_masking_op",
+  "pamola_core.anonymization.masking.partial_masking_op",
+  "pamola_core.anonymization.noise",
+  "pamola_core.anonymization.noise.uniform_numeric_op",
+  "pamola_core.anonymization.noise.uniform_temporal_op",
+  "pamola_core.anonymization.pseudonymization",
+  "pamola_core.anonymization.pseudonymization.hash_based_op",
+  "pamola_core.anonymization.pseudonymization.mapping_op",
+  "pamola_core.anonymization.schemas",
+  "pamola_core.anonymization.schemas.attribute_op_core_schema",
+  "pamola_core.anonymization.schemas.attribute_op_schema_exclude",
+  "pamola_core.anonymization.schemas.attribute_op_tooltip",
+  "pamola_core.anonymization.schemas.attribute_op_ui_schema",
+  "pamola_core.anonymization.schemas.categorical_op_core_schema",
+  "pamola_core.anonymization.schemas.categorical_op_schema_exclude",
+  "pamola_core.anonymization.schemas.categorical_op_tooltip",
+  "pamola_core.anonymization.schemas.categorical_op_ui_schema",
+  "pamola_core.anonymization.schemas.cell_op_core_schema",
+  "pamola_core.anonymization.schemas.cell_op_schema_exclude",
+  "pamola_core.anonymization.schemas.cell_op_tooltip",
+  "pamola_core.anonymization.schemas.cell_op_ui_schema",
+  "pamola_core.anonymization.schemas.datetime_op_core_schema",
+  "pamola_core.anonymization.schemas.datetime_op_schema_exclude",
+  "pamola_core.anonymization.schemas.datetime_op_tooltip",
+  "pamola_core.anonymization.schemas.datetime_op_ui_schema",
+  "pamola_core.anonymization.schemas.full_masking_op_core_schema",
+  "pamola_core.anonymization.schemas.full_masking_op_schema_exclude",
+  "pamola_core.anonymization.schemas.full_masking_op_tooltip",
+  "pamola_core.anonymization.schemas.full_masking_op_ui_schema",
+  "pamola_core.anonymization.schemas.hash_based_op_core_schema",
+  "pamola_core.anonymization.schemas.hash_based_op_schema_exclude",
+  "pamola_core.anonymization.schemas.hash_based_op_tooltip",
+  "pamola_core.anonymization.schemas.hash_based_op_ui_schema",
+  "pamola_core.anonymization.schemas.mapping_op_core_schema",
+  "pamola_core.anonymization.schemas.mapping_op_schema_exclude",
+  "pamola_core.anonymization.schemas.mapping_op_tooltip",
+  "pamola_core.anonymization.schemas.mapping_op_ui_schema",
+  "pamola_core.anonymization.schemas.numeric_op_core_schema",
+  "pamola_core.anonymization.schemas.numeric_op_schema_exclude",
+  "pamola_core.anonymization.schemas.numeric_op_tooltip",
+  "pamola_core.anonymization.schemas.numeric_op_ui_schema",
+  "pamola_core.anonymization.schemas.partial_masking_op_core_schema",
+  "pamola_core.anonymization.schemas.partial_masking_op_schema_exclude",
+  "pamola_core.anonymization.schemas.partial_masking_op_tooltip",
+  "pamola_core.anonymization.schemas.partial_masking_op_ui_schema",
+  "pamola_core.anonymization.schemas.record_op_core_schema",
+  "pamola_core.anonymization.schemas.record_op_schema_exclude",
+  "pamola_core.anonymization.schemas.record_op_tooltip",
+  "pamola_core.anonymization.schemas.record_op_ui_schema",
+  "pamola_core.anonymization.schemas.uniform_numeric_op_core_schema",
+  "pamola_core.anonymization.schemas.uniform_numeric_op_schema_exclude",
+  "pamola_core.anonymization.schemas.uniform_numeric_op_tooltip",
+  "pamola_core.anonymization.schemas.uniform_numeric_op_ui_schema",
+  "pamola_core.anonymization.schemas.uniform_temporal_op_core_schema",
+  "pamola_core.anonymization.schemas.uniform_temporal_op_schema_exclude",
+  "pamola_core.anonymization.schemas.uniform_temporal_op_tooltip",
+  "pamola_core.anonymization.schemas.uniform_temporal_op_ui_schema",
+  "pamola_core.anonymization.suppression",
+  "pamola_core.anonymization.suppression.attribute_op",
+  "pamola_core.anonymization.suppression.cell_op",
+  "pamola_core.anonymization.suppression.record_op",
+  "pamola_core.attacks",
+  "pamola_core.attacks.attack_metrics",
+  "pamola_core.attacks.attribute_inference",
+  "pamola_core.attacks.base",
+  "pamola_core.attacks.linkage_attack",
+  "pamola_core.attacks.preprocess_data",
+  "pamola_core.attacks.singling_out",
+  "pamola_core.cli",
+  "pamola_core.cli.commands",
+  "pamola_core.cli.commands.list_ops",
+  "pamola_core.cli.commands.run",
+  "pamola_core.cli.commands.schema",
+  "pamola_core.cli.commands.validate",
+  "pamola_core.cli.main",
+  "pamola_core.cli.utils",
+  "pamola_core.cli.utils.exit_codes",
+  "pamola_core.errors",
+  "pamola_core.errors.base",
+  "pamola_core.errors.codes",
+  "pamola_core.errors.codes.metadata",
+  "pamola_core.errors.codes.registry",
+  "pamola_core.errors.codes.utils",
+  "pamola_core.errors.context",
+  "pamola_core.errors.context.suggestions",
+  "pamola_core.errors.error_handler",
+  "pamola_core.errors.exceptions",
+  "pamola_core.errors.exceptions.core_domain",
+  "pamola_core.errors.exceptions.crypto",
+  "pamola_core.errors.exceptions.filesystem",
+  "pamola_core.errors.exceptions.nlp",
+  "pamola_core.errors.exceptions.resources",
+  "pamola_core.errors.exceptions.tasks",
+  "pamola_core.errors.exceptions.validation",
+  "pamola_core.errors.messages",
+  "pamola_core.errors.messages.registry",
+  "pamola_core.errors.messages.utils",
+  "pamola_core.fake_data",
+  "pamola_core.fake_data.base_generator_op",
+  "pamola_core.fake_data.commons",
+  "pamola_core.fake_data.commons.base",
+  "pamola_core.fake_data.commons.dict_helpers",
+  "pamola_core.fake_data.commons.mapping_store",
+  "pamola_core.fake_data.commons.metrics",
+  "pamola_core.fake_data.commons.name_utils",
+  "pamola_core.fake_data.commons.prgn",
+  "pamola_core.fake_data.commons.processing_utils",
+  "pamola_core.fake_data.commons.utils",
+  "pamola_core.fake_data.commons.validators",
+  "pamola_core.fake_data.dictionaries",
+  "pamola_core.fake_data.dictionaries.addresses",
+  "pamola_core.fake_data.dictionaries.domains",
+  "pamola_core.fake_data.dictionaries.names",
+  "pamola_core.fake_data.dictionaries.organizations",
+  "pamola_core.fake_data.dictionaries.phones",
+  "pamola_core.fake_data.generators",
+  "pamola_core.fake_data.generators.base_generator",
+  "pamola_core.fake_data.generators.email",
+  "pamola_core.fake_data.generators.name",
+  "pamola_core.fake_data.generators.organization",
+  "pamola_core.fake_data.generators.phone",
+  "pamola_core.fake_data.mappers",
+  "pamola_core.fake_data.mappers.one_to_one",
+  "pamola_core.fake_data.mappers.transitivity_handler",
+  "pamola_core.fake_data.operations",
+  "pamola_core.fake_data.operations.email_op",
+  "pamola_core.fake_data.operations.name_op",
+  "pamola_core.fake_data.operations.organization_op",
+  "pamola_core.fake_data.operations.phone_op",
+  "pamola_core.fake_data.schemas",
+  "pamola_core.fake_data.schemas.email_op_core_schema",
+  "pamola_core.fake_data.schemas.email_op_schema_exclude",
+  "pamola_core.fake_data.schemas.email_op_tooltip",
+  "pamola_core.fake_data.schemas.email_op_ui_schema",
+  "pamola_core.fake_data.schemas.name_op_core_schema",
+  "pamola_core.fake_data.schemas.name_op_schema_exclude",
+  "pamola_core.fake_data.schemas.name_op_tooltip",
+  "pamola_core.fake_data.schemas.name_op_ui_schema",
+  "pamola_core.fake_data.schemas.organization_op_core_schema",
+  "pamola_core.fake_data.schemas.organization_op_schema_exclude",
+  "pamola_core.fake_data.schemas.organization_op_tooltip",
+  "pamola_core.fake_data.schemas.organization_op_ui_schema",
+  "pamola_core.fake_data.schemas.phone_op_core_schema",
+  "pamola_core.fake_data.schemas.phone_op_schema_exclude",
+  "pamola_core.fake_data.schemas.phone_op_tooltip",
+  "pamola_core.fake_data.schemas.phone_op_ui_schema",
+  "pamola_core.io",
+  "pamola_core.io.base",
+  "pamola_core.io.config",
+  "pamola_core.io.csv",
+  "pamola_core.io.excel",
+  "pamola_core.io.json",
+  "pamola_core.io.parquet",
+  "pamola_core.io.paths",
+  "pamola_core.metrics",
+  "pamola_core.metrics.base_metrics_op",
+  "pamola_core.metrics.commons",
+  "pamola_core.metrics.commons.aggregation",
+  "pamola_core.metrics.commons.normalize",
+  "pamola_core.metrics.commons.predicted_utility_scoring",
+  "pamola_core.metrics.commons.preprocessing",
+  "pamola_core.metrics.commons.quality_scoring",
+  "pamola_core.metrics.commons.risk_scoring",
+  "pamola_core.metrics.commons.safe_instantiate",
+  "pamola_core.metrics.commons.schema_manager",
+  "pamola_core.metrics.commons.validation",
+  "pamola_core.metrics.commons.validation_rules",
+  "pamola_core.metrics.fidelity",
+  "pamola_core.metrics.fidelity.distribution",
+  "pamola_core.metrics.fidelity.distribution.kl_divergence",
+  "pamola_core.metrics.fidelity.distribution.ks_test",
+  "pamola_core.metrics.fidelity.statistical_fidelity",
+  "pamola_core.metrics.operations",
+  "pamola_core.metrics.operations.fidelity_ops",
+  "pamola_core.metrics.operations.privacy_ops",
+  "pamola_core.metrics.operations.utility_ops",
+  "pamola_core.metrics.privacy",
+  "pamola_core.metrics.privacy.disclosure_risk",
+  "pamola_core.metrics.privacy.distance",
+  "pamola_core.metrics.privacy.identity",
+  "pamola_core.metrics.privacy.neighbor",
+  "pamola_core.metrics.schemas",
+  "pamola_core.metrics.schemas.fidelity_op_core_schema",
+  "pamola_core.metrics.schemas.fidelity_op_schema_exclude",
+  "pamola_core.metrics.schemas.fidelity_op_tooltip",
+  "pamola_core.metrics.schemas.fidelity_op_ui_schema",
+  "pamola_core.metrics.schemas.privacy_op_core_schema",
+  "pamola_core.metrics.schemas.privacy_op_schema_exclude",
+  "pamola_core.metrics.schemas.privacy_op_tooltip",
+  "pamola_core.metrics.schemas.privacy_op_ui_schema",
+  "pamola_core.metrics.schemas.utility_op_core_schema",
+  "pamola_core.metrics.schemas.utility_op_schema_exclude",
+  "pamola_core.metrics.schemas.utility_op_tooltip",
+  "pamola_core.metrics.schemas.utility_op_ui_schema",
+  "pamola_core.metrics.utility",
+  "pamola_core.metrics.utility.classification",
+  "pamola_core.metrics.utility.f1_score",
+  "pamola_core.metrics.utility.information_loss",
+  "pamola_core.metrics.utility.ldiversity_loss",
+  "pamola_core.metrics.utility.mean_squared_error",
+  "pamola_core.metrics.utility.r2_score",
+  "pamola_core.metrics.utility.regression",
+  "pamola_core.privacy_models",
+  "pamola_core.privacy_models.base",
+  "pamola_core.privacy_models.differential_privacy",
+  "pamola_core.privacy_models.differential_privacy.calculation",
+  "pamola_core.privacy_models.k_anonymity",
+  "pamola_core.privacy_models.k_anonymity.calculation",
+  "pamola_core.privacy_models.k_anonymity.ka_reporting",
+  "pamola_core.privacy_models.k_anonymity.ka_visualization",
+  "pamola_core.privacy_models.l_diversity",
+  "pamola_core.privacy_models.l_diversity.advanced_visualization",
+  "pamola_core.privacy_models.l_diversity.apply_model",
+  "pamola_core.privacy_models.l_diversity.attribute_risk",
+  "pamola_core.privacy_models.l_diversity.calculation",
+  "pamola_core.privacy_models.l_diversity.interpretation",
+  "pamola_core.privacy_models.l_diversity.metrics",
+  "pamola_core.privacy_models.l_diversity.privacy",
+  "pamola_core.privacy_models.l_diversity.report_generators",
+  "pamola_core.privacy_models.l_diversity.report_generators.compliance",
+  "pamola_core.privacy_models.l_diversity.report_generators.technical",
+  "pamola_core.privacy_models.l_diversity.report_utils",
+  "pamola_core.privacy_models.l_diversity.report_utils.formatters",
+  "pamola_core.privacy_models.l_diversity.reporting",
+  "pamola_core.privacy_models.l_diversity.visualization",
+  "pamola_core.privacy_models.t_closeness",
+  "pamola_core.privacy_models.t_closeness.calculation",
+  "pamola_core.profiling",
+  "pamola_core.profiling.analyzers",
+  "pamola_core.profiling.analyzers.anonymity",
+  "pamola_core.profiling.analyzers.attribute",
+  "pamola_core.profiling.analyzers.categorical",
+  "pamola_core.profiling.analyzers.correlation",
+  "pamola_core.profiling.analyzers.currency",
+  "pamola_core.profiling.analyzers.date",
+  "pamola_core.profiling.analyzers.email",
+  "pamola_core.profiling.analyzers.email_dask",
+  "pamola_core.profiling.analyzers.group",
+  "pamola_core.profiling.analyzers.identity",
+  "pamola_core.profiling.analyzers.longtext",
+  "pamola_core.profiling.analyzers.mvf",
+  "pamola_core.profiling.analyzers.numeric",
+  "pamola_core.profiling.analyzers.phone",
+  "pamola_core.profiling.analyzers.text",
+  "pamola_core.profiling.commons",
+  "pamola_core.profiling.commons.analysis_utils",
+  "pamola_core.profiling.commons.anonymity_utils",
+  "pamola_core.profiling.commons.attribute_utils",
+  "pamola_core.profiling.commons.categorical_utils",
+  "pamola_core.profiling.commons.correlation_utils",
+  "pamola_core.profiling.commons.currency_analysis",
+  "pamola_core.profiling.commons.currency_utils",
+  "pamola_core.profiling.commons.data_processing",
+  "pamola_core.profiling.commons.data_types",
+  "pamola_core.profiling.commons.date_utils",
+  "pamola_core.profiling.commons.dtype_helpers",
+  "pamola_core.profiling.commons.email_utils",
+  "pamola_core.profiling.commons.email_utils_dask",
+  "pamola_core.profiling.commons.group_utils",
+  "pamola_core.profiling.commons.helpers",
+  "pamola_core.profiling.commons.identity_utils",
+  "pamola_core.profiling.commons.mvf_utils",
+  "pamola_core.profiling.commons.numeric_utils",
+  "pamola_core.profiling.commons.phone_utils",
+  "pamola_core.profiling.commons.report_generation",
+  "pamola_core.profiling.commons.statistical_analysis",
+  "pamola_core.profiling.commons.text_utils",
+  "pamola_core.profiling.schemas",
+  "pamola_core.profiling.schemas.anonymity_core_schema",
+  "pamola_core.profiling.schemas.anonymity_schema_exclude",
+  "pamola_core.profiling.schemas.anonymity_tooltip",
+  "pamola_core.profiling.schemas.anonymity_ui_schema",
+  "pamola_core.profiling.schemas.attribute_core_schema",
+  "pamola_core.profiling.schemas.attribute_schema_exclude",
+  "pamola_core.profiling.schemas.attribute_tooltip",
+  "pamola_core.profiling.schemas.attribute_ui_schema",
+  "pamola_core.profiling.schemas.categorical_core_schema",
+  "pamola_core.profiling.schemas.categorical_schema_exclude",
+  "pamola_core.profiling.schemas.categorical_tooltip",
+  "pamola_core.profiling.schemas.categorical_ui_schema",
+  "pamola_core.profiling.schemas.correlation_core_schema",
+  "pamola_core.profiling.schemas.correlation_matrix_core_schema",
+  "pamola_core.profiling.schemas.correlation_matrix_schema_exclude",
+  "pamola_core.profiling.schemas.correlation_matrix_tooltip",
+  "pamola_core.profiling.schemas.correlation_matrix_ui_schema",
+  "pamola_core.profiling.schemas.correlation_schema_exclude",
+  "pamola_core.profiling.schemas.correlation_tooltip",
+  "pamola_core.profiling.schemas.correlation_ui_schema",
+  "pamola_core.profiling.schemas.currency_core_schema",
+  "pamola_core.profiling.schemas.currency_schema_exclude",
+  "pamola_core.profiling.schemas.currency_tooltip",
+  "pamola_core.profiling.schemas.currency_ui_schema",
+  "pamola_core.profiling.schemas.date_core_schema",
+  "pamola_core.profiling.schemas.date_schema_exclude",
+  "pamola_core.profiling.schemas.date_tooltip",
+  "pamola_core.profiling.schemas.date_ui_schema",
+  "pamola_core.profiling.schemas.email_core_schema",
+  "pamola_core.profiling.schemas.email_schema_exclude",
+  "pamola_core.profiling.schemas.email_tooltip",
+  "pamola_core.profiling.schemas.email_ui_schema",
+  "pamola_core.profiling.schemas.group_core_schema",
+  "pamola_core.profiling.schemas.group_schema_exclude",
+  "pamola_core.profiling.schemas.group_tooltip",
+  "pamola_core.profiling.schemas.group_ui_schema",
+  "pamola_core.profiling.schemas.identity_core_schema",
+  "pamola_core.profiling.schemas.identity_schema_exclude",
+  "pamola_core.profiling.schemas.identity_tooltip",
+  "pamola_core.profiling.schemas.identity_ui_schema",
+  "pamola_core.profiling.schemas.mvf_core_schema",
+  "pamola_core.profiling.schemas.mvf_schema_exclude",
+  "pamola_core.profiling.schemas.mvf_tooltip",
+  "pamola_core.profiling.schemas.mvf_ui_schema",
+  "pamola_core.profiling.schemas.numeric_core_schema",
+  "pamola_core.profiling.schemas.numeric_schema_exclude",
+  "pamola_core.profiling.schemas.numeric_tooltip",
+  "pamola_core.profiling.schemas.numeric_ui_schema",
+  "pamola_core.profiling.schemas.phone_core_schema",
+  "pamola_core.profiling.schemas.phone_schema_exclude",
+  "pamola_core.profiling.schemas.phone_tooltip",
+  "pamola_core.profiling.schemas.phone_ui_schema",
+  "pamola_core.profiling.schemas.text_core_schema",
+  "pamola_core.profiling.schemas.text_schema_exclude",
+  "pamola_core.profiling.schemas.text_tooltip",
+  "pamola_core.profiling.schemas.text_ui_schema",
+  "pamola_core.transformations",
+  "pamola_core.transformations.base_transformation_op",
+  "pamola_core.transformations.cleaning",
+  "pamola_core.transformations.cleaning.clean_invalid_values",
+  "pamola_core.transformations.commons",
+  "pamola_core.transformations.commons.aggregation_utils",
+  "pamola_core.transformations.commons.enum",
+  "pamola_core.transformations.commons.merging_utils",
+  "pamola_core.transformations.commons.metric_utils",
+  "pamola_core.transformations.commons.processing_utils",
+  "pamola_core.transformations.commons.validation_utils",
+  "pamola_core.transformations.commons.visualization_utils",
+  "pamola_core.transformations.field_ops",
+  "pamola_core.transformations.field_ops.add_modify_fields",
+  "pamola_core.transformations.field_ops.remove_fields",
+  "pamola_core.transformations.grouping",
+  "pamola_core.transformations.grouping.aggregate_records_op",
+  "pamola_core.transformations.imputation",
+  "pamola_core.transformations.imputation.impute_missing_values",
+  "pamola_core.transformations.merging",
+  "pamola_core.transformations.merging.merge_datasets_op",
+  "pamola_core.transformations.schemas",
+  "pamola_core.transformations.schemas.add_modify_fields_core_schema",
+  "pamola_core.transformations.schemas.add_modify_fields_schema_exclude",
+  "pamola_core.transformations.schemas.add_modify_fields_tooltip",
+  "pamola_core.transformations.schemas.add_modify_fields_ui_schema",
+  "pamola_core.transformations.schemas.aggregate_records_op_core_schema",
+  "pamola_core.transformations.schemas.aggregate_records_op_schema_exclude",
+  "pamola_core.transformations.schemas.aggregate_records_op_tooltip",
+  "pamola_core.transformations.schemas.aggregate_records_op_ui_schema",
+  "pamola_core.transformations.schemas.clean_invalid_values_core_schema",
+  "pamola_core.transformations.schemas.clean_invalid_values_schema_exclude",
+  "pamola_core.transformations.schemas.clean_invalid_values_tooltip",
+  "pamola_core.transformations.schemas.clean_invalid_values_ui_schema",
+  "pamola_core.transformations.schemas.impute_missing_values_op_core_schema",
+  "pamola_core.transformations.schemas.impute_missing_values_op_schema_exclude",
+  "pamola_core.transformations.schemas.impute_missing_values_op_tooltip",
+  "pamola_core.transformations.schemas.impute_missing_values_op_ui_schema",
+  "pamola_core.transformations.schemas.merge_datasets_op_core_schema",
+  "pamola_core.transformations.schemas.merge_datasets_op_schema_exclude",
+  "pamola_core.transformations.schemas.merge_datasets_op_tooltip",
+  "pamola_core.transformations.schemas.merge_datasets_op_ui_schema",
+  "pamola_core.transformations.schemas.remove_fields_op_core_schema",
+  "pamola_core.transformations.schemas.remove_fields_op_schema_exclude",
+  "pamola_core.transformations.schemas.remove_fields_op_tooltip",
+  "pamola_core.transformations.schemas.remove_fields_op_ui_schema",
+  "pamola_core.transformations.schemas.split_by_id_values_op_core_schema",
+  "pamola_core.transformations.schemas.split_by_id_values_op_schema_exclude",
+  "pamola_core.transformations.schemas.split_by_id_values_op_tooltip",
+  "pamola_core.transformations.schemas.split_by_id_values_op_ui_schema",
+  "pamola_core.transformations.schemas.split_fields_op_core_schema",
+  "pamola_core.transformations.schemas.split_fields_op_schema_exclude",
+  "pamola_core.transformations.schemas.split_fields_op_tooltip",
+  "pamola_core.transformations.schemas.split_fields_op_ui_schema",
+  "pamola_core.transformations.splitting",
+  "pamola_core.transformations.splitting.split_by_id_values_op",
+  "pamola_core.transformations.splitting.split_fields_op",
+  "pamola_core.utils",
+  "pamola_core.utils.base_reporting",
+  "pamola_core.utils.cli",
+  "pamola_core.utils.crypto",
+  "pamola_core.utils.crypto_helpers",
+  "pamola_core.utils.crypto_helpers.audit",
+  "pamola_core.utils.crypto_helpers.key_store",
+  "pamola_core.utils.crypto_helpers.legacy_migration",
+  "pamola_core.utils.crypto_helpers.providers",
+  "pamola_core.utils.crypto_helpers.providers.age_provider",
+  "pamola_core.utils.crypto_helpers.providers.none_provider",
+  "pamola_core.utils.crypto_helpers.providers.simple_provider",
+  "pamola_core.utils.crypto_helpers.pseudonymization",
+  "pamola_core.utils.crypto_helpers.register_providers",
+  "pamola_core.utils.env",
+  "pamola_core.utils.group_processing",
+  "pamola_core.utils.helpers",
+  "pamola_core.utils.io",
+  "pamola_core.utils.io_helpers",
+  "pamola_core.utils.io_helpers.crypto_router",
+  "pamola_core.utils.io_helpers.crypto_utils",
+  "pamola_core.utils.io_helpers.csv_utils",
+  "pamola_core.utils.io_helpers.dask_utils",
+  "pamola_core.utils.io_helpers.directory_utils",
+  "pamola_core.utils.io_helpers.error_utils",
+  "pamola_core.utils.io_helpers.file_utils",
+  "pamola_core.utils.io_helpers.format_utils",
+  "pamola_core.utils.io_helpers.image_utils",
+  "pamola_core.utils.io_helpers.json_utils",
+  "pamola_core.utils.io_helpers.memory_utils",
+  "pamola_core.utils.io_helpers.multi_file_utils",
+  "pamola_core.utils.io_helpers.provider_interface",
+  "pamola_core.utils.io_helpers.readers",
+  "pamola_core.utils.io_helpers.temp_files",
+  "pamola_core.utils.logging",
+  "pamola_core.utils.nlp",
+  "pamola_core.utils.nlp.base",
+  "pamola_core.utils.nlp.cache",
+  "pamola_core.utils.nlp.category_matching",
+  "pamola_core.utils.nlp.clustering",
+  "pamola_core.utils.nlp.compatibility",
+  "pamola_core.utils.nlp.dataframe_utils",
+  "pamola_core.utils.nlp.diversity_metrics",
+  "pamola_core.utils.nlp.entity",
+  "pamola_core.utils.nlp.entity.base",
+  "pamola_core.utils.nlp.entity.dictionary",
+  "pamola_core.utils.nlp.entity.job",
+  "pamola_core.utils.nlp.entity.organization",
+  "pamola_core.utils.nlp.entity.skill",
+  "pamola_core.utils.nlp.entity.transaction",
+  "pamola_core.utils.nlp.entity_extraction",
+  "pamola_core.utils.nlp.language",
+  "pamola_core.utils.nlp.minhash",
+  "pamola_core.utils.nlp.model_manager",
+  "pamola_core.utils.nlp.stopwords",
+  "pamola_core.utils.nlp.text_utils",
+  "pamola_core.utils.nlp.tokenization",
+  "pamola_core.utils.nlp.tokenization_ext",
+  "pamola_core.utils.nlp.tokenization_helpers",
+  "pamola_core.utils.ops",
+  "pamola_core.utils.ops.op_base",
+  "pamola_core.utils.ops.op_cache",
+  "pamola_core.utils.ops.op_config",
+  "pamola_core.utils.ops.op_data_processing",
+  "pamola_core.utils.ops.op_data_reader",
+  "pamola_core.utils.ops.op_data_source",
+  "pamola_core.utils.ops.op_data_source_helpers",
+  "pamola_core.utils.ops.op_data_writer",
+  "pamola_core.utils.ops.op_field_utils",
+  "pamola_core.utils.ops.op_registry",
+  "pamola_core.utils.ops.op_result",
+  "pamola_core.utils.ops.schemas",
+  "pamola_core.utils.ops.schemas.base_op_core_schema",
+  "pamola_core.utils.ops.schemas.base_op_ui_schema",
+  "pamola_core.utils.ops.templates",
+  "pamola_core.utils.ops.templates.operation_skeleton",
+  "pamola_core.utils.optional_deps",
+  "pamola_core.utils.paths",
+  "pamola_core.utils.progress",
+  "pamola_core.utils.reporting",
+  "pamola_core.utils.reporting.config",
+  "pamola_core.utils.reporting.dependency_graph",
+  "pamola_core.utils.reporting.html_formatter",
+  "pamola_core.utils.reporting.template_engine",
+  "pamola_core.utils.schema_helpers",
+  "pamola_core.utils.schema_helpers.form_builder",
+  "pamola_core.utils.schema_helpers.schema_builder",
+  "pamola_core.utils.schema_helpers.schema_utils",
+  "pamola_core.utils.statistical_metrics",
+  "pamola_core.utils.tasks",
+  "pamola_core.utils.tasks.base_task",
+  "pamola_core.utils.tasks.context_manager",
+  "pamola_core.utils.tasks.dependency_manager",
+  "pamola_core.utils.tasks.directory_manager",
+  "pamola_core.utils.tasks.encryption_manager",
+  "pamola_core.utils.tasks.execution_log",
+  "pamola_core.utils.tasks.operation_executor",
+  "pamola_core.utils.tasks.path_security",
+  "pamola_core.utils.tasks.progress_manager",
+  "pamola_core.utils.tasks.project_config_loader",
+  "pamola_core.utils.tasks.task_config",
+  "pamola_core.utils.tasks.task_context",
+  "pamola_core.utils.tasks.task_registry",
+  "pamola_core.utils.tasks.task_reporting",
+  "pamola_core.utils.tasks.task_runner",
+  "pamola_core.utils.tasks.task_utils",
+  "pamola_core.utils.tasks.templates",
+  "pamola_core.utils.tasks.templates.complex_processing_task_template",
+  "pamola_core.utils.tasks.templates.parallel_task_template",
+  "pamola_core.utils.tasks.templates.secure_task_template",
+  "pamola_core.utils.tasks.templates.simple_task_template",
+  "pamola_core.utils.tasks.templates.task_template_generator",
+  "pamola_core.utils.tasks.templates.task_with_checkpoint",
+  "pamola_core.utils.vis_helpers",
+  "pamola_core.utils.vis_helpers.bar_plots",
+  "pamola_core.utils.vis_helpers.base",
+  "pamola_core.utils.vis_helpers.boxplot",
+  "pamola_core.utils.vis_helpers.combined_charts",
+  "pamola_core.utils.vis_helpers.context",
+  "pamola_core.utils.vis_helpers.cor_matrix",
+  "pamola_core.utils.vis_helpers.cor_pair",
+  "pamola_core.utils.vis_helpers.cor_utils",
+  "pamola_core.utils.vis_helpers.heatmap",
+  "pamola_core.utils.vis_helpers.histograms",
+  "pamola_core.utils.vis_helpers.line_plots",
+  "pamola_core.utils.vis_helpers.network_diagram",
+  "pamola_core.utils.vis_helpers.pie_charts",
+  "pamola_core.utils.vis_helpers.registry",
+  "pamola_core.utils.vis_helpers.scatter_plots",
+  "pamola_core.utils.vis_helpers.spider_charts",
+  "pamola_core.utils.vis_helpers.theme",
+  "pamola_core.utils.vis_helpers.venn_diagram",
+  "pamola_core.utils.vis_helpers.word_clouds",
+  "pamola_core.utils.visualization"
+ ],
+ "packages": [
+  "pamola_core.anonymization",
+  "pamola_core.profiling",
+  "pamola_core.transformations",
+  "pamola_core.metrics",
+  "pamola_core.fake_data",
+  "pamola_core.analysis",
+  "pamola_core.io",
+  "pamola_core.utils",
+  "pamola_core.errors",
+  "pamola_core.cli",
+  "pamola_core.privacy_models",
+  "pamola_core.attacks"
+ ]
+}

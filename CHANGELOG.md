@@ -37,6 +37,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Public API snapshot and guard (QA-03).** `tools/audit/api_snapshot/generate_snapshot.py` records every name exported in `__all__` by `pamola_core` and its public packages (kind, module, qualname, normalised signature) and the importable public modules; `tests/test_api_snapshot.py` fails with a readable diff when the public surface changes without `tools/audit/api_snapshot/api_snapshot.json` being regenerated. Baseline `snapshots/develop_9623aee.json` and the integrated tree `snapshots/final_tree_without_cvpl.json` are committed; replace `api_snapshot.json` with a snapshot of the assembled tree before the release.
 - **`tests/conftest.py`** — an autouse fixture that clears ambient `PAMOLA_*`
   environment variables, making the suite hermetic. Previously a developer
   machine with `PAMOLA_PROJECT_ROOT` set failed five tests in
@@ -48,6 +49,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **Public API changes of the 1.0 stabilization (review of the snapshot diff, QA-03).** Against develop@9623aee, in the integrated tree: **added** `DuplicateColumnError` and `OutputFieldExistsError` (`pamola_core.errors.exceptions`); **changed signatures** `BaseOperation` (new `overwrite_existing_output=False`, `generate_visualization` default `False`), `DataAttributeProfilerOperation` (new `include_raw_samples_in_metrics=False`), `analyze_dataset_attributes` (new `random_state=0`); **removed** the formal-DP, singling-out / SUDA attack helpers (`pamola_core.attacks.SinglingOutAttack`, `RecordRisk`, `dis_risk`, `minimal_sample_uniques`, `singling_out_sweep`, `enumerate_subset_count`, `independent_marginals_baseline`), `privacy_models.RiskInterpreter` and the modules `privacy_models.differential_privacy*`, `privacy_models.l_diversity.report_*`, `profiling.analyzers.email_dask` and `longtext`. The full list is in the PR description (`api_diff.md`); `CVPLLinkageOperation` appears with the CVPL branch.
 - **BREAKING: an existing ENRICH output column is no longer overwritten
   silently** (DATA-04, SRS 6.8). In ENRICH mode every operation used to log a
   WARNING and overwrite a column that already existed. It now fails with the new
