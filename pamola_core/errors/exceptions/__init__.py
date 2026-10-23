@@ -76,6 +76,7 @@ __all__ = [
     "FieldTypeError",
     "FieldValueError",
     "ColumnNotFoundError",
+    "DuplicateColumnError",
     "InvalidParameterError",
     "MissingParameterError",
     "TypeValidationError",
@@ -173,6 +174,7 @@ from pamola_core.errors.exceptions.validation import FieldNotFoundError
 from pamola_core.errors.exceptions.validation import FieldTypeError
 from pamola_core.errors.exceptions.validation import FieldValueError
 from pamola_core.errors.exceptions.validation import ColumnNotFoundError
+from pamola_core.errors.exceptions.validation import DuplicateColumnError
 from pamola_core.errors.exceptions.validation import InvalidParameterError
 from pamola_core.errors.exceptions.validation import MissingParameterError
 from pamola_core.errors.exceptions.validation import TypeValidationError

@@ -72,6 +72,7 @@ from pamola_core.errors.exceptions import (
     DependencyMissingError,
     DataError,
     DataWriteError,
+    DuplicateColumnError,
     FileValidationError,
     InvalidParameterError,
     PamolaFileNotFoundError,
@@ -2388,6 +2389,22 @@ def load_settings_operation(data_source, data_source_name, **kwargs) -> Dict[str
     }
 
 
+def _require_unique_columns(df: Any, dataset_name: Optional[str] = None) -> None:
+    """Raise ``DuplicateColumnError`` if ``df`` has repeated column names.
+
+    The one framework-level check: every operation loads its input through
+    ``load_data_operation``, so an ambiguous frame is rejected here with the
+    offending names instead of failing later with a pandas error.
+    """
+    columns = getattr(df, "columns", None)
+    if columns is None or columns.is_unique:
+        return
+    raise DuplicateColumnError(
+        duplicated_columns=list(columns[columns.duplicated()].unique()),
+        dataset_name=dataset_name,
+    )
+
+
 def load_data_operation(
     data_source: Any, dataset_name: str = "main", **kwargs
 ) -> pd.DataFrame:
@@ -2412,8 +2429,10 @@ def load_data_operation(
                 param_value=error_info.get("message", "Unknown error"),
                 reason=f"Failed to load input data: {error_info.get('message', 'Unknown error')}",
             )
+        _require_unique_columns(df, dataset_name)
         return df
     elif isinstance(data_source, pd.DataFrame):
+        _require_unique_columns(data_source, dataset_name)
         return data_source
     elif isinstance(data_source, str) or isinstance(data_source, Path):
         # Load from file path

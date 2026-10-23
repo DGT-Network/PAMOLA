@@ -71,6 +71,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Duplicate column names raise a typed, actionable error** (DATA-03). Every
+  tested operation failed on a frame with a repeated column name with an
+  unrelated pandas message (`'DataFrame' object has no attribute 'dtype'`,
+  "truth value of a DataFrame is ambiguous"). `load_data_operation` - the loader
+  every operation uses - now raises the new `DuplicateColumnError` (a
+  `ValidationError`) naming the repeated columns and saying to rename or drop
+  them. Frames with unique names are unaffected.
 - **Three plotting modules now go through `require_optional()`** (VIZ-04):
   `privacy_models/k_anonymity/ka_visualization.py` and
   `privacy_models/l_diversity/{visualization,advanced_visualization}.py` imported
