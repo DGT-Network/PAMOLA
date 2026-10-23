@@ -8,10 +8,10 @@ requires-python = ">=3.10,<3.13"
 # splits the credit across both fields and reads as if the email-less party were
 # the sole author. Keep every entry here in the name+email form.
 authors = [
-  { name = "REALM Inveo Inc.", email = "info@realminveo.com" },
+  { name = "REALM Inveo Inc.", email = "info@realmdata.ai" },
 ]
 maintainers = [
-  { name = "REALM Inveo Inc.", email = "info@realminveo.com" }
+  { name = "REALM Inveo Inc.", email = "info@realmdata.ai" }
 ]
 
 description = "Pamola Core library for data anonymization, privacy models, metrics, and utilities"
@@ -48,7 +48,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-urls.Homepage = "https://realmdata.io"
+urls.Homepage = "https://realmdata.ai"
 urls.Repository = "https://github.com/realmdata-ai/PAMOLA"
 urls.Changelog = "https://github.com/realmdata-ai/PAMOLA/blob/main/CHANGELOG.md"
 urls."Bug Tracker" = "https://github.com/realmdata-ai/PAMOLA/issues"
