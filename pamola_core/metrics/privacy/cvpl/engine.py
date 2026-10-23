@@ -683,8 +683,12 @@ def _precision(rec, scan: RungScan, mask: Optional[np.ndarray]) -> Dict[str, Any
     den_hi = n_l + n_ul
     lower = num_lo / den_hi if den_hi else None
     upper = min(1.0, num_hi / n_l) if n_l else (1.0 if n_ul else None)
+    # With no known declared link the precision is undefined in the completions where every
+    # unknown candidate is rejected; the lower bound is still 0 (never a bound taken only over
+    # the completions in which it is defined), the upper bound is 1.
     return {"point": None, "lower": lower, "upper": upper, "n_uncertain": top_unc + n_ul,
-            "denominator": n_l, "denominator_upper": den_hi}
+            "denominator": n_l, "denominator_upper": den_hi,
+            "possibly_undefined": bool(n_l == 0 and n_ul > 0)}
 
 
 def _gt_stats(rec, scan: RungScan, mask: Optional[np.ndarray]) -> Dict[str, Any]:
@@ -703,6 +707,8 @@ def _pop_status(pop: Optional[Dict[str, Any]], **extra) -> Tuple[Optional[float]
                                       n_uncertain=0, **extra)
     if pop["n_uncertain"] == 0:  # defined by an empty set of declared links
         return None, _status(None, "not_measured", "no_declared_links", denominator=0, **extra)
+    if pop.get("possibly_undefined"):
+        extra["possibly_undefined"] = True
     return None, _status(
         None, "bounded", "undefined_cosine_candidates", denominator=pop["denominator"],
         lower=pop["lower"], upper=pop["upper"], n_uncertain=pop["n_uncertain"], **extra)
@@ -733,10 +739,16 @@ def _max_pop(
     win = max(range(len(live)), key=lambda i: (live[i][4], -i))
     winner = (live[win][0], live[win][1])
     den = live[win][2]["denominator"]
+    # undefined in some completion only if EVERY candidate with a declared link is
+    # (a candidate with a known declared link is defined in every completion)
+    undefined = all(x[2].get("possibly_undefined", False) for x in live)
     if upper <= lower:  # the largest lower bound reaches the largest upper bound: certain
         return {"point": upper, "lower": lower, "upper": upper, "n_uncertain": 0, "denominator": den}, winner
     n_unc = int(max(x[2]["n_uncertain"] for x in live))
-    return {"point": None, "lower": lower, "upper": upper, "n_uncertain": n_unc, "denominator": den}, winner
+    out = {"point": None, "lower": lower, "upper": upper, "n_uncertain": n_unc, "denominator": den}
+    if undefined:
+        out["possibly_undefined"] = True
+    return out, winner
 
 
 def _headline(sub: Optional[Dict[str, Any]], rows: Optional[Dict[str, Any]]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:

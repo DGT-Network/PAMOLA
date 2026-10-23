@@ -393,6 +393,10 @@ unchanged public values (descriptions reworded).
     `blocking_ladder_trajectory[]` and `identification_by_rung`. Documentation no longer calls the
     numbers worst-case or optimal-attacker values: they are the upper value over the declared
     profiles and fixed strategies; monotonicity is claimed only for the existential `cvpl_lr`.
+  - *R2-9:* `precision_at_tau_status.possibly_undefined: true` when no record declares a known link (the
+    precision is undefined in the completions that reject every unknown candidate); the lower bound stays
+    `0`. An independent per-rung oracle (exact enumeration of all completions) is vendored as a seeded
+    property test.
   - *R2-7:* the exact-fallback equivalence classes are built from one code per feature column (memory
     proportional to the records, not to the encoded width, exact equality) and only after the
     comparison budget has been checked.

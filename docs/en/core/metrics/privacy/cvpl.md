@@ -132,7 +132,10 @@ others. Each measure is bracketed over all of those possibilities, per record:
   an unknown candidate can alter a tie that contains the correct subject the upper bound is the
   deliberately loose `1`;
 * `precision_at_tau`: conservative bounds over which unknown records declare a link, built on
-  the corrected top-1 bounds.
+  the corrected top-1 bounds. It can be **undefined** in some completions (no record declares a link): then its
+  status carries `possibly_undefined: true`. The lower bound is still `0` (a rung with no known
+  declared link never gets a lower bound taken only over the completions where it is defined). The
+  headline is possibly undefined only if every rung is; one known declared link anywhere defines it.
 
 Whether a record is *uncertain* is decided by counting candidates (is there an unknown
 candidate that can change this record's value), never by comparing floating-point numbers, so
