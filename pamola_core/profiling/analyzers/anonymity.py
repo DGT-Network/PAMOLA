@@ -1008,29 +1008,44 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         Calculate k-values using chunked processing.
         """
-        # First pass: count groups
-        group_counts = {}
+        # First pass: count groups. The same key representation (the group
+        # index produced by groupby, scalar for one field and tuple for
+        # several, with missing values as their own group) is used in both
+        # passes, so a lookup can never miss because of a representation
+        # difference.
+        group_counts = None
+
+        if len(df) == 0:
+            return pd.Series([], index=df.index, dtype="int64")
 
         for chunk in get_dataframe_chunks(df, self.chunk_size):
             chunk_counts = chunk.groupby(fields, dropna=False).size()
-            for group, count in chunk_counts.items():
-                group_counts[group] = group_counts.get(group, 0) + count
+            if group_counts is None:
+                group_counts = chunk_counts
+            else:
+                group_counts = group_counts.add(chunk_counts, fill_value=0)
 
-        # Second pass: assign k-values
-        k_values = pd.Series(index=df.index, dtype="int64")
+        group_counts = group_counts.astype("int64")
 
-        for i, chunk in enumerate(get_dataframe_chunks(df, self.chunk_size)):
-            start_idx = i * self.chunk_size
-            end_idx = min((i + 1) * self.chunk_size, len(df))
+        # Second pass: assign k-values by looking each row's key up in the
+        # global counts.
+        parts = []
+        for chunk in get_dataframe_chunks(df, self.chunk_size):
+            # Keys come from the same groupby as in the first pass (so missing
+            # values are normalized identically); rows map to their group by
+            # position, never by label.
+            grouped = chunk.groupby(fields, dropna=False)
+            per_group = group_counts.reindex(grouped.size().index).to_numpy()
+            row_group = grouped.ngroup().to_numpy()
+            parts.append(pd.Series(per_group[row_group], index=chunk.index))
 
-            # Get group keys for this chunk
-            chunk_groups = chunk[fields].apply(tuple, axis=1)
+        k_values = pd.concat(parts)
 
-            # Map to k-values
-            chunk_k = chunk_groups.map(group_counts)
-            k_values.iloc[start_idx:end_idx] = chunk_k
-
-        return k_values
+        if k_values.isna().any():
+            raise ValueError(
+                "k-value assignment failed: some records did not match any group"
+            )
+        return k_values.astype("int64")
 
     def _calculate_k_distribution(self, k_values: np.ndarray) -> Dict[str, float]:
         """
