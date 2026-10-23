@@ -51,6 +51,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `collect_operation_metrics(..., include_raw_samples=False)` gain the
     matching keyword.
   - Consumers that read `field_info.*.top_values` must pass the option.
+- **`pyarrow` 14.0.2 -> 23.0.1 (SEC-06).** 14.0.2 is affected by CVE-2024-52338
+  (deserialization of untrusted data; fixed in 17.0.0), reachable through the
+  public `pamola_core.io.parquet.read_parquet`, and 15.0.0 - 23.0.0 by
+  CVE-2026-25087 (use-after-free reading IPC files). `pip-audit` reports
+  PYSEC-2024-161 for the old pin and nothing for the new one. Validated with
+  pandas 2.2.2 / numpy 1.26.4 / dask 2025.11.0 (`pip check` clean, Parquet
+  read/write and Dask Parquet round trip on Python 3.10, 3.11 and 3.12).
+  `tests/test_dependency_security_floor.py` keeps the pin from sliding back.
+  Note: `requirements.txt` still lists the old pin; it is unused by CI and
+  stale (see DEP-02).
 - New recursive canary regression test
   (`tests/anonymization/test_artifact_canaries.py`) runs masking and both
   pseudonymization families and greps every non-data artifact, log record and

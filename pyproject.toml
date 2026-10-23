@@ -63,9 +63,11 @@ urls."Bug Tracker" = "https://github.com/DGT-Network/PAMOLA/issues"
 # written to work when torch is absent) — it was never imported, while costing
 # every installation ~2.5 GB. `tensorflow` and `transformers` are probed the
 # same way and were already, correctly, absent from this list.
+# `pydantic[email]` was removed afterwards for the same reason (DEP-01): zero
+# imports of pydantic or email_validator in pamola_core or tests. pydantic
+# itself still arrives transitively through spaCy.
 dependencies = [
     "python-decouple==3.8",
-    "pydantic[email]==2.12.4",
     "pandas==2.2.2",
     "scikit-learn==1.7.2",
     "faker==33.3.1",
@@ -78,7 +80,11 @@ dependencies = [
     "datasketch==1.7.0",
     "nltk==3.9.2",
     "dask[complete]==2025.11.0",
-    "pyarrow==14.0.2",
+    # >=23.0.1 clears CVE-2024-52338 (deserialization of untrusted IPC/Parquet
+    # input, fixed in 17.0.0) and CVE-2026-25087 (use-after-free reading IPC
+    # files, affects 15.0.0 up to 23.0.0). Wheels exist for cp310-cp312 on
+    # Linux, macOS and Windows; validated against pandas 2.2.2 / numpy 1.26.4.
+    "pyarrow==23.0.1",
     "numpy==1.26.4",
     "psutil==5.9.8",
     "ijson==3.4.0.post0",
