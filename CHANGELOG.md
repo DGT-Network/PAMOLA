@@ -84,6 +84,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Output-encryption keys no longer reach the cache metadata** (CDX-AC-8).
+  `_get_base_parameters()` carried the raw `encryption_key`, and every cache
+  writer stored those parameters in an unencrypted JSON file. The key now
+  influences the cache identity only through `encryption_key_id`, a truncated
+  BLAKE2b digest. Persisted parameters are redacted centrally
+  (`redact_sensitive_parameters`, applied in `build_base_cache` and again in
+  `OperationCache.save_cache`) for secret-named keys (`*_key`, `password`,
+  `token`, `secret`, `salt`, `pepper`...), and `_log_operation_start` uses the same
+  rule plus the config's declared `SENSITIVE_KEYS`. Existing cache entries are not
+  reused. Any entry written by an earlier version may hold a key in plaintext:
+  delete old `cache/` directories.
 - **The cache fingerprint now covers all of the data** (CDX-AC-6).
   `generate_data_hash` hashed 5,000 sampled rows plus column sums and fell back to
   "type + length" on any error, so changing unsampled rows or reversing index

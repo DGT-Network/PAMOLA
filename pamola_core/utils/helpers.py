@@ -228,6 +228,60 @@ def generate_data_hash(
     return hasher.hexdigest()
 
 
+#: Parameter names whose values are secrets and must never be persisted or logged.
+_SENSITIVE_NAMES = frozenset(
+    {
+        "encryption_key", "password", "token", "secret", "api_key", "salt",
+        "pepper", "passphrase", "private_key", "key",
+    }
+)
+_SENSITIVE_SUFFIXES = (
+    "_key", "_password", "_secret", "_token", "_passphrase", "_salt", "_pepper",
+)
+_REDACTED = "*REDACTED*"
+
+
+def is_sensitive_parameter(name: Any) -> bool:
+    """True if a parameter called ``name`` carries a secret."""
+    lowered = str(name).lower()
+    return lowered in _SENSITIVE_NAMES or lowered.endswith(_SENSITIVE_SUFFIXES)
+
+
+def redact_sensitive_parameters(value: Any, extra_keys: Any = ()) -> Any:
+    """Copy of ``value`` with the values of secret-named keys replaced.
+
+    Applied before any parameters are serialized (cache metadata, logs). Works
+    recursively through dicts, lists and tuples; ``extra_keys`` adds names an
+    operation's config declares as sensitive (``OperationConfig.SENSITIVE_KEYS``).
+    """
+    extra = set(extra_keys)
+    if isinstance(value, dict):
+        return {
+            k: (
+                _REDACTED
+                if (k in extra or is_sensitive_parameter(k)) and v is not None
+                else redact_sensitive_parameters(v, extra)
+            )
+            for k, v in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [redact_sensitive_parameters(v, extra) for v in value]
+    return value
+
+
+def secret_identity(secret: Any) -> Optional[str]:
+    """Non-secret stand-in for a secret that must still influence a cache key.
+
+    A truncated BLAKE2b digest: stable for the same secret, different for another,
+    and not the secret. ``None`` stays ``None``.
+    """
+    if secret is None:
+        return None
+    return hashlib.blake2b(
+        str(secret).encode("utf-8"), digest_size=16, person=b"pamola-cache"
+    ).hexdigest()
+
+
 def build_base_cache(
     parameters: Dict[str, str], result: OperationResult
 ) -> Dict[str, Any]:
@@ -246,7 +300,7 @@ def build_base_cache(
 
     return {
         "timestamp": datetime.now().isoformat(),
-        "parameters": parameters,
+        "parameters": redact_sensitive_parameters(parameters),
         "status": (
             result.status.name
             if isinstance(result.status, OperationStatus)

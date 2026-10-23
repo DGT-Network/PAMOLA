@@ -229,6 +229,13 @@ class OperationCache:
             self._check_cache_size()
 
             try:
+                # Last line of defence: whatever the caller built, secrets in the
+                # stored parameters are redacted (the cache writer is unencrypted).
+                if isinstance(data, dict) and "parameters" in data:
+                    from pamola_core.utils.helpers import redact_sensitive_parameters
+
+                    data = {**data, "parameters": redact_sensitive_parameters(data["parameters"])}
+
                 # Prepare cache data with metadata
                 cache_data = {
                     'key': cache_key,

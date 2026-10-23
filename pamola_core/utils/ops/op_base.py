@@ -29,7 +29,11 @@ import pandas as pd
 import dask.dataframe as dd
 
 from pamola_core.common.type_aliases import DataFrameType
-from pamola_core.utils.helpers import generate_data_hash
+from pamola_core.utils.helpers import (
+    generate_data_hash,
+    is_sensitive_parameter,
+    secret_identity,
+)
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register_operation
@@ -617,12 +621,11 @@ class BaseOperation(ABC):
         """
         self.logger.info(f"Starting operation: {self.name}")
 
-        # List of sensitive parameters that should not be logged
-        sensitive_params = ["encryption_key", "password", "token", "secret", "api_key"]
-
-        # Log parameters, skipping sensitive ones
+        # Log parameters, skipping sensitive ones (the config's declared
+        # SENSITIVE_KEYS as well as secret-looking names)
+        declared = getattr(self.config, "SENSITIVE_KEYS", frozenset())
         for key, value in kwargs.items():
-            if key in sensitive_params:
+            if key in declared or is_sensitive_parameter(key):
                 self.logger.debug(f"Parameter {key}: [REDACTED]")
             else:
                 # Truncate long values for readability
@@ -972,7 +975,8 @@ class BaseOperation(ABC):
             # Security & encryption
             "use_encryption": self.use_encryption,
             "encryption_mode": self.encryption_mode,
-            "encryption_key": self.encryption_key,
+            # Identity only: the key itself must never reach the cache metadata.
+            "encryption_key_id": secret_identity(self.encryption_key),
             # Runtime control
             "force_recalculation": self.force_recalculation,
             "generate_visualization": self.generate_visualization,
