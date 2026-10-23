@@ -21,6 +21,7 @@ releases of one source are measured in the same space.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
@@ -29,10 +30,13 @@ import pandas as pd
 
 from pamola_core.errors.exceptions import InvalidParameterError, ResourceError
 
-from .config import CVPLConfig
+from .config import ALGORITHM_VERSION, CVPLConfig
 
-MISSING_LABEL = "__missing__"
-OTHER_LABEL = "__other__"
+#: Internal category tags. Every user value is encoded as ``"v:" + text``; the missing-value
+#: and overflow buckets are ``"m:"`` and ``"o:"``, which no user value can equal.
+VALUE_PREFIX = "v:"
+MISSING_LABEL = "m:"
+OTHER_LABEL = "o:"
 _MAX_FEATURES = 5000
 
 #: ``name -> (kind, values)``; kind is ``numeric`` (float array, NaN = unknown) or
@@ -41,16 +45,21 @@ FeatureColumns = Dict[str, Tuple[str, np.ndarray]]
 
 
 def numeric_values(series: pd.Series) -> np.ndarray:
-    """Float values of a column; anything that is not a number becomes NaN."""
+    """Float values of a column; anything that is not a finite number becomes NaN (imputed)."""
     if pd.api.types.is_numeric_dtype(series) and not pd.api.types.is_bool_dtype(series):
-        return series.to_numpy(dtype=float, na_value=np.nan)
-    return pd.to_numeric(series, errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+        values = series.to_numpy(dtype=float, na_value=np.nan)
+    else:
+        values = pd.to_numeric(series, errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+    return np.where(np.isfinite(values), values, np.nan)
 
 
 def categorical_values(series: pd.Series) -> np.ndarray:
+    """Tagged category labels: a user value can never equal the missing/other bucket."""
     null = series.isna().to_numpy()
-    text = series.astype(object).where(~null, MISSING_LABEL).astype(str).to_numpy(dtype=object)
-    return text
+    text = series.astype(object).where(~null, "").astype(str)
+    tagged = (VALUE_PREFIX + text).to_numpy(dtype=object)
+    tagged[null] = MISSING_LABEL
+    return tagged
 
 
 @dataclass
@@ -81,6 +90,22 @@ class CVPLProjection:
     components: np.ndarray  # (F, k)
     info: ProjectionInfo
     _cat_index: Dict[str, Dict[str, int]] = field(default_factory=dict, repr=False)
+
+    def fingerprint(self) -> str:
+        """Digest of the whole fitted representation (encoding, scaling, centering and
+        components), so that two different fits can never share a cache identity."""
+        h = hashlib.sha256()
+        h.update(ALGORITHM_VERSION.encode())
+        for name in sorted(self.kinds):
+            h.update(f"|{name}|{self.kinds[name]}|".encode())
+            if self.kinds[name] == "numeric":
+                h.update(np.float64(self.num_mean[name]).tobytes())
+                h.update(np.float64(self.num_scale[name]).tobytes())
+            else:
+                h.update("".join(self.categories[name]).encode("utf-8", "surrogatepass"))
+        h.update(np.ascontiguousarray(self.pca_mean, dtype=np.float64).tobytes())
+        h.update(np.ascontiguousarray(self.components, dtype=np.float64).tobytes())
+        return h.hexdigest()
 
     # -- phi -------------------------------------------------------------------
     def _phi(self, cols: FeatureColumns, start: int, stop: int) -> np.ndarray:

@@ -38,9 +38,13 @@ from pamola_core.errors.exceptions import InvalidParameterError, ResourceError
 
 from .config import CVPLConfig, QIDSpec
 
-STATE_VALUE, STATE_NULL, STATE_WILD = 0, 1, 2
+STATE_VALUE, STATE_NULL, STATE_WILD, STATE_BAD = 0, 1, 2, 3
 _NULL_KEY = np.iinfo(np.int64).min + 1
 _MAX_HIERARCHY_DOMAIN = 8000
+#: integers beyond this are not exactly representable as float64
+_EXACT_LIMIT = 2**53
+#: cells of a streamed group-compatibility tile
+_TILE_CELLS = 4_000_000
 
 _NUM = r"[-+]?\d+(?:\.\d+)?"
 _INTERVAL_RE = re.compile(
@@ -49,6 +53,7 @@ _INTERVAL_RE = re.compile(
     re.IGNORECASE,
 )
 _OPEN_ENDED_RE = re.compile(rf"^\s*[\[\(]?\s*(?P<lo>{_NUM})\s*\+\s*[\]\)]?\s*$")
+_INT_RE = re.compile(r"^[-+]?\d+$")
 
 
 #: limitation code -> (what is wrong, how to fix it); shown in the result, names only
@@ -58,6 +63,12 @@ LIMITATION_HELP = {
         "and no hierarchy was declared",
         "declare qids[].hierarchy ({child: parent}), or set qids[].generalized=False if this QID is "
         "exact-only and new labels simply mean different people",
+    ),
+    "generalized_values_not_in_hierarchy": (
+        "the release holds values outside the source's domain that the declared hierarchy does not "
+        "mention (a hierarchy that does not cover them gives no interpretation of those values)",
+        "extend qids[].hierarchy to cover every generalized value in the release, or set "
+        "qids[].generalized=False if this QID is exact-only and new labels simply mean different people",
     ),
     "release_values_not_numeric_or_interval": (
         "the release holds values that are neither numbers, intervals nor the wildcard",
@@ -87,7 +98,8 @@ class QIDEncoding:
     code_s: Optional[np.ndarray] = None
     code_r: Optional[np.ndarray] = None
     related: Optional[np.ndarray] = None  # K x K bool, or None for plain equality
-    # numeric (closed/open interval per row)
+    # numeric (closed/open interval per row). ``lo2``/``hi2`` are exact remainders for
+    # integers beyond 2**53 (all zero otherwise): a value is the pair (float, remainder).
     lo_s: Optional[np.ndarray] = None
     hi_s: Optional[np.ndarray] = None
     loi_s: Optional[np.ndarray] = None
@@ -96,8 +108,13 @@ class QIDEncoding:
     hi_r: Optional[np.ndarray] = None
     loi_r: Optional[np.ndarray] = None
     hii_r: Optional[np.ndarray] = None
+    lo2_s: Optional[np.ndarray] = None
+    hi2_s: Optional[np.ndarray] = None
+    lo2_r: Optional[np.ndarray] = None
+    hi2_r: Optional[np.ndarray] = None
+    exact: bool = False
     has_interval: bool = False
-    #: numeric midpoint per side, for the feature representation (NaN where unknown)
+    #: finite numeric representative per side for the feature representation (NaN where unknown)
     mid_s: Optional[np.ndarray] = None
     mid_r: Optional[np.ndarray] = None
 
@@ -123,73 +140,143 @@ def resolve_kind(spec: QIDSpec, source: pd.Series) -> str:
     return "numeric" if _is_numeric_series(source) else "categorical"
 
 
+def _split_exact(values: Sequence[int]) -> Tuple[np.ndarray, np.ndarray]:
+    """Integers -> (float64 value, exact float64 remainder); ``int(v) == int(hi) + rem``."""
+    hi = np.array([float(v) for v in values], dtype=float)
+    rem = np.array([float(int(v) - int(h)) for v, h in zip(values, hi.tolist())], dtype=float)
+    return hi, rem
+
+
+def _finite_mid(lo: np.ndarray, hi: np.ndarray, state: np.ndarray) -> np.ndarray:
+    """A finite representative for the feature space: the midpoint of a closed interval, the
+    finite bound of an open-ended one (``60+`` -> 60), NaN (imputed) when nothing is finite."""
+    both = np.isfinite(lo) & np.isfinite(hi)
+    mid = np.where(both, lo / 2.0 + hi / 2.0, np.where(np.isfinite(lo), lo, np.where(np.isfinite(hi), hi, np.nan)))
+    return np.where(state == STATE_VALUE, mid, np.nan)
+
+
 def _parse_numeric_object(value, wildcard_tokens):
-    """-> (state, lo, hi, lo_incl, hi_incl, kind) with kind in value/interval/bad."""
+    """-> (state, lo, hi, lo_incl, hi_incl, kind, lo2, hi2); kind in value/interval/bad."""
+    nan = np.nan
     if value is None or (isinstance(value, float) and np.isnan(value)) or value is pd.NA or value is pd.NaT:
-        return STATE_NULL, np.nan, np.nan, True, True, "value"
+        return STATE_NULL, nan, nan, True, True, "value", 0.0, 0.0
     if isinstance(value, pd.Interval):
-        return (STATE_VALUE, float(value.left), float(value.right),
-                value.closed in ("left", "both"), value.closed in ("right", "both"), "interval")
+        lo, hi = float(value.left), float(value.right)
+        if np.isnan(lo) or np.isnan(hi):
+            return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
+        return (STATE_VALUE, lo, hi, value.closed in ("left", "both"), value.closed in ("right", "both"),
+                "interval", 0.0, 0.0)
     if isinstance(value, (bool, np.bool_)):
-        return STATE_VALUE, np.nan, np.nan, True, True, "bad"
-    if isinstance(value, (int, float, np.integer, np.floating)):
+        return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
+    if isinstance(value, (int, np.integer)):
+        iv = int(value)
+        if abs(iv) > _EXACT_LIMIT:
+            hi_, rem = _split_exact([iv])
+            return STATE_VALUE, float(hi_[0]), float(hi_[0]), True, True, "value", float(rem[0]), float(rem[0])
+        v = float(iv)
+        return STATE_VALUE, v, v, True, True, "value", 0.0, 0.0
+    if isinstance(value, (float, np.floating)):
         v = float(value)
-        return STATE_VALUE, v, v, True, True, "value"
+        if not np.isfinite(v):
+            return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
+        v += 0.0  # canonical zero
+        return STATE_VALUE, v, v, True, True, "value", 0.0, 0.0
     text = str(value).strip()
     if text in wildcard_tokens:
-        return STATE_WILD, np.nan, np.nan, True, True, "value"
+        return STATE_WILD, nan, nan, True, True, "value", 0.0, 0.0
+    if _INT_RE.match(text):
+        iv = int(text)
+        if abs(iv) > _EXACT_LIMIT:
+            hi_, rem = _split_exact([iv])
+            return STATE_VALUE, float(hi_[0]), float(hi_[0]), True, True, "value", float(rem[0]), float(rem[0])
     try:
         v = float(text)
-        return STATE_VALUE, v, v, True, True, "value"
+        if not np.isfinite(v):
+            return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
+        v += 0.0
+        return STATE_VALUE, v, v, True, True, "value", 0.0, 0.0
     except ValueError:
         pass
     m = _OPEN_ENDED_RE.match(text)
     if m:
-        return STATE_VALUE, float(m.group("lo")), np.inf, True, False, "interval"
+        return STATE_VALUE, float(m.group("lo")) + 0.0, np.inf, True, False, "interval", 0.0, 0.0
     m = _INTERVAL_RE.match(text)
     if m:
-        lo, hi = float(m.group("lo")), float(m.group("hi"))
+        lo, hi = float(m.group("lo")) + 0.0, float(m.group("hi")) + 0.0
         if lo <= hi:
-            return (STATE_VALUE, lo, hi, m.group("lb") != "(", m.group("rb") != ")", "interval")
-    return STATE_VALUE, np.nan, np.nan, True, True, "bad"
+            return (STATE_VALUE, lo, hi, m.group("lb") != "(", m.group("rb") != ")", "interval", 0.0, 0.0)
+    return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
 
 
 def _numeric_arrays(series: pd.Series, wildcard_tokens, bin_width):
-    """Parse one numeric side. Returns state, lo, hi, loi, hii, n_interval, n_bad."""
+    """Parse one numeric side. Returns state, lo, hi, loi, hii, lo2, hi2, n_interval, n_bad, mid.
+
+    Three different things never merge: a *missing* value (state NULL), a *wildcard* (state
+    WILD) and an *invalid* value that cannot be read as a number or interval (state BAD, which
+    is compatible with nothing, not even another invalid value or a missing one).
+    """
     n = len(series)
+    lo2 = np.zeros(n)
+    hi2 = np.zeros(n)
     if isinstance(series.dtype, pd.IntervalDtype):
         closed = series.array.closed
         lo = series.array.left.to_numpy(dtype=float)
         hi = series.array.right.to_numpy(dtype=float)
-        state = np.where(series.isna().to_numpy(), STATE_NULL, STATE_VALUE).astype(np.int8)
+        null = series.isna().to_numpy()
+        bad = ~null & (np.isnan(lo) | np.isnan(hi))
+        state = np.where(null, STATE_NULL, np.where(bad, STATE_BAD, STATE_VALUE)).astype(np.int8)
+        lo = lo + 0.0
+        hi = hi + 0.0
         loi = np.full(n, closed in ("left", "both"))
         hii = np.full(n, closed in ("right", "both"))
-        mid = np.where(state == STATE_VALUE, (lo + hi) / 2.0, np.nan)
-        return state, lo, hi, loi, hii, int((state == STATE_VALUE).sum()), 0, mid
-    if _is_numeric_series(series):
-        vals = series.to_numpy(dtype=float, na_value=np.nan)
-        state = np.where(np.isnan(vals), STATE_NULL, STATE_VALUE).astype(np.int8)
-        lo, hi = vals.copy(), vals.copy()
+        n_int = int((state == STATE_VALUE).sum())
+        n_bad = int(bad.sum())
+    elif _is_numeric_series(series):
+        null = series.isna().to_numpy()
+        if pd.api.types.is_integer_dtype(series):
+            lo = np.full(n, np.nan)
+            present = ~null
+            ints = series[present].to_numpy()
+            if ints.size and (int(ints.max()) > _EXACT_LIMIT or int(ints.min()) < -_EXACT_LIMIT):
+                hi_vals, rem = _split_exact(ints.tolist())
+                lo[present] = hi_vals
+                lo2[present] = rem
+            else:
+                lo[present] = ints.astype(float)
+            bad = np.zeros(n, dtype=bool)
+        else:
+            lo = series.to_numpy(dtype=float, na_value=np.nan)
+            bad = ~null & ~np.isfinite(lo)
+        state = np.where(null, STATE_NULL, np.where(bad, STATE_BAD, STATE_VALUE)).astype(np.int8)
+        lo = np.where(state == STATE_VALUE, lo, np.nan) + 0.0
+        hi = lo.copy()
+        hi2 = lo2.copy()
         loi, hii = np.ones(n, dtype=bool), np.ones(n, dtype=bool)
-        n_int = n_bad = 0
+        n_int = 0
+        n_bad = int(bad.sum())
     else:
         codes, uniques = pd.factorize(series.astype(object), use_na_sentinel=True)
         parsed = [_parse_numeric_object(u, wildcard_tokens) for u in uniques]
-        st = np.array([p[0] for p in parsed] + [STATE_NULL], dtype=np.int8)
-        plo = np.array([p[1] for p in parsed] + [np.nan])
-        phi = np.array([p[2] for p in parsed] + [np.nan])
-        pli = np.array([p[3] for p in parsed] + [True])
-        phi_i = np.array([p[4] for p in parsed] + [True])
-        pk = np.array([p[5] for p in parsed] + ["value"], dtype=object)
+        nan_row = (STATE_NULL, np.nan, np.nan, True, True, "value", 0.0, 0.0)
+        parsed = parsed + [nan_row]
+        st = np.array([p[0] for p in parsed], dtype=np.int8)
+        plo = np.array([p[1] for p in parsed])
+        phi = np.array([p[2] for p in parsed])
+        pli = np.array([p[3] for p in parsed])
+        phi_i = np.array([p[4] for p in parsed])
+        pk = np.array([p[5] for p in parsed], dtype=object)
+        plo2 = np.array([p[6] for p in parsed])
+        phi2 = np.array([p[7] for p in parsed])
         idx = np.where(codes < 0, len(uniques), codes)
         state, lo, hi, loi, hii = st[idx], plo[idx], phi[idx], pli[idx], phi_i[idx]
+        lo2, hi2 = plo2[idx], phi2[idx]
         kind = pk[idx]
         n_int = int((kind == "interval").sum())
-        bad = (kind == "bad")
+        bad = kind == "bad"
         n_bad = int(bad.sum())
-        # unparsable text carries no usable value on this side
-        state = np.where(bad, STATE_NULL, state).astype(np.int8)
-    mid = np.where(state == STATE_VALUE, (lo + hi) / 2.0, np.nan)
+        # unparsable text is INVALID, which is not the same as missing
+        state = np.where(bad, STATE_BAD, state).astype(np.int8)
+    mid = _finite_mid(lo, hi, state)
     if bin_width:
         w = float(bin_width)
         point = (state == STATE_VALUE) & (lo == hi) & loi & hii
@@ -197,7 +284,9 @@ def _numeric_arrays(series: pd.Series, wildcard_tokens, bin_width):
         lo = np.where(point, base, lo)
         hi = np.where(point, base + w, hi)
         hii = np.where(point, False, hii)
-    return state, lo, hi, loi, hii, n_int, n_bad, mid
+        lo2 = np.where(point, 0.0, lo2)
+        hi2 = np.where(point, 0.0, hi2)
+    return state, lo, hi, loi, hii, lo2, hi2, n_int, n_bad, mid
 
 
 def encode_qid(
@@ -207,12 +296,16 @@ def encode_qid(
     kind = resolve_kind(spec, source)
     wild = set(cfg.wildcard_tokens)
     if kind == "numeric":
-        s_state, s_lo, s_hi, s_loi, s_hii, s_int, s_bad, s_mid = _numeric_arrays(source, wild, spec.bin_width)
-        r_state, r_lo, r_hi, r_loi, r_hii, r_int, r_bad, r_mid = _numeric_arrays(release, wild, spec.bin_width)
+        s_state, s_lo, s_hi, s_loi, s_hii, s_lo2, s_hi2, s_int, s_bad, s_mid = _numeric_arrays(
+            source, wild, spec.bin_width)
+        r_state, r_lo, r_hi, r_loi, r_hii, r_lo2, r_hi2, r_int, r_bad, r_mid = _numeric_arrays(
+            release, wild, spec.bin_width)
         enc = QIDEncoding(
             name=spec.name, kind="numeric", state_s=s_state, state_r=r_state,
             lo_s=s_lo, hi_s=s_hi, loi_s=s_loi, hii_s=s_hii,
             lo_r=r_lo, hi_r=r_hi, loi_r=r_loi, hii_r=r_hii,
+            lo2_s=s_lo2, hi2_s=s_hi2, lo2_r=r_lo2, hi2_r=r_hi2,
+            exact=bool(np.any(s_lo2) or np.any(s_hi2) or np.any(r_lo2) or np.any(r_hi2)),
             has_interval=bool(s_int or r_int),
         )
         enc.mid_s, enc.mid_r = s_mid, r_mid
@@ -224,6 +317,7 @@ def encode_qid(
             "release_intervals": int(r_int),
             "source_intervals": int(s_int),
             "release_unparsable": int(r_bad),
+            "source_unparsable": int(s_bad),
         }
         if r_bad and spec.generalized is not False:
             enc.applicable = False
@@ -249,7 +343,8 @@ def encode_qid(
     code_s[val_s] = codes[: int(val_s.sum())]
     code_r[val_r] = codes[int(val_s.sum()):]
     source_vals = set(t_s[val_s].tolist())
-    unmatched_rows = int(np.sum(val_r & ~np.isin(t_r, list(source_vals)))) if len(source_vals) else int(val_r.sum())
+    outside = val_r & ~np.isin(t_r, list(source_vals)) if len(source_vals) else val_r.copy()
+    unmatched_rows = int(outside.sum())
     enc = QIDEncoding(
         name=spec.name, kind="categorical", state_s=state_s, state_r=state_r,
         code_s=code_s, code_r=code_r,
@@ -268,6 +363,11 @@ def encode_qid(
                     f"matrix is limited to {_MAX_HIERARCHY_DOMAIN}"),
             )
         parent = {str(c): str(p) for c, p in spec.hierarchy.items()}
+        nodes = set(parent) | set(parent.values())
+        # A generalized value is interpretable only if the hierarchy names it. A non-empty
+        # mapping that never mentions the released values explains nothing.
+        uncovered = int(sum(1 for v in set(t_r[outside].tolist()) if v not in nodes)) if unmatched_rows else 0
+        enc.stats["release_values_not_in_hierarchy"] = uncovered
         index = {str(v): i for i, v in enumerate(domain)}
         related = np.eye(k, dtype=bool)
         for value, i in index.items():
@@ -279,6 +379,9 @@ def encode_qid(
                 if j is not None:
                     related[i, j] = related[j, i] = True
         enc.related = related if related.sum() > k else None
+        if uncovered and spec.generalized is not False:
+            enc.applicable = False
+            enc.limitation = "generalized_values_not_in_hierarchy"
     elif unmatched_rows and spec.generalized is not False:
         enc.applicable = False
         enc.limitation = "generalized_values_without_hierarchy"
@@ -298,18 +401,27 @@ def _combine(parts: List[np.ndarray]) -> np.ndarray:
     return comb
 
 
-def _plain_key(enc: QIDEncoding, side: str) -> np.ndarray:
+def _bits(a: np.ndarray) -> np.ndarray:
+    return np.nan_to_num(a, nan=0.0, posinf=1e308, neginf=-1e308).view(np.int64)
+
+
+def _plain_keys(enc: QIDEncoding, side: str) -> List[np.ndarray]:
+    """Int64 key arrays (comparable across the two sides) identifying a plain QID value."""
     state = enc.state_s if side == "s" else enc.state_r
     if enc.kind == "categorical":
         key = (enc.code_s if side == "s" else enc.code_r).copy()
         key[state == STATE_NULL] = -1
         key[state == STATE_WILD] = -2
-        return key
+        return [key]
     lo = enc.lo_s if side == "s" else enc.lo_r
-    key = np.nan_to_num(lo, nan=0.0).view(np.int64).copy()
+    key = _bits(lo).copy()
     key[state == STATE_NULL] = _NULL_KEY
     key[state == STATE_WILD] = _NULL_KEY + 1
-    return key
+    keys = [key]
+    if enc.exact:
+        lo2 = enc.lo2_s if side == "s" else enc.lo2_r
+        keys.append(_bits(lo2).copy())
+    return keys
 
 
 def _is_special(enc: QIDEncoding, null_policy: str) -> bool:
@@ -333,26 +445,34 @@ def _special_token(enc: QIDEncoding, side: str) -> np.ndarray:
         else (enc.lo_r, enc.hi_r, enc.loi_r, enc.hii_r)
     )
     parts = [
-        np.nan_to_num(lo, nan=0.0, posinf=1e308, neginf=-1e308).view(np.int64),
-        np.nan_to_num(hi, nan=0.0, posinf=1e308, neginf=-1e308).view(np.int64),
+        _bits(lo), _bits(hi),
         loi.astype(np.int64) * 2 + hii.astype(np.int64),
         state.astype(np.int64),
     ]
+    if enc.exact:
+        lo2, hi2 = (enc.lo2_s, enc.hi2_s) if side == "s" else (enc.lo2_r, enc.hi2_r)
+        parts += [_bits(lo2), _bits(hi2)]
     return _combine(parts)
 
 
 def _group_compat(enc: QIDEncoding, rep_s: np.ndarray, rep_r: np.ndarray, null_policy: str) -> np.ndarray:
-    """Boolean ``(len(rep_s), len(rep_r))`` compatibility for one special QID."""
+    """Boolean ``(len(rep_s), len(rep_r))`` admissibility for one QID.
+
+    This is THE admissibility predicate: planning, scanning and the union of rungs all use
+    it (or the row filter that is exactly its single-row form), so they cannot disagree.
+    """
     ss = enc.state_s[rep_s][:, None]
     sr = enc.state_r[rep_r][None, :]
     wild = (ss == STATE_WILD) | (sr == STATE_WILD)
+    null_any = (ss == STATE_NULL) | (sr == STATE_NULL)
     if null_policy == "wildcard":
-        wild = wild | (ss == STATE_NULL) | (sr == STATE_NULL)
+        wild = wild | null_any
         nulls_equal = np.zeros(wild.shape, dtype=bool)
     elif null_policy == "equal_null":
         nulls_equal = (ss == STATE_NULL) & (sr == STATE_NULL)
-    else:
+    else:  # incompatible: a missing value on either side admits nothing, wildcard or not
         nulls_equal = np.zeros(wild.shape, dtype=bool)
+        wild = wild & ~null_any
     both_value = (ss == STATE_VALUE) & (sr == STATE_VALUE)
     if enc.kind == "categorical":
         cs = enc.code_s[rep_s][:, None]
@@ -368,15 +488,41 @@ def _group_compat(enc: QIDEncoding, rep_s: np.ndarray, rep_r: np.ndarray, null_p
     loi_s, hii_s = enc.loi_s[rep_s][:, None], enc.hii_s[rep_s][:, None]
     lo_r, hi_r = enc.lo_r[rep_r][None, :], enc.hi_r[rep_r][None, :]
     loi_r, hii_r = enc.loi_r[rep_r][None, :], enc.hii_r[rep_r][None, :]
-    # [lo_s, hi_s] overlaps [lo_r, hi_r]: each lower end is below the other's upper end
-    a = (lo_s < hi_r) | ((lo_s == hi_r) & loi_s & hii_r)
-    b = (lo_r < hi_s) | ((lo_r == hi_s) & loi_r & hii_s)
-    return wild | nulls_equal | (both_value & a & b)
+    if enc.exact:
+        lo2_s, hi2_s = enc.lo2_s[rep_s][:, None], enc.hi2_s[rep_s][:, None]
+        lo2_r, hi2_r = enc.lo2_r[rep_r][None, :], enc.hi2_r[rep_r][None, :]
+
+        def below(a, a2, b, b2, closed):  # a < b, or a == b when both ends are closed
+            return (a < b) | ((a == b) & ((a2 < b2) | ((a2 == b2) & closed)))
+
+        a = below(lo_s, lo2_s, hi_r, hi2_r, loi_s & hii_r)
+        b = below(lo_r, lo2_r, hi_s, hi2_s, loi_r & hii_s)
+    else:
+        # [lo_s, hi_s] overlaps [lo_r, hi_r]: each lower end is below the other's upper end
+        a = (lo_s < hi_r) | ((lo_s == hi_r) & loi_s & hii_r)
+        b = (lo_r < hi_s) | ((lo_r == hi_s) & loi_r & hii_s)
+    # an invalid value is admissible with nothing (it is not "missing" and not a wildcard match)
+    not_bad = (ss != STATE_BAD) & (sr != STATE_BAD)
+    return (wild | nulls_equal | (both_value & a & b)) & not_bad
+
+
+@dataclass
+class _Part:
+    """One partition of a rung: source/release rows sorted by group, group offsets, and the
+    special QIDs whose pairwise compatibility is computed on demand (never stored)."""
+
+    s_rows: np.ndarray
+    s_off: np.ndarray
+    r_rows: np.ndarray
+    r_off: np.ndarray
+    rep_s: Optional[np.ndarray] = None
+    rep_r: Optional[np.ndarray] = None
+    special: Tuple[str, ...] = ()
 
 
 @dataclass
 class RungPlan:
-    """Candidate structure of one ladder rung (no pair is materialised)."""
+    """Candidate structure of one ladder rung (no pair and no pairwise matrix is stored)."""
 
     qids: Tuple[str, ...]
     applicable: bool = True
@@ -385,44 +531,75 @@ class RungPlan:
     n_release: int = 0
     n_special: int = 0
     n_plain: int = 0
-    # per partition: (src rows sorted, src group offsets, rel rows sorted, rel group offsets, compat or None)
-    _parts: List[tuple] = field(default_factory=list)
+    _parts: List[_Part] = field(default_factory=list)
     comparisons: int = 0
     group_pairs: int = 0
     n_blocks: int = 0
+    #: planning stopped because the comparison budget was exceeded (``comparisons`` is then a
+    #: lower bound of the real count)
+    exceeded: bool = False
+    #: per source row: the partition / group it belongs to (-1: no candidate group) and how
+    #: many candidates its group has
+    row_part: Optional[np.ndarray] = None
+    row_grp: Optional[np.ndarray] = None
+    row_ncand: Optional[np.ndarray] = None
+    _encs: Optional[Dict[str, QIDEncoding]] = field(default=None, repr=False)
+    _null_policy: str = "equal_null"
+
+    def _compat_row(self, part: _Part, g0: int, g1: int) -> np.ndarray:
+        """Compatibility of groups ``g0:g1`` of the source side with every release group."""
+        compat = np.ones((g1 - g0, len(part.rep_r)), dtype=bool)
+        for q in part.special:
+            compat &= _group_compat(self._encs[q], part.rep_s[g0:g1], part.rep_r, self._null_policy)
+        return compat
+
+    def group_rows(self, p: int, g: int) -> np.ndarray:
+        part = self._parts[p]
+        return part.s_rows[part.s_off[g]:part.s_off[g + 1]]
+
+    def candidates(self, p: int, g: int) -> np.ndarray:
+        """Released rows admissible for every source row of group ``g`` of partition ``p``."""
+        part = self._parts[p]
+        if part.rep_s is None:
+            return part.r_rows
+        cols = np.flatnonzero(self._compat_row(part, g, g + 1)[0])
+        if len(cols) == 0:
+            return part.r_rows[:0]
+        if len(cols) == len(part.r_off) - 1:
+            return part.r_rows
+        return np.concatenate([part.r_rows[part.r_off[c]:part.r_off[c + 1]] for c in cols])
 
     def blocks(self) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
         """Yield ``(source_rows, candidate_rows)`` blocks; every source row of a block
         shares the same candidate set."""
-        for s_rows, s_off, r_rows, r_off, compat in self._parts:
-            if compat is None:
-                yield s_rows, r_rows
-                continue
-            for gi in range(len(s_off) - 1):
-                cols = np.flatnonzero(compat[gi])
-                if len(cols) == 0:
-                    continue
-                rows = s_rows[s_off[gi]:s_off[gi + 1]]
-                if len(cols) == len(r_off) - 1:
-                    cand = r_rows
-                else:
-                    cand = np.concatenate([r_rows[r_off[c]:r_off[c + 1]] for c in cols])
-                yield rows, cand
+        for p, part in enumerate(self._parts):
+            for g in range(len(part.s_off) - 1):
+                cand = self.candidates(p, g)
+                if len(cand):
+                    yield self.group_rows(p, g), cand
 
 
 def plan_rung(
     qids: Sequence[str], encs: Dict[str, QIDEncoding], n_source: int, n_release: int, cfg: CVPLConfig,
 ) -> RungPlan:
     plan = RungPlan(qids=tuple(qids), n_source=n_source, n_release=n_release)
+    plan._encs, plan._null_policy = encs, cfg.null_policy
     bad = [q for q in qids if not encs[q].applicable]
     if bad:
         plan.applicable = False
         plan.reason = " ".join(limitation_message(q, encs[q].limitation) for q in bad)
         return plan
+    plan.row_part = np.full(n_source, -1, dtype=np.int32)
+    plan.row_grp = np.full(n_source, -1, dtype=np.int32)
+    plan.row_ncand = np.zeros(n_source, dtype=np.int64)
+    # rows that no pair can ever be admissible for: an invalid value is admissible with
+    # nothing; a missing value with nothing under the 'incompatible' null policy
     ok_s = np.ones(n_source, dtype=bool)
     ok_r = np.ones(n_release, dtype=bool)
-    if cfg.null_policy == "incompatible":
-        for q in qids:
+    for q in qids:
+        ok_s &= encs[q].state_s != STATE_BAD
+        ok_r &= encs[q].state_r != STATE_BAD
+        if cfg.null_policy == "incompatible":
             ok_s &= encs[q].state_s != STATE_NULL
             ok_r &= encs[q].state_r != STATE_NULL
     rows_s = np.flatnonzero(ok_s)
@@ -435,7 +612,11 @@ def plan_rung(
     plan.n_plain, plan.n_special = len(plain), len(special)
 
     if plain:
-        keys = [np.concatenate([_plain_key(encs[q], "s")[rows_s], _plain_key(encs[q], "r")[rows_r]]) for q in plain]
+        keys_by_q = [(_plain_keys(encs[q], "s"), _plain_keys(encs[q], "r")) for q in plain]
+        keys = []
+        for ks, kr in keys_by_q:
+            for a_, b_ in zip(ks, kr):
+                keys.append(np.concatenate([a_[rows_s], b_[rows_r]]))
         pid = _combine(keys)
     else:
         pid = np.zeros(len(rows_s) + len(rows_r), dtype=np.int64)
@@ -474,10 +655,17 @@ def plan_rung(
         j = pr_pos[int(p)]
         s_rows = rs[ps_b[i]:ps_b[i + 1]]
         r_rows = rr[pr_b[j]:pr_b[j + 1]]
+        p_idx = len(plan._parts)
         if not special:
             total_cmp += len(s_rows) * len(r_rows)
-            plan._parts.append((s_rows, np.array([0, len(s_rows)]), r_rows, np.array([0, len(r_rows)]), None))
+            plan._parts.append(_Part(s_rows, np.array([0, len(s_rows)]), r_rows, np.array([0, len(r_rows)])))
+            plan.row_part[s_rows] = p_idx
+            plan.row_grp[s_rows] = 0
+            plan.row_ncand[s_rows] = len(r_rows)
             plan.n_blocks += 1
+            if total_cmp > cfg.max_comparisons:
+                plan.exceeded = True
+                break
             continue
         gs = sg_s[ps_b[i]:ps_b[i + 1]]
         gr = sg_r[pr_b[j]:pr_b[j + 1]]
@@ -492,16 +680,32 @@ def plan_rung(
                         "compatibility checks (wildcards / intervals / hierarchies on high-cardinality "
                         "QIDs); use a coarser ladder or raise max_group_pairs"),
             )
-        rep_s = s_rows[s_off[:-1]]
-        rep_r = r_rows[r_off[:-1]]
-        compat = np.ones((n_sg, n_rg), dtype=bool)
-        for q in special:
-            compat &= _group_compat(encs[q], rep_s, rep_r, cfg.null_policy)
+        part = _Part(
+            s_rows, s_off, r_rows, r_off,
+            rep_s=s_rows[s_off[:-1]], rep_r=r_rows[r_off[:-1]], special=tuple(special),
+        )
         r_sizes = np.diff(r_off)
         s_sizes = np.diff(s_off)
-        total_cmp += int((compat @ r_sizes) @ s_sizes)
-        plan._parts.append((s_rows, s_off, r_rows, r_off, compat))
+        # Streamed: a tile of group rows at a time, never the whole n_sg x n_rg matrix, and the
+        # comparison budget is checked as the tiles arrive.
+        step = max(1, _TILE_CELLS // max(1, n_rg))
+        for g0 in range(0, n_sg, step):
+            g1 = min(n_sg, g0 + step)
+            compat = plan._compat_row(part, g0, g1)
+            per_group = compat @ r_sizes
+            total_cmp += int(per_group @ s_sizes[g0:g1])
+            for g in range(g0, g1):
+                rows_g = s_rows[s_off[g]:s_off[g + 1]]
+                plan.row_part[rows_g] = p_idx
+                plan.row_grp[rows_g] = g
+                plan.row_ncand[rows_g] = per_group[g - g0]
+            if total_cmp > cfg.max_comparisons:
+                plan.exceeded = True
+                break
+        plan._parts.append(part)
         plan.n_blocks += n_sg
+        if plan.exceeded:
+            break
     plan.comparisons = total_cmp
     plan.group_pairs = total_gp
     return plan

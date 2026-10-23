@@ -8,21 +8,31 @@ License:       BSD 3-Clause
 The CVPL operator chain ``B_lambda -> phi -> psi -> s -> tau`` and the quantities
 measured with it. See ``docs`` ("CVPL linkage metric") for what each number means.
 
-For source record ``x_i`` and a ladder rung ``lambda``:
+CVPL is a **white-box evaluation**: the auditor holds the source data, the release and
+(for the GT measures) the ground truth, and chooses the attacker's strategy with full
+access. Every published measure is therefore an UPPER, worst-case-oriented estimate of
+what the declared attacker achieves, not an average over attackers and not a
+Fellegi-Sunter style match probability.
 
-* ``C_i`` = released rows that are blocking-compatible with ``x_i`` and whose cosine
-  similarity to ``x_i`` in the projected space is at least ``tau``;
+For source record ``x_i``:
+
+* ``C_i`` = admissible released rows (blocking-compatible) whose cosine similarity to
+  ``x_i`` in the projected space is at least ``tau`` (an exact-equal pair of encoded
+  vectors also counts when the projection is degenerate);
 * ``cvpl_lr`` = share of the ``N`` source records with ``|C_i| > 0`` (existence of a
   plausible link; *not* a re-identification probability);
-* with a complete ground truth ``T_i`` (the subject's own released rows):
-  ``cvpl_id_uniform_gt`` = mean of ``|subjects(C_i) & {s_i}| / |subjects(C_i)|``
-  (0 when ``C_i`` is empty) - the expected success of a uniform choice among the
-  candidates; ``cvpl_top1_success_gt`` = mean success of the maximum-similarity
-  candidate (ties broken uniformly, in expectation); ``precision_at_tau`` = the same
-  success over the records that *declare* a link.
+* with a complete ground truth ``T_i``: ``cvpl_id_uniform_subjects_gt`` (uniform choice
+  among the distinct candidate SUBJECTS), ``cvpl_id_uniform_rows_gt`` (uniform choice
+  among the candidate released ROWS), the headline ``cvpl_id_uniform_gt`` = the larger of
+  the two population values, ``cvpl_top1_success_gt`` and ``precision_at_tau``.
 
-Nothing here materialises a ``|D| x |D'|`` matrix: candidates are generated from
-blocks, similarities are computed in bounded chunks.
+A pair whose cosine is undefined (a zero projected vector that is not an exact-equal
+pair) is *unknown*. Every measure that such a pair can influence is published with
+bounds (status ``bounded``, point value ``null``), never as a measured point value.
+
+Nothing here materialises a ``|D| x |D'|`` matrix: candidates are generated from blocks,
+similarities are computed in bounded tiles, and every per-record accumulator lives only
+for the chunk of source records being processed.
 """
 
 from __future__ import annotations
@@ -66,6 +76,8 @@ from .projection import (
 
 #: tolerance on ``cos >= tau`` so that identical vectors pass ``tau = 1``
 _TAU_EPS = 1e-12
+_EXACT_ID_LIMIT = 2**53
+_TILE_WIDTH = 8192
 
 
 # ---------------------------------------------------------------------------
@@ -79,9 +91,77 @@ class PreparedGroundTruth:
     src_code: Optional[np.ndarray] = None  # subject code per source row, -1 unknown
     rel_code: Optional[np.ndarray] = None  # subject code per released row
     rel_unique: bool = True
-    known_mask: Optional[np.ndarray] = None  # source rows the measures are computed on
+    known_mask: Optional[np.ndarray] = None  # source rows whose correspondence is fully known
     true_row: Optional[np.ndarray] = None  # unique-release fast path: row of own subject
     n_subjects: int = 0
+    anonymous_release: bool = False  # released rows without an identifier: membership unknown
+
+
+class _IdentifierError(ValueError):
+    """An identifier column that cannot be compared without guessing."""
+
+
+def _canonical_ids(series: pd.Series) -> Tuple[np.ndarray, np.ndarray, set]:
+    """-> (null mask, keys of the non-null entries, namespaces present).
+
+    Equality of identifiers is *value* equality inside one namespace: numbers compare
+    as numbers (``1 == 1.0``), strings as strings, and the two never compare equal
+    (``"1" != 1``). Booleans, non-finite numbers and any other type are rejected: a silent
+    coercion would turn "same person" into "different person" (or the reverse).
+    """
+    null = series.isna().to_numpy()
+    present = series[~null]
+    if pd.api.types.is_bool_dtype(series):
+        raise _IdentifierError("boolean identifiers are not supported")
+    if pd.api.types.is_numeric_dtype(series):
+        if pd.api.types.is_integer_dtype(series):
+            arr = present.to_numpy()
+            big = bool(arr.size) and (int(arr.max()) > _EXACT_ID_LIMIT or int(arr.min()) < -_EXACT_ID_LIMIT)
+            keys = np.array([int(v) for v in arr.tolist()], dtype=object) if big else arr.astype(float)
+        else:
+            arr = present.to_numpy(dtype=float)
+            if not np.isfinite(arr).all():
+                raise _IdentifierError("non-finite numeric identifiers are not supported")
+            keys = arr + 0.0
+        return null, keys, ({"n"} if len(keys) else set())
+    keys = []
+    spaces = set()
+    for v in present.tolist():
+        if isinstance(v, (bool, np.bool_)):
+            raise _IdentifierError("boolean identifiers are not supported")
+        if isinstance(v, (int, np.integer)):
+            keys.append(int(v))
+            spaces.add("n")
+        elif isinstance(v, (float, np.floating)):
+            fv = float(v)
+            if not np.isfinite(fv):
+                raise _IdentifierError("non-finite numeric identifiers are not supported")
+            keys.append(int(fv) if fv.is_integer() else fv)
+            spaces.add("n")
+        elif isinstance(v, str):
+            keys.append(v)
+            spaces.add("s")
+        else:
+            raise _IdentifierError(f"identifier type {type(v).__name__} is not supported")
+    out = np.empty(len(keys), dtype=object)
+    out[:] = keys
+    return null, out, spaces
+
+
+def _unify_keys(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Concatenate two key arrays; floats that are integral become ints when objects are
+    involved, so that 3 and 3.0 are one identifier."""
+    if a.dtype != object and b.dtype != object:
+        return np.concatenate([a, b])
+
+    def to_obj(x: np.ndarray) -> np.ndarray:
+        if x.dtype == object:
+            return x
+        out = np.empty(len(x), dtype=object)
+        out[:] = [int(v) if float(v).is_integer() else float(v) for v in x.tolist()]
+        return out
+
+    return np.concatenate([to_obj(a), to_obj(b)])
 
 
 def prepare_ground_truth(cfg: CVPLConfig, source: pd.DataFrame, release: pd.DataFrame) -> PreparedGroundTruth:
@@ -91,20 +171,29 @@ def prepare_ground_truth(cfg: CVPLConfig, source: pd.DataFrame, release: pd.Data
         return PreparedGroundTruth("absent", "no_ground_truth_declared", 0)
     src = source[spec.source_id_column]
     rel = release[spec.release_id_column]
-    src_null = src.isna().to_numpy()
-    rel_null = rel.isna().to_numpy()
+    try:
+        src_null, src_keys, src_spaces = _canonical_ids(src)
+        rel_null, rel_keys, rel_spaces = _canonical_ids(rel)
+    except _IdentifierError as exc:
+        return PreparedGroundTruth("invalid", f"unsupported_identifier:{exc}", 0)
     n_known_ids = int((~src_null).sum())
     if n_known_ids == 0:
         return PreparedGroundTruth("absent", "ground_truth_has_no_source_identifiers", 0)
+    if src_spaces and rel_spaces and not (src_spaces & rel_spaces):
+        return PreparedGroundTruth(
+            "invalid", "identifier_types_incompatible: the source identifiers are "
+            f"{'numbers' if 'n' in src_spaces else 'text'} and the release identifiers are "
+            f"{'numbers' if 'n' in rel_spaces else 'text'}; convert one side explicitly", 0)
     # one code space for both id columns
-    both = pd.concat([src[~src_null].astype(str), rel[~rel_null].astype(str)], ignore_index=True)
+    both = _unify_keys(src_keys, rel_keys)
     codes, uniques = pd.factorize(both)
+    n_src_keys = len(src_keys)
     src_code = np.full(n, -1, dtype=np.int64)
-    src_code[~src_null] = codes[: n_known_ids]
+    src_code[~src_null] = codes[:n_src_keys]
     rel_code = np.empty(len(release), dtype=np.int64)
-    rel_code[~rel_null] = codes[n_known_ids:]
+    rel_code[~rel_null] = codes[n_src_keys:]
     n_anon = int(rel_null.sum())
-    rel_code[rel_null] = len(uniques) + np.arange(n_anon)  # each unidentified row is its own subject
+    rel_code[rel_null] = len(uniques) + np.arange(n_anon)  # each unidentified row is its own code
     known_src_codes = src_code[src_code >= 0]
     if len(np.unique(known_src_codes)) != len(known_src_codes):
         return PreparedGroundTruth(
@@ -112,20 +201,27 @@ def prepare_ground_truth(cfg: CVPLConfig, source: pd.DataFrame, release: pd.Data
         )
     rel_unique = len(np.unique(rel_code)) == len(rel_code)
     in_release = np.isin(src_code, rel_code) & (src_code >= 0)
-    if (spec.scope == "complete" and n_known_ids == n and n_anon == 0):
+    anonymous = n_anon > 0
+    # A source record's correspondence set T_i is KNOWN only if every released row's
+    # membership is known (all carry an identifier) and the record itself has one.
+    # An anonymous released row might belong to anyone: nothing about any T_i is then known.
+    if anonymous:
+        known = np.zeros(n, dtype=bool)
+    elif spec.scope == "partial":
+        known = in_release  # absence from the release proves nothing when links are partly known
+    else:
+        known = src_code >= 0
+    if spec.scope == "complete" and n_known_ids == n and not anonymous:
         status, reason = "complete", None
         known = np.ones(n, dtype=bool)
     else:
         status = "partial"
         if spec.scope == "partial":
             reason = "scope_declared_partial"
-            known = in_release  # only subjects whose release rows are confirmed
-        elif n_anon:
+        elif anonymous:
             reason = "released_rows_without_identifier"
-            known = src_code >= 0
         else:
             reason = "source_records_without_identifier"
-            known = src_code >= 0
     true_row = None
     if rel_unique:
         row_of = np.full(len(uniques) + n_anon, -1, dtype=np.int64)
@@ -133,7 +229,7 @@ def prepare_ground_truth(cfg: CVPLConfig, source: pd.DataFrame, release: pd.Data
         true_row = np.where(src_code >= 0, row_of[np.where(src_code >= 0, src_code, 0)], -1)
     return PreparedGroundTruth(
         status, reason, int(known.sum()), src_code, rel_code, rel_unique, known, true_row,
-        n_subjects=len(uniques) + n_anon,
+        n_subjects=len(uniques) + n_anon, anonymous_release=anonymous,
     )
 
 
@@ -142,75 +238,84 @@ def prepare_ground_truth(cfg: CVPLConfig, source: pd.DataFrame, release: pd.Data
 # ---------------------------------------------------------------------------
 @dataclass
 class RungScan:
-    n_cand: np.ndarray
-    linked: np.ndarray
-    best: np.ndarray
-    undefined: np.ndarray
+    """Per source record results of scanning one rung (or the union of several)."""
+
+    n_cand: np.ndarray  # admissible candidate pairs (a pair is counted once in a union)
+    linked: np.ndarray  # a KNOWN accepted pair exists (a witness)
+    best: np.ndarray  # best defined similarity (1.0 for an exact-equal fallback)
+    unk_rows: np.ndarray  # admissible pairs whose cosine is undefined and not exact-equal
     fallback_any: np.ndarray
     fallback_only: np.ndarray
-    cnt: Optional[np.ndarray] = None  # distinct subjects among passing candidates
-    hit: Optional[np.ndarray] = None  # own subject among them
-    tie_cnt: Optional[np.ndarray] = None
-    tie_hit: Optional[np.ndarray] = None
     fallback_pairs: int = 0
     pairs_compared: int = 0
+    # ground-truth arrays (None without ground truth)
+    kcnt_s: Optional[np.ndarray] = None  # distinct accepted subjects
+    khit_s: Optional[np.ndarray] = None  # own subject among them
+    kcnt_r: Optional[np.ndarray] = None  # accepted released rows
+    khit_r: Optional[np.ndarray] = None  # accepted rows of the own subject
+    unew_s: Optional[np.ndarray] = None  # distinct unknown subjects not among the accepted ones
+    uhit_new: Optional[np.ndarray] = None  # own subject among those
+    uhit_rows: Optional[np.ndarray] = None  # unknown rows of the own subject
+    tcnt_s: Optional[np.ndarray] = None  # distinct subjects tied for the top
+    thit_s: Optional[np.ndarray] = None  # own subject among them
 
 
-class _SubjectAcc:
-    """Exact distinct-subject counts per source row when subjects repeat in the release.
+class _ChunkState:
+    """Accumulators of ONE chunk of source records; discarded when the chunk is done."""
 
-    Keys are ``source_row * n_subjects + subject``; they are merged and de-duplicated as
-    they arrive, so a (row, subject) pair seen through two released rows - or through two
-    ladder rungs - counts once.
-    """
+    def __init__(self, m: int, gt: Optional[PreparedGroundTruth], rows: np.ndarray) -> None:
+        self.m = m
+        self.n_cand = np.zeros(m, dtype=np.int64)
+        self.best = np.full(m, -np.inf)
+        self.kcnt = np.zeros(m, dtype=np.int64)  # accepted rows (known + fallback)
+        self.kpass = np.zeros(m, dtype=np.int64)  # accepted by cosine
+        self.fb = np.zeros(m, dtype=np.int64)  # accepted by exact equality
+        self.urows = np.zeros(m, dtype=np.int64)
+        self.compared = 0
+        self.gt = gt
+        if gt is not None:
+            self.S = max(1, gt.n_subjects)
+            self.own = gt.src_code[rows]
+            self.khit = np.zeros(m, dtype=np.int64)
+            self.uhit = np.zeros(m, dtype=np.int64)
+            self.tcnt = np.zeros(m, dtype=np.int64)
+            self.thit = np.zeros(m, dtype=np.int64)
+            self.K: List[np.ndarray] = []
+            self.U: List[np.ndarray] = []
+            self.T: List[np.ndarray] = []
 
-    _FLUSH = 4_000_000
 
-    def __init__(self, n_rows: int, gt: PreparedGroundTruth) -> None:
-        self.n = n_rows
-        self.s = max(1, gt.n_subjects)
-        self.keys = np.empty(0, dtype=np.int64)
-        self._pending: List[np.ndarray] = []
-        self._pending_len = 0
-
-    def add(self, rows: np.ndarray, subj: np.ndarray) -> None:
-        k = rows.astype(np.int64) * self.s + subj.astype(np.int64)
-        self._pending.append(k)
-        self._pending_len += len(k)
-        if self._pending_len >= self._FLUSH:
-            self._flush()
-
-    def _flush(self) -> None:
-        if self._pending:
-            self.keys = np.unique(np.concatenate([self.keys] + self._pending))
-            self._pending, self._pending_len = [], 0
-
-    def result(self, true_codes: np.ndarray):
-        self._flush()
-        cnt = np.bincount(self.keys // self.s, minlength=self.n).astype(np.int64)
-        hit = np.zeros(self.n, dtype=bool)
-        if len(self.keys):
-            rows = self.keys // self.s
-            subj = self.keys % self.s
-            hit[rows[subj == true_codes[rows]]] = True
-        return cnt, hit
+def _distinct(keys: List[np.ndarray], m: int, S: int, own: np.ndarray):
+    """Distinct (record, subject) keys -> per-record subject count, own-subject flag, keys."""
+    if not keys:
+        return np.zeros(m, dtype=np.int64), np.zeros(m, dtype=bool), np.empty(0, dtype=np.int64)
+    k = np.unique(np.concatenate(keys))
+    loc = k // S
+    subj = k % S
+    cnt = np.bincount(loc, minlength=m).astype(np.int64)
+    hit = np.zeros(m, dtype=bool)
+    hit[loc[subj == own[loc]]] = True
+    return cnt, hit, k
 
 
 class _Scanner:
-    """Blocked similarity scan. ``scan`` evaluates one rung (or, with ``cover``, the part of
-    a rung not already explored by earlier rungs, so that several rungs together are
-    evaluated over the UNION of their candidate sets with every pair counted once)."""
+    """Blocked similarity scan, one chunk of source records at a time.
+
+    ``scan`` evaluates one rung, or - with ``cover`` lists - the union of several rungs:
+    a pair admissible under an earlier rung is not examined again, so every pair is
+    counted once.
+    """
 
     def __init__(
         self, cfg: CVPLConfig, zs: np.ndarray, zr: np.ndarray, deg_s: np.ndarray, deg_r: np.ndarray,
-        gt: Optional[PreparedGroundTruth], projection: CVPLProjection,
-        cols_s: FeatureColumns, cols_r: FeatureColumns, encs: Dict[str, QIDEncoding],
+        gt: Optional[PreparedGroundTruth], cls_s: np.ndarray, cls_r: np.ndarray,
+        encs: Dict[str, QIDEncoding],
     ) -> None:
         self.cfg, self.zs, self.zr = cfg, zs, zr
         self.deg_s, self.deg_r = deg_s, deg_r
-        self.gt, self.projection, self.cols_s, self.cols_r = gt, projection, cols_s, cols_r
+        self.gt = gt
+        self.cls_s, self.cls_r = cls_s, cls_r
         self.encs = encs
-        self._acc: Optional[_SubjectAcc] = None
 
     def scan(self, plans: Sequence[Tuple[Any, Sequence[Sequence[str]]]], with_gt: bool) -> RungScan:
         """``plans``: ``[(RungPlan, qid_lists_of_earlier_rungs_to_exclude), ...]``."""
@@ -219,66 +324,68 @@ class _Scanner:
         # a shared 12-core host). One BLAS thread per scan; the work is memory-bound anyway.
         limit = threadpool_limits(limits=1, user_api="blas") if threadpool_limits else nullcontext()
         with limit:
-            return self._scan(plans, with_gt)
+            return self._scan(plans, with_gt and self.gt is not None)
 
+    # -- driver -----------------------------------------------------------------
     def _scan(self, plans, with_gt: bool) -> RungScan:
         n = len(self.zs)
-        gt = self.gt
         out = RungScan(
             n_cand=np.zeros(n, dtype=np.int64), linked=np.zeros(n, dtype=bool),
-            best=np.full(n, -np.inf), undefined=np.zeros(n, dtype=bool),
+            best=np.full(n, -np.inf), unk_rows=np.zeros(n, dtype=np.int64),
             fallback_any=np.zeros(n, dtype=bool), fallback_only=np.zeros(n, dtype=bool),
         )
-        use_acc = with_gt and not gt.rel_unique
         if with_gt:
-            out.cnt = np.zeros(n, dtype=np.int64)
-            out.hit = np.zeros(n, dtype=bool)
-        fb: Dict[int, set] = {}  # source row -> released rows matched by the exact fallback
-        self._acc = _SubjectAcc(n, gt) if use_acc else None
-        for plan, cover in plans:
-            for src_rows, cand_rows in plan.blocks():
-                self._count_candidates(src_rows, cand_rows, cover, out)
-                self._block(src_rows, cand_rows, cover, out, mode="link", fb=fb)
-        for row, cands in fb.items():
-            out.fallback_any[row] = True
-            out.fallback_pairs += len(cands)
-            if not out.linked[row]:
-                out.fallback_only[row] = True
-            out.linked[row] = True
-            out.best[row] = max(out.best[row], 1.0)
-            if with_gt:
-                self._add_fallback(row, np.fromiter(cands, dtype=np.int64), out.cnt, out.hit)
-        if use_acc:
-            out.cnt, out.hit = self._acc.result(gt.src_code)
-            out.linked |= out.cnt > 0
-        out.undefined &= ~out.linked  # an undefined pair matters only if no link was found
-        if with_gt:
-            out.tie_cnt = np.zeros(n, dtype=np.int64)
-            out.tie_hit = np.zeros(n, dtype=bool)
-            self._acc = _SubjectAcc(n, gt) if use_acc else None
-            for plan, cover in plans:
-                for src_rows, cand_rows in plan.blocks():
-                    self._block(src_rows, cand_rows, cover, out, mode="top1", fb=None)
-            for row, cands in fb.items():
-                # a degenerate source's tied top candidates are exactly its exact-equal rows
-                self._add_fallback(row, np.fromiter(cands, dtype=np.int64), out.tie_cnt, out.tie_hit)
-            if use_acc:
-                out.tie_cnt, out.tie_hit = self._acc.result(gt.src_code)
+            for name in ("kcnt_s", "kcnt_r", "unew_s", "uhit_rows", "tcnt_s", "khit_r"):
+                setattr(out, name, np.zeros(n, dtype=np.int64))
+            for name in ("khit_s", "uhit_new", "thit_s"):
+                setattr(out, name, np.zeros(n, dtype=bool))
+        cost = np.zeros(n, dtype=np.int64)
+        for plan, _ in plans:
+            cost += plan.row_ncand
+        active = np.flatnonzero(cost > 0)
+        if active.size == 0:
+            return out
+        driver = plans[0][0]
+        order = active[np.lexsort((driver.row_grp[active], driver.row_part[active]))]
+        # Chunks hold at most ~chunk_pairs planned pairs, so every accumulator below is bounded
+        # by that, whatever N is. (One huge block gives one-record chunks.) Only the
+        # distinct-subject keys grow with the pairs; when the release has one row per subject
+        # (or there is no ground truth) the chunk state is O(records) and chunks can be larger.
+        keys_needed = with_gt and not self.gt.rel_unique
+        budget = int(self.cfg.chunk_pairs) * (1 if keys_needed else 256)
+        bucket = (np.cumsum(np.maximum(cost[order], 1)) - 1) // budget
+        cuts = np.flatnonzero(np.diff(bucket)) + 1
+        for part in np.split(order, cuts):
+            self._chunk(np.sort(part), plans, with_gt, out)
         return out
 
-    # -- helpers -----------------------------------------------------------------
-    def _add_fallback(self, row: int, cand_rows: np.ndarray, cnt: np.ndarray, hit: np.ndarray) -> None:
-        gt = self.gt
-        if self._acc is not None:
-            self._acc.add(np.full(len(cand_rows), row), gt.rel_code[cand_rows])
-            return
-        subj = np.unique(gt.rel_code[cand_rows])
-        cnt[row] += len(subj)
-        if gt.src_code[row] >= 0 and np.any(subj == gt.src_code[row]):
-            hit[row] = True
+    def _chunk(self, rows: np.ndarray, plans, with_gt: bool, out: RungScan) -> None:
+        gt = self.gt if with_gt else None
+        st = _ChunkState(len(rows), gt, rows)
+        cache: List[Tuple[np.ndarray, np.ndarray, Any]] = []
+        for plan, cover in plans:
+            pp = plan.row_part[rows]
+            gg = plan.row_grp[rows]
+            idx = np.flatnonzero(pp >= 0)
+            if idx.size == 0:
+                continue
+            o = idx[np.lexsort((gg[idx], pp[idx]))]
+            cut = np.flatnonzero((np.diff(pp[o]) != 0) | (np.diff(gg[o]) != 0)) + 1
+            for seg in np.split(o, cut):
+                cand = plan.candidates(int(pp[seg[0]]), int(gg[seg[0]]))
+                if len(cand) == 0:
+                    continue
+                self._link_pairs(seg, rows[seg], cand, cover, st)
+                cache.append((seg, cand, cover))
+        linked = st.kcnt > 0
+        if gt is not None and linked.any():
+            for loc, cand, cover in cache:
+                self._top_pairs(loc, rows[loc], cand, cover, st, linked)
+        self._finalize(rows, st, out)
 
+    # -- pair evaluation ----------------------------------------------------------
     def _covered(self, rows: np.ndarray, cols: np.ndarray, cover: Sequence[Sequence[str]]) -> np.ndarray:
-        """Pairs already compatible under an earlier rung (any of them)."""
+        """Pairs already admissible under an earlier rung (any of them)."""
         covered = np.zeros((len(rows), len(cols)), dtype=bool)
         for qids in cover:
             m = np.ones_like(covered)
@@ -287,122 +394,158 @@ class _Scanner:
             covered |= m
         return covered
 
-    def _count_candidates(self, src_rows, cand_rows, cover, out: RungScan) -> None:
+    def _tiles(self, rows: np.ndarray, loc: np.ndarray, cands: np.ndarray, cover):
+        width = int(min(len(cands), _TILE_WIDTH))
+        step = max(1, int(self.cfg.chunk_pairs) // width)
+        for a in range(0, len(rows), step):
+            r, l = rows[a: a + step], loc[a: a + step]
+            for b in range(0, len(cands), width):
+                c = cands[b: b + width]
+                valid = None if not cover else ~self._covered(r, c, cover)
+                yield r, l, c, valid
+
+    def _link_pairs(self, loc: np.ndarray, src_rows: np.ndarray, cand: np.ndarray, cover, st: _ChunkState) -> None:
+        tau = self.cfg.tau - _TAU_EPS
+        sdeg = self.deg_s[src_rows]
+        cdeg = self.deg_r[cand]
         if not cover:
-            out.n_cand[src_rows] += len(cand_rows)
+            st.n_cand[loc] += len(cand)
+        nd_s, d_s = ~sdeg, sdeg
+        nd_c, d_c = ~cdeg, cdeg
+        # 1. both vectors defined: cosine
+        if nd_s.any() and nd_c.any():
+            for r, l, c, valid in self._tiles(src_rows[nd_s], loc[nd_s], cand[nd_c], cover):
+                sim = self.zs[r] @ self.zr[c].T
+                if valid is not None:
+                    sim = np.where(valid, sim, -np.inf)
+                    st.n_cand[l] += valid.sum(axis=1)
+                    st.compared += int(valid.sum())
+                else:
+                    st.compared += sim.size
+                st.best[l] = np.maximum(st.best[l], sim.max(axis=1))
+                acc = sim >= tau
+                self._accept(l, c, acc, st, cosine=True)
+        # 2./3. exactly one vector undefined: the cosine does not exist
+        for sel_s, sel_c in ((nd_s, d_c), (d_s, nd_c)):
+            if sel_s.any() and sel_c.any():
+                for r, l, c, valid in self._tiles(src_rows[sel_s], loc[sel_s], cand[sel_c], cover):
+                    unk = np.ones((len(r), len(c)), dtype=bool) if valid is None else valid
+                    if valid is not None:
+                        st.n_cand[l] += valid.sum(axis=1)
+                    self._unknown(l, c, unk, st)
+        # 4. both undefined: linked iff the ENCODED vectors are exactly equal, else unknown
+        if d_s.any() and d_c.any():
+            for r, l, c, valid in self._tiles(src_rows[d_s], loc[d_s], cand[d_c], cover):
+                eq = self.cls_s[r][:, None] == self.cls_r[c][None, :]
+                ok = np.ones_like(eq) if valid is None else valid
+                if valid is not None:
+                    st.n_cand[l] += valid.sum(axis=1)
+                hit = eq & ok
+                if hit.any():
+                    st.best[l] = np.maximum(st.best[l], np.where(hit.any(axis=1), 1.0, -np.inf))
+                    self._accept(l, c, hit, st, cosine=False)
+                unk = ~eq & ok
+                if unk.any():
+                    self._unknown(l, c, unk, st)
+
+    def _own(self, st: _ChunkState, loc_t: np.ndarray, cands_t: np.ndarray) -> np.ndarray:
+        return self.gt.rel_code[cands_t][None, :] == st.own[loc_t][:, None]
+
+    def _accept(self, loc_t, cands_t, acc: np.ndarray, st: _ChunkState, cosine: bool) -> None:
+        cnt = acc.sum(axis=1)
+        st.kcnt[loc_t] += cnt
+        if cosine:
+            st.kpass[loc_t] += cnt
+        else:
+            st.fb[loc_t] += cnt
+        if st.gt is None:
             return
-        width = int(min(len(cand_rows), 8192))
-        step = max(1, self.cfg.chunk_pairs // width)
-        for a in range(0, len(src_rows), step):
-            rows = src_rows[a: a + step]
-            for b in range(0, len(cand_rows), width):
-                cc = cand_rows[b: b + width]
-                out.n_cand[rows] += (~self._covered(rows, cc, cover)).sum(axis=1)
+        hit_rows = (acc & self._own(st, loc_t, cands_t)).sum(axis=1)
+        st.khit[loc_t] += hit_rows
+        keys = None
+        if not st.gt.rel_unique:
+            r_i, c_i = np.nonzero(acc)
+            if r_i.size:
+                keys = loc_t[r_i].astype(np.int64) * st.S + st.gt.rel_code[cands_t[c_i]]
+                st.K.append(keys)
+        if not cosine:
+            # a degenerate source's tied top candidates are exactly its exact-equal rows
+            st.tcnt[loc_t] += cnt
+            st.thit[loc_t] += hit_rows
+            if keys is not None:
+                st.T.append(keys)
 
-    def _block(self, src_rows, cand_rows, cover, out: RungScan, mode: str, fb: Optional[dict]) -> None:
-        cfg = self.cfg
-        src_deg = self.deg_s[src_rows]
-        cand_deg = self.deg_r[cand_rows]
-        vs = src_rows[~src_deg]
-        vc = cand_rows[~cand_deg]
-        if mode == "link":
-            if cand_deg.any():
-                out.undefined[vs] = True
-            if src_deg.any():
-                ds = src_rows[src_deg]
-                out.undefined[ds] = True
-                if cand_deg.any():
-                    self._exact_fallback(ds, cand_rows[cand_deg], fb)
-        if len(vs) == 0 or len(vc) == 0:
+    def _unknown(self, loc_t, cands_t, unk: np.ndarray, st: _ChunkState) -> None:
+        st.urows[loc_t] += unk.sum(axis=1)
+        if st.gt is None:
             return
-        width = int(min(len(vc), 8192))
-        step = max(1, cfg.chunk_pairs // width)
-        tau = cfg.tau - _TAU_EPS
-        gt = self.gt
-        with_gt = gt is not None and out.cnt is not None
-        for a in range(0, len(vs), step):
-            rows = vs[a: a + step]
-            zq = self.zs[rows]
-            if mode == "top1":
-                keep = out.linked[rows]
-                if not keep.any():
-                    continue
-                thr = np.where(keep, out.best[rows] - cfg.tie_tolerance, np.inf)
-            else:
-                thr = np.full(len(rows), tau)
-            best = np.full(len(rows), -np.inf)
-            any_pass = np.zeros(len(rows), dtype=bool)
-            cnt = np.zeros(len(rows), dtype=np.int64)
-            hit = np.zeros(len(rows), dtype=bool)
-            for b in range(0, len(vc), width):
-                cc = vc[b: b + width]
-                sim = zq @ self.zr[cc].T
-                if cover:
-                    covered = self._covered(rows, cc, cover)
-                    sim[covered] = -2.0  # explored by an earlier rung: not a new pair
-                    n_new = sim.size - int(covered.sum())
-                else:
-                    n_new = sim.size
-                if mode == "link":
-                    out.pairs_compared += n_new
-                    best = np.maximum(best, sim.max(axis=1))
-                pas = sim >= thr[:, None]
-                if not with_gt:
-                    any_pass |= pas.any(axis=1)
-                    continue
-                if self._acc is None:  # every released row is its own subject
-                    cnt += pas.sum(axis=1)
-                    tr = gt.true_row[rows]
-                    ok = tr >= 0
-                    if ok.any():
-                        colpos = _lookup(cc, tr)
-                        sel = ok & (colpos >= 0)
-                        if sel.any():
-                            idx = np.flatnonzero(sel)
-                            hit[idx] |= pas[idx, colpos[idx]]
-                else:
-                    r_idx, c_idx = np.nonzero(pas)
-                    if len(r_idx):
-                        self._acc.add(rows[r_idx], gt.rel_code[cc[c_idx]])
-            if mode == "link":
-                out.best[rows] = np.maximum(out.best[rows], best)
-                if with_gt:
-                    if self._acc is None:
-                        out.cnt[rows] += cnt
-                        out.hit[rows] |= hit
-                        out.linked[rows] |= cnt > 0
-                else:
-                    out.linked[rows] |= any_pass
-            elif self._acc is None:
-                out.tie_cnt[rows] += cnt
-                out.tie_hit[rows] |= hit
+        st.uhit[loc_t] += (unk & self._own(st, loc_t, cands_t)).sum(axis=1)
+        if not st.gt.rel_unique:
+            r_i, c_i = np.nonzero(unk)
+            if r_i.size:
+                st.U.append(loc_t[r_i].astype(np.int64) * st.S + st.gt.rel_code[cands_t[c_i]])
 
-    def _exact_fallback(self, deg_src_rows: np.ndarray, deg_cand_rows: np.ndarray, fb: dict) -> None:
-        """Pairs whose projected vectors are both zero: link iff the *encoded feature
-        vectors* are exactly equal (the projection destroyed the evidence, not the match)."""
-        xs = self.projection.phi_rows(self.cols_s, deg_src_rows)
-        xr = self.projection.phi_rows(self.cols_r, deg_cand_rows)
-        joint = pd.factorize(
-            np.array([r.tobytes() for r in np.ascontiguousarray(np.vstack([xs, xr]))], dtype=object)
-        )[0]
-        ks, kr = joint[: len(xs)], joint[len(xs):]
-        by_key: Dict[int, List[int]] = {}
-        for j, k in enumerate(kr):
-            by_key.setdefault(int(k), []).append(int(deg_cand_rows[j]))
-        for i, k in enumerate(ks):
-            matches = by_key.get(int(k))
-            if matches:
-                fb.setdefault(int(deg_src_rows[i]), set()).update(matches)
+    def _top_pairs(self, loc, src_rows, cand, cover, st: _ChunkState, linked: np.ndarray) -> None:
+        """Second pass: the top-similarity ties among the ACCEPTED candidates only.
 
+        A candidate is a tie only if it passes the threshold AND is within the tie tolerance
+        of the best similarity; tolerance never admits a pair the threshold rejected.
+        """
+        eligible = ~self.deg_s[src_rows] & linked[loc]
+        cand_nd = cand[~self.deg_r[cand]]
+        if not eligible.any() or len(cand_nd) == 0:
+            return
+        tau = self.cfg.tau - _TAU_EPS
+        for r, l, c, valid in self._tiles(src_rows[eligible], loc[eligible], cand_nd, cover):
+            sim = self.zs[r] @ self.zr[c].T
+            if valid is not None:
+                sim = np.where(valid, sim, -np.inf)
+            thr = np.maximum(st.best[l] - self.cfg.tie_tolerance, tau)
+            acc = sim >= thr[:, None]
+            if not acc.any():
+                continue
+            cnt = acc.sum(axis=1)
+            st.tcnt[l] += cnt
+            st.thit[l] += (acc & self._own(st, l, c)).sum(axis=1)
+            if not st.gt.rel_unique:
+                r_i, c_i = np.nonzero(acc)
+                st.T.append(l[r_i].astype(np.int64) * st.S + st.gt.rel_code[c[c_i]])
 
-def _lookup(sorted_or_not_cols: np.ndarray, targets: np.ndarray) -> np.ndarray:
-    """Position of each target release row inside ``cols`` (-1 if absent)."""
-    order = np.argsort(sorted_or_not_cols, kind="stable")
-    srt = sorted_or_not_cols[order]
-    pos = np.searchsorted(srt, targets)
-    pos = np.clip(pos, 0, len(srt) - 1)
-    found = (srt[pos] == targets) & (targets >= 0)
-    return np.where(found, order[pos], -1)
+    # -- end of chunk -----------------------------------------------------------------
+    def _finalize(self, rows: np.ndarray, st: _ChunkState, out: RungScan) -> None:
+        out.n_cand[rows] = st.n_cand
+        out.linked[rows] = st.kcnt > 0
+        out.best[rows] = st.best
+        out.unk_rows[rows] = st.urows
+        out.fallback_any[rows] = st.fb > 0
+        out.fallback_only[rows] = (st.fb > 0) & (st.kpass == 0)
+        out.fallback_pairs += int(st.fb.sum())
+        out.pairs_compared += st.compared
+        if st.gt is None:
+            return
+        m = st.m
+        if st.gt.rel_unique:
+            kcnt_s, khit_s = st.kcnt, st.khit > 0
+            unew, uhit_new = st.urows, st.uhit > 0
+            tcnt_s, thit_s = st.tcnt, st.thit > 0
+        else:
+            kcnt_s, khit_s, kk = _distinct(st.K, m, st.S, st.own)
+            tcnt_s, thit_s, _ = _distinct(st.T, m, st.S, st.own)
+            _, _, uk = _distinct(st.U, m, st.S, st.own)
+            only_u = np.setdiff1d(uk, kk, assume_unique=True)
+            loc = only_u // st.S
+            unew = np.bincount(loc, minlength=m).astype(np.int64)
+            uhit_new = np.zeros(m, dtype=bool)
+            uhit_new[loc[(only_u % st.S) == st.own[loc]]] = True
+        out.kcnt_s[rows] = kcnt_s
+        out.khit_s[rows] = khit_s
+        out.kcnt_r[rows] = st.kcnt
+        out.khit_r[rows] = st.khit
+        out.unew_s[rows] = unew
+        out.uhit_new[rows] = uhit_new
+        out.uhit_rows[rows] = st.uhit
+        out.tcnt_s[rows] = tcnt_s
+        out.thit_s[rows] = thit_s
 
 
 # ---------------------------------------------------------------------------
@@ -420,6 +563,13 @@ class CVPLResult:
 
     def to_dict(self) -> Dict[str, Any]:
         return self.metrics
+
+
+GT_MEASURES = (
+    "cvpl_id_uniform_subjects_gt", "cvpl_id_uniform_rows_gt", "cvpl_id_uniform_gt",
+    "cvpl_top1_success_gt", "precision_at_tau",
+)
+_UNC_EPS = 1e-12
 
 
 def _status(value: Optional[float], status: str, reason: Optional[str] = None, **extra) -> Dict[str, Any]:
@@ -440,12 +590,110 @@ def _summary(n_cand: np.ndarray) -> Dict[str, Any]:
     }
 
 
-def _rung_measures(scan: RungScan, n: int, gt: Optional[PreparedGroundTruth], gt_ok_full: bool) -> Dict[str, Any]:
+def _record_arrays(scan: RungScan) -> Dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Per record: (point value if every candidate were defined, lower bound, upper bound) of
+    each GT measure. An undefined-cosine candidate may or may not be accepted, may tie or
+    outrank; the bounds are the extremes over all of those possibilities (white-box: the
+    auditor may pick the attacker's best reading, so the upper bound is the headline-relevant
+    one)."""
+    linked = scan.linked
+    unk = scan.unk_rows > 0
+    cnt, hit = scan.kcnt_s, scan.khit_s
+    safe = np.maximum(cnt, 1)
+    pt_s = np.where(cnt > 0, hit / safe, 0.0)
+    hi_s = np.where(hit, 1.0 / safe, np.where(scan.uhit_new, 1.0 / (cnt + 1), 0.0))
+    lo_s = np.where(hit, 1.0 / np.maximum(cnt + scan.unew_s, 1), 0.0)
+
+    kc, kh, u, uh = scan.kcnt_r, scan.khit_r, scan.unk_rows, scan.uhit_rows
+    pt_r = np.where(kc > 0, kh / np.maximum(kc, 1), 0.0)
+    hi_r = np.where(kc + uh > 0, (kh + uh) / np.maximum(kc + uh, 1), 0.0)
+    lo_r = np.where(kc + (u - uh) > 0, kh / np.maximum(kc + u - uh, 1), 0.0)
+
+    tc = scan.tcnt_s
+    pt_t = np.where(linked & (tc > 0), scan.thit_s / np.maximum(tc, 1), 0.0)
+    hi_t = np.where(uh > 0, 1.0, pt_t)  # an unknown row of the own subject may be the top one
+    lo_t = np.where(unk, 0.0, pt_t)  # an unknown row may outrank the true one
+    return {
+        "subjects": (pt_s, lo_s, hi_s), "rows": (pt_r, lo_r, hi_r), "top1": (pt_t, lo_t, hi_t),
+    }
+
+
+def _pop(arrs: Tuple[np.ndarray, np.ndarray, np.ndarray], mask: np.ndarray) -> Optional[Dict[str, Any]]:
+    den = int(mask.sum())
+    if den == 0:
+        return None
+    pt, lo, hi = (a[mask] for a in arrs)
+    return {
+        "point": float(pt.sum() / den), "lower": float(lo.sum() / den), "upper": float(hi.sum() / den),
+        "n_uncertain": int((hi - lo > _UNC_EPS).sum()), "denominator": den,
+    }
+
+
+def _precision(rec, scan: RungScan, mask: np.ndarray) -> Dict[str, Any]:
+    pt, lo, hi = rec["top1"]
+    linked = scan.linked & mask
+    unlinked_unknown = ~scan.linked & (scan.unk_rows > 0) & mask
+    n_l, n_ul = int(linked.sum()), int(unlinked_unknown.sum())
+    top_unc = int((hi[linked] - lo[linked] > _UNC_EPS).sum())
+    if n_ul == 0 and top_unc == 0:
+        return {"point": float(pt[linked].sum() / n_l) if n_l else None, "lower": None, "upper": None,
+                "n_uncertain": 0, "denominator": n_l}
+    num_lo = float(lo[linked].sum())
+    num_hi = float(hi[linked].sum() + hi[unlinked_unknown].sum())
+    den_hi = n_l + n_ul
+    lower = num_lo / den_hi if den_hi else None
+    upper = min(1.0, num_hi / n_l) if n_l else (1.0 if n_ul else None)
+    return {"point": None, "lower": lower, "upper": upper, "n_uncertain": top_unc + n_ul,
+            "denominator": n_l, "denominator_upper": den_hi}
+
+
+def _gt_stats(rec, scan: RungScan, mask: np.ndarray) -> Dict[str, Any]:
+    return {
+        "subjects": _pop(rec["subjects"], mask), "rows": _pop(rec["rows"], mask),
+        "top1": _pop(rec["top1"], mask), "precision": _precision(rec, scan, mask),
+        "n": int(mask.sum()),
+    }
+
+
+def _pop_status(pop: Optional[Dict[str, Any]], **extra) -> Tuple[Optional[float], Dict[str, Any]]:
+    if pop is None:
+        return None, _status(None, "not_measured", "empty_population", **extra)
+    if pop["n_uncertain"] == 0 and pop["point"] is not None:
+        return pop["point"], _status(pop["point"], "measured", None, denominator=pop["denominator"],
+                                      n_uncertain=0, **extra)
+    if pop["n_uncertain"] == 0:  # defined by an empty set of declared links
+        return None, _status(None, "not_measured", "no_declared_links", denominator=0, **extra)
+    return None, _status(
+        None, "bounded", "undefined_cosine_candidates", denominator=pop["denominator"],
+        lower=pop["lower"], upper=pop["upper"], n_uncertain=pop["n_uncertain"], **extra)
+
+
+def _headline(sub: Optional[Dict[str, Any]], rows: Optional[Dict[str, Any]]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """The headline uniform-choice value: the larger of the two POPULATION values, so it
+    never falls below what either declared simple strategy achieves (upper-oriented)."""
+    if sub is None or rows is None:
+        return None, None
+    if sub["n_uncertain"] == 0 and rows["n_uncertain"] == 0:
+        basis = "subjects" if sub["point"] >= rows["point"] else "rows"
+        best = sub if basis == "subjects" else rows
+        return dict(best), basis
+    lower, upper = max(sub["lower"], rows["lower"]), max(sub["upper"], rows["upper"])
+    n_unc = int(max(sub["n_uncertain"], rows["n_uncertain"]))
+    basis = "subjects" if sub["upper"] >= rows["upper"] else "rows"
+    if upper - lower <= _UNC_EPS:
+        return {"point": upper, "lower": lower, "upper": upper, "n_uncertain": 0,
+                "denominator": sub["denominator"]}, basis
+    return {"point": None, "lower": lower, "upper": upper, "n_uncertain": n_unc,
+            "denominator": sub["denominator"]}, basis
+
+
+def _rung_measures(scan: RungScan, n: int, gt: Optional[PreparedGroundTruth]) -> Dict[str, Any]:
     linked = scan.linked
     n_linked = int(linked.sum())
-    n_undet = int((scan.undefined & ~linked).sum())
+    n_undet = int(((scan.unk_rows > 0) & ~linked).sum())
     m: Dict[str, Any] = {
-        "cvpl_lr": n_linked / n if n else None,
+        # a point value only if no undefined-cosine pair can matter; else bounds only
+        "cvpl_lr": (n_linked / n if n else None) if n_undet == 0 else None,
         "cvpl_lr_lower": n_linked / n if n else None,
         "cvpl_lr_upper": (n_linked + n_undet) / n if n else None,
         "n_linked": n_linked,
@@ -454,6 +702,7 @@ def _rung_measures(scan: RungScan, n: int, gt: Optional[PreparedGroundTruth], gt
         "n_exact_fallback_records": int(scan.fallback_any.sum()),
         "n_exact_fallback_pairs": int(scan.fallback_pairs),
         "n_with_candidates": int((scan.n_cand > 0).sum()),
+        # cosine evaluations only; exact-fallback and unknown pairs are counted separately
         "n_compared": int(scan.pairs_compared),
         "candidate_count_summary": _summary(scan.n_cand),
     }
@@ -465,62 +714,60 @@ def _rung_measures(scan: RungScan, n: int, gt: Optional[PreparedGroundTruth], gt
     else:
         m["cvpl_weighted_lr_legacy"] = None
         m["legacy_n_eligible"] = 0
-    if gt is not None and scan.cnt is not None:
-        known = gt.known_mask
-        cnt, hit = scan.cnt, scan.hit
-        p = np.where(cnt > 0, hit / np.maximum(cnt, 1), 0.0)
-        tcnt, thit = scan.tie_cnt, scan.tie_hit
-        s = np.where(linked & (tcnt > 0), thit / np.maximum(tcnt, 1), 0.0)
-        denom_known = int(known.sum())
+    if gt is not None and scan.kcnt_s is not None:
+        rec = _record_arrays(scan)
         m["_gt"] = {
-            "uniform_full": float(p.sum() / n) if n else None,
-            "top1_full": float(s.sum() / n) if n else None,
-            "uniform_known": float(p[known].sum() / denom_known) if denom_known else None,
-            "top1_known": float(s[known].sum() / denom_known) if denom_known else None,
-            "n_declared_full": n_linked,
-            "success_declared_full": float(s[linked].sum()),
-            "n_declared_known": int((linked & known).sum()),
-            "success_declared_known": float(s[linked & known].sum()),
-            "n_known": denom_known,
+            "full": _gt_stats(rec, scan, np.ones(n, dtype=bool)),
+            "known": _gt_stats(rec, scan, gt.known_mask),
         }
     return m
 
 
-def _gt_fields(sel: Dict[str, Any], gt: Optional[PreparedGroundTruth], n: int, status_cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """The three GT measures with their statuses (never a silent zero)."""
-    out: Dict[str, Any] = {}
+def _gt_fields(sel: Dict[str, Any], gt: Optional[PreparedGroundTruth], n: int) -> Dict[str, Any]:
+    """The GT measures with their statuses (never a silent zero, never a bound as a point)."""
+    out: Dict[str, Any] = {"cvpl_id_uniform_basis": None}
     g = sel.get("_gt")
     if gt is None or gt.status in ("absent", "invalid") or g is None:
         reason = "no_ground_truth" if gt is None or gt.status == "absent" else gt.reason
         why = reason if reason else "ground_truth_unavailable"
-        for key in ("cvpl_id_uniform_gt", "cvpl_top1_success_gt", "precision_at_tau"):
+        for key in GT_MEASURES:
             out[key] = None
             out[f"{key}_status"] = _status(None, "not_measured", why)
         return out
     if gt.status == "complete":
-        out["cvpl_id_uniform_gt"] = g["uniform_full"]
-        out["cvpl_id_uniform_gt_status"] = _status(g["uniform_full"], "measured", denominator=n)
-        out["cvpl_top1_success_gt"] = g["top1_full"]
-        out["cvpl_top1_success_gt_status"] = _status(g["top1_full"], "measured", denominator=n)
-        if g["n_declared_full"] > 0:
-            val = g["success_declared_full"] / g["n_declared_full"]
-            out["precision_at_tau"] = val
-            out["precision_at_tau_status"] = _status(val, "measured", denominator=g["n_declared_full"])
-        else:
-            out["precision_at_tau"] = None
-            out["precision_at_tau_status"] = _status(None, "not_measured", "no_declared_links", denominator=0)
+        s = g["full"]
+        head, basis = _headline(s["subjects"], s["rows"])
+        pops = {
+            "cvpl_id_uniform_subjects_gt": s["subjects"], "cvpl_id_uniform_rows_gt": s["rows"],
+            "cvpl_id_uniform_gt": head, "cvpl_top1_success_gt": s["top1"], "precision_at_tau": s["precision"],
+        }
+        for key in GT_MEASURES:
+            extra = {"basis": basis} if key == "cvpl_id_uniform_gt" else {}
+            out[key], out[f"{key}_status"] = _pop_status(pops[key], **extra)
+        out["cvpl_id_uniform_basis"] = basis
         return out
-    # partial: population measures are NOT available; the known subset is reported separately
+    # partial: population measures are NOT available; the subset whose correspondence is
+    # fully known is reported separately, with its own denominator
     why = "ground_truth_incomplete:" + str(gt.reason)
-    for key in ("cvpl_id_uniform_gt", "cvpl_top1_success_gt", "precision_at_tau"):
+    k = g["known"]
+    head, basis = _headline(k["subjects"], k["rows"])
+    pops = {
+        "cvpl_id_uniform_subjects_gt": k["subjects"], "cvpl_id_uniform_rows_gt": k["rows"],
+        "cvpl_id_uniform_gt": head, "cvpl_top1_success_gt": k["top1"], "precision_at_tau": k["precision"],
+    }
+    for key in GT_MEASURES:
+        pop = pops[key]
         out[key] = None
-    out["cvpl_id_uniform_gt_status"] = _status(
-        None, "not_measured", why, known_subset_value=g["uniform_known"], known_subset_denominator=g["n_known"])
-    out["cvpl_top1_success_gt_status"] = _status(
-        None, "not_measured", why, known_subset_value=g["top1_known"], known_subset_denominator=g["n_known"])
-    val = (g["success_declared_known"] / g["n_declared_known"]) if g["n_declared_known"] else None
-    out["precision_at_tau_status"] = _status(
-        None, "not_measured", why, known_subset_value=val, known_subset_denominator=g["n_declared_known"])
+        extra: Dict[str, Any] = {"known_subset_denominator": pop["denominator"] if pop else 0}
+        if pop is None:
+            extra.update(known_subset_value=None, known_subset_reason=(
+                "release_membership_unknown" if gt.anonymous_release else "no_source_with_known_correspondence"))
+        elif pop["n_uncertain"] == 0:
+            extra.update(known_subset_value=pop["point"])
+        else:
+            extra.update(known_subset_value=None, known_subset_lower=pop["lower"],
+                         known_subset_upper=pop["upper"])
+        out[f"{key}_status"] = _status(None, "not_measured", why, **extra)
     return out
 
 
@@ -540,6 +787,27 @@ def _validate_inputs(cfg: CVPLConfig, source: pd.DataFrame, release: pd.DataFram
             raise ColumnNotFoundError(column_name=missing, available_columns=list(df.columns), dataset_name=side)
         if not df.columns.is_unique:
             raise InvalidParameterError(f"{side}.columns", "duplicated", "duplicate column names are ambiguous")
+
+
+def _encoded_classes(
+    proj: CVPLProjection, cols_s: FeatureColumns, cols_r: FeatureColumns,
+    deg_s: np.ndarray, deg_r: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Equivalence classes of the encoded feature vectors of the degenerate records of both
+    sides (-1 for a record with a defined projection). Two records are an exact-equal pair
+    iff they share a class; aggregating by class replaces any per-pair bookkeeping."""
+    cls_s = np.full(len(deg_s), -1, dtype=np.int64)
+    cls_r = np.full(len(deg_r), -1, dtype=np.int64)
+    rs, rr = np.flatnonzero(deg_s), np.flatnonzero(deg_r)
+    if rs.size == 0 or rr.size == 0:
+        return cls_s, cls_r
+    xs = proj.phi_rows(cols_s, rs) + 0.0
+    xr = proj.phi_rows(cols_r, rr) + 0.0
+    _, inverse = np.unique(np.vstack([xs, xr]), axis=0, return_inverse=True)
+    inverse = np.asarray(inverse).reshape(-1)
+    cls_s[rs] = inverse[: len(rs)]
+    cls_r[rr] = inverse[len(rs):]
+    return cls_s, cls_r
 
 
 def run_cvpl(
@@ -571,17 +839,21 @@ def run_cvpl(
         "n_original": n,
         "n_released": m_rel,
         "parameters": cfg.describe(),
+        "evaluation_model": "white_box_upper_estimate",
         "metric_semantics": {
             "cvpl_lr": "existential_candidate_exposure",
-            "cvpl_id_uniform_gt": "uniform_choice_correct_identity_success",
+            "cvpl_id_uniform_subjects_gt": "uniform_choice_among_distinct_candidate_subjects",
+            "cvpl_id_uniform_rows_gt": "uniform_choice_among_candidate_released_rows",
+            "cvpl_id_uniform_gt": "larger_of_subjects_and_rows_population_values",
             "cvpl_top1_success_gt": "similarity_top1_correct_identity_success",
             "precision_at_tau": "correct_share_among_declared_top1_links",
             "cvpl_weighted_lr_legacy": "weighted_existential_linkage_v1",
         },
         "interpretation": (
-            "Measurements of one specified attacker (declared attributes, blocking, projection, "
-            "threshold). Not a probability of re-identification in general and not a verdict "
-            "on anonymity."
+            "White-box evaluation of one specified attacker (declared attributes, blocking, "
+            "projection, threshold) with full auditor access: an upper, worst-case-oriented "
+            "estimate, not an average over attackers. Not a probability of re-identification "
+            "in general and not a verdict on anonymity."
         ),
     }
     if n == 0:
@@ -636,6 +908,7 @@ def run_cvpl(
         "variance_retained": info.variance_retained, "n_fit_rows": info.n_fit_rows,
         "feature_columns": info.feature_columns, "encoding": info.encoding,
         "imputed_values": info.imputed_values, "degenerate": info.degenerate,
+        "fingerprint": proj.fingerprint(),
     }
     # bucketing is never silent: which attributes were collapsed, and by how much
     bucketed = [
@@ -653,6 +926,12 @@ def run_cvpl(
     ]
     zs = proj.project(cols_s, n)
     zr = proj.project(cols_r, m_rel)
+    if not (np.isfinite(zs).all() and np.isfinite(zr).all()):
+        # a non-finite representation says nothing about linkage: it must never reach the
+        # threshold, where NaN similarities would silently count as "no link"
+        base.update(_all_not_measured("non_finite_representation"))
+        base["elapsed_seconds"] = round(time.perf_counter() - t0, 3)
+        return CVPLResult(base, proj)
     tol = cfg.zero_norm_tolerance
     ns = np.linalg.norm(zs, axis=1)
     nr = np.linalg.norm(zr, axis=1)
@@ -660,19 +939,21 @@ def run_cvpl(
     zs = np.where(deg_s[:, None], 0.0, zs / np.where(deg_s, 1.0, ns)[:, None])
     zr = np.where(deg_r[:, None], 0.0, zr / np.where(deg_r, 1.0, nr)[:, None])
     base["degenerate_vectors"] = {"source": int(deg_s.sum()), "release": int(deg_r.sum())}
+    cls_s, cls_r = _encoded_classes(proj, cols_s, cols_r, deg_s, deg_r)
 
     # -- ground truth ----------------------------------------------------------------
     gt = prepare_ground_truth(cfg, source, release)
     base["ground_truth"] = {
         "status": gt.status, "reason": gt.reason, "scope_declared": None if cfg.ground_truth is None else cfg.ground_truth.scope,
-        "gt_coverage": (gt.n_known / n) if cfg.ground_truth is not None and gt.status != "invalid" else None,
+        "gt_coverage": (gt.n_known / n) if cfg.ground_truth is not None and gt.status not in ("invalid",) else None,
         "n_known": gt.n_known if cfg.ground_truth is not None else 0,
         "release_subject_duplicates": (not gt.rel_unique) if gt.rel_code is not None else None,
+        "release_membership_unknown": bool(gt.anonymous_release) if gt.rel_code is not None else None,
     }
     base["gt_coverage"] = base["ground_truth"]["gt_coverage"]
     use_gt = gt.status in ("complete", "partial")
 
-    scanner = _Scanner(cfg, zs, zr, deg_s, deg_r, gt if use_gt else None, proj, cols_s, cols_r, encs)
+    scanner = _Scanner(cfg, zs, zr, deg_s, deg_r, gt if use_gt else None, cls_s, cls_r, encs)
 
     # -- ladder ----------------------------------------------------------------------
     ladder = cfg.ladder
@@ -703,23 +984,22 @@ def run_cvpl(
             if not plan.applicable:
                 entry.update(status="not_applicable", reason=plan.reason)
                 state = {"status": "not_applicable", "reason": plan.reason}
-            elif plan.comparisons > cfg.max_comparisons:
+            elif plan.exceeded or plan.comparisons > cfg.max_comparisons:
                 entry.update(
                     status="not_measured", reason="resource_limit",
-                    detail=f"{plan.comparisons:,} comparisons planned, limit {cfg.max_comparisons:,}",
+                    detail=(f"{'at least ' if plan.exceeded else ''}{plan.comparisons:,} comparisons "
+                            f"planned, limit {cfg.max_comparisons:,}"),
                 )
                 state = {"status": "not_measured", "reason": "resource_limit"}
             else:
                 scan = scanner.scan([(plan, [])], use_gt)
-                meas = _rung_measures(scan, n, gt if use_gt else None, gt.status == "complete")
+                meas = _rung_measures(scan, n, gt if use_gt else None)
                 cumulative |= scan.linked
                 cum_with_cand |= scan.n_cand > 0
                 entry.update(status="measured", reason=None, cumulative_lr=float(cumulative.sum() / n))
                 entry["measures"] = {k: v for k, v in meas.items() if k != "_gt"}
                 if use_gt:
-                    entry["measures"].update(
-                        {k: v for k, v in _gt_fields(meas, gt, n, {}).items() if not k.endswith("_status")}
-                    )
+                    entry["measures"].update(_gt_fields(meas, gt, n))
                 state = {"status": "measured", "reason": None}
         rungs.append(entry)
         plans.append(plan)
@@ -782,7 +1062,7 @@ def run_cvpl(
         else:
             cover = [(plans[r], [list(q) for q in ladder[:r]]) for r in range(len(ladder))]
             uscan = scanner.scan(cover, use_gt)
-            head_meas = _rung_measures(uscan, n, gt if use_gt else None, gt.status == "complete")
+            head_meas = _rung_measures(uscan, n, gt if use_gt else None)
             head_state = {"status": "measured", "reason": None}
     if head_meas is None:
         base.update(_all_not_measured(head_state.get("reason") or "not_measured",
@@ -791,25 +1071,32 @@ def run_cvpl(
         head = {k: v for k, v in head_meas.items() if k != "_gt"}
         base.update(head)
         proj_degenerate = info.degenerate or (deg_s.all() and deg_r.all())
-        if proj_degenerate and head["n_linked"] == 0:
+        # a degenerate representation only invalidates a conclusion when there ARE candidates
+        # to compare; no admissible candidate is a settled zero whatever the geometry
+        if proj_degenerate and head["n_linked"] == 0 and head["n_with_candidates"] > 0:
             base.update(_all_not_measured("projection_degenerate"))
         else:
-            base["cvpl_lr_status"] = _status(head["cvpl_lr"], "measured", denominator=n,
-                                             lower=head["cvpl_lr_lower"], upper=head["cvpl_lr_upper"])
-            base.update(_gt_fields(head_meas, gt, n, {}))
+            lr_status = "measured" if head["n_undetermined"] == 0 else "bounded"
+            base["cvpl_lr_status"] = _status(
+                head["cvpl_lr"], lr_status,
+                None if lr_status == "measured" else "undefined_cosine_candidates", denominator=n,
+                lower=head["cvpl_lr_lower"], upper=head["cvpl_lr_upper"],
+                n_uncertain=head["n_undetermined"])
+            base.update(_gt_fields(head_meas, gt, n))
         base["undefined_policy"] = (
-            "a source record whose compatible candidates include a pair with undefined cosine "
-            "(zero projected vector) and that has no link is counted in n_undetermined; it stays in the "
-            "denominator N, contributes 0 to the point value cvpl_lr and 1 to cvpl_lr_upper"
+            "a source record with an admissible candidate whose cosine is undefined (a zero "
+            "projected vector that is not an exact-equal pair) is unknown: it stays in the "
+            "denominator N and every measure it can influence is published with bounds "
+            "(status 'bounded', point value null) instead of a point value; n_undetermined counts "
+            "the records with no known link and at least one unknown candidate"
         )
     base["elapsed_seconds"] = round(time.perf_counter() - t0, 3)
     return CVPLResult(base, proj)
 
 
 def _all_not_measured(reason: str, status: str = "not_measured") -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
-    for key in ("cvpl_lr", "cvpl_id_uniform_gt", "cvpl_top1_success_gt", "precision_at_tau",
-                "cvpl_weighted_lr_legacy"):
+    out: Dict[str, Any] = {"cvpl_id_uniform_basis": None}
+    for key in ("cvpl_lr", *GT_MEASURES, "cvpl_weighted_lr_legacy"):
         out[key] = None
         out[f"{key}_status"] = _status(None, status, reason)
     return out

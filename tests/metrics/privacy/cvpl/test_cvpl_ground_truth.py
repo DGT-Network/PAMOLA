@@ -24,7 +24,11 @@ def test_released_rows_without_identifier_make_complete_scope_partial():
     assert r["ground_truth"]["status"] == "partial"
     assert r["ground_truth"]["reason"] == "released_rows_without_identifier"
     assert r["cvpl_id_uniform_gt"] is None
-    assert r["cvpl_id_uniform_gt_status"]["known_subset_denominator"] == 2
+    # an anonymous released row might belong to anyone: nothing is known about any T_i
+    st = r["cvpl_id_uniform_gt_status"]
+    assert st["known_subset_denominator"] == 0 and st["known_subset_value"] is None
+    assert st["known_subset_reason"] == "release_membership_unknown"
+    assert r["gt_coverage"] == 0.0
 
 
 def test_declared_partial_scope_never_reports_a_population_measure():

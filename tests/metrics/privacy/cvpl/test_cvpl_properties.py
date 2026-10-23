@@ -110,7 +110,7 @@ def test_engine_matches_an_independent_oracle(seed, tau):
     for entry, want in zip(result["blocking_ladder_trajectory"], expected):
         got = entry["measures"]
         assert got["cvpl_lr"] == pytest.approx(want["lr"], abs=1e-12)
-        assert got["cvpl_id_uniform_gt"] == pytest.approx(want["uni"], abs=1e-9)
+        assert got["cvpl_id_uniform_subjects_gt"] == pytest.approx(want["uni"], abs=1e-9)
     last = expected[-1]
     assert result["cvpl_top1_success_gt"] == pytest.approx(last["top1"], abs=1e-9)
     if last["prec"] is None:
@@ -325,7 +325,7 @@ def test_cvpl_non_nested_headline_is_the_union_of_candidate_sets_all_measures(se
     want = _oracle(src, rel, ["a", "b", "c"], ["n1", "n2"], [], 0.5, rungs, union=True)[-1]
     # (the oracle features: n1, n2 numeric; qids a, b one-hot - same as the engine's)
     assert r["cvpl_lr"] == pytest.approx(want["lr"], abs=1e-12)
-    assert r["cvpl_id_uniform_gt"] == pytest.approx(want["uni"], abs=1e-9)
+    assert r["cvpl_id_uniform_subjects_gt"] == pytest.approx(want["uni"], abs=1e-9)
     assert r["cvpl_top1_success_gt"] == pytest.approx(want["top1"], abs=1e-9)
     if want["prec"] is not None:
         assert r["precision_at_tau"] == pytest.approx(want["prec"], abs=1e-9)

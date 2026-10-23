@@ -153,7 +153,9 @@ def test_cvpl_c07_categorical_hierarchy_makes_generalized_values_compatible():
     src = pd.DataFrame({"city": ["Paris", "Lyon", "Nice"], "x": [1.0, 1.1, 1.2], "sid": ["a", "b", "c"]})
     rel = pd.DataFrame({"city": ["North", "South", "South", "Z"], "x": [1.0, 1.1, 1.2, -100.0],
                         "rid": ["a", "b", "c", "z"]})
-    hierarchy = {"Paris": "North", "Lyon": "South", "Nice": "South", "North": "France", "South": "France"}
+    # 'Z' is the filler row's own label: a generalized value must be NAMED by the hierarchy
+    hierarchy = {"Paris": "North", "Lyon": "South", "Nice": "South", "North": "France", "South": "France",
+                 "Z": "Z-root"}
     cfg = CVPLConfig.from_dict({
         "qids": [{"name": "city", "kind": "categorical", "hierarchy": hierarchy}],
         "auxiliary": ["x"], "qid_as_features": False, "tau": 0.5, "ground_truth": GT})
@@ -207,8 +209,9 @@ def test_cvpl_c08_unequal_vectors_with_undefined_cosine_are_undetermined_not_unl
     r = measure(src, rel)
     assert r["n_exact_fallback"] == 0
     assert r["n_undetermined"] == 1
-    # point value counts it as not linked, the interval says what could be true
-    assert r["cvpl_lr"] == 0.0
+    # an undefined candidate may matter: no point value, only the interval
+    assert r["cvpl_lr"] is None
+    assert r["cvpl_lr_status"]["status"] == "bounded"
     assert r["cvpl_lr_lower"] == 0.0 and r["cvpl_lr_upper"] == 1.0
     assert r["cvpl_lr_status"]["upper"] == 1.0
     assert "n_undetermined" in r["undefined_policy"]
@@ -229,9 +232,12 @@ def test_cvpl_c09_duplicated_release_row_does_not_dilute_a_subject():
     once = release_frame([("A", 1.0, "s0"), ("A", 1.1, "t1")] + anchors())
     dup = release_frame([("A", 1.0, "s0"), ("A", 1.0, "s0"), ("A", 1.1, "t1")] + anchors())
     r1, r2 = measure(src, once), measure(src, dup)
-    assert r1["cvpl_id_uniform_gt"] == pytest.approx(0.5)
-    # rows would give 2/3; subjects give 1/2 again
-    assert r2["cvpl_id_uniform_gt"] == pytest.approx(0.5)
+    assert r1["cvpl_id_uniform_subjects_gt"] == pytest.approx(0.5)
+    # rows would give 2/3; subjects give 1/2 again (subject-level counting under a FIXED
+    # representation: source_only/frozen keep it fixed, joint fitting would move it)
+    assert r2["cvpl_id_uniform_subjects_gt"] == pytest.approx(0.5)
+    assert r2["cvpl_id_uniform_rows_gt"] == pytest.approx(2 / 3)
+    assert r2["cvpl_id_uniform_gt"] == pytest.approx(2 / 3)  # headline = max of the two
     assert r2["ground_truth"]["release_subject_duplicates"] is True
     assert r2["cvpl_top1_success_gt"] == pytest.approx(r1["cvpl_top1_success_gt"])
 
@@ -258,7 +264,7 @@ def test_cvpl_c10_nested_ladder_lr_never_decreases_while_p_id_may_fall():
     r = run_cvpl(src, rel, cfg)
     traj = r["blocking_ladder_trajectory"]
     lrs = [e["measures"]["cvpl_lr"] for e in traj]
-    ps = [e["measures"]["cvpl_id_uniform_gt"] for e in traj]
+    ps = [e["measures"]["cvpl_id_uniform_subjects_gt"] for e in traj]
     assert lrs == sorted(lrs)  # Theorem 1: existential linkage is monotone
     assert lrs == [0.5, 1.0, 1.0]  # s1 gains a candidate once h is relaxed
     assert ps[0] == pytest.approx(0.5)   # (s0 -> {s0}) 1, (s1 -> {}) 0
@@ -403,15 +409,24 @@ def test_cvpl_c18_legacy_goldens_G1_G3_G5(name, second_seed, tau, lr, linked, we
 @pytest.mark.parametrize(("name", "tau"), [("G2", 0.8), ("G4", 0.8)])
 def test_cvpl_c18_legacy_goldens_G2_G4_projection_only(name, tau):
     """G2/G4 leave ``person_id`` in the feature set (60 one-hot columns bounded to 50).
-    The projection is reproduced exactly (28 components, 0.903622 of the variance), but
-    the *linked count* is not asserted: 49 of the one-hot columns have identical variance,
-    so the PCA basis inside that degenerate eigenspace is arbitrary and a different (equally
-    valid) solver links a few more or fewer records. Kept as a legacy fixture of the
-    representation, with the reason recorded; it must not be read as a reference value."""
+
+    LEGACY-ONLY DIVERGENCE, accepted and pinned (CDX-CVPL-16). The projection is reproduced
+    exactly (28 components, 0.903622 of the variance), but the historical linked counts are
+    NOT: BEST linked 21 records (LR 0.35, legacy weighted rate 0.319195), this implementation
+    links 19 (LR 0.316667, weighted 0.276781). 49 of the one-hot columns have identical
+    variance, so the PCA basis inside that degenerate eigenspace is arbitrary: cutting the
+    kept components through it rotates the cosine geometry, and a different (equally valid)
+    solver legitimately links a different number of pairs. The numbers below are what THIS
+    implementation produces (deterministic: the covariance eigen-decomposition with canonical
+    signs); they pin it against accidental drift and must not be read as reference values or
+    as evidence about the BEST numbers. The fixture is not a correctness oracle."""
     d, dp = make_df(60, 1), make_df(60, 2)
     cfg = CVPLConfig.from_dict({"qids": _QIDS, "auxiliary": ["income", "person_id"], "tau": tau, "seed": 42})
     r = run_cvpl(d, dp, cfg)
     assert r["projection"]["n_components"] == 28
     assert r["projection"]["variance_retained"] == pytest.approx(0.903622, abs=1e-6)
     assert r["projection"]["encoding"]["person_id"]["bounded"] is True
-    assert 0.25 <= r["cvpl_lr"] <= 0.45
+    assert r["n_undetermined"] == 0
+    assert r["n_linked"] == 19
+    assert r["cvpl_lr"] == pytest.approx(0.3166666667, abs=1e-9)
+    assert r["cvpl_weighted_lr_legacy"] == pytest.approx(0.2767808592, abs=1e-9)
