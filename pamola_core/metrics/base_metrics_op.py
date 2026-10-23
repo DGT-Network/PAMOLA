@@ -70,6 +70,7 @@ from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.exceptions import (
     ColumnNotFoundError,
+    InvalidParameterError,
     ValidationError,
     FeatureNotImplementedError,
 )
@@ -204,6 +205,23 @@ class MetricsOperation(BaseOperation):
                 logger=self.logger,
                 operation_name=self.operation_name,
             )
+
+            # A metric compares two datasets. Both names defaulting to "main" compared a
+            # dataset with itself (DCR 0, KS 0), so the same name twice is only accepted when a
+            # column_mapping compares different columns of that one dataset.
+            if self.original_dataset_name == self.transformed_dataset_name and not any(
+                src != dst for src, dst in (self.column_mapping or {}).items()
+            ):
+                raise InvalidParameterError(
+                    param_name="transformed_dataset_name",
+                    param_value=self.transformed_dataset_name,
+                    reason=(
+                        "original_dataset_name and transformed_dataset_name resolve to the same "
+                        f"dataset '{self.original_dataset_name}', so the metric would compare it "
+                        "with itself. Pass both names explicitly (or a column_mapping that "
+                        "compares different columns of one dataset)."
+                    ),
+                )
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
@@ -346,6 +364,8 @@ class MetricsOperation(BaseOperation):
                         sample_size=self.sample_size,
                         columns=self.columns,
                         column_mapping=self.column_mapping,
+                        # the seed that is part of the cache key is the one that selects the sample
+                        random_state=self.seed if self.seed is not None else 42,
                     )
                 else:
                     sampled_orig, sampled_trans = original_df, transformed_df
