@@ -125,3 +125,49 @@ jobs:
           name: dist
           path: dist/
           retention-days: 7
+
+  supply-chain:
+    name: "Supply chain: pip-audit on the installed wheel, license report"
+    # The audited environment is the one the wheel installs into (its pinned dependency tree),
+    # not the CI tooling. Known vulnerabilities fail the job; the licenses are an artifact.
+    needs: wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download the built distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Install the wheel into a clean environment
+        run: |
+          python -m venv "$RUNNER_TEMP/app"
+          "$RUNNER_TEMP/app/bin/python" -m pip install --quiet --upgrade pip
+          "$RUNNER_TEMP/app/bin/python" -m pip install --quiet dist/*.whl
+
+      - name: Install the audit tools in a separate environment
+        run: |
+          python -m venv "$RUNNER_TEMP/tools"
+          "$RUNNER_TEMP/tools/bin/python" -m pip install --quiet pip-audit pip-licenses
+
+      - name: pip-audit (known vulnerabilities fail the job)
+        run: |
+          SITE=$("$RUNNER_TEMP/app/bin/python" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+          "$RUNNER_TEMP/tools/bin/pip-audit" --path "$SITE" --progress-spinner off
+
+      - name: Dependency license report
+        run: |
+          mkdir -p reports
+          "$RUNNER_TEMP/tools/bin/pip-licenses" --python "$RUNNER_TEMP/app/bin/python" --format=json --with-urls --output-file reports/dependency-licenses.json
+          "$RUNNER_TEMP/tools/bin/pip-licenses" --python "$RUNNER_TEMP/app/bin/python" --format=markdown --output-file reports/dependency-licenses.md
+
+      - name: Upload the license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-licenses
+          path: reports/
+          retention-days: 30

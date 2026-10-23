@@ -19,6 +19,40 @@ import traceback
 from pathlib import Path
 
 
+class NetworkBlocked(OSError):
+    """Raised by the smoke test's network guard."""
+
+
+def block_network():
+    """Make any attempt to reach the network fail loudly (the base install needs none).
+
+    Patches name resolution and ``connect`` of internet sockets in this process (UNIX-domain
+    sockets stay possible). Everything the smoke cases do runs under it, on every OS.
+    """
+    import socket
+
+    real_connect, real_connect_ex = socket.socket.connect, socket.socket.connect_ex
+
+    def refuse(*_a, **_k):
+        raise NetworkBlocked("network access attempted during the no-network smoke test")
+
+    def connect(self, address):
+        if self.family in (socket.AF_INET, socket.AF_INET6):
+            refuse()
+        return real_connect(self, address)
+
+    def connect_ex(self, address):
+        if self.family in (socket.AF_INET, socket.AF_INET6):
+            refuse()
+        return real_connect_ex(self, address)
+
+    socket.socket.connect = connect
+    socket.socket.connect_ex = connect_ex
+    socket.getaddrinfo = refuse
+    socket.gethostbyname = refuse
+    socket.create_connection = refuse
+
+
 def _frame():
     import numpy as np
     import pandas as pd
@@ -164,7 +198,12 @@ CASES = [
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--expect-version", default=None)
+    parser.add_argument("--no-network", action="store_true",
+                        help="refuse every network access while the cases run")
     args = parser.parse_args()
+    if args.no_network:
+        block_network()
+        print("network guard: ON")
 
     # A checkout on sys.path would make the test pass against the source tree.
     cwd = Path.cwd().resolve()

@@ -232,6 +232,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   the source value and its pseudonym. The tracker now keeps keyed digests of
   the sources, counts only two *distinct* values with one pseudonym, and the
   log line carries no values.
+- **Release checks (ASB-5).** The release workflow looks for the exact heading `## [<version>]` in
+  `CHANGELOG.md` (`scripts/check_changelog.py`); the old substring search accepted `1.0.0` because
+  `1.0.0.dev4` exists. `tests/test_version.py` now applies the same canonical PEP 440 rule as
+  `scripts/release_version.py` (a `.postN` version passes both). CI gained a `supply-chain` job:
+  `pip-audit` on the environment the built wheel installs into (known vulnerabilities fail) and a
+  `pip-licenses` report uploaded as an artifact. The wheel smoke test runs its nine cases with a
+  network guard (`--no-network`; any internet socket raises) in CI and in the release workflow.
 
 ### Removed
 

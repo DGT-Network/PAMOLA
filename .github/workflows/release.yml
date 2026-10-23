@@ -84,7 +84,7 @@ jobs:
         env:
           VERSION: ${{ steps.release.outputs.version }}
         run: |
-          grep -q "$VERSION" CHANGELOG.md || (echo "ERROR: version $VERSION not in CHANGELOG.md" && exit 1)
+          python3 scripts/check_changelog.py CHANGELOG.md "$VERSION"
 
   build:
     name: "Build: wheel + sdist (once)"

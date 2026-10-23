@@ -155,3 +155,70 @@ def test_shell_scripts_use_lf_and_attributes_enforce_it():
     assert b"\r\n" not in (ROOT / "scripts/wheel_smoke.sh").read_bytes()
     attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")
     assert "*.sh text eol=lf" in attributes and "*.py text eol=lf" in attributes
+
+
+# --- ASB-5: CHANGELOG heading, version rules, no-network smoke, supply-chain job ---------------
+
+check_changelog = _load("check_changelog")
+
+
+@pytest.mark.parametrize(
+    "text,version,ok",
+    [
+        ("## [1.0.0.dev4] - 2026-08-16\n", "1.0.0.dev4", True),
+        ("## [1.0.0.dev4] - 2026-08-16\n", "1.0.0", False),  # a substring of the heading is not enough
+        ("see 1.0.0 in prose\n## [Unreleased]\n", "1.0.0", False),
+        ("## [1.0.0]\n", "1.0.0", True),
+        ("## [1.0.0.post1] - x\n", "1.0.0", False),
+        ("## [10.0.0] - x\n", "1.0.0", False),
+        ("## [1x0x0] - x\n", "1.0.0", False),  # the dots are literal
+    ],
+)
+def test_changelog_needs_the_exact_version_heading(text, version, ok):
+    assert check_changelog.has_release_heading(text, version) is ok
+
+
+def test_release_workflow_uses_the_exact_changelog_check():
+    text = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    assert "scripts/check_changelog.py" in text
+    assert 'grep -q "$VERSION" CHANGELOG.md' not in text
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "1.0.0.post1", "1.0.0rc1", "1.0.0.dev4", "1.0.0rc1.post1"])
+def test_test_version_and_release_script_accept_the_same_versions(version):
+    from packaging.version import Version
+
+    canonical, _ = release_version.classify(version)
+    assert str(Version(version)) == canonical == version  # what tests/test_version.py checks
+
+
+def test_the_no_network_smoke_guard_refuses_internet_sockets():
+    clean = _load("clean_wheel_smoke")
+    code = (
+        "import sys; sys.path.insert(0, %r); import clean_wheel_smoke as c, socket, urllib.request\n"
+        "c.block_network()\n"
+        "for fn in (lambda: socket.create_connection(('example.com', 80)),\n"
+        "           lambda: urllib.request.urlopen('http://example.com', timeout=1),\n"
+        "           lambda: socket.socket().connect(('127.0.0.1', 9))):\n"
+        "    try:\n"
+        "        fn()\n"
+        "    except c.NetworkBlocked:\n"
+        "        continue\n"
+        "    except Exception as e:\n"
+        "        # urllib wraps the OSError in URLError\n"
+        "        if isinstance(getattr(e, 'reason', None), c.NetworkBlocked):\n"
+        "            continue\n"
+        "        raise SystemExit('not blocked: ' + repr(e))\n"
+        "    raise SystemExit('connected')\n"
+        "print('blocked')\n" % str(ROOT / "scripts")
+    )
+    assert clean.NetworkBlocked
+    out = subprocess.run([__import__("sys").executable, "-c", code], capture_output=True, text=True)
+    assert out.returncode == 0 and "blocked" in out.stdout, out.stdout + out.stderr
+
+
+def test_smoke_script_runs_the_cases_with_the_network_refused_and_ci_audits_the_wheel():
+    assert "--no-network" in (ROOT / "scripts/wheel_smoke.sh").read_text(encoding="utf-8")
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "pip-audit" in ci and "--path" in ci and "pip-licenses" in ci
+    assert "dependency-licenses" in ci

@@ -45,4 +45,5 @@ cd "$WORK"
 grep -q "$EXPECTED_VERSION" "$WORK/version.txt"
 "$BIN/pamola-core" list-ops >/dev/null
 echo "CLI ok"
-"$BIN/python" "$SCRIPT_DIR/clean_wheel_smoke.py" --expect-version "$EXPECTED_VERSION"
+# Installation is done; from here the base install must work with the network refused.
+"$BIN/python" "$SCRIPT_DIR/clean_wheel_smoke.py" --no-network --expect-version "$EXPECTED_VERSION"

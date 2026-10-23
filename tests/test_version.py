@@ -24,17 +24,25 @@ def _read_version():
 
 
 def test_version_format_pep440():
-    """Version must follow PEP 440."""
+    """Version must be canonical PEP 440 and public - the same rule scripts/release_version.py applies
+    (so ``1.0.0.post1`` is as acceptable here as it is to the release workflow)."""
+    from packaging.version import Version
+
     version = _read_version()
-    # PEP 440 regex
-    pattern = r"^\d+\.\d+\.\d+(\.dev\d+|a\d+|b\d+|rc\d+)?$"
-    assert re.match(pattern, version), f"Version {version} doesn't match PEP 440"
+    parsed = Version(version)
+    assert str(parsed) == version, f"Version {version} is not in canonical PEP 440 form ({parsed})"
+    assert parsed.local is None, "a local version (+...) cannot be published"
 
 
 def test_version_in_changelog():
-    """Current version must be documented in CHANGELOG.md."""
+    """The current version must have its own heading '## [<version>]' in CHANGELOG.md."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_changelog", Path(__file__).parent.parent / "scripts" / "check_changelog.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
     version = _read_version()
     changelog = Path(__file__).parent.parent / "CHANGELOG.md"
-    if changelog.exists():
-        content = changelog.read_text()
-        assert version in content, f"Version {version} not found in CHANGELOG.md"
+    assert module.has_release_heading(changelog.read_text(encoding="utf-8"), version), (
+        f"Version {version} has no '## [{version}]' heading in CHANGELOG.md")

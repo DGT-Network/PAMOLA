@@ -7,11 +7,12 @@ Releases are cut by pushing a `v*` tag. Everything after that is automated by
 
 ```text
 tag v<version>
-  validate   tag == pyproject version, tag is on the right branch, CHANGELOG mentions it
+  validate   tag == pyproject version, tag is on the right branch, CHANGELOG has the exact '## [<version>]' heading
   build      wheel + sdist, built ONCE; filename version check; twine check --strict;
              uploaded as the `dist` artifact
   smoke      the EXACT wheel from `dist` in a fresh venv (no -e, no extras):
-             pip check, import, `pamola-core --version`, `list-ops`, 9-case operation smoke
+             pip check, import, `pamola-core --version`, `list-ops`, 9-case operation smoke run with the
+             network REFUSED (socket guard, `clean_wheel_smoke.py --no-network`)
              ubuntu py3.10 / 3.11 / 3.12, windows py3.11, macos py3.12
   test       the test suite with coverage on py3.10 / 3.11 / 3.12 (source install)
   publish    consumes the same `dist` artifact, never rebuilds:
@@ -20,7 +21,10 @@ tag v<version>
 ```
 
 Pull requests run the same wheel build and smoke on Linux / Python 3.11
-(`ci.yml`, job `Build: sdist + wheel`), through the same script,
+(`ci.yml`, job `Build: sdist + wheel`), through the same script, and a `supply-chain` job that
+installs the built wheel, runs `pip-audit` on the installed environment (a known vulnerability fails
+the job) and uploads the `pip-licenses` report as the `dependency-licenses` artifact. The job
+starts from the `dist` artifact of the wheel job,
 `scripts/wheel_smoke.sh`, so a packaging break is caught before merge.
 
 ## Cutting a release
