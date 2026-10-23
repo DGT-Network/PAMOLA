@@ -318,7 +318,7 @@ def _union_cfg(rungs, **kw):
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])
-def test_cvpl_non_nested_headline_is_the_union_of_candidate_sets_all_measures(seed):
+def test_cvpl_non_nested_headline_lr_is_the_union_and_identification_is_per_rung(seed):
     src, rel = _random_frames(seed)
     rungs = [["a"], ["b"]]
     r = run_cvpl(src, rel, _union_cfg(rungs))

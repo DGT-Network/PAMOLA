@@ -585,7 +585,6 @@ GT_MEASURES = (
     "cvpl_id_uniform_subjects_gt", "cvpl_id_uniform_rows_gt", "cvpl_id_uniform_gt",
     "cvpl_top1_success_gt", "precision_at_tau",
 )
-_UNC_EPS = 1e-12
 
 
 def _status(value: Optional[float], status: str, reason: Optional[str] = None, **extra) -> Dict[str, Any]:
@@ -999,7 +998,7 @@ def run_cvpl(
         "n_original": n,
         "n_released": m_rel,
         "parameters": cfg.describe(),
-        "evaluation_model": "white_box_upper_estimate",
+        "evaluation_model": "white_box_upper_value_over_declared_profiles",
         "metric_semantics": {
             "cvpl_lr": "existential_candidate_exposure",
             "cvpl_id_uniform_subjects_gt": "uniform_choice_among_distinct_candidate_subjects",

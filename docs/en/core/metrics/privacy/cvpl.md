@@ -311,7 +311,7 @@ result = op.execute(data_source, task_dir, reporter,
 ```
 
 The metrics JSON and `result.metrics` carry the fields above plus `algorithm_id`,
-`algorithm_version`, `evaluation_model` (`white_box_upper_estimate`), `direction`
+`algorithm_version`, `evaluation_model` (`white_box_upper_value_over_declared_profiles`), `direction`
 (`source_to_release`, the only direction in 1.0), `linkage_unit` (`subject`), `seed`,
 `projection` and `qid_status`. Column names and counts only: no values, no identifiers.
 

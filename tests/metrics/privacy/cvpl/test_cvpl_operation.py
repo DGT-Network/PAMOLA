@@ -212,3 +212,20 @@ def test_cvpl_ground_truth_is_not_a_feature(tmp_path):
     for key in ("cvpl_lr", "n_linked", "cvpl_weighted_lr_legacy"):
         assert a[key] == b[key]
     assert a["projection"]["feature_columns"] == ["age", "gender", "region_level1", "income"]
+
+
+def test_cvpl_operation_works_under_the_nlp_scope_wrapper_of_execute(tmp_path):
+    """ASB-7 wraps every ``execute`` (fresh degraded-resource registry per run, reported in the
+    result). CVPL needs no NLP resource: a stale entry is cleared at the start of its run and the
+    result carries no ``nlp_resources_degraded`` metric; the wrapper changes nothing else."""
+    from pamola_core.utils.nlp import remote_resources as rr
+
+    assert getattr(CVPLLinkageOperation.execute, "_nlp_scoped", False)
+    rr.record_degraded("spacy:stale_from_an_earlier_operation", "left over")
+    src = source_frame([("A", 1.0 + i / 10, f"s{i}") for i in range(6)], index_start=10)
+    rel = release_frame([("A", 1.0, "s0"), ("A", 1.1, "s1")] + anchors(), index_start=100)
+    res = _run(CVPLLinkageOperation(**OPS), src, rel, tmp_path)
+    assert res.status == OperationStatus.SUCCESS, res.error_message
+    assert "nlp_resources_degraded" not in res.metrics
+    assert rr.get_degraded_resources() == {}
+    assert res.metrics["cvpl_lr"] == pytest.approx(1.0)

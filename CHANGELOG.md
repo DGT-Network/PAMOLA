@@ -79,6 +79,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `wordnet`/`punkt` corpora skip when the corpora are not installed (downloads are opt-in); the CI test
   jobs install them in an explicit step. Test-only change.
 
+- **CVPL: `evaluation_model` is `white_box_upper_value_over_declared_profiles`** (was
+  `white_box_upper_estimate`), matching the wording that the numbers are the upper value over the declared
+  attacker profiles and fixed strategies, not an optimal-attacker estimate. A test pins that the CVPL
+  operation runs under the NLP-scope wrapper of `execute` (no `nlp_resources_degraded`, stale registry
+  entries cleared).
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the
