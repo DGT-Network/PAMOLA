@@ -77,6 +77,7 @@ import pandas as pd
 if TYPE_CHECKING:  # pragma: no cover
     import matplotlib
     import plotly
+from pamola_core.errors.exceptions import VisualizationError
 from pamola_core.utils.vis_helpers.base import FigureFactory
 from pamola_core.utils.vis_helpers.context import visualization_context, register_figure
 
@@ -143,7 +144,7 @@ def _save_figure(
         return str(saved_path)
     except Exception as e:
         logger.error(f"Error saving figure: {e}")
-        return f"Error saving figure: {e}"
+        raise VisualizationError(name="saving figure", reason=str(e)) from e
 
 
 def _filter_kwargs(**kwargs):
@@ -283,7 +284,7 @@ def create_bar_plot(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating bar plot: {e}")
-            return f"Error creating bar plot: {e}"
+            raise VisualizationError(name="bar plot", reason=str(e)) from e
 
 
 def create_histogram(
@@ -366,7 +367,7 @@ def create_histogram(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating histogram: {e}")
-            return f"Error creating histogram: {e}"
+            raise VisualizationError(name="histogram", reason=str(e)) from e
 
 
 def create_scatter_plot(
@@ -469,7 +470,7 @@ def create_scatter_plot(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating scatter plot: {e}")
-            return f"Error creating scatter plot: {e}"
+            raise VisualizationError(name="scatter plot", reason=str(e)) from e
 
 
 def create_boxplot(
@@ -583,7 +584,7 @@ def create_boxplot(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating boxplot: {e}")
-            return f"Error creating boxplot: {e}"
+            raise VisualizationError(name="boxplot", reason=str(e)) from e
 
 
 def create_heatmap(
@@ -689,7 +690,7 @@ def create_heatmap(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating heatmap: {e}")
-            return f"Error creating heatmap: {e}"
+            raise VisualizationError(name="heatmap", reason=str(e)) from e
 
 
 def create_line_plot(
@@ -796,7 +797,7 @@ def create_line_plot(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating line plot: {e}")
-            return f"Error creating line plot: {e}"
+            raise VisualizationError(name="line plot", reason=str(e)) from e
 
 
 def create_correlation_matrix(
@@ -894,7 +895,7 @@ def create_correlation_matrix(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating correlation matrix: {e}")
-            return f"Error creating correlation matrix: {e}"
+            raise VisualizationError(name="correlation matrix", reason=str(e)) from e
 
 
 def create_correlation_pair_plot(
@@ -988,7 +989,7 @@ def create_correlation_pair_plot(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating correlation pair plot: {e}")
-            return f"Error creating correlation pair plot: {e}"
+            raise VisualizationError(name="correlation pair plot", reason=str(e)) from e
 
 
 def create_venn_diagram(
@@ -1065,7 +1066,7 @@ def create_venn_diagram(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating venn diagram: {e}")
-            return f"Error creating venn diagram: {e}"
+            raise VisualizationError(name="venn diagram", reason=str(e)) from e
 
 
 def create_spider_chart(
@@ -1156,7 +1157,7 @@ def create_spider_chart(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating spider chart: {e}")
-            return f"Error creating spider chart: {e}"
+            raise VisualizationError(name="spider chart", reason=str(e)) from e
 
 
 def create_pie_chart(
@@ -1257,7 +1258,7 @@ def create_pie_chart(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating pie chart: {e}")
-            return f"Error creating pie chart: {e}"
+            raise VisualizationError(name="pie chart", reason=str(e)) from e
 
 
 def create_word_cloud(
@@ -1356,12 +1357,14 @@ def create_word_cloud(
                 if saved_path:
                     return saved_path
                 else:
-                    return f"Error saving word cloud image to file: {output_path}"
+                    raise VisualizationError(
+                        name="word cloud", reason=f"image could not be saved to {output_path}"
+                    )
             else:
                 return f"Word cloud image not created: {result.get('message', 'Unknown error')}"
         except Exception as e:
             logger.error(f"Error creating word cloud: {e}")
-            return f"Error creating word cloud: {e}"
+            raise VisualizationError(name="word cloud", reason=str(e)) from e
 
 
 def create_sunburst_chart(
@@ -1443,7 +1446,7 @@ def create_sunburst_chart(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating sunburst chart: {e}")
-            return f"Error creating sunburst chart: {e}"
+            raise VisualizationError(name="sunburst chart", reason=str(e)) from e
 
 
 def create_combined_chart(
@@ -1548,7 +1551,7 @@ def create_combined_chart(
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating combined chart: {e}")
-            return f"Error creating combined chart: {e}"
+            raise VisualizationError(name="combined chart", reason=str(e)) from e
 
 
 def create_network_diagram(
@@ -1620,7 +1623,7 @@ def create_network_diagram(
 
     except Exception as e:
         logger.error(f"Error creating network diagram: {e}")
-        return f"Error creating network diagram: {e}"
+        raise VisualizationError(name="network diagram", reason=str(e)) from e
 
 
 # ============================================================================
@@ -1699,7 +1702,7 @@ def plot_completeness(
         )
     except Exception as e:
         logger.error(f"Error creating completeness plot: {e}")
-        return f"Error creating completeness plot: {e}"
+        raise VisualizationError(name="completeness plot", reason=str(e)) from e
 
 
 def plot_value_distribution(
@@ -1777,7 +1780,7 @@ def plot_value_distribution(
         )
     except Exception as e:
         logger.error(f"Error creating value distribution plot: {e}")
-        return f"Error creating value distribution plot: {e}"
+        raise VisualizationError(name="value distribution plot", reason=str(e)) from e
 
 
 def plot_numeric_distribution(
@@ -1834,7 +1837,7 @@ def plot_numeric_distribution(
         )
     except Exception as e:
         logger.error(f"Error creating numeric distribution plot: {e}")
-        return f"Error creating numeric distribution plot: {e}"
+        raise VisualizationError(name="numeric distribution plot", reason=str(e)) from e
 
 
 def plot_date_distribution(
@@ -1905,7 +1908,7 @@ def plot_date_distribution(
         )
     except Exception as e:
         logger.error(f"Error creating date distribution plot: {e}")
-        return f"Error creating date distribution plot: {e}"
+        raise VisualizationError(name="date distribution plot", reason=str(e)) from e
 
 
 def plot_email_domains(
@@ -1959,7 +1962,7 @@ def plot_email_domains(
         )
     except Exception as e:
         logger.error(f"Error creating email domain distribution plot: {e}")
-        return f"Error creating email domain distribution plot: {e}"
+        raise VisualizationError(name="email domain distribution plot", reason=str(e)) from e
 
 
 def plot_phone_distribution(
@@ -2013,7 +2016,7 @@ def plot_phone_distribution(
         )
     except Exception as e:
         logger.error(f"Error creating phone distribution plot: {e}")
-        return f"Error creating phone distribution plot: {e}"
+        raise VisualizationError(name="phone distribution plot", reason=str(e)) from e
 
 
 def plot_text_length_distribution(
@@ -2083,7 +2086,7 @@ def plot_text_length_distribution(
         )
     except Exception as e:
         logger.error(f"Error creating text length distribution plot: {e}")
-        return f"Error creating text length distribution plot: {e}"
+        raise VisualizationError(name="text length distribution plot", reason=str(e)) from e
 
 
 def plot_group_variation_distribution(
@@ -2150,7 +2153,7 @@ def plot_group_variation_distribution(
         )
     except Exception as e:
         logger.error(f"Error creating group variation distribution plot: {e}")
-        return f"Error creating group variation distribution plot: {e}"
+        raise VisualizationError(name="group variation distribution plot", reason=str(e)) from e
 
 
 def plot_multiple_fields(
@@ -2257,7 +2260,7 @@ def plot_multiple_fields(
             return _save_figure(fig, output_path, **kwargs)
     except Exception as e:
         logger.error(f"Error creating multiple fields plot: {e}")
-        return f"Error creating multiple fields plot: {e}"
+        raise VisualizationError(name="multiple fields plot", reason=str(e)) from e
 
 
 def plot_field_subset_network(
@@ -2328,4 +2331,4 @@ def plot_field_subset_network(
         if strict:
             raise
         logger.error(f"Error creating field-subset network plot: {e}")
-        return f"Error creating field-subset network plot: {e}"
+        raise VisualizationError(name="field-subset network plot", reason=str(e)) from e

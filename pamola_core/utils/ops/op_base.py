@@ -67,6 +67,36 @@ _VISUALIZATION_BACKEND_MODULES: Dict[str, tuple] = {
 }
 
 
+_PLOTLY_PNG_PROBE: Dict[str, Optional[str]] = {}
+
+
+def _probe_plotly_png_export() -> None:
+    """Fail once, at request time, if plotly cannot write a PNG here.
+
+    Importing ``plotly`` and ``kaleido`` is not enough: kaleido renders through a Chromium
+    browser that is not part of the wheel. Without one every chart fails later, one error per
+    chart. The probe renders an empty 1 x 1 figure once per process and remembers the answer.
+    """
+    if "reason" not in _PLOTLY_PNG_PROBE:
+        try:
+            import plotly.graph_objects as go
+
+            go.Figure().to_image(format="png", width=10, height=10)
+            _PLOTLY_PNG_PROBE["reason"] = None
+        except Exception as exc:  # noqa: BLE001 - any failure means "cannot render"
+            _PLOTLY_PNG_PROBE["reason"] = f"{type(exc).__name__}: {str(exc).strip().splitlines()[0][:200] if str(exc).strip() else ''}"
+    reason = _PLOTLY_PNG_PROBE["reason"]
+    if reason:
+        raise DependencyMissingError(
+            dependency_name="plotly PNG export (kaleido + Chrome/Chromium)",
+            reason=(
+                f"a test render failed ({reason}). plotly writes PNG files through kaleido, which "
+                "needs a Chrome or Chromium browser: install one (or run `plotly_get_chrome`), or "
+                "pass visualization_backend='matplotlib'."
+            ),
+        )
+
+
 def _guard_visualization_dependencies(execute):
     """Wrap ``execute`` so a missing ``viz`` extra fails once, up front.
 
@@ -275,6 +305,8 @@ class BaseOperation(ABC):
             return
         for module in _VISUALIZATION_BACKEND_MODULES.get(str(backend).lower(), ()):
             require_optional(module, extra="viz")
+        if str(backend).lower() == "plotly":
+            _probe_plotly_png_export()
 
     def __init__(
         self,

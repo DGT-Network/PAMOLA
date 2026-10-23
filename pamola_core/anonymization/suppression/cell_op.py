@@ -1314,7 +1314,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 self.logger.error(
                     f"Failed to create comparison visualization: {viz_path}"
                 )
-                return None
+                raise RuntimeError(f"comparison visualization failed: {viz_path}")
 
             # Create histogram if numeric data
             if pd.api.types.is_numeric_dtype(original_series):
@@ -1333,24 +1333,26 @@ class CellSuppressionOperation(AnonymizationOperation):
                     if not hist_path.startswith("Error"):
                         result.add_artifact(
                             artifact_type="png",
-                            path=viz_path,
+                            path=hist_path,
                             description="Generated histogram visualization",
                             category=Constants.Artifact_Category_Visualization,
                         )
                     else:
                         self.logger.error(
-                            f"Failed to create histogram visualization: {viz_path}"
+                            f"Failed to create histogram visualization: {hist_path}"
                         )
-                        return None
+                        raise RuntimeError(f"histogram visualization failed: {hist_path}")
 
                 except Exception as e:
                     self.logger.warning(f"Failed to generate visualization: {e}")
+                    raise
 
             return viz_path
 
         except Exception as e:
+            # reported by the caller in result.metrics["visualization_error"]
             self.logger.error(f"Failed to generate visualization: {e}")
-            return None
+            raise
 
     def _handle_visualizations(
         self,

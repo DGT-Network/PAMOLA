@@ -357,7 +357,7 @@ def create_metric_visualization(
 
     except Exception as e:
         logger.error(f"Error creating metric visualization: {str(e)}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def create_comparison_visualization(
@@ -445,7 +445,7 @@ def create_comparison_visualization(
         logger.exception(
             f"[{field_name}] Exception during comparison visualization: {e}"
         )
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def generate_flat_counts(
@@ -595,7 +595,7 @@ def create_distribution_visualization(
 
     except Exception as e:
         logger.error(f"Error creating distribution visualization: {str(e)}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def create_category_distribution_comparison(
@@ -731,7 +731,7 @@ def create_category_distribution_comparison(
 
     except Exception as e:
         logger.error(f"Error creating category distribution comparison: {str(e)}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def create_hierarchy_sunburst(
@@ -830,7 +830,7 @@ def create_hierarchy_sunburst(
 
     except Exception as e:
         logger.error(f"Error creating hierarchy sunburst: {str(e)}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def _is_nested_hierarchy(data: Dict[str, Any]) -> bool:
@@ -1427,4 +1427,4 @@ def create_metrics_overview_visualization(
 
     except Exception as e:
         logger.error(f"Failed to create metrics summary visualization: {e}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
