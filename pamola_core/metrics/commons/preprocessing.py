@@ -29,6 +29,8 @@ Dependencies:
   - scikit-learn - OrdinalEncoder for categorical encoding
 """
 
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OrdinalEncoder
@@ -36,15 +38,30 @@ from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.exceptions import DataError
 
 
-def prepare_data_for_distance_metrics(df: pd.DataFrame) -> pd.DataFrame:
+def prepare_data_for_distance_metrics(
+    df: pd.DataFrame, reference: Optional[pd.DataFrame] = None
+) -> pd.DataFrame:
     """
     Preprocess the input DataFrame for distance-based metric calculations.
     Converts boolean, datetime, string, and categorical columns to numeric.
+
+    Distances between two datasets are only meaningful if both are encoded in the
+    same space. Encoding each one on its own maps *unrelated* category sets to the
+    same codes (``['alice', 'bob']`` and ``['xavier', 'zoe']`` both become 0 and 1),
+    so records that share nothing look identical and a distance metric reports 0.
+    Pass the other dataset as ``reference``: each categorical column is then encoded
+    from the union of the categories of both datasets (sorted, so the same category
+    gets the same code in both), and calling this function once per dataset with
+    the other as ``reference`` yields comparable frames. There is no unseen-category
+    case: every category of either dataset is in the encoding.
 
     Parameters
     -----------
     df : pd.DataFrame
         Input dataset. Each row is a record, columns are features.
+    reference : pd.DataFrame, optional
+        The dataset ``df`` will be compared with. Only its categorical values are
+        read, to complete the encoding.
 
     Returns
     --------
@@ -92,7 +109,27 @@ def prepare_data_for_distance_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     if string_cols:
         encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
-        df_converted[string_cols] = encoder.fit_transform(df_converted[string_cols])
+        if reference is not None:
+            # Declare the categories as the union of both datasets (sorted, as
+            # OrdinalEncoder does) so a category has one code in both.
+            categories = []
+            for col in string_cols:
+                values = set(df_converted[col].unique())
+                if col in reference.columns and (
+                    pd.api.types.is_object_dtype(reference[col])
+                    or isinstance(reference[col].dtype, pd.CategoricalDtype)
+                    or pd.api.types.is_string_dtype(reference[col])
+                ):
+                    values |= set(reference[col].astype(str).str.strip().unique())
+                categories.append(sorted(values))
+            encoder = OrdinalEncoder(
+                categories=categories,
+                handle_unknown="use_encoded_value",
+                unknown_value=-1,
+            )
+            df_converted[string_cols] = encoder.fit_transform(df_converted[string_cols])
+        else:
+            df_converted[string_cols] = encoder.fit_transform(df_converted[string_cols])
 
     # 4. Drop rows with any NaN values
     df_converted = df_converted.dropna()

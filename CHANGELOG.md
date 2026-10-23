@@ -84,6 +84,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **DCR and NNDR encode both datasets in one categorical space** (CDX-AC-11).
+  Each dataset was ordinal-encoded on its own, so unrelated category sets
+  (`['alice','bob']` vs `['xavier','zoe']`) received the same codes and every
+  distance was 0. `prepare_data_for_distance_metrics(df, reference=other)` now
+  encodes from the union of both datasets' categories; `DistanceToClosestRecord`
+  and `NearestNeighborDistanceRatio` use it. The distance definition itself (ordinal
+  codes, the chosen metric) is unchanged, there is no unseen-category case, and
+  numeric-only inputs give identical results. Results for data with categorical
+  columns change wherever the two datasets' category sets differ.
 - **The ENRICH collision guard covers multi-field operations** (CDX-AC-10).
   The guard only looked at `field_name`, so imputation, invalid-value cleaning and
   add/modify-fields (per-field tables) still overwrote existing `<prefix><field>`

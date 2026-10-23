@@ -242,8 +242,13 @@ class DistanceToClosestRecord:
             - metrics_dict (Dict[str, Any]): Dictionary containing DCR statistics, risk assessment, privacy score, and interpretation.
         """
         # Preprocess: convert all features to numeric using OrdinalEncoder for object/category columns
-        orig_processed = prepare_data_for_distance_metrics(original_df)
-        trans_processed = prepare_data_for_distance_metrics(transformed_df)
+        # One encoding for both datasets (union of categories), see the function.
+        orig_processed = prepare_data_for_distance_metrics(
+            original_df, reference=transformed_df
+        )
+        trans_processed = prepare_data_for_distance_metrics(
+            transformed_df, reference=original_df
+        )
 
         # Normalize features if requested, otherwise use raw numeric values
         if self.normalize_features:
