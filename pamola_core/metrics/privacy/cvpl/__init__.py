@@ -9,6 +9,11 @@ dataset and its protected release. Independent of the legacy
 ``pamola_core.attacks.linkage_attack`` (TF-IDF / TruncatedSVD), which measures
 something else and is left untouched.
 
+Provenance: the method and its default parameters (variance 0.90, 3-50 components,
+tau 0.9, joint fit, wildcard-aware blocking) follow DGT-Network/CVPL @bb25aa9 (MIT,
+A. Neuman, V. Khvatov); this implementation was written for CORE and reuses none
+of its source files.
+
 Public entry points: :class:`CVPLConfig`, :func:`run_cvpl`, and the metrics
 operation ``pamola_core.metrics.CVPLLinkageOperation``.
 """

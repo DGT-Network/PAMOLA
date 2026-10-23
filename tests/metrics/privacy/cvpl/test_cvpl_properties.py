@@ -282,3 +282,25 @@ def test_cvpl_top1_ties_are_broken_uniformly_in_expectation():
     # both candidates have cosine exactly 1: a two-way tie
     assert r["cvpl_top1_success_gt"] == pytest.approx(0.5)
     assert r["precision_at_tau"] == pytest.approx(0.5)
+
+
+# --- conformance with the original CVPL project's own tests (test_toy_dataset.py) ---------
+def test_original_cvpl_self_linkage_is_high():
+    d = make_df(60, 1)
+    cfg = CVPLConfig.from_dict({"qids": [{"name": "age", "bin_width": 10}, "gender", "region_level1"],
+                                "auxiliary": ["income"], "tau": 0.9})
+    assert run_cvpl(d, d.copy(), cfg)["cvpl_lr"] > 0.5
+
+
+def test_original_cvpl_threshold_monotonicity():
+    d, dp = make_df(60, 1), make_df(60, 2)
+    base = {"qids": [{"name": "age", "bin_width": 10}, "gender", "region_level1"], "auxiliary": ["income"]}
+    lrs = [run_cvpl(d, dp, CVPLConfig.from_dict({**base, "tau": t}))["cvpl_lr"] for t in (0.3, 0.6, 0.9, 0.99)]
+    assert lrs == sorted(lrs, reverse=True)  # a higher threshold never links more
+
+
+def test_original_cvpl_small_dataset_and_no_ground_truth_do_not_fail():
+    d = make_df(5, 1)
+    cfg = CVPLConfig.from_dict({"qids": ["gender"], "auxiliary": ["income"], "tau": 0.5})
+    r = run_cvpl(d, make_df(5, 2), cfg)
+    assert 0 <= r["cvpl_lr"] <= 1

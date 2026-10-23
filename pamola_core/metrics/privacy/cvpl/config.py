@@ -132,7 +132,7 @@ class CVPLConfig:
     #: ceiling on group-level compatibility checks (wildcard / interval / hierarchy)
     max_group_pairs: int = 300_000_000
     #: pairs held in memory at once by the blocked scan
-    chunk_pairs: int = 4_000_000
+    chunk_pairs: int = 1_000_000
     tie_tolerance: float = 1e-9
     zero_norm_tolerance: float = 1e-9
 

@@ -1,6 +1,7 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 Module:        CVPL measurement engine
+Provenance:    method after DGT-Network/CVPL @bb25aa9 (MIT); implemented independently for CORE
 Package:       pamola_core.metrics.privacy.cvpl
 License:       BSD 3-Clause
 
@@ -27,11 +28,17 @@ blocks, similarities are computed in bounded chunks.
 from __future__ import annotations
 
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+
+try:  # scikit-learn depends on it; guard anyway so the metric never needs it to import
+    from threadpoolctl import threadpool_limits
+except ImportError:  # pragma: no cover
+    threadpool_limits = None
 
 from pamola_core.errors.exceptions import (
     ColumnNotFoundError,
@@ -160,6 +167,14 @@ class _Scanner:
 
     # one scan: mode 'link' (threshold tau) then optionally 'top1' (ties of the maximum)
     def scan(self, plan, with_gt: bool) -> RungScan:
+        # The blocks are many and the matrices thin (k <= 50 columns): a multi-threaded BLAS
+        # spends more time coordinating threads than multiplying (measured 10-20x slower on
+        # a shared 12-core host). One BLAS thread per scan; the work is memory-bound anyway.
+        limit = threadpool_limits(limits=1, user_api="blas") if threadpool_limits else nullcontext()
+        with limit:
+            return self._scan(plan, with_gt)
+
+    def _scan(self, plan, with_gt: bool) -> RungScan:
         n = len(self.zs)
         out = RungScan(
             n_cand=np.zeros(n, dtype=np.int64), linked=np.zeros(n, dtype=bool),
