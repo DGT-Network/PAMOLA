@@ -239,7 +239,9 @@ def process_dataframe_using_joblib(
             task_logger.warning("Some chunks failed to process.")
             return df, False
 
-        return pd.concat(processed_chunks, ignore_index=True), True
+        # Keep the caller's index labels: downstream metrics align original and
+        # processed records by index (SRS 6.3).
+        return pd.concat(processed_chunks), True
     except Exception as e:
         task_logger.error(f"Error during process using Joblib: {str(e)}")
         task_logger.warning("Returning as is")
@@ -335,7 +337,9 @@ def process_dataframe_using_chunk(
             task_logger.warning("Some chunks failed to process.")
             return df, False
 
-        return pd.concat(processed_chunks, ignore_index=True), True
+        # Keep the caller's index labels: downstream metrics align original and
+        # processed records by index (SRS 6.3).
+        return pd.concat(processed_chunks), True
     except Exception as e:
         # Catch any error that occurs during the entire processing loop
         task_logger.error(f"Error during process using chunk: {str(e)}")
