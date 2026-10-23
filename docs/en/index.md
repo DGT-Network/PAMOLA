@@ -44,6 +44,10 @@ PAMOLA Anonymization is a comprehensive data privacy solution designed to anonym
 - Compliance with privacy regulations
 - Safe public data publication
 
+## Regulatory positioning
+
+See the [regulatory evidence map](core/regulatory_evidence_map.md): it maps the library's measurements to individualization, linkability and inference, and states what each one does not establish.
+
 ## Getting Started
 
 ### Installation

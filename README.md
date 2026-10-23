@@ -379,6 +379,27 @@ make html        # output: docs/_build/html/index.html
 
 ---
 
+## What the terms mean here
+
+Privacy-engineering vocabulary is used loosely in the industry. This is what PAMOLA.CORE 1.0 means by each term, what it provides for it, and what it does **not** claim. The definitions follow the 1.0 specification.
+
+| Term | What it means in CORE | What CORE provides | What CORE does **not** claim |
+|---|---|---|---|
+| **Anonymization process** | A workflow you run and evidence you collect: profile the data, transform it, measure the residual risk, repeat. | Operations for each step (profiling, generalization, suppression, masking, pseudonymization, noise, metrics) and per-run artifacts (`config.json`, metrics, reports). | That any single operation, or the whole pipeline, makes data anonymous. The decision that a dataset is anonymous belongs to you and your organization, on the evidence you collect. |
+| **De-identification** | Removing or replacing direct identifiers (names, e-mails, phone numbers, account numbers) so a record no longer names a person. | Suppression, masking, pseudonymization and generalization operations; profilers that help find direct identifiers and quasi-identifiers. | That removing direct identifiers is enough. Quasi-identifiers (age, geography, dates, occupation) can still single a person out; the k-anonymity profiler and the privacy metrics measure that, they do not prove it away. |
+| **Masking** | Hiding all or part of a value's original representation (`FullMaskingOperation`, `PartialMaskingOperation`). | Full masking and partial masking (keep a configurable prefix and suffix, mask the rest). | Irreversibility against a motivated attacker: a masked value that keeps its length, format or a prefix still carries information. |
+| **Pseudonymization** | Replacing an identifier with a consistent substitute while keeping the ability to link records. `HashBasedPseudonymizationOperation` (salted hash) and `ConsistentMappingPseudonymizationOperation` (encrypted, reversible mapping file). | Consistent substitutes; for the mapping variant, a mapping file encrypted with a key you supply. | That pseudonymized data is anonymous. It is not: the linkage capability is the point, and the mapping file (or the hash key) is the re-identification key. Protect it as such. |
+| **Uniform (non-DP) noise** | Random perturbation drawn from a uniform distribution to reduce precision (`UniformNumericNoiseOperation`, `UniformTemporalNoiseOperation`). | Bounded, seeded perturbation of numeric and temporal fields. | Any differential-privacy guarantee. There is no sensitivity analysis, no epsilon, no privacy budget. Uniform noise reduces precision; it does not give a formal bound on what an attacker learns. |
+| **Differential Privacy (DP)** | A formal guarantee, defined by a privacy parameter epsilon, on the output of a randomized mechanism. | Nothing. CORE 1.0 does not ship a differential-privacy mechanism, epsilon accounting or DP training. | Any DP property. Do not describe CORE output as differentially private. |
+| **Fake-value substitution** | Replacing values with plausible generated ones (`FakeNameOperation`, `FakeEmailOperation`, `FakePhoneOperation`, `FakeOrganizationOperation`). | Deterministic generators (seeded, reproducible), consistent per source value when requested. | That the substituted dataset is a statistically faithful or anonymous version of the original. It is the original rows with some fields replaced. |
+| **Synthetic data** | A new dataset produced by a model trained on the original (GAN, copula, diffusion and similar). | Nothing for generation: CORE 1.0 does not generate synthetic data. It does measure how close a synthetic dataset is to its source (`PrivacyMetricOperation`: DCR, NNDR; `FidelityOperation`; `UtilityMetricOperation`) and a basic linkability measure (CVPL), so you can evaluate data produced by other tools. | That a dataset is private because it is synthetic. The metrics are evidence, not a verdict. |
+
+### Privacy metrics are evidence, not determinations
+
+The metrics in CORE (k-anonymity and uniqueness profilers, distance to closest record, nearest-neighbour distance ratio, fidelity and utility metrics, and the CVPL linkability measure) report measurements. None of them decides that data is legally anonymous, compliant with a regulation, or safe to release, and none of their wording should be read that way. See the [regulatory evidence map](docs/en/core/regulatory_evidence_map.md) for what each measurement does and does not establish.
+
+---
+
 ## Regulatory Context
 
 PAMOLA.CORE provides technical building blocks for privacy compliance programs:

@@ -9,6 +9,8 @@
 
 ## Tier 1 — Public API
 
+> **Start here for claims:** [Regulatory evidence map](./regulatory_evidence_map.md) - what each privacy measurement shows and does not show (no compliance or legal-anonymity claim).
+
 ### [Anonymization](./anonymization/) (13 docs)
 Privacy-preserving transformations: masking, generalization, noise, suppression, pseudonymization.
 
