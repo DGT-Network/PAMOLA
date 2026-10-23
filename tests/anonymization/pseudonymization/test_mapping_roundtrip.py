@@ -469,3 +469,58 @@ def test_deleted_mapping_file_is_rewritten_in_full_not_partially(tmp_path):
     op._persist_mappings()
 
     assert set(_stored(path, "csv")) == {"a", "b", "c"}
+
+
+# --------------------------------------------------------------------------
+# Storage edges
+# --------------------------------------------------------------------------
+
+
+def test_append_from_a_fresh_instance_continues_the_frame_sequence(tmp_path):
+    path = tmp_path / "f.enc"
+    MappingStorage(path, bytes.fromhex(KEY)).append({"a": "p1"})
+    fresh = MappingStorage(path, bytes.fromhex(KEY))  # has not loaded anything
+    fresh.append({"b": "p2"})
+    assert MappingStorage(path, bytes.fromhex(KEY)).load() == {"a": "p1", "b": "p2"}
+    assert len(_frames(path)) == 3  # snapshot of {} + two appends
+
+
+def test_append_to_a_truncated_file_fails_closed(tmp_path):
+    path = tmp_path / "f.enc"
+    MappingStorage(path, bytes.fromhex(KEY)).append({"a": "p1"})
+    path.write_bytes(path.read_bytes()[:-5])
+    with pytest.raises(MappingIntegrityError):
+        MappingStorage(path, bytes.fromhex(KEY)).append({"b": "p2"})
+
+
+def test_missing_and_empty_files_load_as_empty(tmp_path):
+    storage = MappingStorage(tmp_path / "x.enc", bytes.fromhex(KEY), create_if_missing=False)
+    assert storage.load() == {}
+    (tmp_path / "x.enc").write_bytes(b"")
+    assert storage.load_with_metadata() == ({}, {})
+
+
+def test_update_merges_and_keeps_metadata(tmp_path):
+    storage = MappingStorage(tmp_path / "u.enc", bytes.fromhex(KEY))
+    storage.save({"a": "p1"}, {"last_sequential": 7})
+    merged = storage.update({"a": "p9", "b": "p2"})
+    assert merged == {"a": "p9", "b": "p2"}
+    assert storage.load_with_metadata() == (merged, {"last_sequential": 7})
+
+
+def test_invalid_format_is_rejected(tmp_path):
+    from pamola_core.errors.exceptions import InvalidParameterError
+
+    with pytest.raises(InvalidParameterError):
+        MappingStorage(tmp_path / "x.enc", bytes.fromhex(KEY), format="xml")
+
+
+def test_metadata_helpers(tmp_path):
+    storage = MappingStorage(tmp_path / "m.enc", bytes.fromhex(KEY))
+    storage.save({"a": "p1"})
+    info = storage.get_metadata()
+    assert info["exists"] and info["format"] == "csv" and info["size_bytes"] > 0
+    report = storage.validate_mappings({"a": "p1", "b": "p1", "": "p3"})
+    assert report["valid"] is False
+    assert report["duplicate_values"] == ["p1"]
+    assert report["empty_keys"] == 1
