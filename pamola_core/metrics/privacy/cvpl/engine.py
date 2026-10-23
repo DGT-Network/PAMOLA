@@ -618,21 +618,24 @@ def _record_arrays(scan: RungScan) -> Dict[str, Tuple[np.ndarray, np.ndarray, np
     }
 
 
-def _pop(arrs: Tuple[np.ndarray, np.ndarray, np.ndarray], mask: np.ndarray) -> Optional[Dict[str, Any]]:
-    den = int(mask.sum())
+def _pop(arrs: Tuple[np.ndarray, np.ndarray, np.ndarray], mask: Optional[np.ndarray]) -> Optional[Dict[str, Any]]:
+    """Population summary over ``mask`` (``None``: every record, without copying the arrays)."""
+    den = len(arrs[0]) if mask is None else int(mask.sum())
     if den == 0:
         return None
-    pt, lo, hi = (a[mask] for a in arrs)
+    pt, lo, hi = arrs if mask is None else (a[mask] for a in arrs)
     return {
         "point": float(pt.sum() / den), "lower": float(lo.sum() / den), "upper": float(hi.sum() / den),
         "n_uncertain": int((hi - lo > _UNC_EPS).sum()), "denominator": den,
     }
 
 
-def _precision(rec, scan: RungScan, mask: np.ndarray) -> Dict[str, Any]:
+def _precision(rec, scan: RungScan, mask: Optional[np.ndarray]) -> Dict[str, Any]:
     pt, lo, hi = rec["top1"]
-    linked = scan.linked & mask
-    unlinked_unknown = ~scan.linked & (scan.unk_rows > 0) & mask
+    linked = scan.linked if mask is None else scan.linked & mask
+    unlinked_unknown = ~scan.linked & (scan.unk_rows > 0)
+    if mask is not None:
+        unlinked_unknown &= mask
     n_l, n_ul = int(linked.sum()), int(unlinked_unknown.sum())
     top_unc = int((hi[linked] - lo[linked] > _UNC_EPS).sum())
     if n_ul == 0 and top_unc == 0:
@@ -647,11 +650,11 @@ def _precision(rec, scan: RungScan, mask: np.ndarray) -> Dict[str, Any]:
             "denominator": n_l, "denominator_upper": den_hi}
 
 
-def _gt_stats(rec, scan: RungScan, mask: np.ndarray) -> Dict[str, Any]:
+def _gt_stats(rec, scan: RungScan, mask: Optional[np.ndarray]) -> Dict[str, Any]:
     return {
         "subjects": _pop(rec["subjects"], mask), "rows": _pop(rec["rows"], mask),
         "top1": _pop(rec["top1"], mask), "precision": _precision(rec, scan, mask),
-        "n": int(mask.sum()),
+        "n": len(scan.linked) if mask is None else int(mask.sum()),
     }
 
 
@@ -716,10 +719,11 @@ def _rung_measures(scan: RungScan, n: int, gt: Optional[PreparedGroundTruth]) ->
         m["legacy_n_eligible"] = 0
     if gt is not None and scan.kcnt_s is not None:
         rec = _record_arrays(scan)
-        m["_gt"] = {
-            "full": _gt_stats(rec, scan, np.ones(n, dtype=bool)),
-            "known": _gt_stats(rec, scan, gt.known_mask),
-        }
+        if gt.status == "complete":  # every record's correspondence is known: one population
+            full = _gt_stats(rec, scan, None)
+            m["_gt"] = {"full": full, "known": full}
+        else:
+            m["_gt"] = {"full": None, "known": _gt_stats(rec, scan, gt.known_mask)}
     return m
 
 

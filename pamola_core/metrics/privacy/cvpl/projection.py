@@ -57,7 +57,12 @@ def categorical_values(series: pd.Series) -> np.ndarray:
     """Tagged category labels: a user value can never equal the missing/other bucket."""
     null = series.isna().to_numpy()
     text = series.astype(object).where(~null, "").astype(str)
-    tagged = (VALUE_PREFIX + text).to_numpy(dtype=object)
+    # tag the DISTINCT labels once and index them: rows share the label objects instead of
+    # each holding its own concatenated string (that was +350 MB at 1M rows)
+    codes, uniques = pd.factorize(text)
+    labels = np.empty(len(uniques), dtype=object)
+    labels[:] = [VALUE_PREFIX + str(u) for u in uniques]
+    tagged = labels[codes]
     tagged[null] = MISSING_LABEL
     return tagged
 

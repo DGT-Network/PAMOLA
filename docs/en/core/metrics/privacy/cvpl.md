@@ -126,7 +126,10 @@ others. Each measure is bracketed over all of those possibilities, per record:
 * `precision_at_tau`: conservative bounds over which unknown records declare a link.
 
 The population value is a point value (`measured`) only if *no* record's contribution is
-uncertain; otherwise it is `bounded`. A known false link does **not** hide an unknown true
+uncertain; otherwise it is `bounded`. **A worst-case reader uses the `upper` bound** (for
+`cvpl_lr` also `cvpl_lr_upper`): it is the value the white-box attacker can reach if every
+unknown candidate is resolved in their favour, and it is never below the lower bound or a
+point value. A known false link does **not** hide an unknown true
 candidate: the existential `cvpl_lr` may be exact while the identification measures are
 bounded. `undefined_policy` in the result restates this.
 
