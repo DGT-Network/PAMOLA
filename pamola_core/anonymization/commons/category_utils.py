@@ -492,8 +492,13 @@ def group_rare_categories(
             )
             grouping_strategy = "single_other"
 
-        # Prepare data
-        result_series = series.copy()
+        # Prepare data. A categorical column (the engine converts large text columns to
+        # category to save memory) cannot take the new group labels: assigning "OTHER" raised
+        # "Cannot setitem on a Categorical with a new category", which the handler below used
+        # to swallow, returning the input unchanged - so the strategy silently did nothing on
+        # every dataset above the conversion size. Work on plain values and restore the dtype.
+        was_categorical = isinstance(series.dtype, pd.CategoricalDtype)
+        result_series = series.astype(object) if was_categorical else series.copy()
 
         # Use provided value_counts or calculate once
         if value_counts is None:
@@ -593,6 +598,8 @@ def group_rare_categories(
         if group_mapping:
             mask = result_series.isin(group_mapping.keys())
             result_series.loc[mask] = result_series.loc[mask].map(group_mapping)
+            if was_categorical:
+                result_series = result_series.astype("category")
 
         # Calculate group sizes
         group_sizes = {}
@@ -630,8 +637,9 @@ def group_rare_categories(
         return result_series, grouping_info
 
     except Exception as e:
+        # Never degrade to "unchanged data + SUCCESS": the caller must see the failure.
         logger.error(f"Error in category grouping: {str(e)}")
-        return series.copy(), _empty_grouping_result(error=str(e))
+        raise
 
 
 def calculate_category_entropy(

@@ -63,3 +63,23 @@ def test_numbered_groups_are_applied_too(tmp_path):
 def test_sibling_frequency_based_strategy_also_groups(tmp_path):
     out = _run(tmp_path, strategy="frequency_based", max_categories=10, min_group_size=5)
     assert not set(RARE) & set(out)
+
+
+def test_categorical_dtype_input_is_grouped_not_silently_skipped(tmp_path):
+    # the engine converts large text columns to category; assigning the group label used to
+    # raise inside the grouping helper, which swallowed it and returned the data unchanged
+    from pamola_core.anonymization.commons.category_utils import group_rare_categories
+
+    series = _frame()["c"].astype("category")
+    grouped, info = group_rare_categories(series, threshold=5, categories_to_group=set(RARE))
+    assert not set(RARE) & set(grouped.astype(str))
+    assert (grouped.astype(str) == "OTHER").sum() == 12
+    assert info["categories_grouped"] == 6
+
+
+def test_a_grouping_failure_is_raised_not_swallowed():
+    import pytest
+    from pamola_core.anonymization.commons.category_utils import group_rare_categories
+
+    with pytest.raises(Exception):
+        group_rare_categories(_frame()["c"], threshold="not-a-number")
