@@ -22,6 +22,7 @@ releases of one source are measured in the same space.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
@@ -97,19 +98,25 @@ class CVPLProjection:
     _cat_index: Dict[str, Dict[str, int]] = field(default_factory=dict, repr=False)
 
     def fingerprint(self) -> str:
-        """Digest of the whole fitted representation (encoding, scaling, centering and
-        components), so that two different fits can never share a cache identity."""
-        h = hashlib.sha256()
-        h.update(ALGORITHM_VERSION.encode())
-        for name in sorted(self.kinds):
-            h.update(f"|{name}|{self.kinds[name]}|".encode())
-            if self.kinds[name] == "numeric":
-                h.update(np.float64(self.num_mean[name]).tobytes())
-                h.update(np.float64(self.num_scale[name]).tobytes())
+        """Digest of the whole fitted representation: the ORDERED encoded feature layout
+        (the order ``phi`` concatenates its blocks in), the scaling and category lists,
+        the centering and the components with their shapes. Two fits that select different
+        physical attributes never share an identity, even if their component arrays look
+        alike."""
+        layout = []
+        for name, kind in self.kinds.items():  # insertion order == phi's block order
+            if kind == "numeric":
+                layout.append([name, kind, float(self.num_mean[name]).hex(), float(self.num_scale[name]).hex()])
             else:
-                h.update("".join(self.categories[name]).encode("utf-8", "surrogatepass"))
-        h.update(np.ascontiguousarray(self.pca_mean, dtype=np.float64).tobytes())
-        h.update(np.ascontiguousarray(self.components, dtype=np.float64).tobytes())
+                layout.append([name, kind, list(self.categories[name])])
+        h = hashlib.sha256()
+        h.update(ALGORITHM_VERSION.encode("utf-8"))
+        h.update(b"\x00")
+        h.update(json.dumps(layout, ensure_ascii=True, separators=(",", ":")).encode("ascii"))
+        for arr in (self.pca_mean, self.components):
+            a64 = np.ascontiguousarray(arr, dtype=np.float64)
+            h.update(b"\x00" + json.dumps(list(a64.shape)).encode("ascii") + b"\x00")
+            h.update(a64.tobytes())
         return h.hexdigest()
 
     # -- phi -------------------------------------------------------------------

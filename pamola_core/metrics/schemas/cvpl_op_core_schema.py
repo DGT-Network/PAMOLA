@@ -67,6 +67,8 @@ class CVPLLinkageConfig(OperationConfig):
                     "qid_as_features": {"type": "boolean", "default": True},
                     "null_policy": {"type": "string", "enum": list(NULL_POLICIES), "default": "equal_null"},
                     "wildcard_tokens": {"type": "array", "items": {"type": "string"}, "default": ["*"]},
+                    "wildcard_token_count": {"type": "integer", "minimum": 0},
+                    "wildcard_tokens_digest": {"type": "string"},
                     "direction": {"type": "string", "enum": ["source_to_release"], "default": "source_to_release"},
                     "linkage_unit": {"type": "string", "enum": ["subject"], "default": "subject"},
                     "ground_truth": {

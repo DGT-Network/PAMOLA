@@ -304,6 +304,12 @@ class CVPLConfig:
         distinguishes two hierarchies, so cache identity is preserved) and a size.
         """
         data = self.to_params()
+        # A custom wildcard token is an input value (it can be any category label); only
+        # its count and digest are published. The digest keeps cache identity.
+        tokens = list(data.pop("wildcard_tokens"))
+        data["wildcard_token_count"] = len(tokens)
+        data["wildcard_tokens_digest"] = hashlib.sha256(
+            json.dumps(sorted(str(t) for t in tokens), ensure_ascii=True).encode("utf-8")).hexdigest()
         for q in data["qids"]:
             h = q.pop("hierarchy", None)
             if h is not None:
@@ -330,7 +336,10 @@ class CVPLConfig:
             "max_categories": self.max_categories,
             "qid_as_features": self.qid_as_features,
             "null_policy": self.null_policy,
-            "wildcard_tokens": list(self.wildcard_tokens),
+            "wildcard_token_count": len(self.wildcard_tokens),
+            "wildcard_tokens_digest": hashlib.sha256(
+                json.dumps(sorted(str(t) for t in self.wildcard_tokens), ensure_ascii=True).encode("utf-8")
+            ).hexdigest(),
             "direction": self.direction,
             "linkage_unit": self.linkage_unit,
             "ground_truth_declared": self.ground_truth is not None,

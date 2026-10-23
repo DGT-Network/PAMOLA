@@ -120,3 +120,90 @@ def test_cdx_cvpl_r2_4_plain_key_partition_equals_the_shared_predicate(pair):
     for x, y in zip(ks, kr):
         same_key &= x[:, None] == y[None, :]
     assert (same_key == _group_compat(enc, rows, rows, "equal_null")).all()
+
+
+# ======================================================================================
+# operation-level helpers
+# ======================================================================================
+def op_run(tmp_path, s, r, name="run", **params):
+    from pamola_core.metrics import CVPLLinkageOperation
+    from pamola_core.utils.ops.op_data_source import DataSource
+
+    d = tmp_path / name
+    d.mkdir(exist_ok=True)
+    op = CVPLLinkageOperation(**{**BASE, **params})
+    out = op.execute(DataSource(dataframes={"s": s, "r": r}), d, None,
+                     original_dataset_name="s", transformed_dataset_name="r")
+    return out, d
+
+
+def _all_text(d, out):
+    chunks = [json.dumps(out.metrics, default=str)]
+    for p in d.rglob("*"):
+        if p.is_file():
+            chunks.append(p.read_bytes().decode("utf-8", errors="ignore"))
+    return "\n".join(chunks)
+
+
+# ======================================================================================
+# CDX-CVPL-R2-3: the projection fingerprint covers the ORDERED encoded feature layout
+# ======================================================================================
+def test_cdx_cvpl_r2_3_feature_order_is_part_of_the_fingerprint_and_the_cache(tmp_path):
+    t = pd.DataFrame(dict(g=["A"] * 4, x=[1.0, -1.0, 0.0, 0.0], y=[0.0, 0.0, 1.0, -1.0], id=list("abcd")))
+    ps = [run_cvpl(t, t, CVPLConfig.from_dict({**BASE, "auxiliary": aux})).projection for aux in (["x", "y"], ["y", "x"])]
+    assert list(ps[0].kinds) == ["x", "y"] and list(ps[1].kinds) == ["y", "x"]
+    assert ps[0].components.tolist() == ps[1].components.tolist() == [[0.0], [1.0]]  # same arrays
+    assert ps[0].fingerprint() != ps[1].fingerprint()  # different physical attributes
+    s = pd.DataFrame(dict(g=["A"], x=[1.0], y=[1.0], id=["a"]))
+    r = pd.DataFrame(dict(g=["A"], x=[1.0], y=[-1.0], id=["a"]))
+    kw = dict(auxiliary=["x", "y"], fit_strategy="frozen")
+    first, _ = op_run(tmp_path, s, r, "ord", frozen_projection=ps[0], use_cache=True, **kw)
+    second, _ = op_run(tmp_path, s, r, "ord", frozen_projection=ps[1], use_cache=True, **kw)
+    fresh, _ = op_run(tmp_path, s, r, "ord_fresh", frozen_projection=ps[1], use_cache=False, **kw)
+    assert first.metrics["cvpl_lr"] == 0.0
+    assert fresh.metrics["cvpl_lr"] == 1.0
+    assert second.metrics["cvpl_lr"] == 1.0  # was the cached 0
+
+
+def test_cdx_cvpl_r2_3_fingerprint_serialisation_is_unambiguous():
+    from pamola_core.metrics.privacy.cvpl.projection import CVPLProjection, ProjectionInfo
+
+    def proj(cats):
+        info = ProjectionInfo(2, 1, None, 1, "frozen", ["c"], {}, {})
+        return CVPLProjection(
+            kinds={"c": "categorical"}, num_mean={}, num_scale={}, categories={"c": cats},
+            has_other={"c": False}, pca_mean=np.zeros(len(cats)), components=np.ones((len(cats), 1)), info=info)
+
+    # a joined string cannot tell ["ab", "c"] from ["a", "bc"]
+    assert proj(["ab", "c"]).fingerprint() != proj(["a", "bc"]).fingerprint()
+    assert proj(["a", "b"]).fingerprint() == proj(["a", "b"]).fingerprint()
+
+
+# ======================================================================================
+# CDX-CVPL-R2-5: custom wildcard tokens are input values and are never published
+# ======================================================================================
+CANARY_TOKEN = "RAW_WILDCARD_R2_BOB_1966"
+
+
+def test_cdx_cvpl_r2_5_wildcard_token_is_absent_from_every_surface(tmp_path, caplog):
+    s = frame([CANARY_TOKEN, "ordinary"], [-1.0, 1.0], ["RAW_GT_R2_PERSON_001", "another"])
+    r = s.copy()
+    with caplog.at_level("DEBUG"):
+        out, d = op_run(tmp_path, s, r, "wild", wildcard_tokens=["*", CANARY_TOKEN], use_cache=True)
+    assert str(out.status).endswith("SUCCESS")
+    text = _all_text(d, out)
+    assert CANARY_TOKEN not in text
+    assert CANARY_TOKEN not in "\n".join(rec.getMessage() for rec in caplog.records)
+    params = out.metrics["parameters"]
+    assert "wildcard_tokens" not in params
+    assert params["wildcard_token_count"] == 2 and len(params["wildcard_tokens_digest"]) == 64
+
+
+def test_cdx_cvpl_r2_5_digest_keeps_the_cache_identity(tmp_path):
+    s, r = frame(["X1"], [1.0], ["a"]), frame(["Y"], [1.0], ["a"])
+    first, _ = op_run(tmp_path, s, r, "tok", wildcard_tokens=["*", "X1"], fit_strategy="frozen",
+                      frozen_projection=PROJ, use_cache=True)
+    second, _ = op_run(tmp_path, s, r, "tok", wildcard_tokens=["*", "X2"], fit_strategy="frozen",
+                       frozen_projection=PROJ, use_cache=True)
+    assert first.metrics["cvpl_lr"] == 1.0  # X1 is a wildcard: compatible with Y
+    assert second.metrics["cvpl_lr"] == 0.0  # X1 is an ordinary label: not Y
