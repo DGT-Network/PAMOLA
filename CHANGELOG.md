@@ -84,6 +84,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **The cache fingerprint now covers all of the data** (CDX-AC-6).
+  `generate_data_hash` hashed 5,000 sampled rows plus column sums and fell back to
+  "type + length" on any error, so changing unsampled rows or reversing index
+  labels kept the cache key and a stale result was served. It now hashes the
+  schema, the index and every value, streaming in 200K-row chunks (1M x 15
+  columns, 353 MB: 1.7 s, no measurable memory growth). The fallback is removed:
+  if hashing fails, the caller's cache lookup and save are skipped for that call
+  (they already catch the error). The `sample_size` argument is kept but ignored.
+  Affects every operation's cache key: existing cache entries are not reused, and
+  cache keys cost a full pass over the data.
 - **Duplicate column names raise a typed, actionable error** (DATA-03). Every
   tested operation failed on a frame with a repeated column name with an
   unrelated pandas message (`'DataFrame' object has no attribute 'dtype'`,
