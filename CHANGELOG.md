@@ -238,6 +238,61 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **`pydantic[email]` dependency (DEP-01).** Nothing in `pamola_core` or `tests`
   imports `pydantic` or `email_validator`. `pydantic` still arrives
   transitively through spaCy.
+### Security
+
+- **Fake-data metrics no longer write original values (SEC-04/05 for
+  `fake_data`).** `MetricsCollector.collect_data_stats` put the top 20 original
+  values with their shares in `value_distribution` of `metrics/*.json` for every
+  fake-data operation. It is now omitted by default; the diagnostic option
+  `include_raw_samples_in_metrics` (default `False`, in the four core schemas
+  and on `BaseGeneratorOperation`) restores it, and with it the
+  value-distribution plot. Enabling it writes source values into the metrics
+  artifact.
+
+### Changed
+
+- **Package metadata and docs no longer imply out-of-scope capabilities
+  (PKG-01/02/03, DOC-02).** `differential-privacy` and `synthetic-data` are gone
+  from the PyPI keywords. README, `privacy_models` docs and examples drop
+  "Safe Harbor support", "privacy-safe", "GDPR/PCI compliant" wording: results
+  are technical evidence, never a legal determination (masking preset
+  descriptions reworded; preset names are unchanged).
+- `examples/README.md` and `docs/*/index.md` install with `pip install -e ".[viz]"`
+  instead of the removed `requirements.txt`; `CLAUDE.md` no longer says
+  `torch`/`sdv` are installed.
+
+### Removed
+
+- **Formal differential privacy is not a 1.0 capability (PKG-02).** The legacy
+  `pamola_core.privacy_models.differential_privacy` package
+  (`DifferentialPrivacyProcessor`) and its tests and docs are removed from the
+  source tree and therefore from the wheel; `DifferentialPrivacyProcessor` and
+  `DifferentialPrivacyModel` leave `pamola_core.privacy_models.__all__`.
+- **`pamola_core.attacks.singling_out` (PKG-03)** — untested, and contradicted
+  the README/CHANGELOG statement that singling-out is not implemented.
+  `SinglingOutAttack`, `singling_out_sweep`, `independent_marginals_baseline`,
+  `minimal_sample_uniques`, `suda_scores`, `dis_risk`, `enumerate_subset_count`,
+  `wilson_ci` and `RecordRisk` leave `pamola_core.attacks.__all__`.
+- **Dead code (PKG-04):** `profiling/analyzers/email_dask.py`, `longtext.py`
+  (no importers), `privacy_models/l_diversity/report_generators/` and
+  `report_utils/` (unreachable, broken: `generate_technical_report` was never
+  importable from `reporting`).
+- **`requirements.txt` (DEP-02)** — unused by CI and still listing packages
+  removed in 1.0.0.dev4; dependencies are declared in `pyproject.toml`.
+
+### Fixed
+
+- `LDiversityReport.generate_compliance_report` / `generate_technical_report`
+  were shadowed by mis-indented module-level-style functions of the same name
+  (the instance was bound to `processor`); the shadowing definitions are
+  removed, so the real methods work again.
+- `anonymization/commons/visualization_utils.py` defined `sample_large_dataset`
+  twice; the shadowed copy (and the F811 lint quarantine for it and for
+  `reporting.py`) is removed and the surviving definition now uses
+  `DEFAULT_MAX_SAMPLES` as its default (same value, 10000).
+
+### Removed (earlier in this cycle)
+
 - **`pamola_core.pipeline`, `pamola_core.interface`, `pamola_core.crypto`** —
   empty placeholder packages (15 lines each: a licence header and
   `__all__ = []`) that shipped in the wheel and created three public names with
