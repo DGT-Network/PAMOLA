@@ -11,6 +11,7 @@ License: BSD 3-Clause
 """
 
 import hashlib
+import warnings
 from typing import Any, Optional, Union, Dict
 import dask.dataframe as dd
 import numpy as np
@@ -186,7 +187,7 @@ def _update_with_frame(hasher: "hashlib.blake2b", df: pd.DataFrame) -> None:
 
 
 def generate_data_hash(
-    data: Union[pd.DataFrame, pd.Series, dd.DataFrame], sample_size: int = 5000
+    data: Union[pd.DataFrame, pd.Series, dd.DataFrame], sample_size: Optional[int] = None
 ) -> str:
     """
     Generate a deterministic hash that identifies the exact contents of the data.
@@ -202,9 +203,10 @@ def generate_data_hash(
     ----------
     data : Union[pd.DataFrame, pd.Series, dd.DataFrame]
         Input data to hash. A Dask frame is hashed partition by partition.
-    sample_size : int, default=5000
-        Ignored; kept so existing callers keep working. The earlier sampled
-        fingerprint is gone because it missed changes outside the sample.
+    sample_size : int, optional
+        **Deprecated and ignored.** The hash always covers every value; the earlier sampled
+        fingerprint is gone because it missed changes outside the sample. Passing a value emits
+        a ``DeprecationWarning``; the parameter will be removed in a later release.
 
     Returns
     -------
@@ -219,6 +221,13 @@ def generate_data_hash(
         Whatever hashing the values raised. There is deliberately no fallback to
         a type-and-length fingerprint: callers must disable caching for that call.
     """
+    if sample_size is not None:
+        warnings.warn(
+            "generate_data_hash(sample_size=...) is deprecated and ignored: the hash covers "
+            "every value. Remove the argument.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     hasher = hashlib.blake2b(digest_size=32)
     if isinstance(data, pd.Series):
         hasher.update(

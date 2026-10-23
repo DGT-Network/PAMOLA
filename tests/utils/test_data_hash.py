@@ -136,3 +136,15 @@ def test_metric_cache_is_disabled_when_the_data_cannot_be_hashed(tmp_path, monke
     assert first.status.value != "error" and second.status.value != "error"
     assert not second.metrics.get("cached")
     assert not list((tmp_path / "cache").rglob("*.json"))
+
+
+def test_sample_size_is_deprecated_and_still_ignored():
+    import warnings
+
+    frame = pd.DataFrame({"x": range(100)})
+    plain = generate_data_hash(frame)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")           # the default call must not warn
+        assert generate_data_hash(frame) == plain
+    with pytest.warns(DeprecationWarning, match="sample_size"):
+        assert generate_data_hash(frame, sample_size=10) == plain
