@@ -228,7 +228,7 @@ TD-PC-09 resolved. Full record and sign-off in
 ## 2026-08-16 — Working copy bootstrapped; repository audit
 
 Set up `D:\VK\_DEVEL\pamola_core` as a working copy of
-`https://github.com/DGT-Network/PAMOLA` and established the CC working
+`https://github.com/realmdata-ai/PAMOLA` and established the CC working
 conventions, mirroring the BEST PRW setup.
 
 - `git init` + `origin` → full fetch → checked out `develop` (default branch).

@@ -474,6 +474,6 @@ See [LICENSE](../../../LICENSE) for full terms.
 
 ---
 
-**Maintainer:** [Realm Inveo Inc.](https://realmdata.io)  
-**Repository:** [github.com/DGT-Network/PAMOLA](https://github.com/DGT-Network/PAMOLA)  
+**Maintainer:** [Realm Inveo Inc.](https://realmdata.ai)  
+**Repository:** [github.com/realmdata-ai/PAMOLA](https://github.com/realmdata-ai/PAMOLA)  
 **Version:** 1.0.0 (Epic 2 Testing Suite - Federated Healthcare Module)
