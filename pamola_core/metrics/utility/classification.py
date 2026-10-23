@@ -26,6 +26,7 @@ from sklearn.metrics import (
 from sklearn.preprocessing import label_binarize
 
 import pamola_core.utils.logging as pamola_logging
+from pamola_core.metrics.commons.model_budget import apply_budget
 from pamola_core.metrics.commons.preprocessing import encode_pair_with_dummies
 
 # Configure module logger
@@ -71,6 +72,7 @@ class ClassificationUtility:
             metrics = ["accuracy", "f1", "roc_auc", "precision_recall_tradeoff"]
 
         self.models = models
+        self._sampling_note = None
         self.metrics = metrics
         self.cv_folds = cv_folds
         self.stratified = stratified
@@ -160,6 +162,7 @@ class ClassificationUtility:
 
         for model_name in self.models:
             model = self.model_dict[model_name]
+            self._sampling_note = None
 
             # Store values for each fold
             accuracies = []
@@ -270,6 +273,8 @@ class ClassificationUtility:
                 }
 
             if model_results:
+                if self._sampling_note:
+                    model_results["sampling"] = self._sampling_note
                 results[model_name] = model_results
 
         return results
@@ -319,6 +324,8 @@ class ClassificationUtility:
         thresholds_values: list
             Thresholds values.
         """
+        X_train, y_train, X_test, y_test, note = apply_budget(model, X_train, y_train, X_test, y_test)
+        self._sampling_note = self._sampling_note or note
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         y_prob = model.predict_proba(X_test)

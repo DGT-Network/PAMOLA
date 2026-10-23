@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split, KFold
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
 import pamola_core.utils.logging as pamola_logging
+from pamola_core.metrics.commons.model_budget import apply_budget
 from pamola_core.metrics.commons.preprocessing import encode_pair_with_dummies
 
 # Configure module logger
@@ -60,6 +61,7 @@ class RegressionUtility:
             metrics = ["r2", "mae", "mse", "rmse"]
 
         self.models = models
+        self._sampling_note = None
         self.metrics = metrics
         self.cv_folds = cv_folds
         self.test_size = test_size
@@ -201,6 +203,7 @@ class RegressionUtility:
 
         for model_name in self.models:
             model = self.model_dict[model_name]
+            self._sampling_note = None
 
             # Store values for each fold
             r2_scores = []
@@ -285,6 +288,8 @@ class RegressionUtility:
                 model_results["rmse"] = float(np.mean(rmse_scores))
 
             if model_results:
+                if self._sampling_note:
+                    model_results["sampling"] = self._sampling_note
                 model_based[model_name] = model_results
 
         # Calculate for pMSE with specific model
@@ -306,6 +311,7 @@ class RegressionUtility:
             )
 
         for model_name, model in self.specific_model_dict.items():
+            self._sampling_note = None
             # Store values for each fold
             pmse_scores = []
 
@@ -421,6 +427,8 @@ class RegressionUtility:
         pmse_scores: list
             pMSE scores.
         """
+        X_train, y_train, X_test, y_test, note = apply_budget(model, X_train, y_train, X_test, y_test)
+        self._sampling_note = self._sampling_note or note
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
 

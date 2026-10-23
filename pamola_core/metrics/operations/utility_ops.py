@@ -435,7 +435,10 @@ class UtilityMetricOperation(MetricsOperation):
                         viz_tradeoff = metric_values.pop(
                             "precision_recall_tradeoff", {}
                         )
-                        viz_data = metric_values
+                        # the sampling note is not a plottable metric
+                        viz_data = {
+                            k: v for k, v in metric_values.items() if k != "sampling"
+                        }
 
                         viz_path = (
                             viz_dir / f"{metric_type}_{metric_model}_{timestamp}.png"

@@ -384,7 +384,6 @@ def apply_merge_low_freq(
     freq_threshold = config.get("freq_threshold", 0.01)
     group_rare_as = config.get("group_rare_as", GroupRareAs.OTHER.value)
     rare_value_template = config.get("rare_value_template", "OTHER_{n}")
-    max_categories = config.get("max_categories", 1000)
     random_seed = config.get("random_seed")
 
     # Create local RNG for thread safety
