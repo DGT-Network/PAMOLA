@@ -1,9 +1,28 @@
-name: Release to PyPI
+name: Release
+
+# One build, many checks, one upload of the SAME files.
+#
+#   tag v*  -> validate -> build (wheel + sdist, once, twine check)
+#                          -> smoke   (exact wheel, clean venv, 3 OSes, 3.10-3.12)
+#                          -> test    (pytest, source install)
+#                          -> publish-testpypi  (pre-release tags, manual runs)
+#                          -> publish-pypi      (stable tags only)
+#
+# Publishing uses PyPI Trusted Publishing (OIDC): there is no PYPI_API_TOKEN and
+# `id-token: write` is granted to the two publish jobs only. Both consume the
+# artifact built in `build`; nothing is rebuilt after it was tested.
+#
+# Maintainer settings this relies on (see RELEASING.md):
+#   - GitHub environments `testpypi` and `pypi` (`pypi`: required reviewers, tags v*)
+#   - Trusted publisher entries on pypi.org and test.pypi.org pointing at this
+#     repository, this workflow file (release.yml) and the matching environment.
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    # Manual runs build and test the selected ref and publish to TestPyPI only.
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -11,13 +30,17 @@ env:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   validate:
     name: "Validate: release checks"
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.release.outputs.version }}
-      type: ${{ steps.release.outputs.type }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,45 +50,128 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Determine release type
+      - name: Determine version and release type
         id: release
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
-          if echo "$TAG_VERSION" | grep -q "dev"; then
-            echo "type=dev" >> "$GITHUB_OUTPUT"
-            echo "branch=develop" >> "$GITHUB_OUTPUT"
-          else
-            echo "type=stable" >> "$GITHUB_OUTPUT"
-            echo "branch=main" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Verify tag is on correct branch
-        run: |
-          TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }})
-          EXPECTED_BRANCH="${{ steps.release.outputs.branch }}"
-          if ! git branch -r --contains "$TAG_COMMIT" | grep -q "origin/$EXPECTED_BRANCH"; then
-            echo "ERROR: Tag v${{ steps.release.outputs.version }} must be on $EXPECTED_BRANCH branch"
-            echo "  - Dev releases (v*dev*) → develop branch"
-            echo "  - Stable releases (v*) → main branch"
-            exit 1
-          fi
-
-      - name: Verify tag matches pyproject.toml
-        run: |
-          TAG_VERSION="${{ steps.release.outputs.version }}"
           PKG_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          echo "Tag version: $TAG_VERSION"
-          echo "Package version: $PKG_VERSION"
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "ERROR: Tag v$TAG_VERSION does not match pyproject.toml version $PKG_VERSION"
+          echo "pyproject.toml version: $PKG_VERSION"
+          if [ "$REF_TYPE" = "tag" ]; then
+            TAG_VERSION="${REF_NAME#v}"
+            if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+              echo "ERROR: tag v$TAG_VERSION does not match pyproject.toml version $PKG_VERSION"
+              exit 1
+            fi
+          fi
+          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          # PEP 440 pre/dev release segments: aN, bN, rcN, .devN
+          if echo "$PKG_VERSION" | grep -Eq '(a|b|rc|\.dev)[0-9]*$'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify the tag is on the expected branch
+        if: github.ref_type == 'tag'
+        env:
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ "$PRERELEASE" = "true" ]; then EXPECTED_BRANCH=develop; else EXPECTED_BRANCH=main; fi
+          TAG_COMMIT=$(git rev-list -n 1 "refs/tags/$TAG")
+          if ! git branch -r --contains "$TAG_COMMIT" | grep -q "origin/$EXPECTED_BRANCH"; then
+            echo "ERROR: tag $TAG must be on $EXPECTED_BRANCH"
+            echo "  - pre-releases (a/b/rc/dev) -> develop"
+            echo "  - stable releases           -> main"
             exit 1
           fi
 
       - name: Verify version in CHANGELOG
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
-          PKG_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          grep -q "$PKG_VERSION" CHANGELOG.md || (echo "ERROR: version $PKG_VERSION not in CHANGELOG.md" && exit 1)
+          grep -q "$VERSION" CHANGELOG.md || (echo "ERROR: version $VERSION not in CHANGELOG.md" && exit 1)
+
+  build:
+    name: "Build: wheel + sdist (once)"
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Verify the filenames carry the release version
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          ls -l dist/
+          wheels=(dist/*.whl)
+          sdists=(dist/*.tar.gz)
+          test "${#wheels[@]}" -eq 1 && test "${#sdists[@]}" -eq 1 || (echo "ERROR: expected exactly one wheel and one sdist" && exit 1)
+          test -f "dist/pamola_core-${VERSION}.tar.gz" || (echo "ERROR: sdist version mismatch" && exit 1)
+          compgen -G "dist/pamola_core-${VERSION}-*.whl" >/dev/null || (echo "ERROR: wheel version mismatch" && exit 1)
+
+      - name: twine check
+        run: twine check --strict dist/*
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  smoke:
+    name: "Smoke: exact wheel (${{ matrix.os }}, py${{ matrix.python-version }})"
+    runs-on: ${{ matrix.os }}
+    needs: [validate, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python-version: "3.10" }
+          - { os: ubuntu-latest, python-version: "3.11" }
+          - { os: ubuntu-latest, python-version: "3.12" }
+          - { os: windows-latest, python-version: "3.11" }
+          - { os: macos-latest, python-version: "3.12" }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The checkout supplies only the smoke scripts; the package under test is
+      # the downloaded wheel, installed into a fresh venv outside the checkout.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download the built distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Install the exact wheel in a clean venv and smoke it
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          # the sdist is not part of this check; keep only the wheel in the directory
+          mkdir wheel-under-test
+          cp dist/*.whl wheel-under-test/
+          bash scripts/wheel_smoke.sh wheel-under-test "$VERSION"
 
   test:
     name: "Test: pytest (py${{ matrix.python-version }})"
@@ -102,25 +208,61 @@ jobs:
           path: reports/
           retention-days: 30
 
-  publish:
-    name: "Publish: build and upload to PyPI"
+  publish-testpypi:
+    name: "Publish: TestPyPI"
+    # Pre-release tags and manual runs. Stable tags skip TestPyPI.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.validate.outputs.prerelease == 'true'
     runs-on: ubuntu-latest
-    needs: [validate, test]
+    needs: [validate, build, smoke, test]
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/pamola-core/
+    permissions:
+      contents: read
+      id-token: write # Trusted Publishing (OIDC); granted to the publish jobs only
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - name: Download the validated distributions
+        uses: actions/download-artifact@v4
         with:
-          python-version: "3.11"
+          name: dist
+          path: dist
 
-      - name: Install build tools
-        run: pip install build twine
+      - name: Publish to TestPyPI
+        # pypa/gh-action-pypi-publish v1.14.3, pinned by commit
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+          attestations: true
+          skip-existing: true
 
-      - name: Build package
-        run: python -m build
+  publish-pypi:
+    name: "Publish: PyPI"
+    # Stable tags only; never a manual run, never a pre-release.
+    if: >-
+      github.event_name == 'push' &&
+      github.ref_type == 'tag' &&
+      needs.validate.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    needs: [validate, build, smoke, test]
+    environment:
+      name: pypi # protected: required reviewers, tags v*
+      url: https://pypi.org/project/pamola-core/
+    permissions:
+      contents: read
+      id-token: write # Trusted Publishing (OIDC); granted to the publish jobs only
+    steps:
+      - name: Download the validated distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
 
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
+        # pypa/gh-action-pypi-publish v1.14.3, pinned by commit
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086
+        with:
+          packages-dir: dist/
+          attestations: true
