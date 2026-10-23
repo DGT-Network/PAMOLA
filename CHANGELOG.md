@@ -71,6 +71,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Three plotting modules now go through `require_optional()`** (VIZ-04):
+  `privacy_models/k_anonymity/ka_visualization.py` and
+  `privacy_models/l_diversity/{visualization,advanced_visualization}.py` imported
+  matplotlib/seaborn directly, so a base install got a bare
+  `ModuleNotFoundError`. They now raise `DependencyMissingError` naming
+  `pip install 'pamola-core[viz]'`. `tests/test_viz_import_boundary.py` covers
+  them, and asserts that importing `pamola_core.privacy_models` pulls in no
+  plotting backend.
 - **`UtilityMetricOperation` has one vocabulary and fails early on a bad
   request** (UTIL-01, UTIL-02). The families `classification` / `regression`
   (schema = factory) go in `utility_metrics`; the target column is the required

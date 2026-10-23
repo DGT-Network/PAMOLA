@@ -27,13 +27,18 @@ import math
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import seaborn as sns
 
 # Import file saving utility
 from pamola_core.utils.io import save_plot
 from pamola_core.errors.exceptions import ColumnNotFoundError, ValidationError
+
+# The plotting stack ships with the `viz` extra: a missing one is reported as such,
+# not as a bare ModuleNotFoundError.
+from pamola_core.utils.optional_deps import require_optional
+
+plt = require_optional("matplotlib.pyplot", extra="viz")
+mpatches = require_optional("matplotlib.patches", extra="viz")
+sns = require_optional("seaborn", extra="viz")
 
 # Configure logging
 logger = logging.getLogger(__name__)

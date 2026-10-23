@@ -22,13 +22,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
 # Import file saving utility
 from pamola_core.utils.io import save_plot
+
+# The plotting stack ships with the `viz` extra: a missing one is reported as such,
+# not as a bare ModuleNotFoundError.
+from pamola_core.utils.optional_deps import require_optional
+
+plt = require_optional("matplotlib.pyplot", extra="viz")
+sns = require_optional("seaborn", extra="viz")
 
 # Configure logging
 logger = logging.getLogger(__name__)
