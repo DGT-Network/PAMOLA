@@ -71,6 +71,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **DCR no longer builds the full n x n distance matrix** (DCR-01, DCR-02,
+  DCR-03). `DistanceToClosestRecord` defaulted to the dense sklearn path:
+  ~80 GB at 100K x 100K (49 GB RSS observed, or `MemoryError`), ~7 TiB at 1M.
+  - The exact search now runs in row blocks (`pairwise_distances_chunked`): the
+    values are those of the dense matrix, the peak memory is a fixed budget
+    (625 MiB RSS at 100K x 100K, 10 features).
+  - `use_faiss` is now `None` by default (automatic). Above 10K x 10K record pairs
+    FAISS is chosen **only** where it returns the same values as the exact search
+    (euclidean/cosine `min`, cosine `mean_k`; equal to float32 rounding, ~2e-6
+    relative). 100K x 100K: ~6.5 s, 370 MiB RSS. `use_faiss=True/False` still
+    force a backend.
+  - New `max_comparisons` guard: input beyond 2e10 pairs for the exact search
+    (1e12 for FAISS) raises a typed `ResourceError` with the sizes and what to do,
+    before any distance is computed. `PrivacyMetricOperation` no longer wraps it
+    in a generic `ValidationError`.
+  - **Known, not changed:** an explicit `use_faiss=True` with euclidean `mean_k`
+    (averages squared distances before the root) or with `percentile` (10th
+    percentile of at most 10 neighbours, not of all distances) returns different
+    numbers from the exact search. Those combinations are never chosen
+    automatically; aligning them is a metric-definition decision.
 - **A cached metric no longer returns the score of a different transformed
   dataset** (METR-CACHE-01). With `use_cache=True`, `MetricsOperation`
   (fidelity, utility, privacy including DCR) checked the cache before loading the

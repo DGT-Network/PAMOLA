@@ -52,6 +52,7 @@ from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.exceptions import (
     DataError,
     InvalidParameterError,
+    ResourceError,
     ValidationError,
 )
 
@@ -272,6 +273,10 @@ class PrivacyMetricOperation(MetricsOperation):
                 self.logger.info(f"Calculated {metric_type.upper()} metric: {result}")
                 results[metric_type] = result
 
+            except ResourceError:
+                # A typed limit error already says what to change; wrapping it in
+                # a generic ValidationError would hide the type callers match on.
+                raise
             except Exception as e:
                 self.logger.error(f"[{metric_type.upper()}] Metric failed: {e}")
                 raise ValidationError(

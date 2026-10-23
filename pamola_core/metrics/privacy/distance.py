@@ -29,12 +29,12 @@ Key Features:
     - Seamless integration into PAMOLA.CORE metric pipelines
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import pairwise_distances
+from sklearn.metrics import pairwise_distances_chunked
 
 from pamola_core.common.enum.distance_metric_type import DistanceMetricType
 from pamola_core.metrics.commons.preprocessing import prepare_data_for_distance_metrics
@@ -42,6 +42,7 @@ from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.exceptions import (
     DataError,
     InvalidParameterError,
+    ResourceError,
     ValidationError,
 )
 
@@ -49,6 +50,50 @@ try:
     import faiss
 except ImportError:
     faiss = None
+
+# --- Backend selection and resource limits -----------------------------------
+#
+# The exact distance matrix is n_synthetic x n_original float64 values: ~80 GB at
+# 100K x 100K and ~7 TiB at 1M x 1M. Building it whole was the default, so 100K
+# rows ended in the OS OOM killer. The exact backend now works in row blocks (peak
+# memory is bounded by the working-memory budget below, whatever n is) and refuses,
+# with a typed error, work it could not finish in a sane time.
+
+#: Row-block budget, in MiB, for one block of the exact distance matrix. A block
+#: plus the temporaries of the aggregation (partition / sort copy) stays within a
+#: small multiple of this.
+_WORKING_MEMORY_MIB = 256
+
+#: Above this many (original x synthetic) pairs the automatic choice (``use_faiss
+#: =None``) moves from the exact search to FAISS - when FAISS gives the same
+#: answer for the requested metric and aggregation (see ``_FAISS_EXACT``).
+#: 10K x 10K, the size at which the metrics SRS switches to FAISS.
+_AUTO_FAISS_MIN_COMPARISONS = 100_000_000
+
+#: Default ceilings on (original x synthetic) pairs, per backend. Beyond them the
+#: operation returns a typed limit error instead of running for hours. Measured on
+#: 10 features: the block-wise exact search does ~2e7 pairs/s (100K x 100K = 1e10
+#: pairs in ~8 min), FAISS ~1.5e9 pairs/s (100K x 100K in ~6 s). Raise the limit
+#: with ``max_comparisons`` if the run time is acceptable.
+_DEFAULT_MAX_COMPARISONS = {
+    "sklearn": 20_000_000_000,
+    "faiss": 1_000_000_000_000,
+}
+
+#: (metric, aggregation) pairs for which ``_calculate_dcr_faiss`` returns the same
+#: values as ``_calculate_dcr_sklearn`` (to float32 rounding), verified by
+#: ``tests/metrics/privacy/test_distance_backends.py``. Everything else differs:
+#: for euclidean ``mean_k`` FAISS averages *squared* distances before the square
+#: root, and for ``percentile`` it takes the 10th percentile of only the k <= 10
+#: nearest neighbours rather than of all distances. Those pairs are never chosen
+#: automatically.
+_FAISS_EXACT = frozenset(
+    {
+        ("euclidean", "min"),
+        ("cosine", "min"),
+        ("cosine", "mean_k"),
+    }
+)
 
 
 class DistanceToClosestRecord:
@@ -70,12 +115,22 @@ class DistanceToClosestRecord:
         Whether to normalize features using StandardScaler
     percentiles : List[int], default=[5, 25, 50, 75, 95]
         Percentiles to calculate for DCR distribution
-    use_faiss : bool, default=False
-        Use FAISS for large-scale nearest neighbor search
+    use_faiss : bool or None, default=None
+        ``None`` (default) chooses the backend from the input size: the exact
+        search for small inputs, FAISS above 10K x 10K record pairs when FAISS
+        returns the same values for the requested metric and aggregation
+        (euclidean/cosine ``min`` and cosine ``mean_k``), and the exact search
+        evaluated in row blocks otherwise. ``True`` forces FAISS where it is
+        available; ``False`` forces the exact search.
     aggregation : str, default='min'
         Aggregation method ('min', 'mean_k', 'percentile')
     k_neighbors : int, default=3
         Number of neighbors for mean_k aggregation
+    max_comparisons : int, optional
+        Largest number of (original x synthetic) record pairs the metric will
+        evaluate. Larger inputs raise ``ResourceError`` before any distance is
+        computed instead of exhausting memory or running for hours. Defaults to
+        2e10 for the exact search (about 140K x 140K) and 1e12 for FAISS.
     """
 
     def __init__(
@@ -83,9 +138,10 @@ class DistanceToClosestRecord:
         distance_metric: str = "euclidean",
         normalize_features: bool = True,
         percentiles: List[int] = [5, 25, 50, 75, 95],
-        use_faiss: bool = False,
+        use_faiss: Optional[bool] = None,
         aggregation: str = "min",
         k_neighbors: int = 3,
+        max_comparisons: Optional[int] = None,
     ):
         """
         Initialize DistanceToClosestRecord metric with configuration options.
@@ -98,12 +154,16 @@ class DistanceToClosestRecord:
             Whether to normalize features using StandardScaler.
         percentiles : List[int]
             Percentiles to calculate for DCR distribution.
-        use_faiss : bool
-            Use FAISS for large-scale nearest neighbor search.
+        use_faiss : bool or None
+            None selects the backend by input size, True forces FAISS, False
+            forces the exact search (see the class docstring).
         aggregation : str
             Aggregation method ('min', 'mean_k', 'percentile').
         k_neighbors : int
             Number of neighbors for mean_k aggregation.
+        max_comparisons : int or None
+            Ceiling on original x synthetic record pairs; None uses the
+            per-backend default.
         """
         self.distance_metric = distance_metric
         self.normalize_features = normalize_features
@@ -111,6 +171,54 @@ class DistanceToClosestRecord:
         self.use_faiss = use_faiss
         self.aggregation = aggregation
         self.k_neighbors = k_neighbors
+        self.max_comparisons = max_comparisons
+
+    def _metric_name(self) -> str:
+        metric = self.distance_metric
+        return metric.value if isinstance(metric, DistanceMetricType) else str(metric)
+
+    def _select_backend(self, n_original: int, n_transformed: int) -> str:
+        """Choose ``"faiss"`` or ``"sklearn"`` from the configuration and the size.
+
+        Deterministic: depends only on the arguments, the configuration and
+        whether FAISS is importable. The exact (sklearn) backend never builds the
+        full matrix, so it is a safe answer for every combination FAISS cannot
+        reproduce.
+        """
+        if self.use_faiss is True:
+            return "faiss" if faiss is not None else "sklearn"
+        if self.use_faiss is False or faiss is None:
+            return "sklearn"
+        if (
+            (self._metric_name(), self.aggregation) in _FAISS_EXACT
+            and n_original * n_transformed > _AUTO_FAISS_MIN_COMPARISONS
+        ):
+            return "faiss"
+        return "sklearn"
+
+    def _check_size_limit(
+        self, n_original: int, n_transformed: int, n_features: int, backend: str
+    ) -> None:
+        """Raise ``ResourceError`` when the pair count exceeds the backend's limit."""
+        limit = (
+            self.max_comparisons
+            if self.max_comparisons is not None
+            else _DEFAULT_MAX_COMPARISONS[backend]
+        )
+        pairs = n_original * n_transformed
+        if pairs <= limit:
+            return
+        raise ResourceError(
+            operation="DistanceToClosestRecord",
+            reason=(
+                f"DCR would evaluate {pairs:,} record pairs ({n_original:,} original "
+                f"x {n_transformed:,} synthetic records, {n_features} features), above "
+                f"the limit of {limit:,} for the {backend} backend. Compute it on a random "
+                "sample of the records, or raise `max_comparisons` if the run time "
+                "is acceptable. For euclidean or cosine distance with "
+                "aggregation='min', `use_faiss=True` is several times faster."
+            ),
+        )
 
     def calculate_metric(
         self,
@@ -147,7 +255,11 @@ class DistanceToClosestRecord:
             trans_scaled = trans_processed.values
 
         # Calculate distances
-        if self.use_faiss and faiss is not None:
+        backend = self._select_backend(len(orig_scaled), len(trans_scaled))
+        self._check_size_limit(
+            len(orig_scaled), len(trans_scaled), orig_scaled.shape[1], backend
+        )
+        if backend == "faiss":
             dcr_values = self._calculate_dcr_faiss(orig_scaled, trans_scaled)
         else:
             dcr_values = self._calculate_dcr_sklearn(orig_scaled, trans_scaled)
@@ -364,30 +476,49 @@ class DistanceToClosestRecord:
                 error_code=ErrorCode.DATA_EMPTY,
             )
 
-        # Calculate pairwise distances
-        distances = pairwise_distances(
-            trans_data, orig_data, metric=self.distance_metric
-        )
-
-        # Apply aggregation strategy
-        if self.aggregation == "min":
-            dcr_values = np.min(distances, axis=1)
-        elif self.aggregation == "mean_k":
-            # Average of k closest distances
-            k = min(self.k_neighbors, distances.shape[1])
-            sorted_distances = np.sort(distances, axis=1)
-            dcr_values = np.mean(sorted_distances[:, :k], axis=1)
-        elif self.aggregation == "percentile":
-            # Use 10th percentile as more robust measure
-            dcr_values = np.percentile(distances, 10, axis=1)
-        else:
+        if self.aggregation not in ("min", "mean_k", "percentile"):
             raise InvalidParameterError(
                 param_name="aggregation",
                 param_value=self.aggregation,
                 reason=f"Unknown aggregation method: {self.aggregation}",
             )
 
-        return dcr_values
+        # Guard here as well as in calculate_metric: this method is also reached
+        # directly and as the fallback of the FAISS path.
+        self._check_size_limit(
+            orig_data.shape[0], trans_data.shape[0], orig_data.shape[1], "sklearn"
+        )
+
+        n_original = orig_data.shape[0]
+        k = min(self.k_neighbors, n_original)
+
+        def aggregate(block: np.ndarray, _start: int) -> np.ndarray:
+            """Reduce one row block of the distance matrix to one value per row."""
+            if self.aggregation == "min":
+                return np.min(block, axis=1)
+            if self.aggregation == "mean_k":
+                # Average of the k closest distances. Partition first (O(n) per
+                # row), then sort only those k so the sum runs in the same order
+                # as a full sort and the result is identical to it.
+                if 1 <= k < n_original:
+                    nearest = np.partition(block, k - 1, axis=1)[:, :k]
+                    nearest = np.sort(nearest, axis=1)
+                else:
+                    nearest = np.sort(block, axis=1)[:, :k]
+                return np.mean(nearest, axis=1)
+            # Use 10th percentile as more robust measure
+            return np.percentile(block, 10, axis=1)
+
+        # Row blocks of the (synthetic x original) distance matrix: the values are
+        # those of the dense matrix, the peak memory is the block budget.
+        blocks = pairwise_distances_chunked(
+            trans_data,
+            orig_data,
+            metric=self.distance_metric,
+            reduce_func=aggregate,
+            working_memory=_WORKING_MEMORY_MIB,
+        )
+        return np.concatenate(list(blocks))
 
     def _calculate_privacy_score(
         self,
