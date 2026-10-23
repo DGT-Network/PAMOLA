@@ -138,6 +138,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   pseudonymization families and greps every non-data artifact, log record and
   result metric for raw PII, salt and encryption-key canaries.
 
+- **Fake-data metrics no longer write original values (SEC-04/05 for
+  `fake_data`).** `MetricsCollector.collect_data_stats` put the top 20 original
+  values with their shares in `value_distribution` of `metrics/*.json` for every
+  fake-data operation. It is now omitted by default; the diagnostic option
+  `include_raw_samples_in_metrics` (default `False`, in the four core schemas
+  and on `BaseGeneratorOperation`) restores it, and with it the
+  value-distribution plot. Enabling it writes source values into the metrics
+  artifact.
+
 ### Fixed
 
 - **Pseudonymization (hash-based, consistent mapping): a failed visualization is reported in `result.metrics["visualization_error"]` (CDX-R2-7b)**, not only logged; the pseudonymized output and status are unchanged.
@@ -240,79 +249,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `pip-licenses` report uploaded as an artifact. The wheel smoke test runs its nine cases with a
   network guard (`--no-network`; any internet socket raises) in CI and in the release workflow.
 
-### Removed
-
-- **`pydantic[email]` dependency (DEP-01).** Nothing in `pamola_core` or `tests`
-  imports `pydantic` or `email_validator`. `pydantic` still arrives
-  transitively through spaCy.
-### BREAKING
-
-The library issues no legal verdict (DOC-02): regulations are no longer mapped to
-thresholds and nothing is labelled "compliant". Thresholds are chosen by the
-caller; results are named `threshold_met`.
-
-| Old | New |
-|---|---|
-| `KAnonymityProcessor.evaluate_privacy()` / `compare_datasets` field `compliant` | `threshold_met` |
-| `KAnonymityRisk.calculate()` (`metrics.privacy.disclosure_risk`) field `compliant` | `threshold_met` |
-| `ka_reporting.generate_compliance_report(report_data, output_path, regulation="GDPR")` (returned `regulation`, `compliance_status`, `compliance_details` with law-specific k) | `ka_reporting.generate_threshold_report(report_data, output_path, k_threshold=None)` returning `k_threshold`, `actual_min_k`, `threshold_met`, `at_risk_records`, `at_risk_percentage` |
-| `KAnonymityProcessor.generate_report(..., regulation=...)` | `generate_report(..., threshold_report=False, k_threshold=None)` |
-| k-anonymity text summary line `Compliance: Yes/No` | `Threshold met: Yes/No` |
-| `LDiversityReport.generate_compliance_report(..., regulation="GDPR")` (GDPR/HIPAA/CCPA criteria, `compliance_status`) | `LDiversityReport.generate_threshold_report(..., l_threshold=3, k_threshold=2, diversity_type=None, c_max=None)` returning `threshold_met`, `threshold_details`, `privacy_metrics.threshold_met` |
-| `RiskInterpreter(regulation=...)`, `.interpret_compliance()`, `get_regulatory_requirements()`, `interpret_risk_metrics(..., regulation=)` key `compliance` | `RiskInterpreter(l_threshold=3)`, `.interpret_threshold()` (`threshold_met`, `l_threshold`, `achieved_l`), `interpret_risk_metrics(..., target_l=3)` key `threshold_check`; `get_regulatory_requirements` removed |
-| `LDiversityAdvancedVisualizer.visualize_regulatory_compliance(regulation=...)` / module function / `create_comprehensive_report` key `gdpr_compliance` | `visualize_threshold_check(l_threshold=, diversity_type=, c_value=)` / key `threshold_check`; labels read "THRESHOLD MET / BELOW THRESHOLD" |
-| `L_DIVERSITY_DEFAULTS["compliance"]` with `supported_regulations` | `L_DIVERSITY_DEFAULTS["thresholds"]` (`risk_threshold` only) |
-
-Not yet renamed (internal l-diversity risk-assessor schema): `compliant` /
-`overall_compliant` in `attribute_risk.py` / `privacy.py` results and the
-`l_diversity.visualization` reader of `overall_compliant` (its label now reads
-"THRESHOLD MET"). Masking preset names `GDPR_COMPLIANT` / `PCI_COMPLIANT` are
-unchanged public values (descriptions reworded).
-
-### Security
-
-- **Fake-data metrics no longer write original values (SEC-04/05 for
-  `fake_data`).** `MetricsCollector.collect_data_stats` put the top 20 original
-  values with their shares in `value_distribution` of `metrics/*.json` for every
-  fake-data operation. It is now omitted by default; the diagnostic option
-  `include_raw_samples_in_metrics` (default `False`, in the four core schemas
-  and on `BaseGeneratorOperation`) restores it, and with it the
-  value-distribution plot. Enabling it writes source values into the metrics
-  artifact.
-
-### Changed
-
-- **Package metadata and docs no longer imply out-of-scope capabilities
-  (PKG-01/02/03, DOC-02).** `differential-privacy` and `synthetic-data` are gone
-  from the PyPI keywords. README, `privacy_models` docs and examples drop
-  "Safe Harbor support", "privacy-safe", "GDPR/PCI compliant" wording: results
-  are technical evidence, never a legal determination (masking preset
-  descriptions reworded; preset names are unchanged).
-- `examples/README.md` and `docs/*/index.md` install with `pip install -e ".[viz]"`
-  instead of the removed `requirements.txt`; `CLAUDE.md` no longer says
-  `torch`/`sdv` are installed.
-
-### Removed
-
-- **Formal differential privacy is not a 1.0 capability (PKG-02).** The legacy
-  `pamola_core.privacy_models.differential_privacy` package
-  (`DifferentialPrivacyProcessor`) and its tests and docs are removed from the
-  source tree and therefore from the wheel; `DifferentialPrivacyProcessor` and
-  `DifferentialPrivacyModel` leave `pamola_core.privacy_models.__all__`.
-- **`pamola_core.attacks.singling_out` (PKG-03)** — untested, and contradicted
-  the README/CHANGELOG statement that singling-out is not implemented.
-  `SinglingOutAttack`, `singling_out_sweep`, `independent_marginals_baseline`,
-  `minimal_sample_uniques`, `suda_scores`, `dis_risk`, `enumerate_subset_count`,
-  `wilson_ci` and `RecordRisk` leave `pamola_core.attacks.__all__`.
-- **Dead code (PKG-04):** `profiling/analyzers/email_dask.py`, `longtext.py`
-  (no importers), `privacy_models/l_diversity/report_generators/` and
-  `report_utils/` (unreachable, broken: `generate_technical_report` was never
-  importable from `reporting`).
-- **`requirements.txt` (DEP-02)** — unused by CI and still listing packages
-  removed in 1.0.0.dev4; dependencies are declared in `pyproject.toml`.
-
-### Fixed
-
 - `LDiversityReport.generate_compliance_report` / `generate_technical_report`
   were shadowed by mis-indented module-level-style functions of the same name
   (the instance was bound to `processor`); the shadowing definitions are
@@ -321,190 +257,6 @@ unchanged public values (descriptions reworded).
   twice; the shadowed copy (and the F811 lint quarantine for it and for
   `reporting.py`) is removed and the surviving definition now uses
   `DEFAULT_MAX_SAMPLES` as its default (same value, 10000).
-
-### Removed (earlier in this cycle)
-
-- **`pamola_core.pipeline`, `pamola_core.interface`, `pamola_core.crypto`** —
-  empty placeholder packages (15 lines each: a licence header and
-  `__all__ = []`) that shipped in the wheel and created three public names with
-  nothing behind them. Zero references anywhere in the codebase.
-- **`pamola_core.attacks` narrowed to the anonymization-facing attacks.**
-  The package now carries `LinkageAttack` (including the CVPL variant) and
-  `AttributeInference` only.
-  - `MembershipInference` removed — membership inference is a model-privacy
-    question, not an anonymization one.
-  - `DistanceToClosestRecord` and `NearestNeighborDistanceRatio` removed from
-    `attacks/`: they duplicated `pamola_core.metrics.privacy.distance` and
-    `pamola_core.metrics.privacy.neighbor`, which are the live
-    implementations — `PrivacyMetricOperation` imports the metrics versions and
-    never imported these. **Both metrics remain fully available from
-    `pamola_core.metrics.privacy`; nothing is lost.**
-  - `attacks/attacks_test.py` removed — a 641-line smoke-test harness that
-    shipped to PyPI, was never collected by pytest, and duplicated the 98 real
-    tests in `tests/attacks/`.
-
-  **Migration:** import DCR and NNDR from `pamola_core.metrics.privacy` instead
-  of `pamola_core.attacks`.
-
-  Note: **singling-out is not implemented** in this package. The docstring of
-  `pamola_core/attacks/__init__.py` states this explicitly so that no report
-  generated from it claims coverage of that criterion.
-
-### Added
-
-- **Public API snapshot and guard (QA-03).** `tools/audit/api_snapshot/generate_snapshot.py` records every name exported in `__all__` by `pamola_core` and its public packages (kind, module, qualname, normalised signature) and the importable public modules; `tests/test_api_snapshot.py` fails with a readable diff when the public surface changes without `tools/audit/api_snapshot/api_snapshot.json` being regenerated. Baseline `snapshots/develop_9623aee.json` and the integrated tree `snapshots/final_tree_without_cvpl.json` are committed; replace `api_snapshot.json` with a snapshot of the assembled tree before the release.
-- `CVPLLinkageOperation` is registered like its sibling metric operations: operations catalog
-  (`pamola-core list-ops`, category `metrics`), `validate-config` (explicit signature: `qids` is
-  required), the task runner, and the schema set (`cvpl_op_core_schema`, `cvpl_op_schema_exclude`,
-  `cvpl_op_tooltip`, `cvpl_op_ui_schema`) in the schema builder.
-- CVPL headline for a ladder that is not a nested relaxing chain is evaluated over the **union**
-  of all rungs' candidate sets (every pair once), for all measures including the ground-truth
-  ones; `cvpl_lr_by_rung` and `candidate_union_trajectory` keep the per-rung and cumulative
-  values, `headline_basis` says which rule applied. Bounded categorical encoding is reported
-  (`bucketed_features`, `warnings`) and a `not_applicable` QID names the fix.
-- **CVPL second review round (CDX-CVPL-R2-1..8).** What changes in a number or a field:
-  - *R2-1/R2-8:* top-1 and precision bounds now contain the completion in which an unknown candidate
-    shifts the maximum and with it the tie band (the upper bound is the deliberately loose `1`
-    wherever an unknown candidate can alter a tie of the correct subject); whether a record is
-    uncertain is decided by candidate counts, not by a `1e-12` float tolerance (a difference of
-    `1e-12` is still `bounded`).
-  - *R2-2:* uncertainty reaches every surface: `cvpl_lr_union` (+ `_lower`, `_upper`, `_status`),
-    `candidate_union_trajectory[]` and `blocking_ladder_trajectory[]` entries (`cumulative_lr`,
-    `_lower`, `_upper`, `_status`), `cvpl_lr_by_rung[]` (`status` is `bounded` and `cvpl_lr` null),
-    `cvpl_weighted_lr_legacy` (`_lower`, `_upper`, `_status`, same fixed weights). **Breaking:**
-    these fields were a plain number equal to the lower bound.
-  - *R2-3:* `projection.fingerprint` hashes the ordered feature layout, category lists and array
-    shapes with an unambiguous serialisation (feature order was lost, so a stale cached result could
-    be served for a different fitted layout).
-  - *R2-4:* integers beyond 2**53 stay exact in interval strings, `pandas.Interval` objects and
-    interval columns, and in bins (integral `bin_width`); a bin whose float width vanishes becomes
-    the closed point, so the plain-key partition, the pairwise predicate and the union exclusion
-    agree and a pair is counted once.
-  - *R2-5:* custom wildcard tokens are input values: `describe()`, `config.json`, cache metadata and
-    the result carry `wildcard_token_count` and `wildcard_tokens_digest` instead of the tokens
-    (**breaking:** `parameters.wildcard_tokens` is gone); the digest keeps the cache identity.
-  - *R2-6 (norm decision):* the identification measures (`cvpl_id_uniform_subjects_gt`,
-    `cvpl_id_uniform_rows_gt`, `cvpl_top1_success_gt`, `precision_at_tau`) are computed **per rung**
-    (each rung is a declared attacker profile); the headline is the largest over the rungs and
-    `<measure>_basis_rung` names the winner; `cvpl_id_uniform_gt` is the largest over rungs and the two
-    uniform strategies (`cvpl_id_uniform_basis`, `cvpl_id_uniform_basis_rung`). `cvpl_lr` stays on the
-    union of the rungs. **Breaking for non-nested and for relaxing ladders:** the identification
-    headline is no longer a value of the last rung or of the union; per-rung values are in
-    `blocking_ladder_trajectory[]` and `identification_by_rung`. Documentation no longer calls the
-    numbers worst-case or optimal-attacker values: they are the upper value over the declared
-    profiles and fixed strategies; monotonicity is claimed only for the existential `cvpl_lr`.
-  - *R2-9:* `precision_at_tau_status.possibly_undefined: true` when no record declares a known link (the
-    precision is undefined in the completions that reject every unknown candidate); the lower bound stays
-    `0`. An independent per-rung oracle (exact enumeration of all completions) is vendored as a seeded
-    property test.
-  - *R2-7:* the exact-fallback equivalence classes are built from one code per feature column (memory
-    proportional to the records, not to the encoded width, exact equality) and only after the
-    comparison budget has been checked.
-- **CVPL review round (CDX-CVPL-1..17).** What changes in a number or a field:
-  - One admissibility predicate for planning, scanning and the union of rungs (the union headline
-    equals the trajectory end; a wildcard no longer overrides `null_policy="incompatible"` in the union).
-  - Open-ended intervals (`60+`) have a finite feature representation; a non-finite representation is
-    `not_measured` (`non_finite_representation`), never a zero. Integers beyond `2**53` compare exactly,
-    `-0.0 == 0.0`, an **invalid** value is distinct from a missing one on both sides (admissible with
-    nothing).
-  - Ground-truth identifiers compare as values inside a namespace (`1 == 1.0`, `1 != "1"`); numeric vs
-    text, booleans and other types give `ground_truth.status = "invalid"`.
-  - **Undefined cosines yield bounds, not point values**: a measure that an unknown candidate can
-    influence has status `bounded`, `value: null` and `lower`/`upper` (`cvpl_lr` included; breaking for
-    a consumer that read the old point value). A known false link no longer hides an unknown true one.
-  - **Two uniform strategies.** `cvpl_id_uniform_subjects_gt` (distinct candidate subjects, the previous
-    `cvpl_id_uniform_gt`) and `cvpl_id_uniform_rows_gt` (candidate released rows) are published; the
-    headline `cvpl_id_uniform_gt` is the larger population value and `cvpl_id_uniform_basis` names it.
-    The headline can therefore differ from earlier results when the release repeats a subject.
-  - Ties are formed only among accepted candidates (tolerance never re-admits a pair below `tau`).
-  - Partial ground truth: an anonymous released row makes release membership unknown, `gt_coverage` and
-    the known subset are then `0` / `null` (previously reported as full coverage and an invented subset).
-  - Missing/overflow categories use internal tags (a user value `__missing__` no longer collides).
-  - A hierarchy must name the generalized values present in the release, else the QID is
-    `not_applicable` (`generalized_values_not_in_hierarchy`).
-  - An empty candidate set is a measured zero even when the representation is degenerate.
-  - Memory: per-record accumulators live for one chunk, exact-fallback matches are aggregated by
-    equivalence class, group compatibility is streamed (4M-cell tiles) and planning stops at the
-    comparison budget. `n_compared` counts cosine evaluations only.
-  - Result cache identity includes the fitted projection (`projection.fingerprint`) and the algorithm
-    version; hierarchy mappings are never written to `config.json`, cache metadata or logs (digest and
-    size instead); `OperationResult.metrics` carries the full structured result (statuses, bounds,
-    nulls, trajectories); a cached run returns `SUCCESS` (it returned `PENDING`).
-  - Documented: CVPL is a white-box, upper-bound evaluation; duplicate-row invariance holds under a
-    fixed representation only; G2/G4 differ from BEST (pinned, legacy-only).
-- **CVPL linkage exposure metric** (`pamola_core.metrics.CVPLLinkageOperation`, engine in
-  `pamola_core.metrics.privacy.cvpl`; ADR-CVPL-001). The operator chain
-  blocking -> vectorization -> PCA -> cosine -> threshold, with the attacker's
-  knowledge declared explicitly (`qids`, `auxiliary`; nothing is added implicitly), a
-  simple user-declared `blocking_ladder` (nested ladders are detected; the
-  existential rate is monotone along them, other rungs get a `candidate_union_trajectory`),
-  `fit_strategy` `joint` / `source_only` / `frozen`, wildcard / null policy, numeric-interval
-  and hierarchy-aware generalization (a generalized QID without a rule is `not_applicable`,
-  never an exact-match zero) and chunked execution with a pre-flight comparison budget
-  (`resource_limit`, not an out-of-memory failure). Three **different** measures, never
-  renamed into one another: `cvpl_lr` (a plausible link exists), `cvpl_id_uniform_gt`
-  (probability of the right subject under a uniform choice among candidates) and
-  `cvpl_top1_success_gt` (+ `precision_at_tau`), the last two only with an evaluation-only
-  ground truth that is never a feature and never leaves the process. A missing or partial
-  ground truth is `not_measured`, not zero. Zero projected vectors link deterministically
-  when the encoded vectors are equal (`n_exact_fallback`), otherwise they are reported
-  as `n_undetermined` with lower/upper bounds. The legacy weighted rate is emitted as
-  `cvpl_weighted_lr_legacy` (`weighted_existential_linkage_v1`) and is reproduced for the
-  historical fixtures G1, G3, G5. No pass/fail threshold; documented in
-  `docs/en/core/metrics/privacy/cvpl.md`. Independent of `pamola_core.attacks.linkage_attack`,
-  which is unchanged.
-- **`tests/conftest.py`** — an autouse fixture that clears ambient `PAMOLA_*`
-  environment variables, making the suite hermetic. Previously a developer
-  machine with `PAMOLA_PROJECT_ROOT` set failed five tests in
-  `tests/utils/tasks/` while CI stayed green.
-- **`tests/test_public_api_coverage_scope.py`** — asserts every name in
-  `pamola_core.__all__` resolves to a module inside the `.coveragerc` scope.
-  On its first run it caught `HashBasedPseudonymizationOperation` and
-  `ConsistentMappingPseudonymizationOperation` being exported but unmeasured.
-
-### Changed
-
-- **Public API changes of the 1.0 stabilization (review of the snapshot diff, QA-03).** Against develop@9623aee, in the integrated tree: **added** `DuplicateColumnError` and `OutputFieldExistsError` (`pamola_core.errors.exceptions`); **changed signatures** `BaseOperation` (new `overwrite_existing_output=False`, `generate_visualization` default `False`), `DataAttributeProfilerOperation` (new `include_raw_samples_in_metrics=False`), `analyze_dataset_attributes` (new `random_state=0`); **removed** the formal-DP, singling-out / SUDA attack helpers (`pamola_core.attacks.SinglingOutAttack`, `RecordRisk`, `dis_risk`, `minimal_sample_uniques`, `singling_out_sweep`, `enumerate_subset_count`, `independent_marginals_baseline`), `privacy_models.RiskInterpreter` and the modules `privacy_models.differential_privacy*`, `privacy_models.l_diversity.report_*`, `profiling.analyzers.email_dask` and `longtext`. The full list is in the PR description (`api_diff.md`); `CVPLLinkageOperation` appears with the CVPL branch.
-- `MetricsOperation` gains a class attribute `requires_aligned_inputs` (default `True`, so
-  every existing metric behaves as before). An operation whose two inputs are not row-aligned
-  by design (CVPL) sets it to `False` and receives both frames without the index
-  intersection and sampling.
-- **BREAKING: an existing ENRICH output column is no longer overwritten
-  silently** (DATA-04, SRS 6.8). In ENRICH mode every operation used to log a
-  WARNING and overwrite a column that already existed. It now fails with the new
-  `OutputFieldExistsError` (a `ValidationError`, naming the column only, never
-  values) before any work is done. **Typical break:** running the same ENRICH
-  operation twice over a frame that already holds its output (same
-  `column_prefix`/`output_field_name`), or an `output_field_name` equal to an
-  existing column. **Migration:** choose another `output_field_name` /
-  `column_prefix`, or pass the new `overwrite_existing_output=True` (config key of
-  the same name, default `False`) to replace the column deliberately. The check
-  sits in the anonymization, transformation and fake-data bases
-  (`BaseOperation._check_enrich_target`), so it applies to every operation built
-  on them.
-- **Consistent-mapping pseudonymization applies the mapping in bulk (PERF-FIX-4).** Distinct values are resolved once, in order of first appearance (new pseudonyms are allocated exactly as before), and results are placed by position; the per-row loop took the mapping lock and a clock reading three times per row. Output, persistence points (`persist_frequency`), duplicate-index and null behaviour and the lookup counters are unchanged.
-- **Quality gates now block instead of merely reporting.**
-  `[tool.ruff.lint]` in `pyproject.toml` defines a narrow blocking set
-  (`E9` + `F`); `.coveragerc` `fail_under` moves from `0` to `83` against a
-  measured 84.327 %. CI's ruff step loses its `|| true`; a non-blocking mypy
-  job is added.
-
-- **Visualization is opt-in: `generate_visualization` now defaults to `False`**
-  (VIZ-01, VIZ-02). One default, in `BaseOperation`; the core config schema
-  agrees. A default run no longer starts the render thread, writes plot files or
-  emits any visualization log line. The Section 15 baseline measured that thread
-  at 28-87 % of wall time across the operations tested.
-  **Migration:** pass `generate_visualization=True` (or set it in the operation
-  config) wherever charts were relied on.
-- **Explicit `generate_visualization=True` without the `viz` extra returns one
-  `ERROR` result** with an actionable message (`pip install 'pamola-core[viz]'`)
-  before any data is touched (VIZ-04). Previously the operation ran, logged about
-  twelve WARNING/ERROR lines with tracebacks from every layer of the plotting
-  stack, and still reported `SUCCESS` without charts. The check lives in
-  `BaseOperation` (`check_visualization_dependencies`, applied to every
-  subclass's `execute`), so no operation needs its own.
-
-### Fixed
 
 - **KS and KL evaluate every common column (ASB-OPS-1) - fidelity results change.** Without `key_fields`, `KolmogorovSmirnovTest` and `KLDivergence` evaluated one arbitrary column (`list(set(common))[0]`, which depended on `PYTHONHASHSEED`), so `FidelityOperation(columns=[a, b])` covered only one of them. They now evaluate every common column in the order of the original dataset (KS: numeric columns; others are listed under `skipped_columns`, and no numeric column is a `ValidationError`). The result keeps its previous top-level fields, which are now those of the worst column, and adds `per_column`, `aggregate_column`, `aggregate_rule` (KS: max `ks_statistic`; KL: max `kl_divergence`), `columns_evaluated`, and for KS `min_p_value` / `min_p_value_column`. Values for multi-column inputs differ from earlier releases.
 - **`merge_low_freq` also did nothing above ~50K rows (PERF-FIX-1c).** The engine converts large text columns to `category`; assigning the group label to a categorical raised "Cannot setitem on a Categorical with a new category", and `group_rare_categories` swallowed every exception and returned the input unchanged. It now groups on plain values (restoring the dtype) and re-raises failures instead of returning an unchanged series with an empty result.
@@ -675,6 +427,245 @@ unchanged public values (descriptions reworded).
   which preserves behaviour exactly while making the resolution explicit.
 - Three exact duplicate dictionary keys removed (`full_masking_op.py`,
   `profiling/analyzers/anonymity.py`, `profiling/commons/phone_utils.py`).
+
+### Removed
+
+- **`pydantic[email]` dependency (DEP-01).** Nothing in `pamola_core` or `tests`
+  imports `pydantic` or `email_validator`. `pydantic` still arrives
+  transitively through spaCy.
+
+- **Formal differential privacy is not a 1.0 capability (PKG-02).** The legacy
+  `pamola_core.privacy_models.differential_privacy` package
+  (`DifferentialPrivacyProcessor`) and its tests and docs are removed from the
+  source tree and therefore from the wheel; `DifferentialPrivacyProcessor` and
+  `DifferentialPrivacyModel` leave `pamola_core.privacy_models.__all__`.
+- **`pamola_core.attacks.singling_out` (PKG-03)** — untested, and contradicted
+  the README/CHANGELOG statement that singling-out is not implemented.
+  `SinglingOutAttack`, `singling_out_sweep`, `independent_marginals_baseline`,
+  `minimal_sample_uniques`, `suda_scores`, `dis_risk`, `enumerate_subset_count`,
+  `wilson_ci` and `RecordRisk` leave `pamola_core.attacks.__all__`.
+- **Dead code (PKG-04):** `profiling/analyzers/email_dask.py`, `longtext.py`
+  (no importers), `privacy_models/l_diversity/report_generators/` and
+  `report_utils/` (unreachable, broken: `generate_technical_report` was never
+  importable from `reporting`).
+- **`requirements.txt` (DEP-02)** — unused by CI and still listing packages
+  removed in 1.0.0.dev4; dependencies are declared in `pyproject.toml`.
+
+### BREAKING
+
+The library issues no legal verdict (DOC-02): regulations are no longer mapped to
+thresholds and nothing is labelled "compliant". Thresholds are chosen by the
+caller; results are named `threshold_met`.
+
+| Old | New |
+|---|---|
+| `KAnonymityProcessor.evaluate_privacy()` / `compare_datasets` field `compliant` | `threshold_met` |
+| `KAnonymityRisk.calculate()` (`metrics.privacy.disclosure_risk`) field `compliant` | `threshold_met` |
+| `ka_reporting.generate_compliance_report(report_data, output_path, regulation="GDPR")` (returned `regulation`, `compliance_status`, `compliance_details` with law-specific k) | `ka_reporting.generate_threshold_report(report_data, output_path, k_threshold=None)` returning `k_threshold`, `actual_min_k`, `threshold_met`, `at_risk_records`, `at_risk_percentage` |
+| `KAnonymityProcessor.generate_report(..., regulation=...)` | `generate_report(..., threshold_report=False, k_threshold=None)` |
+| k-anonymity text summary line `Compliance: Yes/No` | `Threshold met: Yes/No` |
+| `LDiversityReport.generate_compliance_report(..., regulation="GDPR")` (GDPR/HIPAA/CCPA criteria, `compliance_status`) | `LDiversityReport.generate_threshold_report(..., l_threshold=3, k_threshold=2, diversity_type=None, c_max=None)` returning `threshold_met`, `threshold_details`, `privacy_metrics.threshold_met` |
+| `RiskInterpreter(regulation=...)`, `.interpret_compliance()`, `get_regulatory_requirements()`, `interpret_risk_metrics(..., regulation=)` key `compliance` | `RiskInterpreter(l_threshold=3)`, `.interpret_threshold()` (`threshold_met`, `l_threshold`, `achieved_l`), `interpret_risk_metrics(..., target_l=3)` key `threshold_check`; `get_regulatory_requirements` removed |
+| `LDiversityAdvancedVisualizer.visualize_regulatory_compliance(regulation=...)` / module function / `create_comprehensive_report` key `gdpr_compliance` | `visualize_threshold_check(l_threshold=, diversity_type=, c_value=)` / key `threshold_check`; labels read "THRESHOLD MET / BELOW THRESHOLD" |
+| `L_DIVERSITY_DEFAULTS["compliance"]` with `supported_regulations` | `L_DIVERSITY_DEFAULTS["thresholds"]` (`risk_threshold` only) |
+
+Not yet renamed (internal l-diversity risk-assessor schema): `compliant` /
+`overall_compliant` in `attribute_risk.py` / `privacy.py` results and the
+`l_diversity.visualization` reader of `overall_compliant` (its label now reads
+"THRESHOLD MET"). Masking preset names `GDPR_COMPLIANT` / `PCI_COMPLIANT` are
+unchanged public values (descriptions reworded).
+
+### Changed
+
+- **Package metadata and docs no longer imply out-of-scope capabilities
+  (PKG-01/02/03, DOC-02).** `differential-privacy` and `synthetic-data` are gone
+  from the PyPI keywords. README, `privacy_models` docs and examples drop
+  "Safe Harbor support", "privacy-safe", "GDPR/PCI compliant" wording: results
+  are technical evidence, never a legal determination (masking preset
+  descriptions reworded; preset names are unchanged).
+- `examples/README.md` and `docs/*/index.md` install with `pip install -e ".[viz]"`
+  instead of the removed `requirements.txt`; `CLAUDE.md` no longer says
+  `torch`/`sdv` are installed.
+
+- **Public API changes of the 1.0 stabilization (review of the snapshot diff, QA-03).** Against develop@9623aee, in the integrated tree: **added** `DuplicateColumnError` and `OutputFieldExistsError` (`pamola_core.errors.exceptions`); **changed signatures** `BaseOperation` (new `overwrite_existing_output=False`, `generate_visualization` default `False`), `DataAttributeProfilerOperation` (new `include_raw_samples_in_metrics=False`), `analyze_dataset_attributes` (new `random_state=0`); **removed** the formal-DP, singling-out / SUDA attack helpers (`pamola_core.attacks.SinglingOutAttack`, `RecordRisk`, `dis_risk`, `minimal_sample_uniques`, `singling_out_sweep`, `enumerate_subset_count`, `independent_marginals_baseline`), `privacy_models.RiskInterpreter` and the modules `privacy_models.differential_privacy*`, `privacy_models.l_diversity.report_*`, `profiling.analyzers.email_dask` and `longtext`. The full list is in the PR description (`api_diff.md`); `CVPLLinkageOperation` appears with the CVPL branch.
+- `MetricsOperation` gains a class attribute `requires_aligned_inputs` (default `True`, so
+  every existing metric behaves as before). An operation whose two inputs are not row-aligned
+  by design (CVPL) sets it to `False` and receives both frames without the index
+  intersection and sampling.
+- **BREAKING: an existing ENRICH output column is no longer overwritten
+  silently** (DATA-04, SRS 6.8). In ENRICH mode every operation used to log a
+  WARNING and overwrite a column that already existed. It now fails with the new
+  `OutputFieldExistsError` (a `ValidationError`, naming the column only, never
+  values) before any work is done. **Typical break:** running the same ENRICH
+  operation twice over a frame that already holds its output (same
+  `column_prefix`/`output_field_name`), or an `output_field_name` equal to an
+  existing column. **Migration:** choose another `output_field_name` /
+  `column_prefix`, or pass the new `overwrite_existing_output=True` (config key of
+  the same name, default `False`) to replace the column deliberately. The check
+  sits in the anonymization, transformation and fake-data bases
+  (`BaseOperation._check_enrich_target`), so it applies to every operation built
+  on them.
+- **Consistent-mapping pseudonymization applies the mapping in bulk (PERF-FIX-4).** Distinct values are resolved once, in order of first appearance (new pseudonyms are allocated exactly as before), and results are placed by position; the per-row loop took the mapping lock and a clock reading three times per row. Output, persistence points (`persist_frequency`), duplicate-index and null behaviour and the lookup counters are unchanged.
+- **Quality gates now block instead of merely reporting.**
+  `[tool.ruff.lint]` in `pyproject.toml` defines a narrow blocking set
+  (`E9` + `F`); `.coveragerc` `fail_under` moves from `0` to `83` against a
+  measured 84.327 %. CI's ruff step loses its `|| true`; a non-blocking mypy
+  job is added.
+
+- **Visualization is opt-in: `generate_visualization` now defaults to `False`**
+  (VIZ-01, VIZ-02). One default, in `BaseOperation`; the core config schema
+  agrees. A default run no longer starts the render thread, writes plot files or
+  emits any visualization log line. The Section 15 baseline measured that thread
+  at 28-87 % of wall time across the operations tested.
+  **Migration:** pass `generate_visualization=True` (or set it in the operation
+  config) wherever charts were relied on.
+- **Explicit `generate_visualization=True` without the `viz` extra returns one
+  `ERROR` result** with an actionable message (`pip install 'pamola-core[viz]'`)
+  before any data is touched (VIZ-04). Previously the operation ran, logged about
+  twelve WARNING/ERROR lines with tracebacks from every layer of the plotting
+  stack, and still reported `SUCCESS` without charts. The check lives in
+  `BaseOperation` (`check_visualization_dependencies`, applied to every
+  subclass's `execute`), so no operation needs its own.
+
+### Removed (earlier in this cycle)
+
+- **`pamola_core.pipeline`, `pamola_core.interface`, `pamola_core.crypto`** —
+  empty placeholder packages (15 lines each: a licence header and
+  `__all__ = []`) that shipped in the wheel and created three public names with
+  nothing behind them. Zero references anywhere in the codebase.
+- **`pamola_core.attacks` narrowed to the anonymization-facing attacks.**
+  The package now carries `LinkageAttack` (including the CVPL variant) and
+  `AttributeInference` only.
+  - `MembershipInference` removed — membership inference is a model-privacy
+    question, not an anonymization one.
+  - `DistanceToClosestRecord` and `NearestNeighborDistanceRatio` removed from
+    `attacks/`: they duplicated `pamola_core.metrics.privacy.distance` and
+    `pamola_core.metrics.privacy.neighbor`, which are the live
+    implementations — `PrivacyMetricOperation` imports the metrics versions and
+    never imported these. **Both metrics remain fully available from
+    `pamola_core.metrics.privacy`; nothing is lost.**
+  - `attacks/attacks_test.py` removed — a 641-line smoke-test harness that
+    shipped to PyPI, was never collected by pytest, and duplicated the 98 real
+    tests in `tests/attacks/`.
+
+  **Migration:** import DCR and NNDR from `pamola_core.metrics.privacy` instead
+  of `pamola_core.attacks`.
+
+  Note: **singling-out is not implemented** in this package. The docstring of
+  `pamola_core/attacks/__init__.py` states this explicitly so that no report
+  generated from it claims coverage of that criterion.
+
+### Added
+
+- **Public API snapshot and guard (QA-03).** `tools/audit/api_snapshot/generate_snapshot.py` records every name exported in `__all__` by `pamola_core` and its public packages (kind, module, qualname, normalised signature) and the importable public modules; `tests/test_api_snapshot.py` fails with a readable diff when the public surface changes without `tools/audit/api_snapshot/api_snapshot.json` being regenerated. Baseline `snapshots/develop_9623aee.json` and the integrated tree `snapshots/final_tree_without_cvpl.json` are committed; replace `api_snapshot.json` with a snapshot of the assembled tree before the release.
+- `CVPLLinkageOperation` is registered like its sibling metric operations: operations catalog
+  (`pamola-core list-ops`, category `metrics`), `validate-config` (explicit signature: `qids` is
+  required), the task runner, and the schema set (`cvpl_op_core_schema`, `cvpl_op_schema_exclude`,
+  `cvpl_op_tooltip`, `cvpl_op_ui_schema`) in the schema builder.
+- CVPL headline for a ladder that is not a nested relaxing chain is evaluated over the **union**
+  of all rungs' candidate sets (every pair once), for all measures including the ground-truth
+  ones; `cvpl_lr_by_rung` and `candidate_union_trajectory` keep the per-rung and cumulative
+  values, `headline_basis` says which rule applied. Bounded categorical encoding is reported
+  (`bucketed_features`, `warnings`) and a `not_applicable` QID names the fix.
+- **CVPL second review round (CDX-CVPL-R2-1..8).** What changes in a number or a field:
+  - *R2-1/R2-8:* top-1 and precision bounds now contain the completion in which an unknown candidate
+    shifts the maximum and with it the tie band (the upper bound is the deliberately loose `1`
+    wherever an unknown candidate can alter a tie of the correct subject); whether a record is
+    uncertain is decided by candidate counts, not by a `1e-12` float tolerance (a difference of
+    `1e-12` is still `bounded`).
+  - *R2-2:* uncertainty reaches every surface: `cvpl_lr_union` (+ `_lower`, `_upper`, `_status`),
+    `candidate_union_trajectory[]` and `blocking_ladder_trajectory[]` entries (`cumulative_lr`,
+    `_lower`, `_upper`, `_status`), `cvpl_lr_by_rung[]` (`status` is `bounded` and `cvpl_lr` null),
+    `cvpl_weighted_lr_legacy` (`_lower`, `_upper`, `_status`, same fixed weights). **Breaking:**
+    these fields were a plain number equal to the lower bound.
+  - *R2-3:* `projection.fingerprint` hashes the ordered feature layout, category lists and array
+    shapes with an unambiguous serialisation (feature order was lost, so a stale cached result could
+    be served for a different fitted layout).
+  - *R2-4:* integers beyond 2**53 stay exact in interval strings, `pandas.Interval` objects and
+    interval columns, and in bins (integral `bin_width`); a bin whose float width vanishes becomes
+    the closed point, so the plain-key partition, the pairwise predicate and the union exclusion
+    agree and a pair is counted once.
+  - *R2-5:* custom wildcard tokens are input values: `describe()`, `config.json`, cache metadata and
+    the result carry `wildcard_token_count` and `wildcard_tokens_digest` instead of the tokens
+    (**breaking:** `parameters.wildcard_tokens` is gone); the digest keeps the cache identity.
+  - *R2-6 (norm decision):* the identification measures (`cvpl_id_uniform_subjects_gt`,
+    `cvpl_id_uniform_rows_gt`, `cvpl_top1_success_gt`, `precision_at_tau`) are computed **per rung**
+    (each rung is a declared attacker profile); the headline is the largest over the rungs and
+    `<measure>_basis_rung` names the winner; `cvpl_id_uniform_gt` is the largest over rungs and the two
+    uniform strategies (`cvpl_id_uniform_basis`, `cvpl_id_uniform_basis_rung`). `cvpl_lr` stays on the
+    union of the rungs. **Breaking for non-nested and for relaxing ladders:** the identification
+    headline is no longer a value of the last rung or of the union; per-rung values are in
+    `blocking_ladder_trajectory[]` and `identification_by_rung`. Documentation no longer calls the
+    numbers worst-case or optimal-attacker values: they are the upper value over the declared
+    profiles and fixed strategies; monotonicity is claimed only for the existential `cvpl_lr`.
+  - *R2-9:* `precision_at_tau_status.possibly_undefined: true` when no record declares a known link (the
+    precision is undefined in the completions that reject every unknown candidate); the lower bound stays
+    `0`. An independent per-rung oracle (exact enumeration of all completions) is vendored as a seeded
+    property test.
+  - *R2-7:* the exact-fallback equivalence classes are built from one code per feature column (memory
+    proportional to the records, not to the encoded width, exact equality) and only after the
+    comparison budget has been checked.
+- **CVPL review round (CDX-CVPL-1..17).** What changes in a number or a field:
+  - One admissibility predicate for planning, scanning and the union of rungs (the union headline
+    equals the trajectory end; a wildcard no longer overrides `null_policy="incompatible"` in the union).
+  - Open-ended intervals (`60+`) have a finite feature representation; a non-finite representation is
+    `not_measured` (`non_finite_representation`), never a zero. Integers beyond `2**53` compare exactly,
+    `-0.0 == 0.0`, an **invalid** value is distinct from a missing one on both sides (admissible with
+    nothing).
+  - Ground-truth identifiers compare as values inside a namespace (`1 == 1.0`, `1 != "1"`); numeric vs
+    text, booleans and other types give `ground_truth.status = "invalid"`.
+  - **Undefined cosines yield bounds, not point values**: a measure that an unknown candidate can
+    influence has status `bounded`, `value: null` and `lower`/`upper` (`cvpl_lr` included; breaking for
+    a consumer that read the old point value). A known false link no longer hides an unknown true one.
+  - **Two uniform strategies.** `cvpl_id_uniform_subjects_gt` (distinct candidate subjects, the previous
+    `cvpl_id_uniform_gt`) and `cvpl_id_uniform_rows_gt` (candidate released rows) are published; the
+    headline `cvpl_id_uniform_gt` is the larger population value and `cvpl_id_uniform_basis` names it.
+    The headline can therefore differ from earlier results when the release repeats a subject.
+  - Ties are formed only among accepted candidates (tolerance never re-admits a pair below `tau`).
+  - Partial ground truth: an anonymous released row makes release membership unknown, `gt_coverage` and
+    the known subset are then `0` / `null` (previously reported as full coverage and an invented subset).
+  - Missing/overflow categories use internal tags (a user value `__missing__` no longer collides).
+  - A hierarchy must name the generalized values present in the release, else the QID is
+    `not_applicable` (`generalized_values_not_in_hierarchy`).
+  - An empty candidate set is a measured zero even when the representation is degenerate.
+  - Memory: per-record accumulators live for one chunk, exact-fallback matches are aggregated by
+    equivalence class, group compatibility is streamed (4M-cell tiles) and planning stops at the
+    comparison budget. `n_compared` counts cosine evaluations only.
+  - Result cache identity includes the fitted projection (`projection.fingerprint`) and the algorithm
+    version; hierarchy mappings are never written to `config.json`, cache metadata or logs (digest and
+    size instead); `OperationResult.metrics` carries the full structured result (statuses, bounds,
+    nulls, trajectories); a cached run returns `SUCCESS` (it returned `PENDING`).
+  - Documented: CVPL is a white-box, upper-bound evaluation; duplicate-row invariance holds under a
+    fixed representation only; G2/G4 differ from BEST (pinned, legacy-only).
+- **CVPL linkage exposure metric** (`pamola_core.metrics.CVPLLinkageOperation`, engine in
+  `pamola_core.metrics.privacy.cvpl`; ADR-CVPL-001). The operator chain
+  blocking -> vectorization -> PCA -> cosine -> threshold, with the attacker's
+  knowledge declared explicitly (`qids`, `auxiliary`; nothing is added implicitly), a
+  simple user-declared `blocking_ladder` (nested ladders are detected; the
+  existential rate is monotone along them, other rungs get a `candidate_union_trajectory`),
+  `fit_strategy` `joint` / `source_only` / `frozen`, wildcard / null policy, numeric-interval
+  and hierarchy-aware generalization (a generalized QID without a rule is `not_applicable`,
+  never an exact-match zero) and chunked execution with a pre-flight comparison budget
+  (`resource_limit`, not an out-of-memory failure). Three **different** measures, never
+  renamed into one another: `cvpl_lr` (a plausible link exists), `cvpl_id_uniform_gt`
+  (probability of the right subject under a uniform choice among candidates) and
+  `cvpl_top1_success_gt` (+ `precision_at_tau`), the last two only with an evaluation-only
+  ground truth that is never a feature and never leaves the process. A missing or partial
+  ground truth is `not_measured`, not zero. Zero projected vectors link deterministically
+  when the encoded vectors are equal (`n_exact_fallback`), otherwise they are reported
+  as `n_undetermined` with lower/upper bounds. The legacy weighted rate is emitted as
+  `cvpl_weighted_lr_legacy` (`weighted_existential_linkage_v1`) and is reproduced for the
+  historical fixtures G1, G3, G5. No pass/fail threshold; documented in
+  `docs/en/core/metrics/privacy/cvpl.md`. Independent of `pamola_core.attacks.linkage_attack`,
+  which is unchanged.
+- **`tests/conftest.py`** — an autouse fixture that clears ambient `PAMOLA_*`
+  environment variables, making the suite hermetic. Previously a developer
+  machine with `PAMOLA_PROJECT_ROOT` set failed five tests in
+  `tests/utils/tasks/` while CI stayed green.
+- **`tests/test_public_api_coverage_scope.py`** — asserts every name in
+  `pamola_core.__all__` resolves to a module inside the `.coveragerc` scope.
+  On its first run it caught `HashBasedPseudonymizationOperation` and
+  `ConsistentMappingPseudonymizationOperation` being exported but unmeasured.
 
 ## [1.0.0.dev4] - 2026-08-16
 
