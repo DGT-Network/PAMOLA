@@ -185,6 +185,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[test,viz]"   # the suite covers plotting paths (FP-02a)
 
+      - name: Install the NLTK corpora the tests use (explicit opt-in)
+        # pamola-core never downloads corpora by itself (offline by default); the tests that
+        # exercise tokenization need them, so the job installs them explicitly.
+        run: python -m nltk.downloader wordnet punkt punkt_tab stopwords
+
       - name: Run tests with coverage
         run: |
           python -m pytest tests/ --tb=short -q \
