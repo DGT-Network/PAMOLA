@@ -700,11 +700,11 @@ class LDiversityVisualizer:
                 overall_compliant = overall_risk.get('overall_compliant', False)
 
                 status_color = 'green' if overall_compliant else 'red'
-                status_text = 'COMPLIANT' if overall_compliant else 'NON-COMPLIANT'
+                status_text = 'THRESHOLD MET' if overall_compliant else 'THRESHOLD NOT MET'
 
                 plt.figtext(
                     0.5, 0.01,
-                    f"Overall Status: {status_text} | Min Diversity: {min_diversity:.2f} | "
+                    f"Overall l-diversity threshold: {status_text} | Min Diversity: {min_diversity:.2f} | "
                     f"Prosecutor Risk: {prosecutor_risk:.2f}%",
                     ha='center',
                     fontsize=12,

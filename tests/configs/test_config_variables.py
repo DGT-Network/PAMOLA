@@ -36,7 +36,7 @@ class TestLDiversityDefaults:
             "l", "diversity_type", "c_value", "k",
             "use_dask", "mask_value", "suppression",
             "npartitions", "optimize_memory",
-            "log_level", "visualization", "compliance"
+            "log_level", "visualization", "thresholds"
         }
         assert required.issubset(set(L_DIVERSITY_DEFAULTS.keys()))
 
@@ -84,14 +84,13 @@ class TestLDiversityDefaults:
         assert isinstance(vis["hist_bins"], int)
         assert isinstance(vis["save_format"], str)
 
-    def test_compliance_config(self):
-        """Compliance config should have required keys."""
-        comp = L_DIVERSITY_DEFAULTS["compliance"]
-        assert isinstance(comp, dict)
-        assert "risk_threshold" in comp
-        assert "supported_regulations" in comp
-        assert isinstance(comp["risk_threshold"], (int, float))
-        assert isinstance(comp["supported_regulations"], list)
+    def test_threshold_config(self):
+        """Threshold config has the risk threshold and names no regulation."""
+        thresholds = L_DIVERSITY_DEFAULTS["thresholds"]
+        assert isinstance(thresholds, dict)
+        assert isinstance(thresholds["risk_threshold"], (int, float))
+        assert "supported_regulations" not in thresholds
+        assert "compliance" not in L_DIVERSITY_DEFAULTS
 
 
 class TestValidateLDiversityConfig:

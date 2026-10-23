@@ -7,7 +7,7 @@ with base reporting infrastructure.
 
 Key Features:
 - Cache-aware report generation
-- Multiple report types (general, compliance, technical)
+- Multiple report types (general, threshold check, technical)
 - Support for different l-diversity types (distinct, entropy, recursive)
 - Integration with visualization module
 - Standardized file I/O through central utilities
@@ -773,13 +773,21 @@ class LDiversityReport(PrivacyReport):
         # This would typically be populated by the visualization module
         return {}
 
-    def generate_compliance_report(self,
-                                   data: Optional[pd.DataFrame] = None,
-                                   quasi_identifiers: Optional[List[str]] = None,
-                                   sensitive_attributes: Optional[List[str]] = None,
-                                   regulation: str = "GDPR") -> Dict[str, Any]:
+    def generate_threshold_report(self,
+                                  data: Optional[pd.DataFrame] = None,
+                                  quasi_identifiers: Optional[List[str]] = None,
+                                  sensitive_attributes: Optional[List[str]] = None,
+                                  l_threshold: int = 3,
+                                  k_threshold: int = 2,
+                                  diversity_type: Optional[str] = None,
+                                  c_max: Optional[float] = None) -> Dict[str, Any]:
         """
-        Generate compliance report for specific regulations
+        Check the data against thresholds chosen by the caller.
+
+        The report states whether the configured l-diversity / k-anonymity
+        thresholds are met. It is technical evidence for the data owner's own
+        assessment; it does not map any law or regulation to a threshold and is
+        not a statement of legal compliance.
 
         Parameters
         -----------
@@ -789,196 +797,175 @@ class LDiversityReport(PrivacyReport):
             Quasi-identifier columns
         sensitive_attributes : List[str], optional
             Sensitive attribute columns
-        regulation : str, optional
-            Regulatory framework (default: GDPR)
+        l_threshold : int, optional
+            Minimum l to test against (default: 3)
+        k_threshold : int, optional
+            Minimum base k to test against (default: 2)
+        diversity_type : str, optional
+            Diversity type the threshold applies to ('distinct', 'entropy',
+            'recursive'); defaults to the type the data was processed with
+        c_max : float, optional
+            Largest accepted c for recursive (c, l)-diversity
 
         Returns
         --------
         Dict[str, Any]
-            Compliance assessment report
+            Threshold-check report with ``threshold_met`` (bool)
         """
-        # Get basic report
         base_report = self.generate(data, quasi_identifiers, sensitive_attributes, False)
 
-        # Define compliance criteria for different regulations
-        compliance_criteria = {
-            'GDPR': {
-                'l_threshold': 3,
-                'k_threshold': 5,
-                'diversity_type': 'distinct',
-                'description': 'General Data Protection Regulation (EU)'
-            },
-            'HIPAA': {
-                'l_threshold': 4,
-                'k_threshold': 10,
-                'diversity_type': 'recursive',
-                'c_value': 0.5,
-                'description': 'Health Insurance Portability and Accountability Act (US)'
-            },
-            'CCPA': {
-                'l_threshold': 3,
-                'k_threshold': 4,
-                'diversity_type': 'entropy',
-                'description': 'California Consumer Privacy Act (US)'
-            }
-        }
-
-        # Get criteria for specific regulation
-        criteria = compliance_criteria.get(regulation.upper(), compliance_criteria['GDPR'])
-
-        # Create compliance report
-        compliance_report = {
+        threshold_report = {
             "report_metadata": {
                 "creation_time": datetime.now().isoformat(),
                 "pamola_version": _get_pamola_version(),
-                "report_type": f"l-diversity {regulation} compliance"
+                "report_type": "l-diversity threshold check"
             },
-            "regulation": regulation,
-            "regulation_description": criteria['description'],
-            "compliance_criteria": criteria,
-            "compliance_status": "Unknown"
+            "thresholds": {
+                "l_threshold": l_threshold,
+                "k_threshold": k_threshold,
+                "diversity_type": diversity_type,
+                "c_max": c_max,
+            },
+            "threshold_met": None,
         }
 
-        # Get privacy evaluation from base report
         if "privacy_evaluation" in base_report:
             privacy = base_report["privacy_evaluation"]
+            config = base_report.get("l_diversity_configuration", {})
 
-            # Get configuration
-            l_value = base_report.get(
-                "l_diversity_configuration", {}).get("l_value", 3)
-            diversity_type = base_report.get(
-                "l_diversity_configuration", {}).get("diversity_type", "distinct")
-            k_value = base_report.get(
-                "l_diversity_configuration", {}).get("k_value", 2)
-            c_value = base_report.get(
-                "l_diversity_configuration", {}).get("c_value", 1.0)
+            k_value = config.get("k_value", 2)
+            c_value = config.get("c_value", 1.0)
+            actual_type = config.get("diversity_type", "distinct")
+            tested_type = diversity_type or actual_type
 
-            # Check compliance based on regulation
-            l_compliant = False
-            k_compliant = k_value >= criteria['k_threshold']
+            l_met = False
+            k_met = k_value >= k_threshold
             reasons = []
 
-            if diversity_type == criteria['diversity_type']:
-                if diversity_type == "entropy":
-                    # For entropy l-diversity, check effective l
+            if actual_type == tested_type:
+                if tested_type == "entropy":
                     effective_l = privacy.get('effective_min_l', 0)
-                    l_compliant = effective_l >= criteria['l_threshold']
-                    if not l_compliant:
+                    l_met = effective_l >= l_threshold
+                    if not l_met:
                         reasons.append(
-                            f"Minimum effective l ({effective_l:.2f}) is below required threshold ({criteria['l_threshold']})"
+                            f"Minimum effective l ({effective_l:.2f}) is below the threshold ({l_threshold})"
                         )
-                elif diversity_type == "recursive":
-                    # For recursive l-diversity, check c value
-                    c_compliant = c_value <= criteria.get('c_value', 1.0)
-                    l_compliant = privacy.get('compliant', False) and c_compliant
-                    if not l_compliant:
+                elif tested_type == "recursive":
+                    c_ok = c_max is None or c_value <= c_max
+                    l_met = bool(privacy.get('compliant', False)) and c_ok
+                    if not l_met:
                         reasons.append(
-                            "Recursive (c,l)-diversity does not meet requirements"
+                            "Recursive (c,l)-diversity does not meet the configured thresholds"
                         )
                 else:
-                    # For distinct l-diversity, check min_l
                     min_l = privacy.get('min_l', 0)
-                    l_compliant = min_l >= criteria['l_threshold']
-                    if not l_compliant:
+                    l_met = min_l >= l_threshold
+                    if not l_met:
                         reasons.append(
-                            f"Minimum l ({min_l}) is below required threshold ({criteria['l_threshold']})"
+                            f"Minimum l ({min_l}) is below the threshold ({l_threshold})"
                         )
             else:
                 reasons.append(
-                    f"Diversity type ({diversity_type}) does not match required type ({criteria['diversity_type']})"
+                    f"Diversity type ({actual_type}) differs from the tested type ({tested_type})"
                 )
 
-            if not k_compliant:
+            if not k_met:
                 reasons.append(
-                    f"Base k-anonymity ({k_value}) is below required threshold ({criteria['k_threshold']})"
+                    f"Base k-anonymity ({k_value}) is below the threshold ({k_threshold})"
                 )
 
-            # Set overall compliance status
-            compliance_report['compliance_status'] = 'Compliant' if l_compliant and k_compliant else 'Non-compliant'
-            compliance_report['compliance_details'] = {
-                'l_compliance': l_compliant,
-                'k_compliance': k_compliant,
+            threshold_report['threshold_met'] = bool(l_met and k_met)
+            threshold_report['threshold_details'] = {
+                'l_threshold_met': bool(l_met),
+                'k_threshold_met': bool(k_met),
                 'current_configuration': {
-                    'l_value': l_value,
+                    'l_value': config.get("l_value", 3),
                     'k_value': k_value,
-                    'diversity_type': diversity_type,
-                    'c_value': c_value if diversity_type == "recursive" else None
+                    'diversity_type': actual_type,
+                    'c_value': c_value if actual_type == "recursive" else None
                 }
             }
 
-            # Add reasons for non-compliance
-            if not l_compliant or not k_compliant:
-                compliance_report['compliance_details']['non_compliance_reasons'] = reasons
+            if not (l_met and k_met):
+                threshold_report['threshold_details']['reasons'] = reasons
 
-            # Add privacy metrics
-            compliance_report['privacy_metrics'] = {
+            threshold_report['privacy_metrics'] = {
                 'min_l': privacy.get('min_l', 0),
-                'compliant': privacy.get('compliant', False),
+                'threshold_met': bool(privacy.get('compliant', False)),
                 'records_at_risk': privacy.get('records_at_risk', 0),
                 'percentage_at_risk': privacy.get('percentage_at_risk', 0)
             }
 
-            # Add recommendations
-            compliance_report['recommendations'] = self._generate_compliance_recommendations(
-                compliance_report['compliance_status'],
+            threshold_report['recommendations'] = self._generate_threshold_recommendations(
+                threshold_report['threshold_met'],
                 reasons,
-                criteria
+                l_threshold,
+                k_threshold,
+                tested_type,
+                c_max,
             )
 
-        return compliance_report
+        return threshold_report
 
-    def _generate_compliance_recommendations(self,
-                                             compliance_status: str,
-                                             reasons: List[str],
-                                             criteria: Dict[str, Any]) -> List[str]:
+    def _generate_threshold_recommendations(self,
+                                            threshold_met: bool,
+                                            reasons: List[str],
+                                            l_threshold: int,
+                                            k_threshold: int,
+                                            diversity_type: str,
+                                            c_max: Optional[float]) -> List[str]:
         """
-        Generate recommendations for improving compliance
+        Generate recommendations for reaching the configured thresholds
 
         Parameters
         -----------
-        compliance_status : str
-            Current compliance status
+        threshold_met : bool
+            Whether the configured thresholds are met
         reasons : List[str]
-            Reasons for non-compliance
-        criteria : Dict[str, Any]
-            Compliance criteria
+            Reasons the thresholds are not met
+        l_threshold, k_threshold : int
+            Configured thresholds
+        diversity_type : str
+            Tested diversity type
+        c_max : float, optional
+            Configured maximum c for recursive diversity
 
         Returns
         --------
         List[str]
-            Recommendations for improving compliance
+            Recommendations
         """
         recommendations = []
 
-        if compliance_status == 'Compliant':
+        if threshold_met:
             recommendations.append(
-                "Current configuration meets regulatory requirements. Maintain current privacy protections."
+                "The configured thresholds are met. This is technical evidence only."
             )
         else:
             recommendations.append(
-                "Current configuration does not meet regulatory requirements. Consider the following improvements:"
+                "The configured thresholds are not met. Consider the following improvements:"
             )
 
-            # Generate specific recommendations based on reasons
             for reason in reasons:
-                if "minimum l" in reason.lower():
+                lowered = reason.lower()
+                if "minimum l" in lowered or "minimum effective l" in lowered:
                     recommendations.append(
-                        f"Increase l-diversity to at least {criteria['l_threshold']} by generalizing quasi-identifiers "
+                        f"Increase l-diversity to at least {l_threshold} by generalizing quasi-identifiers "
                         "or applying suppression to records with low diversity."
                     )
-                elif "k-anonymity" in reason.lower():
+                elif "k-anonymity" in lowered:
                     recommendations.append(
-                        f"Increase base k-anonymity to at least {criteria['k_threshold']} by generalizing "
+                        f"Increase base k-anonymity to at least {k_threshold} by generalizing "
                         "quasi-identifiers or applying suppression to small equivalence classes."
                     )
-                elif "diversity type" in reason.lower():
+                elif "differs from the tested type" in lowered:
                     recommendations.append(
-                        f"Change diversity type to {criteria['diversity_type']} to meet regulatory requirements."
+                        f"Process the data with diversity type {diversity_type}, or test the type it was processed with."
                     )
-                elif "recursive" in reason.lower():
+                elif "recursive" in lowered:
                     recommendations.append(
-                        f"Adjust c-value to {criteria.get('c_value', 0.5)} or lower for recursive l-diversity, "
-                        "or consider using a different diversity type."
+                        f"Adjust the c-value to {c_max if c_max is not None else 'a lower value'} or lower for "
+                        "recursive l-diversity, or consider using a different diversity type."
                     )
 
         return recommendations

@@ -238,6 +238,30 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **`pydantic[email]` dependency (DEP-01).** Nothing in `pamola_core` or `tests`
   imports `pydantic` or `email_validator`. `pydantic` still arrives
   transitively through spaCy.
+### BREAKING
+
+The library issues no legal verdict (DOC-02): regulations are no longer mapped to
+thresholds and nothing is labelled "compliant". Thresholds are chosen by the
+caller; results are named `threshold_met`.
+
+| Old | New |
+|---|---|
+| `KAnonymityProcessor.evaluate_privacy()` / `compare_datasets` field `compliant` | `threshold_met` |
+| `KAnonymityRisk.calculate()` (`metrics.privacy.disclosure_risk`) field `compliant` | `threshold_met` |
+| `ka_reporting.generate_compliance_report(report_data, output_path, regulation="GDPR")` (returned `regulation`, `compliance_status`, `compliance_details` with law-specific k) | `ka_reporting.generate_threshold_report(report_data, output_path, k_threshold=None)` returning `k_threshold`, `actual_min_k`, `threshold_met`, `at_risk_records`, `at_risk_percentage` |
+| `KAnonymityProcessor.generate_report(..., regulation=...)` | `generate_report(..., threshold_report=False, k_threshold=None)` |
+| k-anonymity text summary line `Compliance: Yes/No` | `Threshold met: Yes/No` |
+| `LDiversityReport.generate_compliance_report(..., regulation="GDPR")` (GDPR/HIPAA/CCPA criteria, `compliance_status`) | `LDiversityReport.generate_threshold_report(..., l_threshold=3, k_threshold=2, diversity_type=None, c_max=None)` returning `threshold_met`, `threshold_details`, `privacy_metrics.threshold_met` |
+| `RiskInterpreter(regulation=...)`, `.interpret_compliance()`, `get_regulatory_requirements()`, `interpret_risk_metrics(..., regulation=)` key `compliance` | `RiskInterpreter(l_threshold=3)`, `.interpret_threshold()` (`threshold_met`, `l_threshold`, `achieved_l`), `interpret_risk_metrics(..., target_l=3)` key `threshold_check`; `get_regulatory_requirements` removed |
+| `LDiversityAdvancedVisualizer.visualize_regulatory_compliance(regulation=...)` / module function / `create_comprehensive_report` key `gdpr_compliance` | `visualize_threshold_check(l_threshold=, diversity_type=, c_value=)` / key `threshold_check`; labels read "THRESHOLD MET / BELOW THRESHOLD" |
+| `L_DIVERSITY_DEFAULTS["compliance"]` with `supported_regulations` | `L_DIVERSITY_DEFAULTS["thresholds"]` (`risk_threshold` only) |
+
+Not yet renamed (internal l-diversity risk-assessor schema): `compliant` /
+`overall_compliant` in `attribute_risk.py` / `privacy.py` results and the
+`l_diversity.visualization` reader of `overall_compliant` (its label now reads
+"THRESHOLD MET"). Masking preset names `GDPR_COMPLIANT` / `PCI_COMPLIANT` are
+unchanged public values (descriptions reworded).
+
 ### Security
 
 - **Fake-data metrics no longer write original values (SEC-04/05 for

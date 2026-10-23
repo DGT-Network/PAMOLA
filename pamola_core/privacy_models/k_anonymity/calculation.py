@@ -28,7 +28,7 @@ Features:
 - **Integrated metrics** for privacy, utility, and fidelity assessment.
 - **Visualization tools** for k-anonymity assessment.
 - **Comprehensive logging** for debugging and auditing.
-- **Reporting capabilities** for documentation and compliance.
+- **Reporting capabilities** for documentation and threshold checks.
 - **Optimized memory usage** for large datasets.
 
 NOTE: This module requires `pandas`, `numpy`, `tqdm`, `matplotlib`, and `dask`.
@@ -49,7 +49,7 @@ import pandas as pd
 from dask import dataframe as dd
 
 # Import reporting modules
-from pamola_core.privacy_models.k_anonymity.ka_reporting import generate_compliance_report
+from pamola_core.privacy_models.k_anonymity.ka_reporting import generate_threshold_report
 from pamola_core.errors.exceptions import ValidationError
 from pamola_core.utils.io import write_json, write_csv
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
@@ -230,7 +230,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - "group_sizes": A dictionary of group sizes.
             - "at_risk_records": Count of records failing k-Anonymity.
             - "at_risk_groups": Count of groups failing k-Anonymity.
-            - "compliant": Whether the dataset meets k-anonymity
+            - "threshold_met": Whether the minimum group size reaches the configured k
             - Additional metrics if detailed_metrics=True
         """
         from pamola_core.metrics.privacy.disclosure_risk import (
@@ -272,7 +272,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 "at_risk_records": k_anonymity_risk["records_in_small_groups"],
                 "at_risk_groups": k_anonymity_risk["groups_below_threshold"],
                 "percentage_at_risk": k_anonymity_risk["percent_records_at_risk"],
-                "compliant": k_anonymity_risk["compliant"],
+                "threshold_met": k_anonymity_risk["threshold_met"],
                 "prosecutor_risk": disclosure_risk["prosecutor_risk"],
                 "journalist_risk": disclosure_risk["journalist_risk"],
                 "marketer_risk": disclosure_risk["marketer_risk"],
@@ -686,7 +686,8 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         output_path: Optional[str] = None,
         include_visualizations: bool = True,
         report_format: str = "json",
-        regulation: Optional[str] = None,
+        threshold_report: bool = False,
+        k_threshold: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Generates a comprehensive report about the anonymization process.
@@ -699,9 +700,12 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             Whether to include visualizations in the report.
         report_format : str, optional
             Report format: 'json', 'html', or 'text'.
-        regulation : str, optional
-            If provided, generates a compliance report for the specified regulation
-            (e.g., 'GDPR', 'HIPAA').
+        threshold_report : bool, optional
+            If True, return the neutral threshold report (k_threshold,
+            actual_min_k, threshold_met, at_risk_records, at_risk_percentage)
+            instead of the full report data. Technical evidence only.
+        k_threshold : int, optional
+            Threshold for the threshold report (default: this processor's k).
 
         Returns
         --------
@@ -721,12 +725,11 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 **self.report_data,  # Merge existing report data
             }
 
-            # Use compliance report if regulation is specified
-            if regulation:
-                return generate_compliance_report(
+            if threshold_report:
+                return generate_threshold_report(
                     report_data=report_data,
                     output_path=output_path,
-                    regulation=regulation,
+                    k_threshold=k_threshold,
                 )
 
             # Save the report if an output path is provided
@@ -1016,13 +1019,13 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
                 "privacy_comparison": {
                     "dataset1": {
                         "min_k": ka_metrics1["min_k"],
-                        "compliant": ka_metrics1["compliant"],
+                        "threshold_met": ka_metrics1["threshold_met"],
                         "at_risk_records": ka_metrics1["records_in_small_groups"],
                         "at_risk_percentage": ka_metrics1["percent_records_at_risk"],
                     },
                     "dataset2": {
                         "min_k": ka_metrics2["min_k"],
-                        "compliant": ka_metrics2["compliant"],
+                        "threshold_met": ka_metrics2["threshold_met"],
                         "at_risk_records": ka_metrics2["records_in_small_groups"],
                         "at_risk_percentage": ka_metrics2["percent_records_at_risk"],
                     },

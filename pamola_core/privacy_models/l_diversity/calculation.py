@@ -1,6 +1,6 @@
 """
 PAMOLA.CORE - L-Diversity Processor
-Advanced processor for l-diversity anonymization, ensuring compliance with privacy-preserving techniques.
+Advanced processor for l-diversity anonymization.
 Designed for scalable, efficient anonymization with modular architecture.
 
 (C) 2024 Realm Inveo Inc., DTX, Titan Technology, & DGT Network Inc.
@@ -20,18 +20,18 @@ Provides flexible and performance-optimized data privacy transformations with a 
   - `apply_model.py`: Model application and transformation.
   - `metrics.py`: Privacy, utility, and fidelity metric assessments.
   - `privacy.py`: Risk and privacy evaluations.
-  - `reporting.py`: Compliance and documentation report generation.
+  - `reporting.py`: Threshold-check and documentation report generation.
   - `visualization.py`: Diversity assessment visualization tools.
 
 ## Use Cases:
 - Privacy-preserving data anonymization for regulated environments.
-- GDPR, HIPAA, CCPA compliance.
+- Threshold checks that can serve as technical evidence in a regulated process.
 - Secure large-scale dataset anonymization for research and analytics.
 
 ## TODO:
 - Extend adaptive performance scaling.
 - Expand metadata-driven anonymization policies.
-- Implement additional compliance audit mechanisms.
+- Implement additional audit mechanisms.
 """
 
 import logging

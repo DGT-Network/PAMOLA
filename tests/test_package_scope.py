@@ -74,7 +74,7 @@ def test_l_diversity_report_methods_are_not_shadowed():
     """Mis-indented 'convenience' methods used to replace the real ones."""
     from pamola_core.privacy_models.l_diversity.reporting import LDiversityReport
 
-    for name in ("generate_compliance_report", "generate_technical_report"):
+    for name in ("generate_threshold_report", "generate_technical_report"):
         params = list(inspect.signature(getattr(LDiversityReport, name)).parameters)
         assert params[0] == "self", (name, params)
 

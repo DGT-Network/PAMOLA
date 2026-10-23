@@ -152,11 +152,11 @@ def evaluate_privacy(
 
 ```python
 {
-    'is_k_anonymous': bool,           # Compliance status
+    'is_k_anonymous': bool,           # Threshold met
     'min_k': int,                     # Smallest group size
     'max_k': int,                     # Largest group size
     'avg_k': float,                   # Average group size
-    'records_at_risk': int,           # Non-compliant records
+    'records_at_risk': int,           # Records in groups below k
     're_identification_risk': float,   # Risk percentage
     'dataset_info': {
         'total_records': int,
