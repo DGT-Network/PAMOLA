@@ -28,7 +28,7 @@ import pandas as pd
 from scipy import stats
 
 from pamola_core.metrics.commons.aggregation import create_value_dictionary
-from pamola_core.metrics.commons.normalize import normalize_array_sklearn
+from pamola_core.metrics.commons.normalize import normalize_pair_sklearn
 from pamola_core.metrics.commons.validation import validate_confidence_level
 from pamola_core.errors.exceptions import ValidationError
 
@@ -120,20 +120,11 @@ class KolmogorovSmirnovTest:
             # Apply normalization if requested
             if self.normalize:
                 norm_method = "zscore" if self.normalize is True else self.normalize
-                combined_data = np.concatenate([orig_data, trans_data])
-
-                if norm_method == "zscore":
-                    if np.std(combined_data) > 0:
-                        orig_data = normalize_array_sklearn(orig_data, norm_method)
-                        trans_data = normalize_array_sklearn(trans_data, norm_method)
-                elif norm_method == "minmax":
-                    if np.ptp(combined_data) > 0:
-                        # Normalize both datasets using the same scale
-                        combined_norm = normalize_array_sklearn(
-                            combined_data, norm_method
-                        )
-                        orig_data = combined_norm[: len(orig_data)]
-                        trans_data = combined_norm[len(orig_data) :]
+                # one shared transformation: per-dataset scaling would erase the very
+                # shift / scale difference the test is asked to detect
+                orig_data, trans_data = normalize_pair_sklearn(
+                    orig_data, trans_data, norm_method
+                )
 
             ks_stat, p_value = stats.ks_2samp(orig_data, trans_data)
             n_effective = min(len(orig_data), len(trans_data))
@@ -169,15 +160,7 @@ class KolmogorovSmirnovTest:
         # Apply normalization if requested
         if self.normalize:
             norm_method = "zscore" if self.normalize is True else self.normalize
-            combined_values = np.concatenate([values1, values2])
-
-            if norm_method == "zscore" and np.std(combined_values) > 0:
-                values1 = normalize_array_sklearn(values1, norm_method)
-                values2 = normalize_array_sklearn(values2, norm_method)
-            elif norm_method == "minmax" and np.ptp(combined_values) > 0:
-                combined_norm = normalize_array_sklearn(combined_values, norm_method)
-                values1 = combined_norm[: len(values1)]
-                values2 = combined_norm[len(values1) :]
+            values1, values2 = normalize_pair_sklearn(values1, values2, norm_method)
 
         # Calculate totals for probability normalization
         total1 = np.sum(np.abs(values1))

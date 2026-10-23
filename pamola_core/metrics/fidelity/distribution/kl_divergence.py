@@ -28,7 +28,7 @@ import pandas as pd
 from scipy import stats
 
 from pamola_core.metrics.commons.aggregation import create_value_dictionary
-from pamola_core.metrics.commons.normalize import normalize_array_sklearn
+from pamola_core.metrics.commons.normalize import normalize_pair_sklearn
 from pamola_core.metrics.commons.validation import (
     validate_confidence_level,
     validate_epsilon,
@@ -171,8 +171,7 @@ class KLDivergence:
         # Apply normalization if requested
         if self.normalize:
             norm_method = "probability" if self.normalize is True else self.normalize
-            p_values = normalize_array_sklearn(p_values, norm_method)
-            q_values = normalize_array_sklearn(q_values, norm_method)
+            p_values, q_values = normalize_pair_sklearn(p_values, q_values, norm_method)
 
         # Apply smoothing
         p_values = np.maximum(p_values, self.epsilon)
@@ -205,8 +204,7 @@ class KLDivergence:
         # Apply normalization if requested
         if self.normalize:
             norm_method = "probability" if self.normalize is True else self.normalize
-            p_values = normalize_array_sklearn(p_values, norm_method)
-            q_values = normalize_array_sklearn(q_values, norm_method)
+            p_values, q_values = normalize_pair_sklearn(p_values, q_values, norm_method)
 
         # Apply smoothing
         p_values = np.maximum(p_values, self.epsilon)
