@@ -107,15 +107,14 @@ class TestDistanceToClosestRecord:
         result = dcr.calculate_metric(orig, synth)
         assert "dcr_statistics" in result
 
-    def test_risk_assessment_thresholds(self):
+    def test_thresholds_are_the_callers(self):
         # All synthetic points are identical to original, so DCR = 0
         orig = pd.DataFrame(np.zeros((10, 3)), columns=[f"f{i}" for i in range(3)])
         synth = pd.DataFrame(np.zeros((10, 3)), columns=[f"f{i}" for i in range(3)])
-        dcr = DistanceToClosestRecord()
-        result = dcr.calculate_metric(orig, synth)
-        # All DCR values are 0, so none are less than the 5th percentile (which is also 0)
-        assert result["risk_assessment"]["high_risk"] == 0
-        assert result["proportion_at_risk"] == 0.0
+        result = DistanceToClosestRecord().calculate_metric(orig, synth)
+        assert "risk_assessment" not in result and "proportion_at_risk" not in result
+        result = DistanceToClosestRecord(distance_thresholds=[0.1]).calculate_metric(orig, synth)
+        assert result["threshold_assessment"]["records_below"] == {"0.1": 10}
 
     def test_faiss_flag(self):
         orig, synth = self.get_dfs(n=10, m=10, d=3)

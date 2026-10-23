@@ -270,7 +270,9 @@ class PrivacyMetricOperation(MetricsOperation):
                             "params": params,
                         },
                     )
-                self.logger.info(f"Calculated {metric_type.upper()} metric: {result}")
+                self.logger.info(
+                    f"Calculated {metric_type.upper()} metric: {self._log_summary(result)}"
+                )
                 results[metric_type] = result
 
             except ResourceError:
@@ -284,6 +286,18 @@ class PrivacyMetricOperation(MetricsOperation):
                 ) from e
 
         return results
+
+    @staticmethod
+    def _log_summary(result: Any, max_items: int = 20) -> Any:
+        """A log-sized view of a metric result: long per-record vectors (for example the NNDR
+        values) are replaced by their length, never printed."""
+        if isinstance(result, dict):
+            return {k: PrivacyMetricOperation._log_summary(v, max_items) for k, v in result.items()}
+        if isinstance(result, (list, tuple)) and len(result) > max_items:
+            return f"<{len(result)} values>"
+        if hasattr(result, "shape") and getattr(result, "size", 0) > max_items:
+            return f"<{result.size} values>"
+        return result
 
     def _generate_dcr_visualizations(
         self,
@@ -344,16 +358,16 @@ class PrivacyMetricOperation(MetricsOperation):
                     f"Failed to create DCR statistics visualization: {dcr_plot_result}"
                 )
 
-        # DCR risk assessment
-        dcr_risk_assessment = metrics["dcr"].get("risk_assessment")
-        if dcr_risk_assessment is not None:
+        # Records below the distance thresholds the caller supplied (if any)
+        dcr_risk_assessment = (metrics["dcr"].get("threshold_assessment") or {}).get("records_below")
+        if dcr_risk_assessment:
             risk_plot_path = (
                 viz_dir / f"{self.name}_dcr_risk_assessment_{timestamp}.png"
             )
             risk_plot_result = create_bar_plot(
                 dcr_risk_assessment,
                 output_path=risk_plot_path,
-                title="DCR Risk Assessment",
+                title="DCR: records below the supplied distance thresholds",
                 x_label="Metric",
                 y_label="Value",
                 backend=vis_backend,

@@ -24,11 +24,12 @@ Key Features:
     - Custom DCR calculation with sklearn and FAISS support
     - Multiple distance metrics: Euclidean, Manhattan, Cosine, Mahalanobis
     - Feature normalization and robust aggregation (min, mean_k, percentile)
-    - Percentile-based risk assessment and privacy scoring
-    - Human-readable interpretation and recommendations
+    - Descriptive distance statistics; counts below caller-supplied thresholds (no built-in risk classes)
+    - Neutral descriptive text (no verdicts or recommendations)
     - Seamless integration into PAMOLA.CORE metric pipelines
 """
 
+import logging
 from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
@@ -45,6 +46,8 @@ from pamola_core.errors.exceptions import (
     ResourceError,
     ValidationError,
 )
+
+logger = logging.getLogger(__name__)
 
 try:
     import faiss
@@ -142,6 +145,7 @@ class DistanceToClosestRecord:
         aggregation: str = "min",
         k_neighbors: int = 3,
         max_comparisons: Optional[int] = None,
+        distance_thresholds: Optional[List[float]] = None,
     ):
         """
         Initialize DistanceToClosestRecord metric with configuration options.
@@ -164,6 +168,10 @@ class DistanceToClosestRecord:
         max_comparisons : int or None
             Ceiling on original x synthetic record pairs; None uses the
             per-backend default.
+        distance_thresholds : List[float] or None
+            Distances (in the units of the normalized feature space) chosen by the caller.
+            When given, the result reports how many records lie below each of them
+            (``threshold_assessment``). The library applies no threshold of its own.
         """
         self.distance_metric = distance_metric
         self.normalize_features = normalize_features
@@ -172,6 +180,10 @@ class DistanceToClosestRecord:
         self.aggregation = aggregation
         self.k_neighbors = k_neighbors
         self.max_comparisons = max_comparisons
+        self.distance_thresholds = (
+            None if distance_thresholds is None else [float(t) for t in distance_thresholds]
+        )
+        self._backend_fallback: Optional[Dict[str, str]] = None
 
     def _metric_name(self) -> str:
         metric = self.distance_metric
@@ -257,7 +269,9 @@ class DistanceToClosestRecord:
             trans_scaled = trans_processed.values
 
         # Calculate distances
+        self._backend_fallback = None
         backend = self._select_backend(len(orig_scaled), len(trans_scaled))
+        selected_backend = backend
         self._check_size_limit(
             len(orig_scaled), len(trans_scaled), orig_scaled.shape[1], backend
         )
@@ -278,25 +292,32 @@ class DistanceToClosestRecord:
         for p in self.percentiles:
             dcr_stats[f"p{p}"] = float(np.percentile(dcr_values, p))
 
-        # Risk assessment: count records at high, medium, and low risk based on DCR percentiles
-        risk_thresholds = {
-            "high_risk": int(np.sum(dcr_values < np.percentile(dcr_values, 5))),
-            "medium_risk": int(np.sum(dcr_values < np.percentile(dcr_values, 25))),
-            "low_risk": int(np.sum(dcr_values >= np.percentile(dcr_values, 25))),
-        }
-
-        # Compile all results into a metrics dictionary
+        # Compile all results into a metrics dictionary. No self-relative "risk" classes: a
+        # percentile of the distribution itself always flags the same share of records.
         metrics = {
             "dcr_statistics": dcr_stats,
-            "risk_assessment": risk_thresholds,
-            "proportion_at_risk": float(risk_thresholds["high_risk"] / len(dcr_values)),
             "privacy_score": float(
                 self._calculate_privacy_score(
                     dcr_values, num_columns=original_df.shape[1]
                 )
             ),
-            "interpretation": self._interpret_dcr(dcr_stats),
+            "backend": (
+                self._backend_fallback["to"] if self._backend_fallback else selected_backend
+            ),
         }
+        if self._backend_fallback:
+            metrics["backend_fallback"] = dict(self._backend_fallback)
+        if self.distance_thresholds:
+            metrics["threshold_assessment"] = {
+                "thresholds": list(self.distance_thresholds),
+                "records_below": {
+                    str(t): int(np.sum(dcr_values < t)) for t in self.distance_thresholds
+                },
+                "proportion_below": {
+                    str(t): float(np.mean(dcr_values < t)) for t in self.distance_thresholds
+                },
+            }
+        metrics["interpretation"] = self._interpret_dcr(dcr_stats, metrics.get("threshold_assessment"))
 
         return metrics
 
@@ -320,10 +341,7 @@ class DistanceToClosestRecord:
             Array of aggregated DCR distances for each synthetic record.
         """
         if faiss is None:
-            # FAISS not available, fallback to sklearn
-            return self._calculate_dcr_sklearn(
-                orig_data.astype(np.float64), trans_data.astype(np.float64)
-            )
+            return self._fall_back("faiss is not installed", orig_data, trans_data)
         try:
             # Ensure data is float32 for FAISS
             orig_data = orig_data.astype(np.float32)
@@ -340,8 +358,9 @@ class DistanceToClosestRecord:
                 faiss.normalize_L2(orig_data)
                 faiss.normalize_L2(trans_data)
             else:
-                # Fall back to scipy for other metrics
-                return self._calculate_dcr_sklearn(orig_data, trans_data)
+                return self._fall_back(
+                    f"FAISS does not support the '{self._metric_name()}' metric", orig_data, trans_data
+                )
 
             # Add original data to index
             index.add(orig_data)
@@ -378,68 +397,42 @@ class DistanceToClosestRecord:
 
             return dcr_values
 
-        except Exception:
-            return self._calculate_dcr_sklearn(
-                orig_data.astype(np.float64), trans_data.astype(np.float64)
-            )
+        except Exception as exc:  # noqa: BLE001 - reported in the result, not hidden
+            return self._fall_back(f"{type(exc).__name__}: {str(exc)[:200]}", orig_data, trans_data)
 
-    def _interpret_dcr(self, dcr_stats: Dict[str, float]) -> str:
+    def _fall_back(self, reason: str, orig_data: np.ndarray, trans_data: np.ndarray) -> np.ndarray:
+        """Compute with the exact search instead of FAISS and say so (one warning, and the
+        result carries ``backend_fallback: {from, to, reason}``)."""
+        self._backend_fallback = {"from": "faiss", "to": "sklearn", "reason": reason}
+        logger.warning("DCR: FAISS backend not used (%s); computing with the exact search", reason)
+        return self._calculate_dcr_sklearn(
+            orig_data.astype(np.float64), trans_data.astype(np.float64)
+        )
+
+    def _interpret_dcr(
+        self, dcr_stats: Dict[str, float], threshold_assessment: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
-        Provide interpretation and privacy assessment of DCR results.
+        Describe the DCR distribution in neutral terms.
 
-        Parameters
-        -----------
-        dcr_stats : Dict[str, float]
-            Dictionary containing DCR statistics (min, max, mean, percentiles, etc.).
-
-        Returns
-        --------
-        str
-            Human-readable interpretation and privacy recommendation string.
+        The text states the numbers; it does not classify them as good or poor and gives no
+        recommendation (the library issues no verdicts - the reader applies their own criteria).
         """
-        mean_dcr = dcr_stats["mean"]
-        min_dcr = dcr_stats["min"]
-        p5_dcr = dcr_stats.get("p5", min_dcr)
-
-        interpretation = []
-
-        # Overall privacy assessment
-        if mean_dcr > 1.0:
-            interpretation.append(
-                "Good privacy: Synthetic records are well-separated from original data."
+        parts = [
+            "Distance to the closest original record, in the units of the "
+            f"{'normalized ' if self.normalize_features else ''}feature space: "
+            f"mean {dcr_stats['mean']:.4g}, min {dcr_stats['min']:.4g}"
+            + (f", 5th percentile {dcr_stats['p5']:.4g}" if "p5" in dcr_stats else "")
+            + f", max {dcr_stats['max']:.4g}."
+        ]
+        if threshold_assessment:
+            counts = ", ".join(
+                f"{n} below {t}" for t, n in threshold_assessment["records_below"].items()
             )
-        elif mean_dcr > 0.5:
-            interpretation.append(
-                "Moderate privacy: Some synthetic records may be close to original data."
-            )
+            parts.append(f"Records below the supplied thresholds: {counts}.")
         else:
-            interpretation.append(
-                "Poor privacy: Synthetic records are very close to original data."
-            )
-
-        # Minimum distance concern
-        if min_dcr < 0.1:
-            interpretation.append(
-                "WARNING: At least one synthetic record is extremely close to an original record."
-            )
-        elif min_dcr < 0.3:
-            interpretation.append(
-                "CAUTION: Some synthetic records are quite close to original records."
-            )
-
-        # 5th percentile analysis
-        if p5_dcr < 0.2:
-            interpretation.append(
-                "High risk: 5% of synthetic records have very small distances to original data."
-            )
-
-        # Recommendations
-        if mean_dcr < 0.5:
-            interpretation.append(
-                "RECOMMENDATION: Consider increasing noise or regularization in data generation."
-            )
-
-        return " ".join(interpretation)
+            parts.append("No distance threshold was supplied, so no record is classified.")
+        return " ".join(parts)
 
     def _calculate_dcr_sklearn(
         self, orig_data: np.ndarray, trans_data: np.ndarray

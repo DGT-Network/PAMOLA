@@ -77,7 +77,7 @@ class TestNearestNeighborDistanceRatio:
         result = metric.calculate_metric(df, df)
         interp = metric._interpret_nndr(result["nndr_statistics"], result["high_risk_records"])
         assert isinstance(interp, str)
-        assert "risk" in interp.lower()
+        assert "threshold" in interp.lower()
 
     @pytest.mark.parametrize("distance_metric", ["euclidean", "manhattan", "cosine"])
     def test_nndr_distance_metrics(self, distance_metric):
