@@ -251,6 +251,19 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         self.operation_name = self.__class__.__name__
         self.version = "1.1.0"
 
+        # Result caching is unsafe for a reversible mapping: the cache identity
+        # (data + parameters) does not cover the mapping file, its contents or
+        # the key, so a hit could return pseudonyms that the mapping table in
+        # use never issued (e.g. after changing `mapping_file`). The mapping
+        # file itself is the persistent state; there is nothing to cache.
+        if self.use_cache:
+            self.logger.warning(
+                "use_cache is ignored by ConsistentMappingPseudonymizationOperation: "
+                "pseudonyms depend on the mapping file, which the result cache "
+                "cannot identify."
+            )
+            self.use_cache = False
+
         # Store encryption key as private bytes; remove the public hex attr set by
         # the config setattr loop above to prevent accidental serialization/logging.
         # (Defense-in-depth: ConsistentMappingPseudonymizationConfig.SENSITIVE_KEYS
@@ -767,6 +780,24 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             self._lookup_time_mean = 0.0
             self._persist_count = 0
 
+    def _process_data_with_config(self, *args, **kwargs):
+        """
+        Run the shared chunk/parallel pipeline with a shared-memory scheduler.
+
+        Pseudonym allocation mutates this instance (mapping, counters,
+        pending entries). A Dask process or distributed scheduler would give
+        every worker a private copy: duplicate pseudonyms and nothing persisted
+        by the owner. Whatever scheduler the caller configured, Dask work for
+        this operation therefore runs on threads, which share the instance
+        (allocation is serialized by the mapping lock).
+        """
+        try:
+            import dask
+        except ImportError:  # pragma: no cover - dask is a base dependency
+            return super()._process_data_with_config(*args, **kwargs)
+        with dask.config.set(scheduler="threads"):
+            return super()._process_data_with_config(*args, **kwargs)
+
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data to pseudonymize values.
@@ -939,11 +970,18 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         self._mapping_path = maps_dir / self.mapping_file
         self.logger.info(f"Mapping file path: {self._mapping_path}")
 
+        if not self.create_if_not_exists and not self._mapping_path.exists():
+            # Do not silently start a NEW mapping when the caller said the
+            # mapping must already exist (a new table would hand out fresh
+            # pseudonyms that do not match the earlier release).
+            raise PamolaFileNotFoundError(str(self._mapping_path))
+
         self._mapping_storage = MappingStorage(
             mapping_file=self._mapping_path,
             encryption_key=self._mapping_encryption_key,
             format=self.mapping_format,
             backup_on_update=self.backup_on_update,
+            create_if_missing=self.create_if_not_exists,
         )
 
         try:

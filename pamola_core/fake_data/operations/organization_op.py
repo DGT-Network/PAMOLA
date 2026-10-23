@@ -18,6 +18,7 @@ from pamola_core.fake_data.schemas.organization_op_core_schema import FakeOrgani
 import pamola_core.utils.io as io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
+from pamola_core.errors.exceptions.resources import FakeDataError
 from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
@@ -285,10 +286,22 @@ class FakeOrganizationOperation(GeneratorOperation):
                 synthetic_value = self.process_value(value, **gen_params)
                 generated_values.append(synthetic_value)
             except Exception as e:
+                # Fail closed: a failed transformation must never leave the
+                # original identifier in the output, and the original value
+                # must not reach the log or the exception text.
                 self.logger.error(
-                    f"Error generating organization name for value '{value}': {str(e)}"
+                    "Generation of %s failed at row position %d (%s)",
+                    "organization name",
+                    idx,
+                    type(e).__name__,
                 )
-                generated_values.append(value if pd.notna(value) else np.nan)
+                raise FakeDataError(
+                    field_name=self.field_name,
+                    reason=(
+                        f"generation failed at row position {idx} "
+                        f"({type(e).__name__}); the original value was not written"
+                    ),
+                ) from None
 
         # Update the dataframe with generated values
         result[self.output_field_name] = generated_values
