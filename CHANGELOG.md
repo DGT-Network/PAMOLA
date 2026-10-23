@@ -105,6 +105,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `append()` is a single fsync'd write; a crash mid-append is reported as a
     truncated file on the next load (restore the `.bak.*` copy).
 
+- **`TransformersTokenizer` bypassed the offline policy (CDX-AC-9).**
+  `AutoTokenizer.from_pretrained(model_name)` carried no `local_files_only`,
+  so a default run could reach the Hugging Face Hub. All `from_pretrained`
+  calls now use `remote_resources.hub_load_kwargs()` (local files only unless
+  `PAMOLA_ALLOW_REMOTE_DOWNLOADS=1`) and record a load failure in the
+  degraded-resource registry; a guard test fails on any new call without it.
 - **Chunked/parallel processing kept resetting the caller's index (CDX-AC-5).**
   `process_dataframe_using_chunk` / `_joblib` in `anonymization/commons` and
   `fake_data/commons` concatenated chunks with `ignore_index=True`, so a frame

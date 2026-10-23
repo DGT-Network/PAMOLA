@@ -410,3 +410,64 @@ class TestDefaultTextProfilingIsOffline:
         # No per-record retry storm: one attempt per failed resource (the
         # pre-fix run made one attempt per record and per call site).
         assert len(network_calls) == len(degraded)
+
+
+# --------------------------------------------------------------------------
+# CDX-AC-9: the standalone TransformersTokenizer must obey the same policy
+# --------------------------------------------------------------------------
+
+
+class TestTransformersTokenizerPolicy:
+    @pytest.fixture
+    def tokenizer_env(self, monkeypatch):
+        from pamola_core.utils.nlp import tokenization
+        from pamola_core.utils.nlp.base import DependencyManager
+
+        seen = []
+
+        def from_pretrained(name, **kwargs):
+            seen.append((name, kwargs))
+            raise OSError("not in the local cache")
+
+        fake = types.ModuleType("transformers")
+        fake.AutoTokenizer = types.SimpleNamespace(from_pretrained=from_pretrained)
+        monkeypatch.setitem(sys.modules, "transformers", fake)
+        monkeypatch.setattr(tokenization, "_TRANSFORMERS_AVAILABLE", True)
+        monkeypatch.setattr(
+            DependencyManager,
+            "get_module",
+            staticmethod(lambda name, *a, **k: fake if name == "transformers" else None),
+        )
+        return tokenization, seen
+
+    def test_default_loads_local_files_only_and_reports_degradation(self, tokenizer_env):
+        tokenization, seen = tokenizer_env
+        tok = tokenization.TransformersTokenizer(model_name="some/model")
+        assert tok._init_tokenizer() is None
+
+        assert seen == [("some/model", {"local_files_only": True})]
+        reason = rr.get_degraded_resources()["transformers:some/model"]
+        assert "PAMOLA_ALLOW_REMOTE_DOWNLOADS" in reason
+
+    def test_opt_in_may_reach_the_hub(self, tokenizer_env, monkeypatch):
+        tokenization, seen = tokenizer_env
+        monkeypatch.setenv(rr.ENV_ALLOW_REMOTE_DOWNLOADS, "1")
+        tokenization.TransformersTokenizer(model_name="some/model")._init_tokenizer()
+
+        assert seen == [("some/model", {"local_files_only": False})]
+        assert "check network access" in rr.get_degraded_resources()["transformers:some/model"]
+
+    def test_no_from_pretrained_call_in_the_package_bypasses_the_policy(self):
+        """Every Hub entry point must pass the policy kwargs (grep-level guard)."""
+        import pathlib
+        import re
+
+        root = pathlib.Path(rr.__file__).resolve().parents[2]
+        offenders = []
+        for path in root.rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            for match in re.finditer(r"from_pretrained\(", text):
+                call = text[match.start() : match.start() + 200]
+                if "hub_kwargs" not in call and "hub_load_kwargs" not in call:
+                    offenders.append(f"{path.name}:{text[: match.start()].count(chr(10)) + 1}")
+        assert offenders == []

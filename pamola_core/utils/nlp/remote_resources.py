@@ -137,6 +137,26 @@ def require_remote_downloads(resource: str, what: Optional[str] = None) -> None:
     raise ModelNotAvailableError(model_name=resource, reason=reason)
 
 
+def hub_load_kwargs() -> Dict[str, bool]:
+    """
+    Keyword arguments every Hugging Face ``from_pretrained`` call must carry:
+    ``local_files_only`` unless remote downloads were explicitly enabled.
+    """
+    return {"local_files_only": not remote_downloads_allowed()}
+
+
+def record_hub_failure(model_name: str, error: Exception) -> None:
+    """Record that a Hugging Face model could not be loaded, with the opt-in hint."""
+    if remote_downloads_allowed():
+        reason = (
+            f"loading Hugging Face model '{model_name}' failed ({error!r}); "
+            "check network access or the local model cache."
+        )
+    else:
+        reason = disabled_reason(f"Hugging Face model '{model_name}'")
+    record_degraded(f"transformers:{model_name}", reason)
+
+
 def download_spacy_model(spacy_module, model_name: str) -> bool:
     """
     Download a spaCy model if (and only if) remote downloads are enabled.

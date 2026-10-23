@@ -26,6 +26,8 @@ from pamola_core.utils.nlp.cache import (
 from pamola_core.utils.nlp.remote_resources import (
     download_spacy_model,
     get_degraded_resources,
+    hub_load_kwargs,
+    record_hub_failure,
     remote_downloads_allowed,
     require_remote_downloads,
 )
@@ -330,15 +332,16 @@ class NLPModelManager:
 
         try:
             # Offline by default: Hub downloads happen only on explicit opt-in.
-            local_only = not remote_downloads_allowed()
+            hub_kwargs = hub_load_kwargs()
             tokenizer = transformers_module.AutoTokenizer.from_pretrained(
-                model_name, local_files_only=local_only
+                model_name, **hub_kwargs
             )
             model = transformers_module.AutoModel.from_pretrained(
-                model_name, local_files_only=local_only
+                model_name, **hub_kwargs
             )
             return (model, tokenizer)
         except Exception as e:
+            record_hub_failure(model_name, e)
             hint = (
                 " Remote downloads are disabled (offline by default); set "
                 "PAMOLA_ALLOW_REMOTE_DOWNLOADS=1 to fetch it from the Hugging Face Hub."

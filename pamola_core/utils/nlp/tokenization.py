@@ -48,6 +48,8 @@ from pamola_core.utils.nlp.cache import (
 from pamola_core.utils.nlp.remote_resources import (
     download_nltk_resource,
     download_spacy_model,
+    hub_load_kwargs,
+    record_hub_failure,
 )
 
 # Configure logger
@@ -1196,9 +1198,13 @@ class TransformersTokenizer(BaseTokenizer):
         try:
             from transformers import AutoTokenizer
 
-            self._tokenizer = AutoTokenizer.from_pretrained(model_name)
+            # Offline by default: Hub downloads only on explicit opt-in.
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                model_name, **hub_load_kwargs()
+            )
             return self._tokenizer
         except Exception as e:
+            record_hub_failure(model_name, e)
             logger.error(f"Failed to init Transformers tokenizer '{model_name}': {e}")
             return None
 
