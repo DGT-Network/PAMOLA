@@ -111,7 +111,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "minimum": 1,
                         "default": 10,
                         "title": "Minimum Group Size",
-                        "description": "Minimum group size for privacy protection.",
+                        "description": "Minimum group size for privacy protection. merge_low_freq: a category with fewer than this many records is rare and is merged.",
                     },
                     "freq_threshold": {
                         "type": "number",
@@ -119,14 +119,14 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "minimum": 0,
                         "maximum": 1,
                         "title": "Frequency Threshold",
-                        "description": "Frequency threshold (0-1) for category preservation.",
+                        "description": "Frequency threshold (0-1). merge_low_freq: a category whose share of the records is below this fraction is rare and is merged (rare = count < min_group_size OR share < freq_threshold).",
                     },
                     "max_categories": {
                         "type": "integer",
                         "minimum": 0,
                         "default": 1000000,
                         "title": "Max Categories",
-                        "description": "Maximum number of categories to preserve.",
+                        "description": "frequency_based: number of most frequent categories that are kept; the rest are grouped. Not used by merge_low_freq or hierarchy.",
                     },
                     "allow_unknown": {
                         "type": "boolean",

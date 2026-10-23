@@ -201,11 +201,15 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         hierarchy_level : int, default=1
             Target hierarchy level (1 to MAX_HIERARCHY_LEVELS)
         min_group_size : int, default=DEFAULT_MIN_GROUP_SIZE
-            Minimum group size for privacy
+            Minimum group size for privacy. ``merge_low_freq``: a category with fewer
+            records than this is rare.
         freq_threshold : float, default=DEFAULT_FREQ_THRESHOLD
-            Frequency threshold for category preservation (0-1)
+            Frequency threshold (0-1). ``merge_low_freq``: a category whose share of the
+            records is below this is rare. A category is rare when
+            ``count < min_group_size OR share < freq_threshold``; rare categories are merged.
         max_categories : int, default=MAX_CATEGORIES
-            Maximum number of categories to preserve
+            ``frequency_based``: number of most frequent categories that are kept (the rest
+            are grouped). Not used by ``merge_low_freq`` or ``hierarchy``.
         allow_unknown : bool, default=True
             Allow unknown values in output
         unknown_value : str, default="OTHER"

@@ -78,6 +78,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `test_model_manager` tests reset it in `tearDown`. The two tokenization tests that need the NLTK
   `wordnet`/`punkt` corpora skip when the corpora are not installed (downloads are opt-in); the CI test
   jobs install them in an explicit step. Test-only change.
+- **`merge_low_freq` rule stated explicitly (ASB-OPS-9).** A category is rare when `count < min_group_size OR share < freq_threshold`, and `max_categories` is documented as a `frequency_based` parameter only (it plays no role in `merge_low_freq`): parameter descriptions in the configuration schema, the operation docstring and `docs/en/core/anonymization/generalization/categorical.md`.
+- **Public API changes of the 1.0 stabilization (review of the snapshot diff, QA-03).** Against develop@9623aee, in the integrated tree: **added** `DuplicateColumnError` and `OutputFieldExistsError` (`pamola_core.errors.exceptions`); **changed signatures** `BaseOperation` (new `overwrite_existing_output=False`, `generate_visualization` default `False`), `DataAttributeProfilerOperation` (new `include_raw_samples_in_metrics=False`), `analyze_dataset_attributes` (new `random_state=0`); **removed** the formal-DP, singling-out / SUDA attack helpers (`pamola_core.attacks.SinglingOutAttack`, `RecordRisk`, `dis_risk`, `minimal_sample_uniques`, `singling_out_sweep`, `enumerate_subset_count`, `independent_marginals_baseline`), `privacy_models.RiskInterpreter` and the modules `privacy_models.differential_privacy*`, `privacy_models.l_diversity.report_*`, `profiling.analyzers.email_dask` and `longtext`. The full list is in the PR description (`api_diff.md`); `CVPLLinkageOperation` appears with the CVPL branch.
+- **BREAKING: an existing ENRICH output column is no longer overwritten
+  silently** (DATA-04, SRS 6.8). In ENRICH mode every operation used to log a
+  WARNING and overwrite a column that already existed. It now fails with the new
+  `OutputFieldExistsError` (a `ValidationError`, naming the column only, never
+  values) before any work is done. **Typical break:** running the same ENRICH
+  operation twice over a frame that already holds its output (same
+  `column_prefix`/`output_field_name`), or an `output_field_name` equal to an
+  existing column. **Migration:** choose another `output_field_name` /
+  `column_prefix`, or pass the new `overwrite_existing_output=True` (config key of
+  the same name, default `False`) to replace the column deliberately. The check
+  sits in the anonymization, transformation and fake-data bases
+  (`BaseOperation._check_enrich_target`), so it applies to every operation built
+  on them.
+- **Quality gates now block instead of merely reporting.**
+  `[tool.ruff.lint]` in `pyproject.toml` defines a narrow blocking set
+  (`E9` + `F`); `.coveragerc` `fail_under` moves from `0` to `83` against a
+  measured 84.327 %. CI's ruff step loses its `|| true`; a non-blocking mypy
+  job is added.
 
 - **CVPL: `evaluation_model` is `white_box_upper_value_over_declared_profiles`** (was
   `white_box_upper_estimate`), matching the wording that the numbers are the upper value over the declared

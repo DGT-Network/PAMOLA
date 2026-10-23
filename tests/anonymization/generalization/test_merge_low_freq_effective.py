@@ -83,3 +83,13 @@ def test_a_grouping_failure_is_raised_not_swallowed():
 
     with pytest.raises(Exception):
         group_rare_categories(_frame()["c"], threshold="not-a-number")
+
+
+def test_the_documented_rule_is_stated_where_the_parameters_are_described():
+    from pamola_core.anonymization.schemas.categorical_op_core_schema import CategoricalGeneralizationConfig
+
+    text = repr(CategoricalGeneralizationConfig.schema)
+    assert "count < min_group_size OR share < freq_threshold" in text
+    assert "frequency_based: number of most frequent categories that are kept" in text
+    docstring = CategoricalGeneralizationOperation.__init__.__doc__
+    assert "count < min_group_size OR share < freq_threshold" in docstring.replace("``", "")

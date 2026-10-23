@@ -96,9 +96,9 @@ def __init__(
 | `external_dictionary_path` | Optional[str] | None | Path to external hierarchy dictionary file |
 | `dictionary_format` | str | "auto" | Dictionary file format: "auto", "json", or "csv" |
 | `hierarchy_level` | int | 1 | Target hierarchy level to generalize to (1 to MAX_HIERARCHY_LEVELS) |
-| `min_group_size` | int | 5 | Minimum group size for privacy |
-| `freq_threshold` | float | 0.01 | Frequency threshold for category preservation (0–1) |
-| `max_categories` | int | 100 | Maximum number of categories to preserve |
+| `min_group_size` | int | 5 | Minimum group size for privacy. `merge_low_freq`: a category with fewer records than this is rare |
+| `freq_threshold` | float | 0.01 | Frequency threshold (0–1). `merge_low_freq`: a category whose share of the records is below this is rare |
+| `max_categories` | int | 100 | `frequency_based` only: number of most frequent categories that are kept, the rest are grouped. Not used by `merge_low_freq` or `hierarchy` |
 | `allow_unknown` | bool | True | Allow unknown values in output |
 | `unknown_value` | str | "OTHER" | Placeholder for unknown values |
 | `group_rare_as` | str | "OTHER" | Rare category grouping strategy |
@@ -272,10 +272,16 @@ Maps values to higher-level categories using external dictionaries.
 ```
 
 #### Merge Low Frequency Strategy
-Groups rare categories based on frequency thresholds.
+Merges rare categories into one group (`OTHER`) or numbered groups.
+
+**Rule: rare = `count < min_group_size` OR `share < freq_threshold`.** A category that fails
+either threshold is merged; a category must pass both to stay. This is the protective reading:
+the count threshold guards the group size, the share threshold guards against a long tail that
+is large in count on a big dataset. `max_categories` plays no role here.
 
 ```python
-# Categories with < 10 occurrences → "OTHER"
+# min_group_size=5, freq_threshold=0.01 on 1,000,000 rows:
+# a category with 4 rows, and a category with 9,000 rows (0.9 %), are both merged
 ["Rare Job 1", "Rare Job 2"] → "OTHER"
 ```
 
@@ -544,8 +550,8 @@ config = {
 - Uncommon job titles
 
 **Parameters:**
-- `min_group_size`: Minimum records per group
-- `freq_threshold`: Frequency percentage threshold
+- `min_group_size`: a category with fewer records than this is rare
+- `freq_threshold`: a category whose share of the records is below this is rare (rare = count < `min_group_size` OR share < `freq_threshold`)
 - `group_rare_as`: Grouping method (OTHER/CATEGORY_N/RARE_N)
 
 **Example:**
