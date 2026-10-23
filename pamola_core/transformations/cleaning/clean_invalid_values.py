@@ -450,6 +450,10 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 },
             )
 
+    def get_enrich_targets(self, df):
+        """One ``column_prefix``-ed copy per field of ``field_constraints``."""
+        return self._prefixed_targets(self.field_constraints, df)
+
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data.
@@ -477,8 +481,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 output_field_name = field_name
                 if self.mode == "ENRICH" and self.column_prefix:
                     output_field_name = f"{self.column_prefix}{field_name}"
-                    if output_field_name not in batch.columns:
-                        batch[output_field_name] = batch[field_name]
+                    # Always start from the source: an existing target only gets here when
+                    # overwrite_existing_output was requested, and must then be replaced.
+                    batch[output_field_name] = batch[field_name]
 
                 if is_numeric_dtype(batch[output_field_name]) or data_type == "numeric":
                     try:
@@ -670,8 +675,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 output_field_name = field_name
                 if self.mode == "ENRICH" and self.column_prefix:
                     output_field_name = f"{self.column_prefix}{field_name}"
-                    if output_field_name not in batch.columns:
-                        batch[output_field_name] = batch[field_name]
+                    # Always start from the source: an existing target only gets here when
+                    # overwrite_existing_output was requested, and must then be replaced.
+                    batch[output_field_name] = batch[field_name]
 
                 with open(whitelist_path) as f:
                     allowed_values = set(map(str.strip, f))
@@ -688,8 +694,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 output_field_name = field_name
                 if self.mode == "ENRICH" and self.column_prefix:
                     output_field_name = f"{self.column_prefix}{field_name}"
-                    if output_field_name not in batch.columns:
-                        batch[output_field_name] = batch[field_name]
+                    # Always start from the source: an existing target only gets here when
+                    # overwrite_existing_output was requested, and must then be replaced.
+                    batch[output_field_name] = batch[field_name]
 
                 with open(blacklist_path) as f:
                     disallowed_values = set(map(str.strip, f))

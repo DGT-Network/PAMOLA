@@ -84,6 +84,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **The ENRICH collision guard covers multi-field operations** (CDX-AC-10).
+  The guard only looked at `field_name`, so imputation, invalid-value cleaning and
+  add/modify-fields (per-field tables) still overwrote existing `<prefix><field>`
+  columns silently. Operations now declare every column they write through
+  `get_enrich_targets(df)` (default: the single-field target) and all of them are
+  checked before any work is done. `CleanInvalidValuesOperation` with
+  `overwrite_existing_output=True` now replaces an existing target with a copy of
+  the source field; it used to clean the stale column in place.
 - **Output-encryption keys no longer reach the cache metadata** (CDX-AC-8).
   `_get_base_parameters()` carried the raw `encryption_key`, and every cache
   writer stored those parameters in an unencrypted JSON file. The key now

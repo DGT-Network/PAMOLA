@@ -543,19 +543,43 @@ class BaseOperation(ABC):
             engine = data_source.suggest_engine(name=dataset_name)
             return engine == "dask"
 
+    def get_enrich_targets(self, df: DataFrameType) -> List[str]:
+        """Names of the columns this operation writes in ENRICH mode.
+
+        The default covers single-field operations (``field_name`` with
+        ``output_field_name`` or ``column_prefix``). An operation that selects its
+        fields some other way (a per-field strategy table, a list of fields)
+        overrides this and returns every column it will write, so that
+        ``_check_enrich_target`` can validate all of them before any work is done.
+        """
+        field_name = getattr(self, "field_name", None)
+        if not field_name:
+            return []
+        return [self.output_field_name or f"{self.column_prefix}{field_name}"]
+
+    def _prefixed_targets(self, field_names: Any, df: DataFrameType, must_exist: bool = True) -> List[str]:
+        """ENRICH targets of an operation that writes ``column_prefix`` + each field."""
+        if not self.column_prefix:
+            return []  # without a prefix such an operation edits the source in place
+        return [
+            f"{self.column_prefix}{name}"
+            for name in (field_names or {})
+            if name and (not must_exist or name in df.columns)
+        ]
+
     def _check_enrich_target(self, df: DataFrameType) -> None:
         """Refuse to silently overwrite an existing ENRICH output column.
 
         Called where the transform bases load their input, so every operation
         built on them gets the same behaviour: ``OutputFieldExistsError`` unless
-        ``overwrite_existing_output`` is set. Only column *names* are reported.
+        ``overwrite_existing_output`` is set. Every target the operation declares
+        through ``get_enrich_targets`` is checked. Only column *names* are reported.
         """
-        field_name = getattr(self, "field_name", None)
-        if self.mode != "ENRICH" or not field_name:
+        if self.mode != "ENRICH" or self.overwrite_existing_output:
             return
-        target = self.output_field_name or f"{self.column_prefix}{field_name}"
-        if target in df.columns and not self.overwrite_existing_output:
-            raise OutputFieldExistsError(target, self.operation_name)
+        for target in self.get_enrich_targets(df):
+            if target in df.columns:
+                raise OutputFieldExistsError(target, self.operation_name)
 
     @staticmethod
     def _own_dataframe(df: DataFrameType) -> DataFrameType:

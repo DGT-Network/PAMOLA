@@ -430,6 +430,10 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 },
             )
 
+    def get_enrich_targets(self, df):
+        """Every field of ``field_operations`` is written under ``column_prefix``."""
+        return self._prefixed_targets(self.field_operations, df, must_exist=False)
+
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data.

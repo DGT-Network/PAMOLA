@@ -432,6 +432,10 @@ class ImputeMissingValuesOperation(TransformationOperation):
                 },
             )
 
+    def get_enrich_targets(self, df):
+        """One ``column_prefix``-ed copy per field of ``field_strategies``."""
+        return self._prefixed_targets(self.field_strategies, df)
+
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data.
