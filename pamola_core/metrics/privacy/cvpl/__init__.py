@@ -10,7 +10,7 @@ dataset and its protected release. Independent of the legacy
 something else and is left untouched.
 
 Provenance: the method and its default parameters (variance 0.90, 3-50 components,
-tau 0.9, joint fit, wildcard-aware blocking) follow DGT-Network/CVPL @bb25aa9 (MIT,
+tau 0.9, joint fit, wildcard-aware blocking) follow realmdata-ai/CVPL @bb25aa9 (MIT,
 A. Neuman, V. Khvatov); this implementation was written for CORE and reuses none
 of its source files.
 

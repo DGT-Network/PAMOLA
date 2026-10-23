@@ -1,7 +1,7 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 Module:        CVPL measurement engine
-Provenance:    method after DGT-Network/CVPL @bb25aa9 (MIT); implemented independently for CORE
+Provenance:    method after realmdata-ai/CVPL @bb25aa9 (MIT); implemented independently for CORE
 Package:       pamola_core.metrics.privacy.cvpl
 License:       BSD 3-Clause
 

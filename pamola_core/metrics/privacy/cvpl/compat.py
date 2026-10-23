@@ -147,6 +147,50 @@ def _split_exact(values: Sequence[int]) -> Tuple[np.ndarray, np.ndarray]:
     return hi, rem
 
 
+def _int_pair(iv: int) -> Tuple[float, float]:
+    """One integer -> ``(float, exact remainder)``; the remainder is 0 up to 2**53."""
+    if abs(iv) > _EXACT_LIMIT:
+        hi = float(iv)
+        return hi, float(iv - int(hi))
+    return float(iv), 0.0
+
+
+def _is_integer_scalar(v) -> bool:
+    return isinstance(v, (int, np.integer)) and not isinstance(v, (bool, np.bool_))
+
+
+def _endpoint(v) -> Tuple[float, float]:
+    """An interval endpoint object (``pd.Interval.left`` ...) -> ``(float, remainder)``."""
+    if _is_integer_scalar(v):
+        return _int_pair(int(v))
+    return float(v) + 0.0, 0.0
+
+
+def _token_pair(token: str) -> Tuple[float, float]:
+    """A numeric token of an interval string -> ``(float, remainder)``; integers keep
+    every digit (``9007199254740993`` is not ``9007199254740992``)."""
+    if _INT_RE.match(token):
+        return _int_pair(int(token))
+    return float(token) + 0.0, 0.0
+
+
+def _index_pairs(index: pd.Index) -> Tuple[np.ndarray, np.ndarray]:
+    """Interval endpoints of an IntervalDtype column -> exact (float, remainder) arrays."""
+    if pd.api.types.is_integer_dtype(index.dtype):
+        present = np.asarray(index.notna())
+        vals = index[present].to_numpy()
+        hi = np.full(len(index), np.nan)
+        rem = np.zeros(len(index))
+        if vals.size and (int(vals.max()) > _EXACT_LIMIT or int(vals.min()) < -_EXACT_LIMIT):
+            h, r = _split_exact(vals.tolist())
+            hi[present] = h
+            rem[present] = r
+        else:
+            hi[present] = vals.astype(float)
+        return hi, rem
+    return index.to_numpy(dtype=float), np.zeros(len(index))
+
+
 def _finite_mid(lo: np.ndarray, hi: np.ndarray, state: np.ndarray) -> np.ndarray:
     """A finite representative for the feature space: the midpoint of a closed interval, the
     finite bound of an open-ended one (``60+`` -> 60), NaN (imputed) when nothing is finite."""
@@ -161,20 +205,16 @@ def _parse_numeric_object(value, wildcard_tokens):
     if value is None or (isinstance(value, float) and np.isnan(value)) or value is pd.NA or value is pd.NaT:
         return STATE_NULL, nan, nan, True, True, "value", 0.0, 0.0
     if isinstance(value, pd.Interval):
-        lo, hi = float(value.left), float(value.right)
+        (lo, lo2), (hi, hi2) = _endpoint(value.left), _endpoint(value.right)
         if np.isnan(lo) or np.isnan(hi):
             return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
         return (STATE_VALUE, lo, hi, value.closed in ("left", "both"), value.closed in ("right", "both"),
-                "interval", 0.0, 0.0)
+                "interval", lo2, hi2)
     if isinstance(value, (bool, np.bool_)):
         return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
     if isinstance(value, (int, np.integer)):
-        iv = int(value)
-        if abs(iv) > _EXACT_LIMIT:
-            hi_, rem = _split_exact([iv])
-            return STATE_VALUE, float(hi_[0]), float(hi_[0]), True, True, "value", float(rem[0]), float(rem[0])
-        v = float(iv)
-        return STATE_VALUE, v, v, True, True, "value", 0.0, 0.0
+        v, rem = _int_pair(int(value))
+        return STATE_VALUE, v, v, True, True, "value", rem, rem
     if isinstance(value, (float, np.floating)):
         v = float(value)
         if not np.isfinite(v):
@@ -184,28 +224,69 @@ def _parse_numeric_object(value, wildcard_tokens):
     text = str(value).strip()
     if text in wildcard_tokens:
         return STATE_WILD, nan, nan, True, True, "value", 0.0, 0.0
-    if _INT_RE.match(text):
-        iv = int(text)
-        if abs(iv) > _EXACT_LIMIT:
-            hi_, rem = _split_exact([iv])
-            return STATE_VALUE, float(hi_[0]), float(hi_[0]), True, True, "value", float(rem[0]), float(rem[0])
     try:
+        if _INT_RE.match(text):
+            v, rem = _int_pair(int(text))
+            return STATE_VALUE, v, v, True, True, "value", rem, rem
         v = float(text)
         if not np.isfinite(v):
             return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
         v += 0.0
         return STATE_VALUE, v, v, True, True, "value", 0.0, 0.0
-    except ValueError:
+    except (ValueError, OverflowError):
         pass
     m = _OPEN_ENDED_RE.match(text)
     if m:
-        return STATE_VALUE, float(m.group("lo")) + 0.0, np.inf, True, False, "interval", 0.0, 0.0
+        try:
+            lo, lo2 = _token_pair(m.group("lo"))
+        except (ValueError, OverflowError):
+            return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
+        return STATE_VALUE, lo, np.inf, True, False, "interval", lo2, 0.0
     m = _INTERVAL_RE.match(text)
     if m:
-        lo, hi = float(m.group("lo")) + 0.0, float(m.group("hi")) + 0.0
-        if lo <= hi:
-            return (STATE_VALUE, lo, hi, m.group("lb") != "(", m.group("rb") != ")", "interval", 0.0, 0.0)
+        try:
+            lo_p, hi_p = _token_pair(m.group("lo")), _token_pair(m.group("hi"))
+        except (ValueError, OverflowError):
+            return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
+        if lo_p <= hi_p:  # lexicographic order of canonical (float, remainder) pairs
+            return (STATE_VALUE, lo_p[0], hi_p[0], m.group("lb") != "(", m.group("rb") != ")", "interval",
+                    lo_p[1], hi_p[1])
     return STATE_VALUE, nan, nan, True, True, "bad", 0.0, 0.0
+
+
+def _bin_points(state, lo, hi, loi, hii, lo2, hi2, w):
+    """Replace every point value by its half-open bin ``[base, base + w)``.
+
+    Integers beyond 2**53 are binned EXACTLY (python integers, integral ``w``) and keep
+    their remainder, so neighbouring integers fall into the bins they belong to. A bin
+    whose float width vanishes (the value is too large for ``w`` to register) becomes the
+    closed point itself, so that two equal values still share one bin.
+    """
+    point = (state == STATE_VALUE) & (lo == hi) & loi & hii & (lo2 == hi2)
+    with np.errstate(invalid="ignore"):
+        base = np.floor(lo / w) * w
+        top = base + w
+    collapsed = point & (top == base)
+    lo_new = np.where(point, base, lo)
+    hi_new = np.where(collapsed, base, np.where(point, top, hi))
+    hii_new = np.where(collapsed, True, np.where(point, False, hii))
+    lo2_new = np.where(point, 0.0, lo2)
+    hi2_new = np.where(point, 0.0, hi2)
+    if float(w).is_integer():
+        wi = int(w)
+        big = point & ((np.abs(lo) >= _EXACT_LIMIT) | (lo2 != 0))
+        cache: Dict[Tuple[float, float], Tuple[float, float, float, float]] = {}
+        for i in np.flatnonzero(big):
+            key = (float(lo[i]), float(lo2[i]))
+            got = cache.get(key)
+            if got is None:
+                v = int(key[0]) + int(key[1])
+                b_int = (v // wi) * wi
+                (bl, bl2), (bh, bh2) = _int_pair(b_int), _int_pair(b_int + wi)
+                got = cache[key] = (bl, bl2, bh, bh2)
+            lo_new[i], lo2_new[i], hi_new[i], hi2_new[i] = got
+            hii_new[i] = False
+    return lo_new, hi_new, hii_new, lo2_new, hi2_new
 
 
 def _numeric_arrays(series: pd.Series, wildcard_tokens, bin_width):
@@ -220,8 +301,8 @@ def _numeric_arrays(series: pd.Series, wildcard_tokens, bin_width):
     hi2 = np.zeros(n)
     if isinstance(series.dtype, pd.IntervalDtype):
         closed = series.array.closed
-        lo = series.array.left.to_numpy(dtype=float)
-        hi = series.array.right.to_numpy(dtype=float)
+        lo, lo2 = _index_pairs(series.array.left)
+        hi, hi2 = _index_pairs(series.array.right)
         null = series.isna().to_numpy()
         bad = ~null & (np.isnan(lo) | np.isnan(hi))
         state = np.where(null, STATE_NULL, np.where(bad, STATE_BAD, STATE_VALUE)).astype(np.int8)
@@ -278,14 +359,7 @@ def _numeric_arrays(series: pd.Series, wildcard_tokens, bin_width):
         state = np.where(bad, STATE_BAD, state).astype(np.int8)
     mid = _finite_mid(lo, hi, state)
     if bin_width:
-        w = float(bin_width)
-        point = (state == STATE_VALUE) & (lo == hi) & loi & hii
-        base = np.floor(lo / w) * w
-        lo = np.where(point, base, lo)
-        hi = np.where(point, base + w, hi)
-        hii = np.where(point, False, hii)
-        lo2 = np.where(point, 0.0, lo2)
-        hi2 = np.where(point, 0.0, hi2)
+        lo, hi, hii, lo2, hi2 = _bin_points(state, lo, hi, loi, hii, lo2, hi2, float(bin_width))
     return state, lo, hi, loi, hii, lo2, hi2, n_int, n_bad, mid
 
 
