@@ -83,6 +83,7 @@ from pamola_core.anonymization.commons.privacy_metric_utils import (
 
 # Pseudonymization utilities imports
 from pamola_core.anonymization.commons.pseudonymization_utils import (
+    scrubbed_config,
     PseudonymizationCache,
     estimate_collision_probability,
     format_pseudonym_output,
@@ -407,6 +408,8 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
                             )
                     except Exception as ve:
                         self.logger.warning(f"Could not validate field '{field}': {ve}")
+
+                self._check_low_entropy(df[self.field_name])
 
             except Exception as e:
                 return self.error_handler.handle_error(
@@ -864,6 +867,32 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
 
         return batch
 
+    #: a source field with at most this many distinct values is treated as low-entropy
+    LOW_ENTROPY_MAX_DISTINCT = 1000
+
+    def _check_low_entropy(self, series: pd.Series) -> None:
+        """Warn (once per run) when the source field has a small value domain.
+
+        A salted hash is a one-way function of its input, but when the number of possible inputs
+        is small (a status code, a year, a postcode, a first name) anyone who can try the
+        candidates - and, with a fixed salt and no pepper, anyone who knows the salt - can
+        recompute the hash of each and read the original back by enumeration. Hashing does not
+        protect such a field.
+        """
+        try:
+            distinct = int(series.nunique(dropna=True))
+        except Exception:  # unhashable values: nothing to say
+            return
+        self._distinct_source_values = distinct
+        self._low_entropy_source = distinct <= self.LOW_ENTROPY_MAX_DISTINCT
+        if self._low_entropy_source:
+            self.logger.warning(
+                "Hash-based pseudonymization of a low-entropy field: '%s' has only %d distinct "
+                "value(s). Hashing low-entropy values is reversible by enumeration (hash every "
+                "candidate and compare); use the consistent-mapping operation or generalize/suppress "
+                "the field instead.", self.field_name, distinct,
+            )
+
     def _validate_configuration(self):
         """Validate operation configuration before execution."""
         if self.algorithm not in ["sha3_256", "sha3_512"]:
@@ -1014,6 +1043,8 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
             "rows_processed": self.process_count,
             "unique_values_hashed": len(self._collision_tracker) + self._collision_count,
             "salt_source": self.salt_config.get("source", "unknown"),
+            "low_entropy_source": bool(getattr(self, "_low_entropy_source", False)),
+            "distinct_source_values": getattr(self, "_distinct_source_values", None),
             "hash_computation_time": round(self._hash_computation_time, 4),
             "cache_hits": self._cache_hits,
         }
@@ -1166,18 +1197,47 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
         )
         return pseudonym
 
+    #: set only while the operation hands itself to its OWN parallel workers
+    _secret_transfer = False
+
+    def _process_data_with_config(self, *args, **kwargs):
+        """Chunked / Dask / joblib processing. Salt and pepper reach worker processes only
+        here, as a transient transfer to this operation's own workers (see ``__getstate__``)."""
+        self._secret_transfer = True
+        try:
+            return super()._process_data_with_config(*args, **kwargs)
+        finally:
+            self._secret_transfer = False
+
     def __getstate__(self):
-        # Threading locks inside SecureBytes / HashGenerator / PseudonymizationCache
-        # can't be pickled. Strip the wrappers but preserve raw pepper BYTES so
-        # every worker process produces identical hashes (determinism requirement).
+        """State for ``pickle`` / ``copy`` / Dask tokenization.
+
+        Outside the operation's own parallel run the salt, the pepper (and the output encryption
+        key, and the salt value inside the config) are NOT part of the state: pickling an
+        operation (user code, a Dask graph, a joblib cache) does not carry them. While the
+        operation processes data in parallel (``_secret_transfer``) the pepper bytes and salt go to
+        its worker processes, so that every worker produces identical hashes; that transfer is
+        in-memory and local to the run. A copy made outside it cannot hash (no salt) and must be
+        recreated from its parameters.
+        """
+        transfer = bool(self.__dict__.get("_secret_transfer", False))
         state = self.__dict__.copy()
-        # Preserve pepper bytes (not the SecureBytes wrapper that contains the lock)
+        state.pop("_secret_transfer", None)
         pepper = state.pop("_pepper", None)
-        if pepper is not None:
+        state["_pepper_bytes"] = None
+        if transfer and pepper is not None:
             try:
                 state["_pepper_bytes"] = pepper.get()
             except Exception:
                 state["_pepper_bytes"] = None
+        if not transfer:
+            state["_salt"] = None
+            state["encryption_key"] = None
+            cfg = state.get("salt_config")
+            if isinstance(cfg, dict):
+                state["salt_config"] = {k: v for k, v in cfg.items() if k in ("source", "field_name")}
+            if "config" in state:
+                state["config"] = scrubbed_config(state["config"])
         # HashGenerator is trivially reconstructible from self.algorithm
         state.pop("_hash_generator", None)
         # Cache is worker-local; workers get a fresh one

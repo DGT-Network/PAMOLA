@@ -89,6 +89,7 @@ from pamola_core.anonymization.commons.privacy_metric_utils import (
 # Pseudonymization utilities imports
 from pamola_core.anonymization.commons.pseudonymization_utils import (
     format_pseudonym_output,
+    scrubbed_config,
 )
 
 # Validation imports
@@ -1311,15 +1312,26 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             temp_storage.save(self._mapping, export_metadata)
 
     def __getstate__(self):
-        # Exclude non-picklable attrs containing threading locks so Dask's
-        # _normalize_pickle determinism check can serialize this object.
-        # Actual execution uses the original in-memory instance (not the unpickled one).
+        """State for ``pickle`` / ``copy`` / Dask tokenization WITHOUT secrets.
+
+        The encryption key and the plaintext mapping (original value -> pseudonym) never
+        leave the object through serialization: they are replaced by empty values, the output
+        encryption key and the key-bearing config entries are redacted. An unpickled copy is a
+        configuration holder only; it cannot open the mapping file (no key) and must be
+        recreated with the key to run. Execution uses the original in-memory instance (the
+        scheduler is forced to threads, see ``_process_data_with_config``).
+        """
         state = self.__dict__.copy()
-        state.pop("_mapping_lock", None)  # threading.RLock — not picklable
-        state.pop("_mapping_storage", None)  # MappingStorage — contains threading.RLock
-        state.pop(
-            "_pseudonym_generator", None
-        )  # PseudonymGenerator — contains threading.Lock
+        state.pop("_mapping_lock", None)  # threading.RLock - not picklable
+        state.pop("_mapping_storage", None)  # MappingStorage - contains threading.RLock
+        state.pop("_pseudonym_generator", None)  # PseudonymGenerator - contains threading.Lock
+        state["_mapping_encryption_key"] = None
+        for name in ("_mapping", "_reverse_mapping", "_pending_mappings"):
+            state[name] = {}
+        state["_generated_pseudonyms"] = set()
+        state["encryption_key"] = None
+        if "config" in state:
+            state["config"] = scrubbed_config(state["config"])
         return state
 
     def __setstate__(self, state):

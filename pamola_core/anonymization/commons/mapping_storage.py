@@ -726,13 +726,18 @@ class MappingStorage:
             if header is None:
                 return {}
             if tuple(header) != _CSV_FIELDS:
+                # the header row of a wrongly-typed payload can be data: describe, never echo it
                 raise MappingIntegrityError(
-                    f"Unexpected CSV header {header!r}; expected {list(_CSV_FIELDS)}."
+                    f"Unexpected CSV header ({len(header)} column(s)); expected "
+                    f"{list(_CSV_FIELDS)}."
                 )
             mapping: Dict[str, str] = {}
-            for row in reader:
+            for row_no, row in enumerate(reader, start=1):
                 if len(row) != 2:
-                    raise MappingIntegrityError(f"Invalid CSV row: {row!r}")
+                    # row content is source data: report the position and shape only
+                    raise MappingIntegrityError(
+                        f"Invalid CSV row {row_no}: {len(row)} column(s), expected 2."
+                    )
                 original, pseudonym = row
                 if original in mapping and mapping[original] != pseudonym:
                     raise MappingIntegrityError(

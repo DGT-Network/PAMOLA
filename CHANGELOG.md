@@ -22,6 +22,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   with an explicit key by earlier builds differ from this release. The effective key's digest is part
   of the cache identity and `key` is declared a sensitive config key.
 
+- **Pseudonymization: no row content in mapping-file errors, no secrets in the pickled state, a
+  low-entropy warning (ASB-2).** A corrupt mapping payload used to put the offending CSV row (an
+  original value and its pseudonym) in the exception text; it now names the row number and column
+  count only. `ConsistentMappingPseudonymizationOperation.__getstate__` no longer carries the
+  encryption key or the plaintext mapping, and `HashBasedPseudonymizationOperation` no longer
+  carries salt, pepper or the salt inside its config (pickle, `copy`, Dask tokenization); the
+  salt/pepper reach the operation's own parallel workers only for the duration of its parallel
+  run. **Behaviour change:** an operation pickled or copied outside that run cannot hash / open its
+  mapping; recreate it from its parameters. The hash operation logs one warning per run when the
+  source field has at most 1000 distinct values (hashing low-entropy values is reversible by
+  enumeration) and records `low_entropy_source` / `distinct_source_values`; its documentation no
+  longer promises cross-run linkage the default per-run pepper cannot give.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the

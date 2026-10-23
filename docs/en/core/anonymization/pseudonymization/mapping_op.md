@@ -184,7 +184,7 @@ op = ConsistentMappingPseudonymizationOperation(
 ## Security Considerations
 
 - **Encryption Key:** Must be a 256-bit key, either 64-character hex string or 32 raw bytes. Invalid format or size raises `ValidationError` at construction time.
-- **Key Handling:** The public attribute is removed after init; key is stored privately as `_mapping_encryption_key` to prevent accidental serialization/logging.
+- **Key Handling:** The public attribute is removed after init; the key is stored privately as `_mapping_encryption_key`. The key and the plaintext mapping (original -> pseudonym) are NOT part of the pickled / copied / Dask-tokenized state: an unpickled copy is a configuration holder that cannot open the mapping file and must be recreated with the key. Corruption errors of the mapping file name the position and shape of the problem, never the content of a row.
 - **Reversibility:** Authorized holders of the key can reverse-lookup original values from pseudonyms. Protect the key with the same rigor as the source data.
 - **Storage at Rest:** Every mapping write is AES-256-GCM encrypted; tampering is detected via the GCM authentication tag.
 - **Backup:** Before the run first modifies an existing mapping file, a `.bak.<timestamp>` copy is created to allow recovery from interrupted writes.
