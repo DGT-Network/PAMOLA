@@ -29,13 +29,46 @@ Dependencies:
   - scikit-learn - OrdinalEncoder for categorical encoding
 """
 
-from typing import Optional
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OrdinalEncoder
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.exceptions import DataError
+
+
+def encode_pair_with_dummies(
+    original_df: pd.DataFrame,
+    transformed_df: pd.DataFrame,
+    exclude: Sequence[str] = (),
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    One-hot encode two datasets into the SAME feature space.
+
+    ``pd.get_dummies`` applied to each dataset separately creates a column per
+    category *present in that dataset*, so a transformed frame that lost (or gained)
+    a category gets a different set of columns, and a model trained on one is
+    scored on a misaligned other. Here the categories are those of both datasets
+    together: both results have the same columns in the same order. A category
+    absent from one dataset is an all-False column there; there is no unseen
+    category. Columns named in ``exclude`` (the target) are passed through
+    unencoded. Row labels of each frame are preserved.
+    """
+    keep = [c for c in exclude if c in original_df.columns and c in transformed_df.columns]
+    n_orig = len(original_df)
+    combined = pd.concat(
+        [original_df.reset_index(drop=True), transformed_df.reset_index(drop=True)],
+        ignore_index=True,
+    )
+    encoded = pd.get_dummies(combined.drop(columns=keep))
+    for col in keep:
+        encoded[col] = combined[col]
+    original_out = encoded.iloc[:n_orig].copy()
+    transformed_out = encoded.iloc[n_orig:].copy()
+    original_out.index = original_df.index
+    transformed_out.index = transformed_df.index
+    return original_out, transformed_out
 
 
 def prepare_data_for_distance_metrics(

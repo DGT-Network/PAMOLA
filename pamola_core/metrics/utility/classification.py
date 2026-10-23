@@ -26,6 +26,7 @@ from sklearn.metrics import (
 from sklearn.preprocessing import label_binarize
 
 import pamola_core.utils.logging as pamola_logging
+from pamola_core.metrics.commons.preprocessing import encode_pair_with_dummies
 
 # Configure module logger
 logger = pamola_logging.getLogger(__name__)
@@ -105,8 +106,11 @@ class ClassificationUtility:
         results = {}
 
         # Setup data frame & cross validation
-        original_df = pd.get_dummies(original_df)
-        transformed_df = pd.get_dummies(transformed_df)
+        # One feature space for both datasets (union of categories, aligned
+        # columns); the target column is not encoded.
+        original_df, transformed_df = encode_pair_with_dummies(
+            original_df, transformed_df, exclude=[value_field]
+        )
 
         X_original = original_df.drop(columns=[value_field])
         y_original = original_df[value_field]

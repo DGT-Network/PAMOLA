@@ -84,6 +84,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Utility metrics encode both datasets in one feature space** (CDX-AC-11b).
+  `ClassificationUtility` and `RegressionUtility` ran `pd.get_dummies` on the
+  original and the transformed frame separately, so a transformed frame with a
+  missing or extra category had different columns and the model was scored on a
+  misaligned matrix. `encode_pair_with_dummies` encodes from the union of
+  categories with identical column order (a category absent from one dataset is
+  an all-False column there). The target column is not encoded. Identical inputs
+  give the same features as before.
 - **A requested visualization is complete when `execute()` returns** (CDX-AC-12).
   The render worker was joined with `visualization_timeout`; a slower renderer
   made the operation return SUCCESS while the thread kept running and could write
