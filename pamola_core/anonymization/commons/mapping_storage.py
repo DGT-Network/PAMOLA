@@ -2,7 +2,7 @@
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 Module:        Secure Mapping Storage for Pseudonymization
 Package:       pamola_core.anonymization.commons
-Version:       2.0.0
+Version:       2.1.0
 Status:        stable
 Author:        PAMOLA Core Team
 Created:       2025-01-20
@@ -29,7 +29,7 @@ Key Features:
 On-disk format (version 2)
     ::
 
-        MAGIC (11 bytes: b"PAMOLA-MAP\\x02")
+        MAGIC (11 bytes: b"PAMOLA-MAP\\x03") + stream id (16 random bytes)
         frame*   where frame = uint32 big-endian length N, then N bytes of
                  MappingEncryption.encrypt(payload, associated_data=AAD)
 
@@ -37,7 +37,8 @@ On-disk format (version 2)
         header  = {"seq": k, "format": "csv"|"json", "count": n, "metadata": {...}}
         body    = CSV rows ``original,pseudonym`` (with header row) or a JSON
                   object ``{original: pseudonym}``
-        AAD     = MAGIC + seq as 8-byte big-endian
+        AAD     = MAGIC + stream id + seq (8-byte big-endian)
+                  + tag of the previous frame (16 zero bytes for frame 0)
 
     Frame 0 is a snapshot (written atomically by :meth:`MappingStorage.save`);
     every later frame carries only the mappings added since the previous frame.
@@ -94,7 +95,16 @@ from pamola_core.utils.crypto_helpers.pseudonymization import MappingEncryption
 logger = logging.getLogger(__name__)
 
 #: File signature + format version. Files without it are version 1 (single blob).
-MAGIC = b"PAMOLA-MAP\x02"
+#: Version 3 binds every frame to a per-file random stream id and to the
+#: authentication tag of the frame before it, so frames cannot be moved between
+#: files or recombined from divergent histories (version 2 only bound the
+#: sequence number and was never released).
+MAGIC = b"PAMOLA-MAP\x03"
+_SIGNATURE_PREFIX = b"PAMOLA-MAP"
+_STREAM_ID_LEN = 16
+_TAG_LEN = 16  # AES-GCM tag, the last 16 bytes of a frame blob
+_HEADER_LEN = len(MAGIC) + _STREAM_ID_LEN
+_NO_PREVIOUS = bytes(_TAG_LEN)
 _LEN = struct.Struct(">I")
 _CSV_FIELDS = ("original", "pseudonym")
 
@@ -103,8 +113,8 @@ class MappingIntegrityError(MappingStorageError):
     """The mapping file cannot be trusted: wrong key, modified, truncated or inconsistent."""
 
 
-def _aad(seq: int) -> bytes:
-    return MAGIC + seq.to_bytes(8, "big")
+def _aad(stream_id: bytes, seq: int, prev_tag: bytes) -> bytes:
+    return MAGIC + stream_id + seq.to_bytes(8, "big") + prev_tag
 
 
 class MappingStorage:
@@ -166,7 +176,12 @@ class MappingStorage:
         self._lock = threading.RLock()
         self.logger = logger
         self._backup_done = False
-        self._next_seq: Optional[int] = None  # known after load/save/append
+        # Chain state of the file as this instance last wrote/read it; valid
+        # only while the file still has `_expected_size` bytes.
+        self._next_seq: Optional[int] = None
+        self._stream_id: Optional[bytes] = None
+        self._prev_tag: bytes = _NO_PREVIOUS
+        self._expected_size: Optional[int] = None
 
         # Initialize encryption
         try:
@@ -234,13 +249,24 @@ class MappingStorage:
                 raise MappingStorageError(f"Failed to read mapping file: {e}")
 
             if not raw:
-                self.logger.warning("Empty mapping file")
-                self._next_seq = None
-                return {}, {}
+                # A valid mapping (even an empty one) always holds at least one
+                # authenticated frame, so an existing zero-byte file is a
+                # damaged mapping. Treating it as "no mapping yet" would let a
+                # run regenerate every pseudonym and overwrite the real table.
+                raise MappingIntegrityError(
+                    f"Mapping file '{self.mapping_file.name}' exists but is empty "
+                    "(0 bytes): it was truncated or damaged. Restore the latest "
+                    "backup; delete the file only to start a NEW mapping."
+                )
 
             try:
                 if raw.startswith(MAGIC):
                     return self._load_v2(raw)
+                if raw.startswith(_SIGNATURE_PREFIX):
+                    raise MappingIntegrityError(
+                        f"Mapping file '{self.mapping_file.name}' uses an "
+                        "unsupported storage version."
+                    )
                 return self._load_v1(raw)
             except MappingStorageError:
                 raise
@@ -262,7 +288,12 @@ class MappingStorage:
 
     def _frames(self, raw: bytes) -> Iterator[Tuple[int, bytes]]:
         """Yield ``(seq, blob)`` for each frame; raise on a malformed layout."""
-        pos = len(MAGIC)
+        if len(raw) < _HEADER_LEN:
+            raise MappingIntegrityError(
+                f"Mapping file '{self.mapping_file.name}' is truncated inside its "
+                "header. Restore the latest backup."
+            )
+        pos = _HEADER_LEN
         seq = 0
         end = len(raw)
         while pos < end:
@@ -287,8 +318,13 @@ class MappingStorage:
         metadata: Dict[str, Any] = {}
         reverse: Dict[str, str] = {}
         frames = 0
+        stream_id = raw[len(MAGIC) : _HEADER_LEN]
+        prev_tag = _NO_PREVIOUS
         for seq, blob in self._frames(raw):
-            payload = self._decrypt(blob, _aad(seq), f"frame {seq}")
+            payload = self._decrypt(
+                blob, _aad(stream_id, seq, prev_tag), f"frame {seq}"
+            )
+            prev_tag = blob[-_TAG_LEN:]
             header, body = self._split_payload(payload, seq)
             if header.get("seq") != seq:
                 raise MappingIntegrityError(
@@ -325,6 +361,9 @@ class MappingStorage:
                 "frame; it is incomplete."
             )
         self._next_seq = frames
+        self._stream_id = stream_id
+        self._prev_tag = prev_tag
+        self._expected_size = len(raw)
         return mapping, metadata
 
     def _load_v1(self, raw: bytes) -> Tuple[Dict[str, str], Dict[str, Any]]:
@@ -334,6 +373,7 @@ class MappingStorage:
             self._parse_csv(data) if self.format == "csv" else self._parse_json(data)
         )
         self._next_seq = None
+        self._expected_size = None
         return self._unwrap_legacy_envelope(parsed)
 
     def _unwrap_legacy_envelope(
@@ -390,12 +430,14 @@ class MappingStorage:
         with self._lock:
             try:
                 self._backup_once()
-                frame = self._encode_frame(0, mapping, metadata)
+                stream_id = os.urandom(_STREAM_ID_LEN)
+                frame = self._encode_frame(0, mapping, metadata, stream_id, _NO_PREVIOUS)
 
                 temp_path = self.mapping_file.with_suffix(".tmp")
                 try:
                     with open(temp_path, "wb") as f:
                         f.write(MAGIC)
+                        f.write(stream_id)
                         f.write(frame)
                         f.flush()
                         os.fsync(f.fileno())
@@ -410,6 +452,9 @@ class MappingStorage:
                     raise
 
                 self._next_seq = 1
+                self._stream_id = stream_id
+                self._prev_tag = frame[-_TAG_LEN:]
+                self._expected_size = _HEADER_LEN + len(frame)
                 self.logger.debug(
                     f"Saved {len(mapping)} mappings to {self.mapping_file}"
                 )
@@ -436,11 +481,16 @@ class MappingStorage:
         """
         with self._lock:
             try:
-                exists = self.mapping_file.exists()
-                size = self.mapping_file.stat().st_size if exists else 0
-                if size == 0:
+                if not self.mapping_file.exists():
                     self.save(new_mappings, metadata)
                     return
+                size = self.mapping_file.stat().st_size
+                if size == 0:
+                    raise MappingIntegrityError(
+                        f"Mapping file '{self.mapping_file.name}' exists but is "
+                        "empty (0 bytes); refusing to continue it. Restore the "
+                        "latest backup."
+                    )
 
                 with open(self.mapping_file, "rb") as f:
                     head = f.read(len(MAGIC))
@@ -451,10 +501,12 @@ class MappingStorage:
                     self.save(existing, metadata or existing_meta)
                     return
 
+                if self._next_seq is None or self._expected_size != size:
+                    self._scan_tail()
                 seq = self._next_seq
-                if seq is None:
-                    seq = self._count_frames()
-                frame = self._encode_frame(seq, new_mappings, metadata)
+                frame = self._encode_frame(
+                    seq, new_mappings, metadata, self._stream_id, self._prev_tag
+                )
 
                 self._backup_once()
                 with open(self.mapping_file, "ab") as f:
@@ -462,6 +514,8 @@ class MappingStorage:
                     f.flush()
                     os.fsync(f.fileno())
                 self._next_seq = seq + 1
+                self._prev_tag = frame[-_TAG_LEN:]
+                self._expected_size = size + len(frame)
                 self.logger.debug(
                     f"Appended {len(new_mappings)} mappings to {self.mapping_file}"
                 )
@@ -470,12 +524,23 @@ class MappingStorage:
             except Exception as e:
                 raise MappingStorageError(f"Failed to append mappings: {e}")
 
-    def _count_frames(self) -> int:
-        """Number of frames, walking length prefixes only (no decryption)."""
+    def _scan_tail(self) -> None:
+        """
+        Find the chain state (stream id, next sequence number, previous tag)
+        by walking the length prefixes only (no decryption). Frames are
+        authenticated when the file is next loaded.
+        """
         size = self.mapping_file.stat().st_size
-        pos = len(MAGIC)
+        if size < _HEADER_LEN:
+            raise MappingIntegrityError(
+                f"Mapping file '{self.mapping_file.name}' is truncated inside its "
+                "header. Restore the latest backup."
+            )
+        pos = _HEADER_LEN
         count = 0
+        last_tag = _NO_PREVIOUS
         with open(self.mapping_file, "rb") as f:
+            stream_id = f.read(_HEADER_LEN)[len(MAGIC) :]
             while pos < size:
                 f.seek(pos)
                 prefix = f.read(_LEN.size)
@@ -485,15 +550,26 @@ class MappingStorage:
                         "inside a frame header. Restore the latest backup."
                     )
                 (length,) = _LEN.unpack(prefix)
-                pos += _LEN.size + length
-                if length < 28 or pos > size:
+                end = pos + _LEN.size + length
+                if length < 28 or end > size:
                     raise MappingIntegrityError(
                         f"Mapping file '{self.mapping_file.name}' is truncated or "
                         f"frame {count} has an invalid length. Restore the latest "
                         "backup."
                     )
+                f.seek(end - _TAG_LEN)
+                last_tag = f.read(_TAG_LEN)
+                pos = end
                 count += 1
-        return count
+        if count == 0:
+            raise MappingIntegrityError(
+                f"Mapping file '{self.mapping_file.name}' has a header but no data "
+                "frame; it is incomplete."
+            )
+        self._stream_id = stream_id
+        self._next_seq = count
+        self._prev_tag = last_tag
+        self._expected_size = size
 
     def update(self, new_mappings: Dict[str, str]) -> Dict[str, str]:
         """
@@ -589,8 +665,10 @@ class MappingStorage:
         seq: int,
         mapping: Dict[str, str],
         metadata: Optional[Dict[str, Any]],
+        stream_id: bytes,
+        prev_tag: bytes,
     ) -> bytes:
-        """Serialize, encrypt and length-prefix one frame."""
+        """Serialize, encrypt (bound to stream and predecessor) and length-prefix one frame."""
         for original, pseudonym in mapping.items():
             if not isinstance(original, str) or not isinstance(pseudonym, str):
                 raise MappingStorageError(
@@ -612,7 +690,9 @@ class MappingStorage:
             if self.format == "csv"
             else self._serialize_json(mapping)
         )
-        blob = self._encryptor.encrypt(header + b"\n" + body, _aad(seq))
+        blob = self._encryptor.encrypt(
+            header + b"\n" + body, _aad(stream_id, seq, prev_tag)
+        )
         return _LEN.pack(len(blob)) + blob
 
     def _split_payload(self, payload: bytes, seq: int) -> Tuple[Dict[str, Any], bytes]:

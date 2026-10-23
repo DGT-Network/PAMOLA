@@ -21,6 +21,7 @@ import pytest
 from pamola_core.anonymization.commons import mapping_storage as ms
 from pamola_core.anonymization.commons.mapping_storage import (
     MAGIC,
+    _HEADER_LEN,
     MappingIntegrityError,
     MappingStorage,
 )
@@ -166,7 +167,7 @@ def _make_mapping_file(tmp_path, fmt="csv", persist_frequency=2):
 def _frames(path):
     """(offset, length) of every frame in a version 2 file."""
     raw = path.read_bytes()
-    pos, out = len(MAGIC), []
+    pos, out = _HEADER_LEN, []
     while pos < len(raw):
         (n,) = struct.unpack_from(">I", raw, pos)
         out.append((pos, n))
@@ -223,7 +224,7 @@ def test_truncated_file_is_detected(tmp_path):
         _stored(path, "csv")
     assert "truncated" in str(exc.value)
 
-    path.write_bytes(raw[: len(MAGIC) + 2])  # cut inside a frame header
+    path.write_bytes(raw[: _HEADER_LEN + 2])  # cut inside a frame header
     with pytest.raises(MappingIntegrityError):
         _stored(path, "csv")
 
@@ -257,12 +258,11 @@ def test_garbage_file_is_rejected(tmp_path):
 
 
 def _craft(path, frames, fmt="csv"):
-    """Write a version 2 file from explicit per-frame mappings (bypassing the op)."""
-    storage = MappingStorage(path.with_name("scratch.enc"), bytes.fromhex(KEY), format=fmt)
-    data = MAGIC + b"".join(
-        storage._encode_frame(i, m, None) for i, m in enumerate(frames)
-    )
-    path.write_bytes(data)
+    """Write a file from explicit per-frame mappings (snapshot + appends, no checks)."""
+    writer = MappingStorage(path, bytes.fromhex(KEY), format=fmt, create_if_missing=False)
+    writer.save(frames[0])
+    for frame in frames[1:]:
+        writer.append(frame)
     return MappingStorage(path, bytes.fromhex(KEY), format=fmt, create_if_missing=False)
 
 
@@ -493,11 +493,13 @@ def test_append_to_a_truncated_file_fails_closed(tmp_path):
         MappingStorage(path, bytes.fromhex(KEY)).append({"b": "p2"})
 
 
-def test_missing_and_empty_files_load_as_empty(tmp_path):
+def test_missing_file_loads_as_empty_but_existing_empty_file_is_damage(tmp_path):
     storage = MappingStorage(tmp_path / "x.enc", bytes.fromhex(KEY), create_if_missing=False)
-    assert storage.load() == {}
+    assert storage.load() == {}  # missing = a new mapping
     (tmp_path / "x.enc").write_bytes(b"")
-    assert storage.load_with_metadata() == ({}, {})
+    with pytest.raises(MappingIntegrityError) as exc:
+        storage.load_with_metadata()  # CDX-AC-2
+    assert "empty" in str(exc.value)
 
 
 def test_update_merges_and_keeps_metadata(tmp_path):
@@ -524,3 +526,89 @@ def test_metadata_helpers(tmp_path):
     assert report["valid"] is False
     assert report["duplicate_values"] == ["p1"]
     assert report["empty_keys"] == 1
+
+
+# --------------------------------------------------------------------------
+# CDX-AC-1 / CDX-AC-2: splicing and zero-byte files
+# --------------------------------------------------------------------------
+
+
+def _chain(path, *frames):
+    return _craft(path, list(frames))
+
+
+def test_frame_from_another_file_cannot_be_spliced_in(tmp_path):
+    """CDX-AC-1: same key, same sequence number, different file."""
+    a = tmp_path / "a.enc"
+    b = tmp_path / "b.enc"
+    _chain(a, {"alice": "A"}, {"bob": "B"})
+    _chain(b, {"alice": "A"}, {"dave": "D"})
+    raw_a, raw_b = a.read_bytes(), b.read_bytes()
+    (o1, n1) = _frames(b)[1]
+    forged = raw_a[: _frames(a)[1][0]] + raw_b[o1 : o1 + 4 + n1]
+    a.write_bytes(forged)
+
+    with pytest.raises(MappingIntegrityError):
+        _stored(a, "csv")
+
+
+def test_frames_from_divergent_histories_cannot_be_recombined(tmp_path):
+    """CDX-AC-1: same stream (copy of one file), two different continuations."""
+    base = tmp_path / "base.enc"
+    _chain(base, {"alice": "A"})
+    left, right = tmp_path / "left.enc", tmp_path / "right.enc"
+    left.write_bytes(base.read_bytes())
+    right.write_bytes(base.read_bytes())
+    MappingStorage(left, bytes.fromhex(KEY)).append({"bob": "B"})
+    MappingStorage(left, bytes.fromhex(KEY)).append({"carol": "C"})
+    MappingStorage(right, bytes.fromhex(KEY)).append({"dave": "D"})
+    MappingStorage(right, bytes.fromhex(KEY)).append({"erin": "E"})
+
+    fl, fr = _frames(left), _frames(right)
+    raw_l, raw_r = left.read_bytes(), right.read_bytes()
+    # left's frames 0-1, then right's frame 2 (which chains to right's frame 1)
+    mixed = raw_l[: fl[2][0]] + raw_r[fr[2][0] : fr[2][0] + 4 + fr[2][1]]
+    mixed_path = tmp_path / "mixed.enc"
+    mixed_path.write_bytes(mixed)
+
+    with pytest.raises(MappingIntegrityError):
+        _stored(mixed_path, "csv")
+    # Each pure history is still valid.
+    assert set(_stored(left, "csv")) == {"alice", "bob", "carol"}
+    assert set(_stored(right, "csv")) == {"alice", "dave", "erin"}
+
+
+def test_every_snapshot_starts_a_new_stream(tmp_path):
+    p = tmp_path / "s.enc"
+    storage = MappingStorage(p, bytes.fromhex(KEY))
+    storage.save({"a": "p"})
+    first = p.read_bytes()[len(MAGIC) : _HEADER_LEN]
+    storage.save({"a": "p"})
+    assert p.read_bytes()[len(MAGIC) : _HEADER_LEN] != first
+
+
+def test_existing_zero_byte_file_is_never_treated_as_a_new_mapping(tmp_path):
+    """CDX-AC-2: the operation must fail, not regenerate and overwrite."""
+    path = tmp_path / "z.map.enc"
+    result, _ = _run(_op(path), ["ann", "bob"], tmp_path / "a")
+    assert result.status == OperationStatus.SUCCESS
+    path.write_bytes(b"")
+
+    result, _ = _run(_op(path), ["ann", "bob"], tmp_path / "b")
+
+    assert result.status == OperationStatus.ERROR
+    assert "empty" in result.error_message.lower()
+    assert path.read_bytes() == b""  # untouched, not overwritten
+    with pytest.raises(MappingIntegrityError):
+        MappingStorage(path, bytes.fromhex(KEY)).append({"x": "y"})
+
+
+def test_header_only_and_unknown_version_files_are_rejected(tmp_path):
+    p = tmp_path / "h.enc"
+    p.write_bytes(MAGIC + bytes(16))  # valid header, no frame
+    with pytest.raises(MappingIntegrityError):
+        _stored(p, "csv")
+    p.write_bytes(MAGIC[:-1] + b"\x09" + bytes(60))
+    with pytest.raises(MappingIntegrityError) as exc:
+        _stored(p, "csv")
+    assert "version" in str(exc.value)

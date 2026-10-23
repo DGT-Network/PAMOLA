@@ -975,10 +975,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                     "pseudonym_type": self.pseudonym_type,
                     "version": self.version,
                 }
-                if self._mapping_path is not None and not (
-                    self._mapping_path.exists()
-                    and self._mapping_path.stat().st_size > 0
-                ):
+                if self._mapping_path is not None and not self._mapping_path.exists():
                     # The file vanished since it was loaded: appending would
                     # leave a file that lacks everything loaded earlier.
                     self._mapping_storage.save(self._mapping, metadata)
