@@ -357,6 +357,18 @@ class DataWriter:
         WriterResult
             Result with path and metadata
         """
+        # An encrypted request must never end up as plaintext part files: partitioned output
+        # (parquet always, CSV beyond 10 partitions) cannot be encrypted here, so refuse it
+        # BEFORE anything is written, instead of writing it unencrypted with a log warning.
+        fmt = format.lower()
+        partitioned = fmt in ("parquet", "pq") or (fmt == "csv" and df.npartitions > 10)
+        if encryption_key and partitioned:
+            raise DataWriteError(
+                "Encrypted output of a partitioned Dask DataFrame is not supported: the "
+                f"{fmt} output would be written as unencrypted part files. Materialize the "
+                "frame first (df.compute()) or write it without encryption. Nothing was written."
+            )
+
         # For Dask DataFrames, we need different approaches based on format
         try:
             # For parquet, we can write to a directory
@@ -372,13 +384,6 @@ class DataWriter:
                 self.logger.info(
                     f"Dask DataFrame written to {output_dir} (partitioned parquet)"
                 )
-
-                # If encryption is needed, this is more complex - we'd need to encrypt each file
-                if encryption_key:
-                    self.logger.warning(
-                        "Encryption for partitioned Dask output is not fully implemented. "
-                        "Consider materializing the DataFrame for secure encryption."
-                    )
 
                 # Update progress
                 if subtask:
@@ -428,13 +433,6 @@ class DataWriter:
                     self.logger.info(
                         f"Large Dask DataFrame written to {output_dir} (partitioned CSV)"
                     )
-
-                    # Warning for encryption
-                    if encryption_key:
-                        self.logger.warning(
-                            "Encryption for partitioned Dask output is not fully implemented. "
-                            "Consider materializing the DataFrame for secure encryption."
-                        )
 
                     # Update progress
                     if subtask:
