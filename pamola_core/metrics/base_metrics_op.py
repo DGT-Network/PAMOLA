@@ -38,7 +38,7 @@ Framework:
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -83,6 +83,13 @@ class MetricsOperation(BaseOperation):
     including data source handling, result processing, metric calculation,
     and automatic switching to Dask for large dataset processing.
     """
+
+    #: Whether the two inputs are row-aligned pairs that may be intersected on their
+    #: index and sampled together (fidelity / utility / DCR style metrics). An
+    #: operation whose populations differ by design - e.g. a linkage measurement where
+    #: the source row count is the denominator and a suppressed row has no
+    #: counterpart - sets this to ``False`` and receives both frames untouched.
+    requires_aligned_inputs: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -332,13 +339,16 @@ class MetricsOperation(BaseOperation):
 
             try:
                 # Sample aligned data
-                sampled_orig, sampled_trans = self._sample_aligned(
-                    original_df=original_df,
-                    transformed_df=transformed_df,
-                    sample_size=self.sample_size,
-                    columns=self.columns,
-                    column_mapping=self.column_mapping,
-                )
+                if self.requires_aligned_inputs:
+                    sampled_orig, sampled_trans = self._sample_aligned(
+                        original_df=original_df,
+                        transformed_df=transformed_df,
+                        sample_size=self.sample_size,
+                        columns=self.columns,
+                        column_mapping=self.column_mapping,
+                    )
+                else:
+                    sampled_orig, sampled_trans = original_df, transformed_df
 
                 # Create child progress tracker for calculate processing
                 data_tracker = None
