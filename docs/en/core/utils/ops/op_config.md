@@ -625,7 +625,7 @@ except ConfigError as e:
    def to_dict(self):
        config = super().to_dict()
        if "api_key" in config:
-           config["api_key"] = "***REDACTED***"
+           config["api_key"] = "*REDACTED*"
        return config
    ```
 

@@ -57,6 +57,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   categories by design, with a test that it stays out of metrics, results and logs; requested charts
   can show category values (documented).
 
+- **The redaction placeholder in the documentation matches the code (ASB-6).** The SEC-03 entry and
+  `op_config.md` said `"***REDACTED***"`; the code (`OperationConfig`, `utils/redaction.py`) writes
+  `"*REDACTED*"`. Text only; no behaviour change.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the
@@ -82,7 +86,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Hash salt no longer written to `config.json` (SEC-03).**
   `HashBasedPseudonymizationOperation` serialized `salt_config.value` in
   plaintext. `salt_config` is now declared in `SENSITIVE_KEYS` of
-  `HashBasedPseudonymizationConfig` and written as `"***REDACTED***"` (the
+  `HashBasedPseudonymizationConfig` and written as `"*REDACTED*"` (the
   `source` / `field_name` hints inside it are redacted with it). The operation
   still uses the real salt; only the artifact changed.
 - **Raw source values no longer written to `metrics/*.json` (SEC-04, SEC-05).**
