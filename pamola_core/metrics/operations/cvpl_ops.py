@@ -26,7 +26,13 @@ import pandas as pd
 
 from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 from pamola_core.metrics.base_metrics_op import MetricsOperation
-from pamola_core.metrics.privacy.cvpl import CVPLConfig, CVPLProjection, run_cvpl
+from pamola_core.metrics.privacy.cvpl import (
+    ALGORITHM_ID,
+    ALGORITHM_VERSION,
+    CVPLConfig,
+    CVPLProjection,
+    run_cvpl,
+)
 from pamola_core.metrics.schemas.cvpl_op_core_schema import CVPLLinkageConfig
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.progress import HierarchicalProgressTracker
@@ -42,11 +48,14 @@ class CVPLLinkageOperation(MetricsOperation):
         named in ``qids`` and ``auxiliary`` are ever used as the attacker's knowledge.
     frozen_projection : CVPLProjection, optional
         Required for ``fit_strategy='frozen'`` (a projection from an earlier run, so
-        several releases of one source are measured in the same space). Not part of
-        the cache identity; pass the same object to compare like with like.
+        several releases of one source are measured in the same space). Its fitted
+        state (encoding, scaling, centering, components) is part of the cache identity;
+        pass the same object to compare like with like.
     """
 
     requires_aligned_inputs = False
+    #: the structured result (statuses, bounds, trajectories, nulls) is the public result
+    publish_structured_metrics = True
 
     def __init__(
         self,
@@ -105,8 +114,10 @@ class CVPLLinkageOperation(MetricsOperation):
         kwargs["optimize_memory"] = False  # the inputs are measured as they are
         if self._cvpl.seed is not None:
             kwargs["seed"] = self._cvpl.seed
+        # The operation config is what config.json and the cache metadata persist:
+        # hierarchy mappings (input values) are replaced by a digest there.
         kwargs["config"] = CVPLLinkageConfig(
-            **self._cvpl.to_params(), **{k: v for k, v in kwargs.items() if k == "description"}
+            **self._cvpl.to_public_params(), **{k: v for k, v in kwargs.items() if k == "description"}
         )
         super().__init__(name=name, **kwargs)
         self.operation_name = self.__class__.__name__
@@ -150,4 +161,10 @@ class CVPLLinkageOperation(MetricsOperation):
         return {}
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
-        return self._cvpl.to_params()
+        params = self._cvpl.to_public_params()
+        params["algorithm_id"] = ALGORITHM_ID
+        params["algorithm_version"] = ALGORITHM_VERSION
+        if self._frozen_projection is not None:
+            # a frozen projection fitted elsewhere is a different experiment
+            params["frozen_projection_fingerprint"] = self._frozen_projection.fingerprint()
+        return params

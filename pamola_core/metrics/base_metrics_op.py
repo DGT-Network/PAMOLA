@@ -426,9 +426,13 @@ class MetricsOperation(BaseOperation):
                     ),
                 )
 
-                # Add metrics to result
+                # Add metrics to result. Scalar-only by default; a metric whose numbers
+                # are meaningless without their status/bounds/trajectory (CVPL) publishes
+                # the full structured object, nulls included, so no consumer has to
+                # reopen the JSON artifact to learn whether a number was measured.
+                structured = getattr(self, "publish_structured_metrics", False)
                 for key, value in processed_metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
+                    if structured or isinstance(value, (int, float, str, bool)):
                         result.add_metric(key, value)
 
                 # Register metrics artifact
@@ -502,6 +506,11 @@ class MetricsOperation(BaseOperation):
                     current_steps,
                     {"step": "Saving Cache", "operation_name": self.operation_name},
                 )
+
+            # The cached copy must carry the final status: set it before saving, not after
+            # (a cache hit used to come back as PENDING).
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
 
             # Cache the result if caching is enabled
             if self.use_cache:

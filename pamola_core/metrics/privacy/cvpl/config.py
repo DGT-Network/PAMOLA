@@ -11,6 +11,8 @@ number is explicit here; nothing is added to the attacker's knowledge implicitly
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -292,6 +294,22 @@ class CVPLConfig:
                     "seed", "max_comparisons", "max_group_pairs", "chunk_pairs", "tie_tolerance",
                     "zero_norm_tolerance"):
             data[key] = getattr(self, key)
+        return data
+
+    def to_public_params(self) -> Dict[str, Any]:
+        """:meth:`to_params` for ARTIFACTS (config.json, cache metadata, logs).
+
+        A hierarchy maps real category values to their parents (``{"Jane Doe": "Lyon"}``);
+        as an input value it must not be persisted. It is replaced by a digest (which still
+        distinguishes two hierarchies, so cache identity is preserved) and a size.
+        """
+        data = self.to_params()
+        for q in data["qids"]:
+            h = q.pop("hierarchy", None)
+            if h is not None:
+                canon = json.dumps(sorted((str(k), str(v)) for k, v in h.items()), ensure_ascii=True)
+                q["hierarchy_digest"] = hashlib.sha256(canon.encode("utf-8")).hexdigest()
+                q["hierarchy_size"] = len(h)
         return data
 
     def describe(self) -> Dict[str, Any]:
