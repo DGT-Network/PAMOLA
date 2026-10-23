@@ -105,6 +105,31 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `append()` is a single fsync'd write; a crash mid-append is reported as a
     truncated file on the next load (restore the `.bak.*` copy).
 
+- **Second review round (CDX-R2).**
+  - *R2-1* Dask: mapping pseudonymization now always runs its Dask work on the
+    threaded scheduler (a process/distributed scheduler gave every worker a
+    private mapping: duplicate pseudonyms, nothing persisted), and
+    `process_dataframe_using_dask` supplies `meta` from an empty frame so graph
+    construction no longer runs the operation on fabricated rows (a phantom
+    `'a' -> '000001'` entry was persisted).
+  - *R2-2* `create_if_not_exists=False` with a missing mapping file now fails
+    (`PamolaFileNotFoundError`) instead of silently creating a replacement
+    mapping; the policy is forwarded to `MappingStorage`.
+  - *R2-3a* `use_cache` is ignored (with a warning) by
+    `ConsistentMappingPseudonymizationOperation`: the result-cache identity
+    cannot cover the mapping file/state/key, so changing `mapping_file` reused
+    pseudonyms the new table never issued. The mapping file is the persistent
+    state.
+  - *R2-11* Fake name/email/organization/phone operations fail closed: a
+    generation failure used to write the ORIGINAL value and log it; it now
+    raises `FakeDataError` (operation `ERROR`) naming the row position only.
+  - *R2-12* Profiling no longer logs source rows/values (identity/MVF DEBUG row
+    dumps, MVF/currency parse warnings).
+  - *R2-9* Chunked numeric profiling merges exact statistics: median, std,
+    variance, skewness and kurtosis equal the unchunked values (the middle
+    chunk's median and averaged std were reported before). Chunks without
+    values return `median: None` plus `median_approx`.
+  - *R2-10* Chunked single-field k-values no longer come out null.
 - **`TransformersTokenizer` bypassed the offline policy (CDX-AC-9).**
   `AutoTokenizer.from_pretrained(model_name)` carried no `local_files_only`,
   so a default run could reach the Hugging Face Hub. All `from_pretrained`
