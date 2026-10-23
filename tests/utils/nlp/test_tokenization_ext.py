@@ -7,6 +7,8 @@ implementations in the tokenization_ext.py module.
 import unittest
 from unittest.mock import patch
 
+import pytest
+
 from pamola_core.utils.nlp.tokenization_ext import (
     load_ngram_dictionary,
     extract_ngrams,
@@ -19,6 +21,25 @@ from pamola_core.utils.nlp.tokenization_ext import (
     NGramExtractor,
     AdvancedTextProcessor
 )
+
+def _nltk_corpus_missing(*paths):
+    """True if the NLTK data the test needs is not installed (downloads are opt-in, SEC-01)."""
+    try:
+        import nltk
+
+        for path in paths:
+            nltk.data.find(path)
+    except (ImportError, LookupError):
+        return True
+    return False
+
+
+needs_nltk_corpora = pytest.mark.skipif(
+    _nltk_corpus_missing("corpora/wordnet", "tokenizers/punkt"),
+    reason="NLTK corpora (wordnet, punkt) are not installed; downloads are opt-in "
+    "(PAMOLA_ALLOW_REMOTE_DOWNLOADS=1 or `python -m nltk.downloader wordnet punkt`)",
+)
+
 
 class TestTokenizationExt(unittest.TestCase):
 
@@ -113,12 +134,14 @@ class TestTokenizationExt(unittest.TestCase):
         self.assertGreater(len(results), 0)
         self.assertTrue(all("collocation" in r for r in results))
 
+    @needs_nltk_corpora
     def test_extract_sentiment_words(self):
         text = "I love sunny days but hate rainy nights."
         result = extract_sentiment_words(text, language='en')
         self.assertIn('positive', result)
         self.assertIn('negative', result)
 
+    @needs_nltk_corpora
     def test_tokenize_and_analyze(self):
         result = tokenize_and_analyze(self.sample_text, language=self.language, include_ngrams=True)
         self.assertIn('tokens', result)

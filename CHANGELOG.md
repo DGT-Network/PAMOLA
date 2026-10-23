@@ -71,6 +71,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   concurrently in threads of one process share it, so a concurrent run's reset can drop an entry from
   another's report; run NLP operations one at a time when the report matters.
 
+- **NLP tests are isolated from each other (ASB-10).** `NLPModelManager` is a process-wide singleton:
+  `test_model_manager.py` left it holding mocked caches, and the offline-by-default tests that ran
+  later in a whole-directory run saw a cached "model" instead of the typed error they assert. Every test
+  under `tests/utils/nlp` now starts and ends with a fresh manager (`conftest.py`), and the
+  `test_model_manager` tests reset it in `tearDown`. The two tokenization tests that need the NLTK
+  `wordnet`/`punkt` corpora skip when the corpora are not installed (downloads are opt-in); the CI test
+  jobs install them in an explicit step. Test-only change.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the
