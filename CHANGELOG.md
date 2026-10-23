@@ -85,6 +85,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   operation runs under the NLP-scope wrapper of `execute` (no `nlp_resources_degraded`, stale registry
   entries cleared).
 
+- **Generalization metrics no longer embed the category mapping (assembly finding).** The
+  `generalization.parameters` block of `metrics/*.json` carried `category_mapping` (and `hierarchy_dict`)
+  - source category values mapped to their generalized values - into a generic metrics artifact. Only
+  `category_mapping_size` / `hierarchy_dict_size` are published now; the mapping itself stays in
+  `mappings/*_category_mapping_*.json`, the operation's data artifact. Visible after the
+  `merge_low_freq` fix (PERF-FIX-1) started to populate the mapping; the `hierarchy` strategy leaked the same
+  way before.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the

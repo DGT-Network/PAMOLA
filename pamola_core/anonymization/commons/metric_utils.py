@@ -129,6 +129,21 @@ def calculate_anonymization_effectiveness(
         }
 
 
+def _public_strategy_params(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Strategy parameters for the metrics artifact.
+
+    The category mapping / hierarchy dictionary map SOURCE category values to their generalized
+    values: they are a data artifact of the operation (written to ``mappings/``), not generic
+    metrics. The metrics keep only their size.
+    """
+    public = dict(params)
+    for key in ("category_mapping", "hierarchy_dict"):
+        value = public.pop(key, None)
+        if isinstance(value, dict):
+            public[f"{key}_size"] = len(value)
+    return public
+
+
 def calculate_generalization_metrics(
     original_series: pd.Series,
     anonymized_series: pd.Series,
@@ -158,7 +173,10 @@ def calculate_generalization_metrics(
     """
     try:
         # Initialize metrics dictionary with proper typing
-        metrics: Dict[str, Any] = {"strategy": strategy, "parameters": strategy_params}
+        metrics: Dict[str, Any] = {
+            "strategy": strategy,
+            "parameters": _public_strategy_params(strategy_params),
+        }
 
         # Calculate basic effectiveness
         effectiveness = calculate_anonymization_effectiveness(
