@@ -47,6 +47,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
 import pandas as pd
 
 from pamola_core.common.helpers.data_helper import DataHelper
@@ -845,37 +846,49 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         source_values = out_values.copy()
 
         if non_null_flags.any():
-            for pos in non_null_flags.nonzero()[0]:
-                str_value = str(source_values[pos])
+            positions = non_null_flags.nonzero()[0]
+            # Bulk application: resolve each DISTINCT value once (in order of first
+            # appearance, so new pseudonyms are allocated exactly as a row-by-row pass
+            # would allocate them), then place the results by position. The per-row loop
+            # took the mapping lock three times and ran a clock and a running mean per row.
+            texts = pd.Series(source_values[positions], dtype=object).astype(str)
+            codes, uniques = pd.factorize(texts, sort=False)
+            counts = np.bincount(codes, minlength=len(uniques))
+            resolved = np.empty(len(uniques), dtype=object)
 
-                with self._mapping_lock:
-                    # Measure only actual lookup/generation time, not lock wait
-                    lookup_start = time.perf_counter()
-                    self._total_lookups += 1
-
-                    if str_value in self._mapping:
-                        pseudonym = self._mapping[str_value]
-                        self._mapping_hits += 1
-                    else:
-                        pseudonym = self._generate_unique_pseudonym()
-                        self._mapping[str_value] = pseudonym
-                        self._reverse_mapping[pseudonym] = str_value
-                        self._pending_mappings[str_value] = pseudonym
-                        self._new_mappings_count += 1
-                        self._total_new_mappings += 1
-
-                    # Welford running mean: update inside lock to avoid race on mean state
-                    lookup_time = time.perf_counter() - lookup_start
-                    self._lookup_time_count += 1
-                    delta = lookup_time - self._lookup_time_mean
-                    self._lookup_time_mean += delta / self._lookup_time_count
-
-                out_values[pos] = pseudonym
-
-                # Persist at frequency threshold (within batch loop)
-                with self._mapping_lock:
+            with self._mapping_lock:
+                lookup_start = time.perf_counter()
+                hits = 0
+                for i, str_value in enumerate(uniques):
+                    existing = self._mapping.get(str_value)
+                    if existing is not None:
+                        resolved[i] = existing
+                        hits += int(counts[i])
+                        continue
+                    pseudonym = self._generate_unique_pseudonym()
+                    self._mapping[str_value] = pseudonym
+                    self._reverse_mapping[pseudonym] = str_value
+                    self._pending_mappings[str_value] = pseudonym
+                    self._new_mappings_count += 1
+                    self._total_new_mappings += 1
+                    resolved[i] = pseudonym
+                    hits += int(counts[i]) - 1  # later occurrences find it in the mapping
+                    # Persist at the frequency threshold, as the row-by-row pass did
                     if self._new_mappings_count >= self.persist_frequency:
                         self._persist_mappings()
+
+                n_lookups = int(len(positions))
+                self._total_lookups += n_lookups
+                self._mapping_hits += hits
+                elapsed = time.perf_counter() - lookup_start
+                # running mean of the per-lookup time, updated once per batch
+                total = self._lookup_time_count + n_lookups
+                self._lookup_time_mean = (
+                    self._lookup_time_mean * self._lookup_time_count + elapsed
+                ) / total
+                self._lookup_time_count = total
+
+            out_values[positions] = resolved[codes]
 
         # Same index object, same row order: assign values, not an aligned Series
         working_series = pd.Series(out_values, index=working_series.index, dtype=object)

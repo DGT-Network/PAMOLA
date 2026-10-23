@@ -220,6 +220,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   sits in the anonymization, transformation and fake-data bases
   (`BaseOperation._check_enrich_target`), so it applies to every operation built
   on them.
+- **Consistent-mapping pseudonymization applies the mapping in bulk (PERF-FIX-4).** Distinct values are resolved once, in order of first appearance (new pseudonyms are allocated exactly as before), and results are placed by position; the per-row loop took the mapping lock and a clock reading three times per row. Output, persistence points (`persist_frequency`), duplicate-index and null behaviour and the lookup counters are unchanged.
 - **Quality gates now block instead of merely reporting.**
   `[tool.ruff.lint]` in `pyproject.toml` defines a narrow blocking set
   (`E9` + `F`); `.coveragerc` `fail_under` moves from `0` to `83` against a
