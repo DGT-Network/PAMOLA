@@ -21,6 +21,7 @@ Key features:
 import functools
 import json
 import os
+import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -176,6 +177,39 @@ class OperationScope:
         )
 
 
+_nlp_scope = threading.local()
+
+
+def _scope_nlp_degradation(execute):
+    """Wrap ``execute``: fresh degraded-resource registry per run, reported in the result."""
+    import functools
+
+    @functools.wraps(execute)
+    def scoped(self, *args, **kwargs):
+        from pamola_core.utils.nlp import remote_resources as rr
+
+        depth = getattr(_nlp_scope, "depth", 0)
+        if depth == 0:
+            rr.reset_degraded_resources()
+        _nlp_scope.depth = depth + 1
+        try:
+            result = execute(self, *args, **kwargs)
+        finally:
+            _nlp_scope.depth = depth
+        if depth == 0:
+            degraded = rr.get_degraded_resources()
+            metrics = getattr(result, "metrics", None)
+            if degraded and metrics is not None and "nlp_resources_degraded" not in metrics:
+                try:
+                    result.add_metric("nlp_resources_degraded", degraded)
+                except Exception:  # a result type without add_metric: nothing to report into
+                    pass
+        return result
+
+    scoped._nlp_scoped = True
+    return scoped
+
+
 class BaseOperation(ABC):
     """
     Base class for all operations.
@@ -204,10 +238,22 @@ class BaseOperation(ABC):
     supports_batch: ClassVar[bool] = False
 
     def __init_subclass__(cls, **kwargs):
+        """Wrap every subclass's ``execute`` once, with two framework-level layers.
+
+        1. NLP scope (ASB-7): every ``execute`` starts with an empty degraded-resource registry and,
+           when a model or corpus it needed could not be obtained (offline by default, or a failed
+           download), reports it in ``result.metrics["nlp_resources_degraded"]``; nested
+           ``super().execute()`` calls are recognised and report only once.
+        2. Visualization dependency guard: a missing ``viz`` extra fails once, up front.
+
+        The NLP scope is applied first (innermost), the guard second, so a run refused for a
+        missing plotting library never touches the registry.
+        """
         super().__init_subclass__(**kwargs)
-        # One framework-level check instead of one per ``execute`` override.
         execute = cls.__dict__.get("execute")
         if callable(execute):
+            if not getattr(execute, "_nlp_scoped", False):
+                execute = _scope_nlp_degradation(execute)
             cls.execute = _guard_visualization_dependencies(execute)
 
     def check_visualization_dependencies(self) -> None:

@@ -61,6 +61,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `op_config.md` said `"***REDACTED***"`; the code (`OperationConfig`, `utils/redaction.py`) writes
   `"*REDACTED*"`. Text only; no behaviour change.
 
+- **The degraded NLP resource registry is scoped to one operation run and reported by every
+  operation (ASB-7).** `remote_resources` kept a process-wide registry that was never reset, so a run
+  could report a resource an earlier operation had failed to obtain, and only the text profiler put the
+  registry into its result. `BaseOperation` now wraps every subclass's `execute`: the registry is
+  cleared when the outermost `execute` starts and, if a model or corpus could not be obtained during the
+  run, `result.metrics["nlp_resources_degraded"]` (`{resource: reason}`) is added - for every
+  operation, not only the text profiler. The registry stays process-wide: operations running
+  concurrently in threads of one process share it, so a concurrent run's reset can drop an entry from
+  another's report; run NLP operations one at a time when the report matters.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the
