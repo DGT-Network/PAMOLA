@@ -84,6 +84,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Cache identity is type-preserving and covers every returned column** (CDX-R2-3b). The data
+  fingerprint tags each value of an `object` column with its Python type (`1`, `'1'`, `1.0`
+  and `True` no longer alias; a stale identity-disclosure score of 1.0 was served for data whose
+  fresh value is 0.0), and unhashable values (lists, dicts) raise `UnhashableDataError` instead
+  of falling back to their text form: the run proceeds without caching. Anonymization and
+  fake-data operations key the cache on the whole input frame, not only the processed field, so
+  changing an untouched column no longer serves the previous output. Existing entries are not reused.
+- **One redaction for every diagnostic boundary** (CDX-R2-4). `pamola_core.utils.redaction` holds
+  the single rule (secret-looking names such as `*_key`, `password`, `token`, `secret`, `salt`,
+  plus the configuration's declared `SENSITIVE_KEYS`). It is applied recursively in
+  `OperationConfig.to_safe_dict()` (so `config.json`), the reporter's `parameters` event of
+  `BaseOperation.run`, the profiling analyzers' reporter events, task-runner reports, the
+  operation log and the cache writers. `config.json` of masking, hashing and mapping operations
+  used to contain the output-encryption key.
 - **Utility metrics encode both datasets in one feature space** (CDX-AC-11b).
   `ClassificationUtility` and `RegressionUtility` ran `pd.get_dummies` on the
   original and the transformed frame separately, so a transformed frame with a

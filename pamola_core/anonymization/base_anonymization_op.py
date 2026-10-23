@@ -702,6 +702,8 @@ class AnonymizationOperation(FieldOperation):
         # Optimize memory usage if enabled
         df = self._optimize_data(df)
 
+        self._remember_input_for_cache(df)
+
         return df
 
     def _optimize_data(self, df: pd.DataFrame) -> Optional[pd.DataFrame]:

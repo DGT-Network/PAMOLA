@@ -29,6 +29,7 @@ from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
+from pamola_core.utils.redaction import redact_sensitive_parameters
 
 from pamola_core.profiling.commons.identity_utils import (
     analyze_identifier_distribution,
@@ -1582,11 +1583,13 @@ def analyze_identities(
             details={
                 "fields_count": len(identity_fields),
                 "fields": list(identity_fields.keys()),
-                "parameters": {
-                    k: v
-                    for k, v in kwargs.items()
-                    if isinstance(v, (str, int, float, bool))
-                },
+                "parameters": redact_sensitive_parameters(
+                    {
+                        k: v
+                        for k, v in kwargs.items()
+                        if isinstance(v, (str, int, float, bool))
+                    }
+                ),
             },
         )
 

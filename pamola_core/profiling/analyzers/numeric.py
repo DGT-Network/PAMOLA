@@ -31,6 +31,7 @@ from typing import Dict, List, Any, Optional
 
 import numpy as np
 import pandas as pd
+from pamola_core.utils.redaction import redact_sensitive_parameters
 
 from pamola_core.profiling.commons.numeric_utils import (
     prepare_numeric_data,
@@ -1423,11 +1424,13 @@ def analyze_numeric_fields(
             details={
                 "fields_count": len(numeric_fields),
                 "fields": numeric_fields,
-                "parameters": {
-                    k: v
-                    for k, v in kwargs.items()
-                    if isinstance(v, (str, int, float, bool))
-                },
+                "parameters": redact_sensitive_parameters(
+                    {
+                        k: v
+                        for k, v in kwargs.items()
+                        if isinstance(v, (str, int, float, bool))
+                    }
+                ),
             },
         )
 

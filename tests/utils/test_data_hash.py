@@ -56,10 +56,11 @@ def test_row_order_dtype_and_column_names_matter():
     assert generate_data_hash(df) != generate_data_hash(df.rename(columns={"x": "y"}))
 
 
-def test_unhashable_cells_are_supported():
-    df = pd.DataFrame({"v": [[1, 2], [3]]})
-    other = pd.DataFrame({"v": [[1, 2], [4]]})
-    assert generate_data_hash(df) != generate_data_hash(other)
+def test_unhashable_cells_raise_instead_of_a_lossy_fallback():
+    from pamola_core.utils.helpers import UnhashableDataError
+
+    with pytest.raises(UnhashableDataError):
+        generate_data_hash(pd.DataFrame({"v": [[1, 2], [3]]}))
 
 
 def test_series_and_dask_are_covered_too():

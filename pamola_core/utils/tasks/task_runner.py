@@ -246,9 +246,11 @@ class TaskRunner(BaseTask):
             field (str, optional): Single target field
         """
 
+        from pamola_core.utils.redaction import redact_sensitive_parameters
+
         self.lst_result.append(
             {
-                "parameters": parameters,
+                "parameters": redact_sensitive_parameters(parameters),
                 "class_name": class_name,
                 "dataset_name": operation.get("dataset_name", "main"),
                 "operation_type": operation_type,

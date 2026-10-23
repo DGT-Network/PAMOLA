@@ -232,7 +232,7 @@ class OperationCache:
                 # Last line of defence: whatever the caller built, secrets in the
                 # stored parameters are redacted (the cache writer is unencrypted).
                 if isinstance(data, dict) and "parameters" in data:
-                    from pamola_core.utils.helpers import redact_sensitive_parameters
+                    from pamola_core.utils.redaction import redact_sensitive_parameters
 
                     data = {**data, "parameters": redact_sensitive_parameters(data["parameters"])}
 

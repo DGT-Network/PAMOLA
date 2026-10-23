@@ -26,6 +26,12 @@ from pamola_core.utils.ops.op_result import (
     OperationStatus,
 )
 from pamola_core.errors.exceptions import TypeValidationError
+from pamola_core.utils.redaction import (  # noqa: F401  (re-exported: one definition, see redaction.py)
+    REDACTED,
+    is_sensitive_parameter,
+    redact_sensitive_parameters,
+    secret_identity,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -122,18 +128,37 @@ def safe_numpy_bytes(arr: np.ndarray) -> bytes:
 _HASH_CHUNK_ROWS = 200_000
 
 
+class UnhashableDataError(ValueError):
+    """A value cannot be fingerprinted faithfully, so no cache key may be derived from it."""
+
+
 def _update_with_series(hasher: "hashlib.blake2b", s: pd.Series) -> None:
-    """Feed every value of ``s`` (and nothing else) into ``hasher``, chunk by chunk."""
+    """Feed every value of ``s`` (and nothing else) into ``hasher``, chunk by chunk.
+
+    Type-preserving: for ``object`` columns the Python type of each value is hashed next to
+    the value, so ``1`` and ``'1'`` (or ``1.0``, ``True``) differ; other dtypes are
+    identified by the dtype in the frame header. There is no text fallback: a value that
+    cannot be hashed (a list, a dict) raises ``UnhashableDataError`` and the caller must
+    skip caching rather than key on an approximation.
+    """
+    is_object = s.dtype == object
+    values, kinds = hashlib.blake2b(digest_size=32), hashlib.blake2b(digest_size=32)
     for start in range(0, len(s), _HASH_CHUNK_ROWS):
         chunk = s.iloc[start : start + _HASH_CHUNK_ROWS]
         try:
             hashed = pd.util.hash_pandas_object(chunk, index=False, categorize=True)
-        except TypeError:
-            # Unhashable cell values (lists, dicts): hash their text form.
-            hashed = pd.util.hash_pandas_object(
-                chunk.astype(str), index=False, categorize=True
-            )
-        hasher.update(hashed.to_numpy().tobytes())
+        except TypeError as exc:
+            raise UnhashableDataError(
+                f"column '{s.name}' holds values that cannot be fingerprinted ({exc})"
+            ) from exc
+        values.update(hashed.to_numpy().tobytes())
+        if is_object:
+            names = np.array([type(v).__qualname__ for v in chunk.to_numpy()], dtype=object)
+            kinds.update(pd.util.hash_array(names).tobytes())
+    # two separate streams, merged at the end: the digest must not depend on the chunk size
+    hasher.update(values.digest())
+    if is_object:
+        hasher.update(kinds.digest())
 
 
 def _update_with_index(hasher: "hashlib.blake2b", index: pd.Index) -> None:
@@ -226,60 +251,6 @@ def generate_data_hash(
             ),
         )
     return hasher.hexdigest()
-
-
-#: Parameter names whose values are secrets and must never be persisted or logged.
-_SENSITIVE_NAMES = frozenset(
-    {
-        "encryption_key", "password", "token", "secret", "api_key", "salt",
-        "pepper", "passphrase", "private_key", "key",
-    }
-)
-_SENSITIVE_SUFFIXES = (
-    "_key", "_password", "_secret", "_token", "_passphrase", "_salt", "_pepper",
-)
-_REDACTED = "*REDACTED*"
-
-
-def is_sensitive_parameter(name: Any) -> bool:
-    """True if a parameter called ``name`` carries a secret."""
-    lowered = str(name).lower()
-    return lowered in _SENSITIVE_NAMES or lowered.endswith(_SENSITIVE_SUFFIXES)
-
-
-def redact_sensitive_parameters(value: Any, extra_keys: Any = ()) -> Any:
-    """Copy of ``value`` with the values of secret-named keys replaced.
-
-    Applied before any parameters are serialized (cache metadata, logs). Works
-    recursively through dicts, lists and tuples; ``extra_keys`` adds names an
-    operation's config declares as sensitive (``OperationConfig.SENSITIVE_KEYS``).
-    """
-    extra = set(extra_keys)
-    if isinstance(value, dict):
-        return {
-            k: (
-                _REDACTED
-                if (k in extra or is_sensitive_parameter(k)) and v is not None
-                else redact_sensitive_parameters(v, extra)
-            )
-            for k, v in value.items()
-        }
-    if isinstance(value, (list, tuple)):
-        return [redact_sensitive_parameters(v, extra) for v in value]
-    return value
-
-
-def secret_identity(secret: Any) -> Optional[str]:
-    """Non-secret stand-in for a secret that must still influence a cache key.
-
-    A truncated BLAKE2b digest: stable for the same secret, different for another,
-    and not the secret. ``None`` stays ``None``.
-    """
-    if secret is None:
-        return None
-    return hashlib.blake2b(
-        str(secret).encode("utf-8"), digest_size=16, person=b"pamola-cache"
-    ).hexdigest()
 
 
 def build_base_cache(

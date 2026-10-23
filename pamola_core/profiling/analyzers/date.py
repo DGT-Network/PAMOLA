@@ -29,6 +29,7 @@ from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional, Union
 import pandas as pd
+from pamola_core.utils.redaction import redact_sensitive_parameters
 import dask.dataframe as dd
 
 from pamola_core.profiling.commons.date_utils import (
@@ -1278,11 +1279,13 @@ def analyze_date_fields(
                 "fields": date_fields,
                 "id_column": actual_id_column,
                 "uid_column": actual_uid_column,
-                "parameters": {
-                    k: v
-                    for k, v in kwargs.items()
-                    if isinstance(v, (str, int, float, bool))
-                },
+                "parameters": redact_sensitive_parameters(
+                    {
+                        k: v
+                        for k, v in kwargs.items()
+                        if isinstance(v, (str, int, float, bool))
+                    }
+                ),
             },
         )
 

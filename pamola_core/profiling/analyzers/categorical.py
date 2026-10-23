@@ -28,6 +28,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import pandas as pd
+from pamola_core.utils.redaction import redact_sensitive_parameters
 from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources,
@@ -1157,11 +1158,13 @@ def analyze_categorical_fields(
                 "fields": cat_fields,
                 "top_n": top_n,
                 "min_frequency": min_frequency,
-                "parameters": {
-                    k: v
-                    for k, v in kwargs.items()
-                    if isinstance(v, (str, int, float, bool))
-                },
+                "parameters": redact_sensitive_parameters(
+                    {
+                        k: v
+                        for k, v in kwargs.items()
+                        if isinstance(v, (str, int, float, bool))
+                    }
+                ),
             },
         )
 

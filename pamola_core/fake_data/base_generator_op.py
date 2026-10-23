@@ -666,6 +666,8 @@ class GeneratorOperation(FieldOperation):
             self.logger.error(error_msg)
             raise TypeValidationError(error_msg) from e
 
+        self._remember_input_for_cache(df)
+
         return df
 
     def _prepare_output_field(self, df: pd.DataFrame) -> str:

@@ -31,6 +31,7 @@ import time
 from typing import Dict, List, Any, Optional
 
 import pandas as pd
+from pamola_core.utils.redaction import redact_sensitive_parameters
 
 from pamola_core.common.constants import Constants
 from pamola_core.profiling.commons.mvf_utils import (
@@ -1576,11 +1577,13 @@ def analyze_mvf_fields(
                 "fields": mvf_fields,
                 "top_n": top_n,
                 "min_frequency": min_frequency,
-                "parameters": {
-                    k: v
-                    for k, v in kwargs.items()
-                    if isinstance(v, (str, int, float, bool))
-                },
+                "parameters": redact_sensitive_parameters(
+                    {
+                        k: v
+                        for k, v in kwargs.items()
+                        if isinstance(v, (str, int, float, bool))
+                    }
+                ),
             },
         )
 

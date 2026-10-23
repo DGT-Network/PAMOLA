@@ -29,9 +29,10 @@ import pandas as pd
 import dask.dataframe as dd
 
 from pamola_core.common.type_aliases import DataFrameType
-from pamola_core.utils.helpers import (
-    generate_data_hash,
+from pamola_core.utils.helpers import generate_data_hash
+from pamola_core.utils.redaction import (
     is_sensitive_parameter,
+    redact_sensitive_parameters,
     secret_identity,
 )
 from pamola_core.utils.ops.op_config import OperationConfig
@@ -797,11 +798,14 @@ class BaseOperation(ABC):
                     "scope": (
                         self.scope.to_dict() if hasattr(self.scope, "to_dict") else None
                     ),
-                    "parameters": {
-                        k: v
-                        for k, v in kwargs.items()
-                        if isinstance(v, (str, int, float, bool))
-                    },
+                    "parameters": redact_sensitive_parameters(
+                        {
+                            k: v
+                            for k, v in kwargs.items()
+                            if isinstance(v, (str, int, float, bool))
+                        },
+                        getattr(self.config, "SENSITIVE_KEYS", ()),
+                    ),
                     "use_dask": self.use_dask,
                     "use_vectorization": self.use_vectorization,
                     "use_encryption": self.use_encryption,
@@ -1042,6 +1046,34 @@ class BaseOperation(ABC):
         # Base implementation returns minimal parameters
         return {}
 
+    def _remember_input_for_cache(self, df: Union[pd.DataFrame, dd.DataFrame]) -> None:
+        """Fingerprint the WHOLE input frame once, at load time, for the cache key.
+
+        An operation that returns a frame (or an artifact built from one) depends on every
+        column it returns, not only on the field it transforms; keying on the field alone
+        served a stale CSV after an untouched column changed. Computed before processing
+        mutates the working copy, so the key at lookup and at save time is the same. A frame
+        that cannot be fingerprinted faithfully marks the call as uncacheable.
+        """
+        self._input_digest = None
+        if not self.use_cache:
+            return
+        try:
+            self._input_digest = generate_data_hash(df)
+        except Exception as exc:  # noqa: BLE001 - any failure means "do not cache"
+            self._input_digest = exc
+            self.logger.warning(f"Caching disabled for this run: {exc}")
+
+    def _cache_data_hash(self, df: Union[pd.Series, pd.DataFrame, dd.DataFrame]) -> str:
+        """Fingerprint of the input for the cache key. Raises when none can be made
+        faithfully; callers treat that as "do not cache"."""
+        digest = getattr(self, "_input_digest", None)
+        if isinstance(digest, BaseException):
+            raise digest
+        if digest is not None:
+            return digest
+        return generate_data_hash(df)
+
     def _generate_cache_key(
         self, df: Union[pd.Series, pd.DataFrame, dd.DataFrame]
     ) -> str:
@@ -1063,8 +1095,8 @@ class BaseOperation(ABC):
         # Get operation parameters
         parameters = self._get_base_parameters()
 
-        # Generate data hash based on key characteristics
-        data_hash = generate_data_hash(df)
+        # Fingerprint of everything that decides the result (see _cache_data_hash)
+        data_hash = self._cache_data_hash(df)
 
         # Use the operation_cache utility to generate a consistent cache key
         return operation_cache.generate_cache_key(
