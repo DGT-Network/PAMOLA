@@ -538,6 +538,16 @@ def analyze_numeric_chunk(
     chunk_basic_stats["skewness"] = calculate_skewness(chunk_series)
     chunk_basic_stats["kurtosis"] = calculate_kurtosis(chunk_series)
 
+    # Sufficient statistics for an exact merge (see combine_chunk_results):
+    # central moment sums about the chunk mean, and the values for the exact
+    # global median. Underscore keys are internal and never reach the output.
+    values = chunk_series.to_numpy(dtype=float)
+    deviation = values - values.mean()
+    chunk_basic_stats["_m2"] = float(np.sum(deviation**2))
+    chunk_basic_stats["_m3"] = float(np.sum(deviation**3))
+    chunk_basic_stats["_m4"] = float(np.sum(deviation**4))
+    chunk_basic_stats["_values"] = values
+
     # Count special values
     chunk_basic_stats["zero_count"] = count_values_by_condition(chunk_series, "zero")
     chunk_basic_stats["negative_count"] = count_values_by_condition(
@@ -645,37 +655,87 @@ def combine_chunk_results(chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]
     else:
         result_dict["mean"] = None
 
-    # Handle median (approximation)
-    if filtered_results and len(filtered_results) > 0:
-        middle_idx = len(filtered_results) // 2
-        median_val = filtered_results[middle_idx].get("median")
-        result_dict["median"] = median_val
-    else:
-        result_dict["median"] = None
+    # Merge the sufficient statistics (Pebay's pairwise update of the central
+    # moment sums): exact for mean/variance/skewness/kurtosis, including the
+    # variation BETWEEN chunks that averaging per-chunk values loses.
+    n_tot, mean_tot, m2_tot, m3_tot, m4_tot = 0, 0.0, 0.0, 0.0, 0.0
+    for r in filtered_results:
+        n_b = r.get("count") or 0
+        if n_b == 0 or r.get("mean") is None:
+            continue
+        mean_b = float(r["mean"])
+        m2_b = r.get("_m2")
+        if m2_b is None:
+            # Chunk produced by an older analyzer without moment sums:
+            # reconstruct M2 from the sample variance; M3/M4 unavailable.
+            var_b = r.get("var")
+            m2_b = (var_b or 0.0) * (n_b - 1)
+        m3_b = r.get("_m3")
+        m4_b = r.get("_m4")
+        if n_tot == 0:
+            n_tot, mean_tot, m2_tot, m3_tot, m4_tot = n_b, mean_b, m2_b, m3_b, m4_b
+            continue
+        n_a = n_tot
+        n = n_a + n_b
+        delta = mean_b - mean_tot
+        new_m2 = m2_tot + m2_b + delta**2 * n_a * n_b / n
+        if m3_tot is not None and m3_b is not None:
+            new_m3 = (
+                m3_tot + m3_b
+                + delta**3 * n_a * n_b * (n_a - n_b) / n**2
+                + 3 * delta * (n_a * m2_b - n_b * m2_tot) / n
+            )
+        else:
+            new_m3 = None
+        if m4_tot is not None and m4_b is not None and m3_tot is not None and m3_b is not None:
+            new_m4 = (
+                m4_tot + m4_b
+                + delta**4 * n_a * n_b * (n_a**2 - n_a * n_b + n_b**2) / n**3
+                + 6 * delta**2 * (n_a**2 * m2_b + n_b**2 * m2_tot) / n**2
+                + 4 * delta * (n_a * m3_b - n_b * m3_tot) / n
+            )
+        else:
+            new_m4 = None
+        mean_tot += delta * n_b / n
+        m2_tot, m3_tot, m4_tot, n_tot = new_m2, new_m3, new_m4, n
 
-    # Handle std
-    if total_count > 0:
-        std_sum = 0.0
-        for r in filtered_results:
-            std_val = r.get("std")
-            count_val = r.get("count")
-            if std_val is not None and count_val is not None:
-                std_sum += std_val * count_val
-        result_dict["std"] = std_sum / total_count
+    # Median: exact when the chunks carry their values, otherwise a clearly
+    # named approximation (count-weighted median of the chunk medians).
+    chunk_values = [r.get("_values") for r in filtered_results]
+    if chunk_values and all(v is not None for v in chunk_values):
+        result_dict["median"] = float(np.median(np.concatenate(chunk_values)))
     else:
-        result_dict["std"] = None
+        medians = [
+            (r.get("median"), r.get("count") or 0)
+            for r in filtered_results
+            if r.get("median") is not None
+        ]
+        if medians:
+            medians.sort(key=lambda mc: mc[0])
+            half = sum(c for _, c in medians) / 2.0
+            running = 0.0
+            approx = medians[-1][0]
+            for m, c in medians:
+                running += c
+                if running >= half:
+                    approx = m
+                    break
+            result_dict["median"] = None
+            result_dict["median_approx"] = approx
+        else:
+            result_dict["median"] = None
 
-    # Handle variance
-    if total_count > 0:
-        var_sum = 0.0
-        for r in filtered_results:
-            var_val = r.get("var")
-            count_val = r.get("count")
-            if var_val is not None and count_val is not None:
-                var_sum += var_val * count_val
-        result_dict["variance"] = var_sum / total_count
+    # Std / variance (sample, ddof=1 like the unchunked pandas aggregation)
+    if n_tot > 1:
+        variance = m2_tot / (n_tot - 1)
+        result_dict["variance"] = variance
+        result_dict["std"] = float(np.sqrt(variance))
+    elif n_tot == 1:
+        result_dict["variance"] = float("nan")
+        result_dict["std"] = float("nan")
     else:
         result_dict["variance"] = None
+        result_dict["std"] = None
 
     # Handle sum
     sum_total = 0.0
@@ -688,29 +748,26 @@ def combine_chunk_results(chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]
 
     result_dict["sum"] = sum_total if sum_available else None
 
-    # Handle skewness
-    if total_count > 0:
-        skew_sum = 0.0
-        for r in filtered_results:
-            skew_val = r.get("skewness")
-            count_val = r.get("count")
-            if skew_val is not None and count_val is not None:
-                skew_sum += skew_val * count_val
-        result_dict["skewness"] = skew_sum / total_count
-    else:
+    # Skewness / kurtosis from the merged moments, same definitions as the
+    # unchunked calculate_skewness / calculate_kurtosis.
+    if n_tot >= 3 and m3_tot is not None and n_tot > 1 and m2_tot > 0:
+        variance = m2_tot / (n_tot - 1)
+        result_dict["skewness"] = float(
+            (m3_tot / n_tot) / (variance ** 1.5)
+            * np.sqrt(n_tot * (n_tot - 1)) / (n_tot - 2)
+        )
+    elif total_count > 0 and m3_tot is None:
+        # Chunks without moment sums: no exact merge is possible.
         result_dict["skewness"] = None
-
-    # Handle kurtosis
-    if total_count > 0:
-        kurt_sum = 0.0
-        for r in filtered_results:
-            kurt_val = r.get("kurtosis")
-            count_val = r.get("count")
-            if kurt_val is not None and count_val is not None:
-                kurt_sum += kurt_val * count_val
-        result_dict["kurtosis"] = kurt_sum / total_count
     else:
+        result_dict["skewness"] = 0.0
+
+    if n_tot > 4 and m4_tot is not None and m2_tot > 0:
+        result_dict["kurtosis"] = float(n_tot * m4_tot / (m2_tot**2) - 3.0)
+    elif total_count > 0 and m4_tot is None:
         result_dict["kurtosis"] = None
+    else:
+        result_dict["kurtosis"] = 0.0
 
     # Handle count values
     zero_count = 0
