@@ -30,7 +30,7 @@ from __future__ import annotations
 import time
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -48,8 +48,10 @@ from pamola_core.errors.exceptions import (
 
 from .compat import (
     QIDEncoding,
+    _group_compat,
     classify_transition,
     encode_qid,
+    limitation_message,
     plan_rung,
     resolve_kind,
 )
@@ -154,42 +156,90 @@ class RungScan:
     pairs_compared: int = 0
 
 
+class _SubjectAcc:
+    """Exact distinct-subject counts per source row when subjects repeat in the release.
+
+    Keys are ``source_row * n_subjects + subject``; they are merged and de-duplicated as
+    they arrive, so a (row, subject) pair seen through two released rows - or through two
+    ladder rungs - counts once.
+    """
+
+    _FLUSH = 4_000_000
+
+    def __init__(self, n_rows: int, gt: PreparedGroundTruth) -> None:
+        self.n = n_rows
+        self.s = max(1, gt.n_subjects)
+        self.keys = np.empty(0, dtype=np.int64)
+        self._pending: List[np.ndarray] = []
+        self._pending_len = 0
+
+    def add(self, rows: np.ndarray, subj: np.ndarray) -> None:
+        k = rows.astype(np.int64) * self.s + subj.astype(np.int64)
+        self._pending.append(k)
+        self._pending_len += len(k)
+        if self._pending_len >= self._FLUSH:
+            self._flush()
+
+    def _flush(self) -> None:
+        if self._pending:
+            self.keys = np.unique(np.concatenate([self.keys] + self._pending))
+            self._pending, self._pending_len = [], 0
+
+    def result(self, true_codes: np.ndarray):
+        self._flush()
+        cnt = np.bincount(self.keys // self.s, minlength=self.n).astype(np.int64)
+        hit = np.zeros(self.n, dtype=bool)
+        if len(self.keys):
+            rows = self.keys // self.s
+            subj = self.keys % self.s
+            hit[rows[subj == true_codes[rows]]] = True
+        return cnt, hit
+
+
 class _Scanner:
+    """Blocked similarity scan. ``scan`` evaluates one rung (or, with ``cover``, the part of
+    a rung not already explored by earlier rungs, so that several rungs together are
+    evaluated over the UNION of their candidate sets with every pair counted once)."""
+
     def __init__(
         self, cfg: CVPLConfig, zs: np.ndarray, zr: np.ndarray, deg_s: np.ndarray, deg_r: np.ndarray,
         gt: Optional[PreparedGroundTruth], projection: CVPLProjection,
-        cols_s: FeatureColumns, cols_r: FeatureColumns,
+        cols_s: FeatureColumns, cols_r: FeatureColumns, encs: Dict[str, QIDEncoding],
     ) -> None:
         self.cfg, self.zs, self.zr = cfg, zs, zr
         self.deg_s, self.deg_r = deg_s, deg_r
         self.gt, self.projection, self.cols_s, self.cols_r = gt, projection, cols_s, cols_r
-        self.any_deg = bool(deg_s.any() or deg_r.any())
+        self.encs = encs
+        self._acc: Optional[_SubjectAcc] = None
 
-    # one scan: mode 'link' (threshold tau) then optionally 'top1' (ties of the maximum)
-    def scan(self, plan, with_gt: bool) -> RungScan:
+    def scan(self, plans: Sequence[Tuple[Any, Sequence[Sequence[str]]]], with_gt: bool) -> RungScan:
+        """``plans``: ``[(RungPlan, qid_lists_of_earlier_rungs_to_exclude), ...]``."""
         # The blocks are many and the matrices thin (k <= 50 columns): a multi-threaded BLAS
         # spends more time coordinating threads than multiplying (measured 10-20x slower on
         # a shared 12-core host). One BLAS thread per scan; the work is memory-bound anyway.
         limit = threadpool_limits(limits=1, user_api="blas") if threadpool_limits else nullcontext()
         with limit:
-            return self._scan(plan, with_gt)
+            return self._scan(plans, with_gt)
 
-    def _scan(self, plan, with_gt: bool) -> RungScan:
+    def _scan(self, plans, with_gt: bool) -> RungScan:
         n = len(self.zs)
+        gt = self.gt
         out = RungScan(
             n_cand=np.zeros(n, dtype=np.int64), linked=np.zeros(n, dtype=bool),
             best=np.full(n, -np.inf), undefined=np.zeros(n, dtype=bool),
             fallback_any=np.zeros(n, dtype=bool), fallback_only=np.zeros(n, dtype=bool),
         )
+        use_acc = with_gt and not gt.rel_unique
         if with_gt:
             out.cnt = np.zeros(n, dtype=np.int64)
             out.hit = np.zeros(n, dtype=bool)
-        fb_pairs: Dict[int, List[int]] = {}  # source row -> candidate rows matched exactly
-        for src_rows, cand_rows in plan.blocks():
-            out.n_cand[src_rows] = len(cand_rows)
-            self._block(src_rows, cand_rows, out, mode="link", fb=fb_pairs)
-        # exact-equality fallback links count as passing candidates with similarity 1
-        for row, cands in fb_pairs.items():
+        fb: Dict[int, set] = {}  # source row -> released rows matched by the exact fallback
+        self._acc = _SubjectAcc(n, gt) if use_acc else None
+        for plan, cover in plans:
+            for src_rows, cand_rows in plan.blocks():
+                self._count_candidates(src_rows, cand_rows, cover, out)
+                self._block(src_rows, cand_rows, cover, out, mode="link", fb=fb)
+        for row, cands in fb.items():
             out.fallback_any[row] = True
             out.fallback_pairs += len(cands)
             if not out.linked[row]:
@@ -197,26 +247,59 @@ class _Scanner:
             out.linked[row] = True
             out.best[row] = max(out.best[row], 1.0)
             if with_gt:
-                self._add_subjects(out.cnt, out.hit, row, np.asarray(cands))
+                self._add_fallback(row, np.fromiter(cands, dtype=np.int64), out.cnt, out.hit)
+        if use_acc:
+            out.cnt, out.hit = self._acc.result(gt.src_code)
+            out.linked |= out.cnt > 0
         out.undefined &= ~out.linked  # an undefined pair matters only if no link was found
         if with_gt:
             out.tie_cnt = np.zeros(n, dtype=np.int64)
             out.tie_hit = np.zeros(n, dtype=bool)
-            for src_rows, cand_rows in plan.blocks():
-                self._block(src_rows, cand_rows, out, mode="top1", fb=None)
-            for row, cands in fb_pairs.items():
+            self._acc = _SubjectAcc(n, gt) if use_acc else None
+            for plan, cover in plans:
+                for src_rows, cand_rows in plan.blocks():
+                    self._block(src_rows, cand_rows, cover, out, mode="top1", fb=None)
+            for row, cands in fb.items():
                 # a degenerate source's tied top candidates are exactly its exact-equal rows
-                self._add_subjects(out.tie_cnt, out.tie_hit, row, np.asarray(cands))
+                self._add_fallback(row, np.fromiter(cands, dtype=np.int64), out.tie_cnt, out.tie_hit)
+            if use_acc:
+                out.tie_cnt, out.tie_hit = self._acc.result(gt.src_code)
         return out
 
-    # -- helpers -----------------------------------------------------------
-    def _add_subjects(self, cnt: np.ndarray, hit: np.ndarray, row: int, cand_rows: np.ndarray) -> None:
-        subj = np.unique(self.gt.rel_code[cand_rows])
+    # -- helpers -----------------------------------------------------------------
+    def _add_fallback(self, row: int, cand_rows: np.ndarray, cnt: np.ndarray, hit: np.ndarray) -> None:
+        gt = self.gt
+        if self._acc is not None:
+            self._acc.add(np.full(len(cand_rows), row), gt.rel_code[cand_rows])
+            return
+        subj = np.unique(gt.rel_code[cand_rows])
         cnt[row] += len(subj)
-        if self.gt.src_code[row] >= 0 and np.any(subj == self.gt.src_code[row]):
+        if gt.src_code[row] >= 0 and np.any(subj == gt.src_code[row]):
             hit[row] = True
 
-    def _block(self, src_rows, cand_rows, out: RungScan, mode: str, fb: Optional[dict]) -> None:
+    def _covered(self, rows: np.ndarray, cols: np.ndarray, cover: Sequence[Sequence[str]]) -> np.ndarray:
+        """Pairs already compatible under an earlier rung (any of them)."""
+        covered = np.zeros((len(rows), len(cols)), dtype=bool)
+        for qids in cover:
+            m = np.ones_like(covered)
+            for q in qids:
+                m &= _group_compat(self.encs[q], rows, cols, self.cfg.null_policy)
+            covered |= m
+        return covered
+
+    def _count_candidates(self, src_rows, cand_rows, cover, out: RungScan) -> None:
+        if not cover:
+            out.n_cand[src_rows] += len(cand_rows)
+            return
+        width = int(min(len(cand_rows), 8192))
+        step = max(1, self.cfg.chunk_pairs // width)
+        for a in range(0, len(src_rows), step):
+            rows = src_rows[a: a + step]
+            for b in range(0, len(cand_rows), width):
+                cc = cand_rows[b: b + width]
+                out.n_cand[rows] += (~self._covered(rows, cc, cover)).sum(axis=1)
+
+    def _block(self, src_rows, cand_rows, cover, out: RungScan, mode: str, fb: Optional[dict]) -> None:
         cfg = self.cfg
         src_deg = self.deg_s[src_rows]
         cand_deg = self.deg_r[cand_rows]
@@ -235,7 +318,8 @@ class _Scanner:
         width = int(min(len(vc), 8192))
         step = max(1, cfg.chunk_pairs // width)
         tau = cfg.tau - _TAU_EPS
-        with_gt = self.gt is not None and out.cnt is not None
+        gt = self.gt
+        with_gt = gt is not None and out.cnt is not None
         for a in range(0, len(vs), step):
             rows = vs[a: a + step]
             zq = self.zs[rows]
@@ -246,7 +330,6 @@ class _Scanner:
                 thr = np.where(keep, out.best[rows] - cfg.tie_tolerance, np.inf)
             else:
                 thr = np.full(len(rows), tau)
-            acc = _SubjectAcc(len(rows), self.gt) if (with_gt and not self.gt.rel_unique) else None
             best = np.full(len(rows), -np.inf)
             any_pass = np.zeros(len(rows), dtype=bool)
             cnt = np.zeros(len(rows), dtype=np.int64)
@@ -254,16 +337,22 @@ class _Scanner:
             for b in range(0, len(vc), width):
                 cc = vc[b: b + width]
                 sim = zq @ self.zr[cc].T
-                out.pairs_compared += sim.size if mode == "link" else 0
+                if cover:
+                    covered = self._covered(rows, cc, cover)
+                    sim[covered] = -2.0  # explored by an earlier rung: not a new pair
+                    n_new = sim.size - int(covered.sum())
+                else:
+                    n_new = sim.size
                 if mode == "link":
+                    out.pairs_compared += n_new
                     best = np.maximum(best, sim.max(axis=1))
                 pas = sim >= thr[:, None]
                 if not with_gt:
                     any_pass |= pas.any(axis=1)
                     continue
-                if acc is None:  # every released row is its own subject
+                if self._acc is None:  # every released row is its own subject
                     cnt += pas.sum(axis=1)
-                    tr = self.gt.true_row[rows]
+                    tr = gt.true_row[rows]
                     ok = tr >= 0
                     if ok.any():
                         colpos = _lookup(cc, tr)
@@ -274,20 +363,17 @@ class _Scanner:
                 else:
                     r_idx, c_idx = np.nonzero(pas)
                     if len(r_idx):
-                        acc.add(r_idx, self.gt.rel_code[cc[c_idx]])
+                        self._acc.add(rows[r_idx], gt.rel_code[cc[c_idx]])
             if mode == "link":
                 out.best[rows] = np.maximum(out.best[rows], best)
                 if with_gt:
-                    if acc is not None:
-                        cnt, hit = acc.result(self.gt.src_code[rows])
-                    out.cnt[rows] += cnt
-                    out.hit[rows] |= hit
-                    out.linked[rows] |= cnt > 0
+                    if self._acc is None:
+                        out.cnt[rows] += cnt
+                        out.hit[rows] |= hit
+                        out.linked[rows] |= cnt > 0
                 else:
                     out.linked[rows] |= any_pass
-            else:
-                if acc is not None:
-                    cnt, hit = acc.result(self.gt.src_code[rows])
+            elif self._acc is None:
                 out.tie_cnt[rows] += cnt
                 out.tie_hit[rows] |= hit
 
@@ -306,7 +392,7 @@ class _Scanner:
         for i, k in enumerate(ks):
             matches = by_key.get(int(k))
             if matches:
-                fb.setdefault(int(deg_src_rows[i]), []).extend(matches)
+                fb.setdefault(int(deg_src_rows[i]), set()).update(matches)
 
 
 def _lookup(sorted_or_not_cols: np.ndarray, targets: np.ndarray) -> np.ndarray:
@@ -317,29 +403,6 @@ def _lookup(sorted_or_not_cols: np.ndarray, targets: np.ndarray) -> np.ndarray:
     pos = np.clip(pos, 0, len(srt) - 1)
     found = (srt[pos] == targets) & (targets >= 0)
     return np.where(found, order[pos], -1)
-
-
-class _SubjectAcc:
-    """Exact distinct-subject counts per source row when subjects repeat in the release."""
-
-    def __init__(self, n_rows: int, gt: PreparedGroundTruth) -> None:
-        self.n = n_rows
-        self.s = max(1, gt.n_subjects)
-        self.keys = np.empty(0, dtype=np.int64)
-
-    def add(self, r_idx: np.ndarray, subj: np.ndarray) -> None:
-        k = r_idx.astype(np.int64) * self.s + subj.astype(np.int64)
-        self.keys = np.unique(np.concatenate([self.keys, k]))
-
-    def result(self, true_codes: np.ndarray):
-        cnt = np.bincount(self.keys // self.s, minlength=self.n).astype(np.int64)
-        hit = np.zeros(self.n, dtype=bool)
-        if len(self.keys):
-            rows = self.keys // self.s
-            subj = self.keys % self.s
-            m = subj == true_codes[rows]
-            hit[rows[m]] = True
-        return cnt, hit
 
 
 # ---------------------------------------------------------------------------
@@ -484,11 +547,16 @@ def run_cvpl(
     release: pd.DataFrame,
     config: CVPLConfig,
     frozen_projection: Optional[CVPLProjection] = None,
+    force_union: bool = False,
 ) -> CVPLResult:
     """Measure CVPL linkage of ``release`` against ``source`` (direction source -> release).
 
     The two frames keep their own, unrelated indices; the source row count ``N`` is the
     denominator of every population measure, whatever the release contains.
+
+    ``force_union`` evaluates the headline over the union of all rungs' candidate sets even
+    for a nested ladder (where it must equal the last rung, Theorem 1); it exists to verify
+    that equality.
     """
     cfg = config
     t0 = time.perf_counter()
@@ -529,7 +597,8 @@ def run_cvpl(
                 f"qids[{spec.name}].generalized", True, "a generalized categorical QID needs a hierarchy")
         encs[spec.name] = encode_qid(spec, source[spec.name], release[spec.name], cfg)
     base["qid_status"] = {
-        q: {"kind": e.kind, "applicable": e.applicable, "limitation": e.limitation, **e.stats}
+        q: {"kind": e.kind, "applicable": e.applicable, "limitation": e.limitation,
+            "fix": None if e.applicable else limitation_message(q, e.limitation), **e.stats}
         for q, e in encs.items()
     }
 
@@ -568,6 +637,20 @@ def run_cvpl(
         "feature_columns": info.feature_columns, "encoding": info.encoding,
         "imputed_values": info.imputed_values, "degenerate": info.degenerate,
     }
+    # bucketing is never silent: which attributes were collapsed, and by how much
+    bucketed = [
+        {"feature": name, "distinct_values": e["distinct_values"], "encoded_width": e["encoded_width"],
+         "distinct_values_collapsed": e["distinct_values_in_other_bucket"],
+         "rows_in_other_bucket": e["values_in_other_bucket"]}
+        for name, e in info.encoding.items() if e["bounded"]
+    ]
+    base["bucketed_features"] = bucketed
+    base["warnings"] = [
+        f"feature '{b['feature']}': {b['distinct_values']} distinct values encoded in {b['encoded_width']} "
+        f"columns; {b['distinct_values_collapsed']} rare values ({b['rows_in_other_bucket']} rows) share one "
+        "bucket (raise max_categories for finer detail)"
+        for b in bucketed
+    ]
     zs = proj.project(cols_s, n)
     zr = proj.project(cols_r, m_rel)
     tol = cfg.zero_norm_tolerance
@@ -589,15 +672,16 @@ def run_cvpl(
     base["gt_coverage"] = base["ground_truth"]["gt_coverage"]
     use_gt = gt.status in ("complete", "partial")
 
-    scanner = _Scanner(cfg, zs, zr, deg_s, deg_r, gt if use_gt else None, proj, cols_s, cols_r)
+    scanner = _Scanner(cfg, zs, zr, deg_s, deg_r, gt if use_gt else None, proj, cols_s, cols_r, encs)
 
     # -- ladder ----------------------------------------------------------------------
     ladder = cfg.ladder
     rungs: List[Dict[str, Any]] = []
+    plans: List[Any] = []
+    rung_meas: List[Optional[Dict[str, Any]]] = []
+    rung_state: List[Dict[str, Any]] = []
     cumulative = np.zeros(n, dtype=bool)
     cum_with_cand = np.zeros(n, dtype=bool)
-    last_measures: Optional[Dict[str, Any]] = None
-    last_status: Dict[str, Any] = {}
     transitions: List[str] = []
     for r, qids in enumerate(ladder):
         entry: Dict[str, Any] = {"rung": r, "qids": list(qids)}
@@ -605,70 +689,106 @@ def run_cvpl(
             tr = classify_transition(ladder[r - 1], qids)
             entry["transition"] = tr
             transitions.append(tr)
+        plan = None
+        meas = None
+        state = {"status": "not_measured", "reason": None}
         try:
             plan = plan_rung(qids, encs, n, m_rel, cfg)
         except ResourceError as exc:
             entry.update(status="not_measured", reason="resource_limit", detail=str(exc))
-            rungs.append(entry)
-            last_measures, last_status = None, {"status": "not_measured", "reason": "resource_limit"}
-            continue
-        entry["n_blocks"] = plan.n_blocks
-        entry["planned_comparisons"] = int(plan.comparisons)
-        if not plan.applicable:
-            entry.update(status="not_applicable", reason=plan.reason)
-            rungs.append(entry)
-            last_measures, last_status = None, {"status": "not_applicable", "reason": plan.reason}
-            continue
-        if plan.comparisons > cfg.max_comparisons:
-            entry.update(
-                status="not_measured", reason="resource_limit",
-                detail=f"{plan.comparisons:,} comparisons planned, limit {cfg.max_comparisons:,}",
-            )
-            rungs.append(entry)
-            last_measures, last_status = None, {"status": "not_measured", "reason": "resource_limit"}
-            continue
-        scan = scanner.scan(plan, with_gt=use_gt)
-        meas = _rung_measures(scan, n, gt if use_gt else None, gt.status == "complete")
-        cumulative |= scan.linked
-        cum_with_cand |= scan.n_cand > 0
-        entry.update(status="measured", reason=None, cumulative_lr=float(cumulative.sum() / n))
-        public = {k: v for k, v in meas.items() if k != "_gt"}
-        entry["measures"] = public
-        if use_gt:
-            entry["measures"].update({k: v for k, v in _gt_fields(meas, gt, n, {}).items() if not k.endswith("_status")})
+            state = {"status": "not_measured", "reason": "resource_limit"}
+        else:
+            entry["n_blocks"] = plan.n_blocks
+            entry["planned_comparisons"] = int(plan.comparisons)
+            if not plan.applicable:
+                entry.update(status="not_applicable", reason=plan.reason)
+                state = {"status": "not_applicable", "reason": plan.reason}
+            elif plan.comparisons > cfg.max_comparisons:
+                entry.update(
+                    status="not_measured", reason="resource_limit",
+                    detail=f"{plan.comparisons:,} comparisons planned, limit {cfg.max_comparisons:,}",
+                )
+                state = {"status": "not_measured", "reason": "resource_limit"}
+            else:
+                scan = scanner.scan([(plan, [])], use_gt)
+                meas = _rung_measures(scan, n, gt if use_gt else None, gt.status == "complete")
+                cumulative |= scan.linked
+                cum_with_cand |= scan.n_cand > 0
+                entry.update(status="measured", reason=None, cumulative_lr=float(cumulative.sum() / n))
+                entry["measures"] = {k: v for k, v in meas.items() if k != "_gt"}
+                if use_gt:
+                    entry["measures"].update(
+                        {k: v for k, v in _gt_fields(meas, gt, n, {}).items() if not k.endswith("_status")}
+                    )
+                state = {"status": "measured", "reason": None}
         rungs.append(entry)
-        last_measures, last_status = meas, {"status": "measured", "reason": None}
+        plans.append(plan)
+        rung_meas.append(meas)
+        rung_state.append(state)
 
     nested = all(t in ("relaxing", "equal") for t in transitions)
-    tightening_only = bool(transitions) and all(t in ("tightening", "equal") for t in transitions)
     base["blocking_ladder_trajectory"] = rungs
-    base["ladder"] = {
-        "n_rungs": len(ladder),
-        "transitions": transitions,
-        "nested": nested,
-        "monotone_lr_theorem_applies": bool(nested and len(ladder) > 1),
-        "note": (
-            "cvpl_lr cannot decrease along a nested relaxing ladder (fixed phi, psi, tau). "
-            "cvpl_id_uniform_gt has no monotonicity guarantee."
-            if nested else
-            ("rungs are not ordered by inclusion (non_nested or tightening): see candidate_union_trajectory"
-             if len(ladder) > 1 else "single rung")
-        ),
-    }
-    base["candidate_union_trajectory"] = [
-        {"rung": e["rung"], "cvpl_lr_union": e.get("cumulative_lr"), "qids": e["qids"]}
+    base["cvpl_lr_by_rung"] = [
+        {"rung": e["rung"], "qids": e["qids"], "status": e["status"],
+         "cvpl_lr": e.get("measures", {}).get("cvpl_lr")}
         for e in rungs
+    ]
+    base["candidate_union_trajectory"] = [
+        {"rung": e["rung"], "cvpl_lr_union": e.get("cumulative_lr"), "qids": e["qids"]} for e in rungs
     ]
     base["cvpl_lr_union"] = float(cumulative.sum() / n) if any(e["status"] == "measured" for e in rungs) else None
     base["n_with_candidates_union"] = int(cum_with_cand.sum())
 
-    # -- headline = the last declared rung --------------------------------------------
-    base["headline_rung"] = len(ladder) - 1
-    if last_measures is None:
-        base.update(_all_not_measured(last_status.get("reason") or "not_measured",
-                                      status=last_status.get("status", "not_measured")))
+    # -- headline -------------------------------------------------------------------------
+    # One rung, or a nested relaxing ladder: the last rung IS the union of the candidate sets
+    # (Theorem 1's premise). Otherwise the attacker who tries every declared profile is
+    # evaluated over the union of their candidate sets - every pair counted once.
+    union_basis = (len(ladder) > 1 and not nested) or force_union
+    base["headline_basis"] = "union_of_rungs" if union_basis else "last_rung"
+    base["headline_rung"] = None if union_basis else len(ladder) - 1
+    base["ladder"] = {
+        "n_rungs": len(ladder),
+        "transitions": transitions,
+        "nested": nested,
+        "non_nested": bool(len(ladder) > 1 and not nested),
+        "monotone_lr_theorem_applies": bool(nested and len(ladder) > 1),
+        "note": (
+            "nested relaxing ladder: cvpl_lr cannot decrease along it (fixed phi, psi, tau) and the "
+            "last rung equals the union of all rungs; cvpl_id_uniform_gt has no monotonicity guarantee."
+            if nested and len(ladder) > 1 else
+            ("rungs are not ordered by inclusion: no monotonicity statement; the headline is the "
+             "attacker trying every declared profile (union of candidate sets)"
+             if len(ladder) > 1 else "single rung")
+        ),
+    }
+    head_meas: Optional[Dict[str, Any]]
+    head_state: Dict[str, Any]
+    if not union_basis:
+        head_meas, head_state = rung_meas[-1], rung_state[-1]
     else:
-        head = {k: v for k, v in last_measures.items() if k != "_gt"}
+        bad = [st for st in rung_state if st["status"] != "measured"]
+        total = sum(int(p.comparisons) for p in plans if p is not None)
+        if bad:
+            na = [st for st in bad if st["status"] == "not_applicable"]
+            head_meas = None
+            head_state = (
+                {"status": "not_applicable", "reason": "union_needs_every_rung:" + str(na[0]["reason"])}
+                if na else {"status": "not_measured", "reason": "resource_limit"}
+            )
+        elif total > cfg.max_comparisons:
+            head_meas = None
+            head_state = {"status": "not_measured", "reason": "resource_limit"}
+            base["union_detail"] = f"{total:,} comparisons planned over all rungs, limit {cfg.max_comparisons:,}"
+        else:
+            cover = [(plans[r], [list(q) for q in ladder[:r]]) for r in range(len(ladder))]
+            uscan = scanner.scan(cover, use_gt)
+            head_meas = _rung_measures(uscan, n, gt if use_gt else None, gt.status == "complete")
+            head_state = {"status": "measured", "reason": None}
+    if head_meas is None:
+        base.update(_all_not_measured(head_state.get("reason") or "not_measured",
+                                      status=head_state.get("status", "not_measured")))
+    else:
+        head = {k: v for k, v in head_meas.items() if k != "_gt"}
         base.update(head)
         proj_degenerate = info.degenerate or (deg_s.all() and deg_r.all())
         if proj_degenerate and head["n_linked"] == 0:
@@ -676,7 +796,7 @@ def run_cvpl(
         else:
             base["cvpl_lr_status"] = _status(head["cvpl_lr"], "measured", denominator=n,
                                              lower=head["cvpl_lr_lower"], upper=head["cvpl_lr_upper"])
-            base.update(_gt_fields(last_measures, gt, n, {}))
+            base.update(_gt_fields(head_meas, gt, n, {}))
         base["undefined_policy"] = (
             "a source record whose compatible candidates include a pair with undefined cosine "
             "(zero projected vector) and that has no link is counted in n_undetermined; it stays in the "

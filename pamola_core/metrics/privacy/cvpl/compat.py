@@ -51,6 +51,27 @@ _INTERVAL_RE = re.compile(
 _OPEN_ENDED_RE = re.compile(rf"^\s*[\[\(]?\s*(?P<lo>{_NUM})\s*\+\s*[\]\)]?\s*$")
 
 
+#: limitation code -> (what is wrong, how to fix it); shown in the result, names only
+LIMITATION_HELP = {
+    "generalized_values_without_hierarchy": (
+        "the release holds values outside the source's domain that look like generalized levels, "
+        "and no hierarchy was declared",
+        "declare qids[].hierarchy ({child: parent}), or set qids[].generalized=False if this QID is "
+        "exact-only and new labels simply mean different people",
+    ),
+    "release_values_not_numeric_or_interval": (
+        "the release holds values that are neither numbers, intervals nor the wildcard",
+        "provide numeric or interval values (e.g. '[20-29]'), or set qids[].generalized=False to treat "
+        "them as non-matching",
+    ),
+}
+
+
+def limitation_message(qid: str, code: Optional[str]) -> str:
+    what, fix = LIMITATION_HELP.get(code or "", (code or "unknown limitation", "see the documentation"))
+    return f"QID '{qid}' is not applicable: {what}. Fix: {fix}."
+
+
 @dataclass
 class QIDEncoding:
     """Both sides of one QID, encoded for compatibility tests."""
@@ -396,7 +417,7 @@ def plan_rung(
     bad = [q for q in qids if not encs[q].applicable]
     if bad:
         plan.applicable = False
-        plan.reason = "not_applicable:" + ",".join(f"{q}={encs[q].limitation}" for q in bad)
+        plan.reason = " ".join(limitation_message(q, encs[q].limitation) for q in bad)
         return plan
     ok_s = np.ones(n_source, dtype=bool)
     ok_r = np.ones(n_release, dtype=bool)

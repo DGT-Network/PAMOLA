@@ -200,6 +200,7 @@ def fit_projection(
                 "encoded_width": len(cats),
                 "bounded": bool(bounded),
                 "values_in_other_bucket": int(sum(int(counts[i]) for i in bucketed)) if bounded else 0,
+                "distinct_values_in_other_bucket": len(bucketed),
             }
 
     proj = CVPLProjection(
