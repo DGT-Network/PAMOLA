@@ -757,9 +757,10 @@ class MVFOperation(FieldOperation):
                 )
 
                 # Log sample of processed data
+                # Structure only: source rows must not reach generic logs.
                 if len(df) > 0:
                     self.logger.debug(
-                        f"Sample of processed data (first 5 rows): {df.head(5).to_dict(orient='records')}"
+                        f"Processed data columns: {list(df.columns)} ({len(df)} rows)"
                     )
             except Exception as e:
                 return self.error_handler.handle_error(

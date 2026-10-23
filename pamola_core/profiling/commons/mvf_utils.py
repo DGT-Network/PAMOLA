@@ -73,7 +73,7 @@ def parse_mvf(
             return [str(item).strip() for item in value]
         else:
             logger.warning(
-                f"Expected list for format_type='list' but got {type(value)}: {value}"
+                f"Expected list for format_type='list' but got {type(value)}"
             )
             return [str(value)]
 
@@ -94,7 +94,7 @@ def parse_mvf(
             else:
                 return [str(parsed)]
         except Exception:
-            logger.warning(f"Failed to parse JSON for value: {value}")
+            logger.warning("Failed to parse a JSON value")
             return [value]
 
     elif format_type == "array_string":
@@ -103,7 +103,7 @@ def parse_mvf(
             if isinstance(parsed, list):
                 return [str(item).strip() for item in parsed]
         except Exception:
-            logger.warning(f"Failed to parse array string for value: {value}")
+            logger.warning("Failed to parse an array-string value")
             return manual_parse_array_string(value, separator, quote_char)
 
     elif format_type == "csv":
@@ -340,7 +340,7 @@ def _analyze_chunk(
         except Exception as e:
             error_count += 1
             if error_count <= 10:
-                logger.warning(f"Error parsing MVF value '{value}': {str(e)}")
+                logger.warning(f"Error parsing an MVF value ({type(e).__name__})")
             elif error_count == 11:
                 logger.warning(
                     "Too many parsing errors. Further errors will not be logged."
@@ -999,7 +999,7 @@ def create_value_dictionary(
                 values = parse_mvf(value, **custom_parse_args)
                 all_values.extend(values)
             except Exception as e:
-                logger.warning(f"Error parsing MVF value '{value}': {str(e)}")
+                logger.warning(f"Error parsing an MVF value ({type(e).__name__})")
 
         # Count frequencies
         value_counter = Counter(all_values)
@@ -1079,7 +1079,7 @@ def create_combinations_dictionary(
                 values = parse_mvf(value, **custom_parse_args)
                 combinations.append(tuple(sorted(values)))
             except Exception as e:
-                logger.warning(f"Error parsing MVF value '{value}': {str(e)}")
+                logger.warning(f"Error parsing an MVF value ({type(e).__name__})")
 
         # Count frequencies
         combination_counter = Counter(combinations)
@@ -1156,7 +1156,7 @@ def analyze_value_count_distribution(
                 values = parse_mvf(value, **custom_parse_args)
                 value_counts.append(len(values))
             except Exception as e:
-                logger.warning(f"Error parsing MVF value '{value}': {str(e)}")
+                logger.warning(f"Error parsing an MVF value ({type(e).__name__})")
                 value_counts.append(0)  # Count as 0 for error cases
 
         # Count frequencies
