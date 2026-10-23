@@ -129,24 +129,39 @@ class CVPLProjection:
                 x = np.where(np.isnan(chunk), self.num_mean[name], chunk)
                 blocks.append(((x - self.num_mean[name]) / self.num_scale[name])[:, None])
             else:
-                cats = self.categories[name]
-                index = self._cat_index.get(name)
-                if index is None:
-                    index = {c: i for i, c in enumerate(cats)}
-                    self._cat_index[name] = index
-                width = len(cats)
-                other = index.get(OTHER_LABEL)
-                codes, uniques = pd.factorize(chunk)
-                mapped = np.array(
-                    [index.get(u, other if other is not None else -1) for u in uniques] + [-1],
-                    dtype=np.int64,
-                )
-                code = mapped[np.where(codes < 0, len(uniques), codes)]
+                width = len(self.categories[name])
+                code = self._cat_codes(name, chunk)
                 onehot = np.zeros((len(chunk), width))
                 valid = code >= 0
                 onehot[np.flatnonzero(valid), code[valid]] = 1.0
                 blocks.append(onehot)
         return np.hstack(blocks) if blocks else np.zeros((stop - start, 0))
+
+    def _cat_codes(self, name: str, chunk: np.ndarray) -> np.ndarray:
+        """Category index of every label (the shared bucket for unseen/rare ones, -1 for a
+        label that has no block position at all)."""
+        cats = self.categories[name]
+        index = self._cat_index.get(name)
+        if index is None:
+            index = {c: i for i, c in enumerate(cats)}
+            self._cat_index[name] = index
+        other = index.get(OTHER_LABEL)
+        codes, uniques = pd.factorize(chunk)
+        mapped = np.array(
+            [index.get(u, other if other is not None else -1) for u in uniques] + [-1],
+            dtype=np.int64,
+        )
+        return mapped[np.where(codes < 0, len(uniques), codes)]
+
+    def column_codes(self, name: str, values: np.ndarray) -> np.ndarray:
+        """What fixes the ``phi`` block of one feature column, one number per row: the
+        standardised value of a numeric column, the category index of a categorical one.
+        Two rows have the same encoded block iff they have the same code, so exact equality of
+        encoded vectors is equality of these codes - without ever building the dense block."""
+        if self.kinds[name] == "numeric":
+            x = np.where(np.isnan(values), self.num_mean[name], values)
+            return (x - self.num_mean[name]) / self.num_scale[name] + 0.0  # canonical zero
+        return self._cat_codes(name, values)
 
     def phi_rows(self, cols: FeatureColumns, rows: np.ndarray) -> np.ndarray:
         """phi for an arbitrary subset of rows (used by the exact-match fallback)."""

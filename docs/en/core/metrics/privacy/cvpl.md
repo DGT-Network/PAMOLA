@@ -21,20 +21,25 @@ TruncatedSVD), which is kept unchanged and measures something else.
 
 CVPL is a **white-box evaluation**. The auditor has full access: the source data, the
 release, the attacker's declared knowledge and - for the ground-truth (GT) measures - the
-true correspondence between them. The attacker strategy is chosen by the auditor and
-evaluated with that access, so every published number is an **upper, worst-case-oriented
-estimate** of what the declared attacker achieves. It is *not* the average over attackers
-that a black-box tool such as Anonymeter reports, and it is *not* a Fellegi-Sunter style
-match probability. Consequences:
+true correspondence between them. Every identification number is the **upper value over the
+declared attacker profiles (the rungs of the blocking ladder) and the declared fixed
+strategies** (uniform choice among subjects, uniform choice among rows, similarity top-1). It
+is **not an optimal-attacker guarantee**: it is *not* the average over attackers that a
+black-box tool such as Anonymeter reports, *not* a Fellegi-Sunter style match probability,
+and not the best an attacker could do with a better strategy. Consequences:
 
-* a number can only go up when the attacker is given more knowledge (more `qids` /
-  `auxiliary`), a looser ladder or a lower `tau`; it does not describe a typical adversary;
-* where several simple strategies are defined (uniform choice among subjects, among rows)
-  the headline is the **larger** of them, so it never falls below what one of them achieves;
-* an unknown (undefined cosine) is resolved in the attacker's favour in the *upper* bound
-  and the number is published as a bound, never as a point value (see "Statuses");
-* the numbers say what **this** attacker model reaches. They say nothing about attackers
-  with other background knowledge or a better matcher.
+* the existential `cvpl_lr`, under one fixed representation, can only go up when candidate
+  sets grow (more permissive blocking, a lower `tau`); the identification measures carry
+  **no** such monotonicity: a looser rung with more candidates can lower the share of a
+  uniform choice, which is why the headline is the largest value over the declared rungs;
+* where several fixed strategies are defined (uniform choice among subjects, among rows) the
+  headline is the **larger population value** of them - not a per-record choice of the better
+  strategy, which would be higher still;
+* an unknown (undefined cosine) is carried as a **bound** (see "Statuses"), never as a
+  point value; a bound is *conservative*: it contains every completion, may be loose and need
+  not be attainable, whereas a `measured` value is exact for the declared model;
+* the numbers say what **this** model reaches. They say nothing about attackers with other
+  background knowledge, other profiles or a better matcher.
 
 ## The attacker
 
@@ -69,9 +74,9 @@ columns are never features.
 | `cvpl_lr` | the share of the `N` source records for which **at least one** admissible released row survives `tau`. *Existence* of a plausible link. **Not** the probability of identifying the right person. | no |
 | `cvpl_id_uniform_subjects_gt` | the expected probability of choosing the **right subject** if the attacker picks uniformly among the distinct candidate **subjects** (a subject released in several rows counts once). `1 of 5` candidate subjects correct gives `0.2`. | yes |
 | `cvpl_id_uniform_rows_gt` | the expected probability of choosing the right subject if the attacker picks uniformly among the candidate released **rows** (`rows of the subject among the candidates / candidate rows`). | yes |
-| `cvpl_id_uniform_gt` | the **headline** of the two: the larger of the two *population* values; `cvpl_id_uniform_basis` names which one it is (`subjects` or `rows`; equal values report `subjects`). Both are always published. | yes |
-| `cvpl_top1_success_gt` | the share of the `N` source records whose **most similar** accepted candidate is the right subject (ties among accepted candidates: uniform, in expectation). | yes |
-| `precision_at_tau` | the same success, over the records that **declare** a link only. Undefined (`null`, reason `no_declared_links`) when nobody declares one. | yes |
+| `cvpl_id_uniform_gt` | the **headline**: the largest value over the rungs of the ladder and over the two uniform strategies (the larger *population* value, not a per-record choice); `cvpl_id_uniform_basis` names the strategy (`subjects` or `rows`; equal values report `subjects`) and `cvpl_id_uniform_basis_rung` the rung. The per-rung values of both strategies are always published. | yes |
+| `cvpl_top1_success_gt` | the share of the `N` source records whose **most similar** accepted candidate is the right subject (ties among accepted candidates: uniform, in expectation); per rung, headline = the largest over the rungs (`cvpl_top1_success_gt_basis_rung`). | yes |
+| `precision_at_tau` | the same success, over the records that **declare** a link only; per rung, headline = the largest over the rungs. Undefined (`null`, reason `no_declared_links`) when nobody declares one. | yes |
 | `gt_coverage` | the share of source records whose correspondence set is **completely known** (see "Ground truth"). | yes |
 | `cvpl_weighted_lr_legacy` | the older inverse-candidate-count weighted existential rate (`weighted_existential_linkage_v1`), kept for comparison with earlier results. **Not** a probability of identification. | no |
 
@@ -121,17 +126,30 @@ others. Each measure is bracketed over all of those possibilities, per record:
   unknown); with only unknown candidates the record contributes `[0, 1]`;
 * the uniform measures: an unknown candidate can enter (diluting a correct one, or being the
   correct one) or stay out;
-* `cvpl_top1_success_gt`: an unknown row may outrank the true candidate (lower bound `0`) and
-  an unknown row of the right subject may be the top one (upper bound `1`);
-* `precision_at_tau`: conservative bounds over which unknown records declare a link.
+* `cvpl_top1_success_gt`: an unknown row may outrank the true candidate (lower bound `0`); an
+  unknown row of the right subject may be the unique top one, and an unknown row can also move
+  the maximum and with it the tie band - dropping lower-scored ties or joining one - so wherever
+  an unknown candidate can alter a tie that contains the correct subject the upper bound is the
+  deliberately loose `1`;
+* `precision_at_tau`: conservative bounds over which unknown records declare a link, built on
+  the corrected top-1 bounds.
+
+Whether a record is *uncertain* is decided by counting candidates (is there an unknown
+candidate that can change this record's value), never by comparing floating-point numbers, so
+a difference of `1e-12` is still reported as `bounded`.
 
 The population value is a point value (`measured`) only if *no* record's contribution is
-uncertain; otherwise it is `bounded`. **A worst-case reader uses the `upper` bound** (for
-`cvpl_lr` also `cvpl_lr_upper`): it is the value the white-box attacker can reach if every
-unknown candidate is resolved in their favour, and it is never below the lower bound or a
-point value. A known false link does **not** hide an unknown true
-candidate: the existential `cvpl_lr` may be exact while the identification measures are
-bounded. `undefined_policy` in the result restates this.
+uncertain; otherwise it is `bounded`. **The `upper` bound is the conservative reading** (for
+`cvpl_lr` also `cvpl_lr_upper`): it contains every completion, but it is a bound and not
+necessarily attainable. A known false link does **not** hide an unknown true candidate: the
+existential `cvpl_lr` may be exact while the identification measures are bounded.
+
+The bounds reach **every** published surface: the headline, `cvpl_lr_union` and its
+`candidate_union_trajectory` entries (`cvpl_lr_union`, `cvpl_lr_union_lower`,
+`cvpl_lr_union_upper`, `status`), `cvpl_lr_by_rung` (`status` is `bounded` and `cvpl_lr` is `null`
+when a rung is bounded), the per-rung `blocking_ladder_trajectory` entries and
+`cvpl_weighted_lr_legacy` (`..._lower` / `..._upper` with the same fixed weights; the
+weights depend on the blocking only). `undefined_policy` in the result restates this.
 
 ### Ground truth
 
@@ -164,8 +182,8 @@ Per QID (`{"name", "kind", "bin_width", "hierarchy", "generalized"}`):
 
 * equal values are compatible; numeric points may be compared by bin (`bin_width=10` puts
   `21` and `27` in the same block). Numbers are compared exactly: integers beyond `2**53` stay
-  distinct, `-0.0` equals `0.0`;
-* the wildcard `*` (configurable `wildcard_tokens`) is compatible with any value that is not
+  distinct everywhere - as values, as interval endpoints (strings such as `[9007199254740993,9007199254740994]`, `pandas.Interval`, interval columns) and as bin members (a bin of an integral `bin_width` is computed on exact integers; with a non-integral width, values that large are binned in double precision) - and `-0.0` equals `0.0`;
+* the wildcard `*` (configurable `wildcard_tokens`; a custom token is an input value and is never published - the result, `config.json` and the cache carry only its count and a digest) is compatible with any value that is not
   invalid, and under `null_policy="incompatible"` not with a missing one;
 * numeric intervals (`[20-29]`, `20-29`, `[20, 30)`, `60+`, `pandas.Interval`) are compatible
   with the values they contain (and overlapping intervals). In the feature space an interval
@@ -201,23 +219,33 @@ is `relaxing`, `tightening`, `equal` or `non_nested`, and `ladder.nested`.
 
 On a nested relaxing ladder (each rung constrains fewer QIDs than the previous) `cvpl_lr`
 cannot decrease, and the last rung **is** the union of all rungs' candidate sets (Theorem 1's
-premise, for a fixed representation); the identification measures have no such guarantee,
-more candidates can lower them.
+premise, for a fixed representation and nested candidate sets). The claim is restricted to the
+existential `cvpl_lr`; the identification measures have no such guarantee.
 
-The headline fields are always one well-defined attacker:
+Each rung is a **declared attacker profile**. The headline fields are:
 
-* one rung, or a nested relaxing ladder: the last rung (`headline_basis: "last_rung"`);
-* any other ladder (`non_nested` or tightening steps): the attacker who tries **every**
-  declared profile, i.e. all measures computed on the **union** of the rungs' admissible
+* `cvpl_lr`, `cvpl_weighted_lr_legacy`: one rung, or a nested relaxing ladder: the last rung
+  (`headline_basis: "last_rung"`); any other ladder (`non_nested` or tightening steps): the
+  attacker who tries **every** declared profile, i.e. the **union** of the rungs' admissible
   candidate sets, each pair counted once (`headline_basis: "union_of_rungs"`). The union uses
-  the same admissibility predicate as the single rungs, and its `cvpl_lr` equals the last
-  value of `candidate_union_trajectory`. A rung that cannot be measured makes the union
-  `not_measured` / `not_applicable`; the union also has to fit `max_comparisons` as a whole.
+  the same admissibility predicate as the single rungs, and its `cvpl_lr` (with its bounds)
+  equals the last value of `candidate_union_trajectory`. A rung that cannot be measured makes
+  the union `not_measured` / `not_applicable`; the union also has to fit `max_comparisons`.
+* the identification measures (`cvpl_id_uniform_subjects_gt`, `cvpl_id_uniform_rows_gt`,
+  `cvpl_top1_success_gt`, `precision_at_tau`): computed **per rung**, on that rung's own
+  candidate sets; the headline is the **largest value over the rungs** and
+  `<measure>_basis_rung` names the winning rung. `cvpl_id_uniform_gt` is the largest over
+  rungs **and** the two uniform strategies; `cvpl_id_uniform_basis` and
+  `cvpl_id_uniform_basis_rung` name both. For a nested ladder this may differ from the last
+  rung - that is intended. All declared rungs must be measured, otherwise the identification
+  headline is `not_measured` / `not_applicable` (a maximum over only some of the declared
+  profiles would understate the upper value).
 
-Per-rung values stay available: `blocking_ladder_trajectory` (all measures per rung),
-`cvpl_lr_by_rung`, and `candidate_union_trajectory` (cumulative `cvpl_lr_union` after each
-rung). Choose the rungs before looking at ground-truth results; picking the rung that gives
-the highest number with the ground truth in hand leaks the evaluation into the attacker.
+Per-rung values stay available: `blocking_ladder_trajectory` (all measures per rung, with their
+statuses and bounds), `identification_by_rung`, `cvpl_lr_by_rung`, and
+`candidate_union_trajectory` (cumulative `cvpl_lr_union` after each rung). Choose the rungs
+before looking at ground-truth results; picking the rung that gives the highest number with the
+ground truth in hand leaks the evaluation into the attacker.
 
 ## Projection fit and invariance
 
@@ -234,7 +262,7 @@ duplicate lies outside every candidate set. The row-uniform strategy changes wit
 of *candidate* rows in every mode (that is what it measures).
 
 The result carries `projection.fingerprint`, a digest of the whole fitted representation
-(encoding, scaling, centering, components). It and `algorithm_version` are part of the cache
+(the ordered encoded feature layout, scaling, category lists, centering, components and their shapes). It and `algorithm_version` are part of the cache
 identity; the operation's result cache never serves a result across different fitted states.
 
 ## Bounded encoding is visible
@@ -254,7 +282,9 @@ compatibility between groups is streamed in tiles of at most 4M cells while plan
 planning stops as soon as the comparison budget is exceeded. Per-record accumulators
 (candidate subjects, exact-fallback matches, ties) are kept for one chunk of source records
 (about `chunk_pairs` planned pairs) and discarded; exact-equal matches are aggregated by the
-equivalence class of the encoded vector, never stored as pairs. `max_comparisons` (default
+equivalence class of the encoded vector, never stored as pairs. The classes are built from one
+small code per feature column (memory proportional to the number of records, independent of the
+encoded width, exact equality) and only after the comparison budget has been checked. `max_comparisons` (default
 `2e10` per rung) is checked before a rung is scanned; above it the rung is `not_measured`
 with reason `resource_limit` and the planned count, while other rungs are still measured.
 `max_group_pairs` bounds the group-level checks needed by wildcards, intervals and
@@ -302,8 +332,10 @@ produces; they are not reference values and say nothing about the BEST ones.
 * The uniform *subjects* strategy assumes the attacker knows which candidate rows belong to
   the same subject (the grouping comes from the evaluation-only ground truth); the uniform
   *rows* strategy needs no such knowledge, which is why both are published and the larger one
-  is the headline.
-* Linear projection and cosine similarity only; no learned embedding, no optimal strategy.
+  is the headline. Neither is an optimal strategy.
+* Linear projection and cosine similarity only; no learned embedding, no optimal strategy:
+  the headline is the upper value over the declared profiles and fixed strategies, not an
+  optimal-attacker guarantee.
 * `source_to_release` only; the reverse question (which person does a released record
   belong to) needs a reference population and is not implemented.
 * Ground truth is an auditor's input and must be trustworthy; this metric does not check it

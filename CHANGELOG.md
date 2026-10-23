@@ -362,6 +362,40 @@ unchanged public values (descriptions reworded).
   ones; `cvpl_lr_by_rung` and `candidate_union_trajectory` keep the per-rung and cumulative
   values, `headline_basis` says which rule applied. Bounded categorical encoding is reported
   (`bucketed_features`, `warnings`) and a `not_applicable` QID names the fix.
+- **CVPL second review round (CDX-CVPL-R2-1..8).** What changes in a number or a field:
+  - *R2-1/R2-8:* top-1 and precision bounds now contain the completion in which an unknown candidate
+    shifts the maximum and with it the tie band (the upper bound is the deliberately loose `1`
+    wherever an unknown candidate can alter a tie of the correct subject); whether a record is
+    uncertain is decided by candidate counts, not by a `1e-12` float tolerance (a difference of
+    `1e-12` is still `bounded`).
+  - *R2-2:* uncertainty reaches every surface: `cvpl_lr_union` (+ `_lower`, `_upper`, `_status`),
+    `candidate_union_trajectory[]` and `blocking_ladder_trajectory[]` entries (`cumulative_lr`,
+    `_lower`, `_upper`, `_status`), `cvpl_lr_by_rung[]` (`status` is `bounded` and `cvpl_lr` null),
+    `cvpl_weighted_lr_legacy` (`_lower`, `_upper`, `_status`, same fixed weights). **Breaking:**
+    these fields were a plain number equal to the lower bound.
+  - *R2-3:* `projection.fingerprint` hashes the ordered feature layout, category lists and array
+    shapes with an unambiguous serialisation (feature order was lost, so a stale cached result could
+    be served for a different fitted layout).
+  - *R2-4:* integers beyond 2**53 stay exact in interval strings, `pandas.Interval` objects and
+    interval columns, and in bins (integral `bin_width`); a bin whose float width vanishes becomes
+    the closed point, so the plain-key partition, the pairwise predicate and the union exclusion
+    agree and a pair is counted once.
+  - *R2-5:* custom wildcard tokens are input values: `describe()`, `config.json`, cache metadata and
+    the result carry `wildcard_token_count` and `wildcard_tokens_digest` instead of the tokens
+    (**breaking:** `parameters.wildcard_tokens` is gone); the digest keeps the cache identity.
+  - *R2-6 (norm decision):* the identification measures (`cvpl_id_uniform_subjects_gt`,
+    `cvpl_id_uniform_rows_gt`, `cvpl_top1_success_gt`, `precision_at_tau`) are computed **per rung**
+    (each rung is a declared attacker profile); the headline is the largest over the rungs and
+    `<measure>_basis_rung` names the winner; `cvpl_id_uniform_gt` is the largest over rungs and the two
+    uniform strategies (`cvpl_id_uniform_basis`, `cvpl_id_uniform_basis_rung`). `cvpl_lr` stays on the
+    union of the rungs. **Breaking for non-nested and for relaxing ladders:** the identification
+    headline is no longer a value of the last rung or of the union; per-rung values are in
+    `blocking_ladder_trajectory[]` and `identification_by_rung`. Documentation no longer calls the
+    numbers worst-case or optimal-attacker values: they are the upper value over the declared
+    profiles and fixed strategies; monotonicity is claimed only for the existential `cvpl_lr`.
+  - *R2-7:* the exact-fallback equivalence classes are built from one code per feature column (memory
+    proportional to the records, not to the encoded width, exact equality) and only after the
+    comparison budget has been checked.
 - **CVPL review round (CDX-CVPL-1..17).** What changes in a number or a field:
   - One admissibility predicate for planning, scanning and the union of rungs (the union headline
     equals the trajectory end; a wildcard no longer overrides `null_policy="incompatible"` in the union).

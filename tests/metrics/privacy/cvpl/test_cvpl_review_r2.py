@@ -207,3 +207,253 @@ def test_cdx_cvpl_r2_5_digest_keeps_the_cache_identity(tmp_path):
                        frozen_projection=PROJ, use_cache=True)
     assert first.metrics["cvpl_lr"] == 1.0  # X1 is a wildcard: compatible with Y
     assert second.metrics["cvpl_lr"] == 0.0  # X1 is an ordinary label: not Y
+
+
+# ======================================================================================
+# CDX-CVPL-R2-1: top-1 / precision bounds account for a shifted maximum and tie band
+# ======================================================================================
+def _top_bound_fixtures():
+    t = pd.DataFrame(dict(g=["A"] * 4, x=[1.0, -1.0, 0.0, 0.0], y=[0.0, 0.0, 1.0, -1.0], id=list("abcd")))
+    proj = run_cvpl(t, t, CVPLConfig.from_dict({**BASE, "auxiliary": ["x", "y"], "min_components": 2,
+                                                 "max_components": 2})).projection
+    s = pd.DataFrame(dict(g=["A"], x=[1.0], y=[0.0], id=["a"]))
+    xs = [0.8, 0.8 - 7e-10, 0.8 - 7e-10, 0.0]
+    r = pd.DataFrame(dict(g=["A"] * 4, x=xs, y=[math.sqrt(1 - v * v) if v else 0.0 for v in xs], id=list("abcd")))
+    params = dict(auxiliary=["x", "y"], min_components=2, max_components=2, tau=0.5)
+    return proj, s, r, params
+
+
+def test_cdx_cvpl_r2_1_top1_and_precision_bounds_contain_the_tie_shifting_completion():
+    proj, s, r, params = _top_bound_fixtures()
+    m = evaluate(s, r, params, projection=proj)  # d: zero vector, cosine undefined
+    # Codex: resolving d to cosine .8 + 7e-10 makes the new maximum exclude b and c: a and d
+    # are tied and the correct share is 1/2 - outside the old [0, 1/3]
+    r2 = r.copy()
+    r2.loc[3, ["x", "y"]] = [1e-6 * (0.8 + 7e-10), 1e-6 * math.sqrt(1 - (0.8 + 7e-10) ** 2)]
+    done = evaluate(s, r2, params, projection=proj)
+    assert done["cvpl_top1_success_gt"] == pytest.approx(0.5)
+    assert done["precision_at_tau"] == pytest.approx(0.5)
+    for key in ("cvpl_top1_success_gt", "precision_at_tau"):
+        assert m[key] is None and m[key + "_status"]["status"] == "bounded"
+        lo, hi = bounds(m, key)
+        assert lo <= 0.5 <= hi, (key, lo, hi)
+        assert hi == 1.0  # deliberately loose: an unknown candidate can alter a tie of the correct subject
+        assert m[key + "_status"]["n_uncertain"] >= 1
+
+
+def test_cdx_cvpl_r2_1_an_unknown_row_that_cannot_touch_the_correct_tie_adds_no_looseness():
+    proj, s, r, params = _top_bound_fixtures()
+    r = r.copy()
+    r.loc[0, "id"], r.loc[1, "id"] = "z1", "a"
+    r.loc[1, ["x", "y"]] = [0.7, math.sqrt(1 - 0.49)]  # the correct subject scores below the tie band
+    m = evaluate(s, r, params, projection=proj)
+    lo, hi = bounds(m, "cvpl_top1_success_gt")
+    assert hi == 0.0
+
+
+# ======================================================================================
+# CDX-CVPL-R2-8: uncertainty flags come from membership/count logic, not from float noise
+# ======================================================================================
+def test_cdx_cvpl_r2_8_tiny_uncertainty_is_not_reported_as_measured():
+    k = 1_000_001
+    s = pd.DataFrame(dict(g=["A"], x=[1.0], id=[0]))
+    r = pd.DataFrame(dict(g=["A"] * (k + 1), x=np.r_[np.ones(k), 0.0], id=np.arange(k + 1)))
+    m = evaluate(s, r)
+    st = m["cvpl_id_uniform_gt_status"]
+    assert st["status"] == "bounded" and st["n_uncertain"] == 1
+    assert m["cvpl_id_uniform_gt"] is None
+    assert st["lower"] == pytest.approx(9.99998000004e-7, rel=1e-12)
+    assert st["upper"] == pytest.approx(9.99999000001e-7, rel=1e-12)
+
+
+# ======================================================================================
+# CDX-CVPL-R2-2: uncertainty on EVERY published surface
+# ======================================================================================
+def _undefined_unlinked():
+    return (frame(["A", "B", "C"], [-1.0, 0.0, 1.0], ["a", "b", "c"]),
+            frame(["A", "B", "C"], [-1.0, 1.0, 0.0], ["a", "b", "c"]))
+
+
+def _third_to_one(lo, hi):
+    return lo == pytest.approx(1 / 3) and hi == pytest.approx(1.0)
+
+
+def test_cdx_cvpl_r2_2_every_surface_carries_the_existential_bounds():
+    s, r = _undefined_unlinked()
+    m = run_cvpl(s, r, CVPLConfig.from_dict(BASE)).metrics
+    assert m["cvpl_lr"] is None and m["cvpl_lr_status"]["status"] == "bounded"
+    assert _third_to_one(m["cvpl_lr_lower"], m["cvpl_lr_upper"])
+    assert m["cvpl_lr_union"] is None and m["cvpl_lr_union_status"]["status"] == "bounded"
+    assert _third_to_one(m["cvpl_lr_union_lower"], m["cvpl_lr_union_upper"])
+    last = m["candidate_union_trajectory"][-1]
+    assert last["cvpl_lr_union"] is None and last["status"] == "bounded"
+    assert _third_to_one(last["cvpl_lr_union_lower"], last["cvpl_lr_union_upper"])
+    entry = m["blocking_ladder_trajectory"][-1]
+    assert entry["cumulative_lr"] is None and entry["cumulative_lr_status"] == "bounded"
+    rung = m["cvpl_lr_by_rung"][0]  # never "measured" with a null value
+    assert rung["cvpl_lr"] is None and rung["status"] == "bounded"
+    assert _third_to_one(rung["cvpl_lr_lower"], rung["cvpl_lr_upper"])
+    assert m["cvpl_weighted_lr_legacy"] is None  # the same fixed weights for lower and upper
+    assert m["cvpl_weighted_lr_legacy_status"]["status"] == "bounded"
+    assert _third_to_one(m["cvpl_weighted_lr_legacy_lower"], m["cvpl_weighted_lr_legacy_upper"])
+    # the documented headline == trajectory equality holds for the bounds too
+    assert (m["cvpl_lr_lower"], m["cvpl_lr_upper"]) == (last["cvpl_lr_union_lower"], last["cvpl_lr_union_upper"])
+
+
+def test_cdx_cvpl_r2_2_union_headline_of_a_non_nested_ladder_carries_the_bounds():
+    s, r = _undefined_unlinked()
+    s["h"], r["h"] = ["H0", "H1", "H2"], ["H0", "H1", "H2"]  # rung h: the same pairs as rung g
+    params = dict(qids=[dict(name="g", generalized=False), dict(name="h", generalized=False)],
+                  blocking_ladder=[["g"], ["h"]])
+    m = run_cvpl(s, r, CVPLConfig.from_dict({**BASE, **params})).metrics
+    assert m["headline_basis"] == "union_of_rungs"
+    assert m["cvpl_lr"] is None and m["cvpl_lr_status"]["status"] == "bounded"
+    assert _third_to_one(m["cvpl_lr_lower"], m["cvpl_lr_upper"])
+    last = m["candidate_union_trajectory"][-1]
+    assert (m["cvpl_lr"], m["cvpl_lr_lower"], m["cvpl_lr_upper"]) == (
+        last["cvpl_lr_union"], last["cvpl_lr_union_lower"], last["cvpl_lr_union_upper"])
+    assert m["cvpl_weighted_lr_legacy"] is None and m["cvpl_weighted_lr_legacy_status"]["status"] == "bounded"
+    assert m["n_compared"] == 0 or m["n_compared"] <= 3  # a pair shared by both rungs is counted once
+
+
+def test_cdx_cvpl_r2_2_legacy_weights_are_the_same_for_both_bounds():
+    # source A has 1 candidate and is linked, source B has 2 candidates and none is defined:
+    # weights 1 and 1/2
+    s = frame(["A", "B"], [-1.0, 0.0], ["a", "b"])
+    r = frame(["A", "B", "B"], [-1.0, 1.0, 1.0], ["a", "b", "q"])
+    m = run_cvpl(s, r, CVPLConfig.from_dict(BASE)).metrics
+    assert m["cvpl_weighted_lr_legacy_lower"] == pytest.approx(1 / 1.5)
+    assert m["cvpl_weighted_lr_legacy_upper"] == pytest.approx(1.0)
+
+
+def test_cdx_cvpl_r2_2_operation_result_publishes_no_lower_bound_as_a_measure(tmp_path):
+    s, r = _undefined_unlinked()
+    out, _ = op_run(tmp_path, s, r, "unc")
+    m = out.metrics
+    for key in ("cvpl_lr", "cvpl_lr_union", "cvpl_weighted_lr_legacy"):
+        assert m[key] is None, key
+    assert m["candidate_union_trajectory"][-1]["cvpl_lr_union"] is None
+    assert m["cvpl_lr_by_rung"][0]["status"] == "bounded"
+
+
+# ======================================================================================
+# CDX-CVPL-R2-6: identification per rung, headline = largest over the declared profiles
+# ======================================================================================
+def _ladder_framing():
+    s = frame(["A"], [1.0], ["a"])
+    r = frame(["A"] * 5, [1.0] * 5, list("abcde"))
+    s["h"] = ["own"]
+    r["h"] = ["own", "other", "other", "other", "other"]
+    params = dict(qids=[dict(name="g", generalized=False), dict(name="h", generalized=False)],
+                  blocking_ladder=[["g", "h"], ["g"]])
+    return s, r, params
+
+
+def test_cdx_cvpl_r2_6_headline_is_the_largest_over_rungs_and_names_its_rung():
+    s, r, params = _ladder_framing()
+    m = evaluate(s, r, params)
+    strict, loose = m["blocking_ladder_trajectory"]
+    assert strict["measures"]["cvpl_id_uniform_gt"] == 1.0 and strict["measures"]["cvpl_top1_success_gt"] == 1.0
+    assert loose["measures"]["cvpl_id_uniform_gt"] == pytest.approx(0.2)
+    assert loose["measures"]["cvpl_top1_success_gt"] == pytest.approx(0.2)
+    assert m["cvpl_lr"] == 1.0  # existential: nested ladder, the last rung is the union
+    # the loose-rung value 0.2 is no longer the headline: the strict profile wins
+    assert m["cvpl_id_uniform_gt"] == 1.0 and m["cvpl_id_uniform_basis_rung"] == 0
+    assert m["cvpl_id_uniform_gt_status"]["basis_rung"] == 0
+    assert m["cvpl_top1_success_gt"] == 1.0 and m["cvpl_top1_success_gt_basis_rung"] == 0
+    assert m["cvpl_id_uniform_subjects_gt_basis_rung"] == 0 and m["cvpl_id_uniform_rows_gt_basis_rung"] == 0
+    assert m["precision_at_tau"] == 1.0 and m["precision_at_tau_basis_rung"] == 0
+    assert [e["rung"] for e in m["identification_by_rung"]] == [0, 1]
+
+
+def test_cdx_cvpl_r2_6_basis_names_both_the_strategy_and_the_rung():
+    s = frame(["A"], [1.0], ["a"])
+    r = frame(["A"] * 5, [1.0] * 5, ["a", "a", "a", "b", "c"])
+    r["h"] = ["own", "own", "own", "own", "x"]
+    s["h"] = ["own"]
+    params = dict(qids=[dict(name="g", generalized=False), dict(name="h", generalized=False)],
+                  blocking_ladder=[["g"], ["g", "h"]])
+    m = evaluate(s, r, params)
+    m0 = m["blocking_ladder_trajectory"][0]["measures"]
+    assert m0["cvpl_id_uniform_rows_gt"] == pytest.approx(3 / 5)
+    assert m0["cvpl_id_uniform_subjects_gt"] == pytest.approx(1 / 3)
+    assert m["cvpl_id_uniform_gt"] == pytest.approx(3 / 4)  # rung 1: rows 3/4 beat subjects 1/2
+    assert m["cvpl_id_uniform_basis"] == "rows" and m["cvpl_id_uniform_basis_rung"] == 1
+
+
+def test_cdx_cvpl_r2_6_population_maximum_of_the_two_fixed_strategies():
+    s = frame(["A", "B"], [1.0, 1.0], ["a", "b"])
+    r = frame(["A"] * 5 + ["B"] * 5, [1.0] * 10, ["a", "a", "a", "a", "x", "b", "c", "c", "c", "c"])
+    m = evaluate(s, r)
+    assert m["cvpl_id_uniform_subjects_gt"] == pytest.approx(0.5)
+    assert m["cvpl_id_uniform_rows_gt"] == pytest.approx(0.5)
+    assert m["cvpl_id_uniform_gt"] == pytest.approx(0.5)  # not the per-record optimum 0.65
+
+
+def test_cdx_cvpl_r2_6_an_unmeasured_rung_withholds_the_identification_headline():
+    s, r, params = _ladder_framing()
+    r = r.copy()
+    r.loc[1, "h"] = "unknown-generalized-label"  # strict rung: a generalized label with no hierarchy
+    params["qids"][1] = dict(name="h")
+    m = evaluate(s, r, params)
+    assert m["cvpl_lr"] == 1.0  # existential headline: the last (loosest) rung is measured
+    for key in ("cvpl_id_uniform_gt", "cvpl_top1_success_gt", "precision_at_tau"):
+        assert m[key] is None and m[key + "_status"]["status"] in ("not_applicable", "not_measured")
+
+
+# ======================================================================================
+# CDX-CVPL-R2-7: exact-fallback classes are not an N x F expansion; refusal comes first
+# ======================================================================================
+def _wide_zero_fixture(n, k=50):
+    base = dict(qids=[dict(name="g", generalized=False)], auxiliary=["x", "c"], qid_as_features=False,
+                ground_truth=None, min_components=1, max_components=1, max_categories=k + 1,
+                fit_strategy="source_only", chunk_pairs=10)
+    t = pd.DataFrame(dict(g=["A"] * (2 * k), x=np.tile([-1.0, 1.0], k), c=np.repeat([f"c{i}" for i in range(k)], 2)))
+    proj = run_cvpl(t, t, CVPLConfig.from_dict(base)).projection
+    s = pd.DataFrame(dict(g=["A"] * n, x=np.zeros(n), c=[f"c{i % k}" for i in range(n)]))
+    return base, proj, s
+
+
+def test_cdx_cvpl_r2_7_budget_refusal_happens_before_any_fallback_preparation(monkeypatch):
+    from pamola_core.metrics.privacy.cvpl import engine
+
+    base, proj, s = _wide_zero_fixture(200)
+
+    def boom(*a, **k):
+        raise AssertionError("fallback classes prepared although the budget refuses the rung")
+
+    monkeypatch.setattr(engine, "_encoded_classes", boom)
+    m = run_cvpl(s, s, CVPLConfig.from_dict({**base, "fit_strategy": "frozen", "max_comparisons": 1}),
+                 frozen_projection=proj).metrics
+    assert m["cvpl_lr_status"]["status"] == "not_measured"
+    assert m["cvpl_lr_status"]["reason"] == "resource_limit"
+
+
+def test_cdx_cvpl_r2_7_fallback_classes_are_exact_and_not_dense():
+    import tracemalloc
+
+    from pamola_core.metrics.privacy.cvpl.engine import _encoded_classes
+    from pamola_core.metrics.privacy.cvpl.projection import categorical_values, numeric_values
+
+    k, n = 500, 2000
+    base, proj, s = _wide_zero_fixture(n, k)
+    cols = {"x": ("numeric", numeric_values(s["x"])), "c": ("categorical", categorical_values(s["c"]))}
+    deg = np.ones(n, dtype=bool)
+    tracemalloc.start()
+    cls_s, cls_r = _encoded_classes(proj, cols, cols, deg, deg)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    dense = n * proj.info.n_features * 8  # one side's N x F expansion
+    assert proj.info.n_features >= k
+    assert peak < dense / 8, (peak, dense)  # the old code allocated >= 4x `dense`
+    assert len(np.unique(cls_s)) == k and (cls_s == cls_r).all()
+    # the classes are exactly the equivalence classes of the dense encoded vectors
+    dense_x = proj.phi_rows(cols, np.arange(n)) + 0.0
+    _, inverse = np.unique(dense_x, axis=0, return_inverse=True)
+    assert (pd.factorize(inverse.reshape(-1))[0] == pd.factorize(cls_s)[0]).all()
+
+
+def test_cdx_cvpl_r2_7_exact_equal_pairs_still_link():
+    base, proj, s = _wide_zero_fixture(100)
+    m = run_cvpl(s, s, CVPLConfig.from_dict({**base, "fit_strategy": "frozen"}), frozen_projection=proj).metrics
+    assert m["cvpl_lr"] == 1.0 and m["n_exact_fallback_records"] == 100

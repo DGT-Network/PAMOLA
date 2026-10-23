@@ -74,20 +74,27 @@ def test_cdx_cvpl_1_union_equals_explicit_pair_set_union(policy, seed):
     mean = float(np.concatenate([s["x"], r["x"]]).mean())
     sign_s, sign_r = np.sign(s["x"].to_numpy() - mean), np.sign(r["x"].to_numpy() - mean)
 
-    lr = uni_s = uni_r = top = 0.0
+    # existential linkage is evaluated over the UNION of the two single-QID candidate sets;
+    # the identification measures are evaluated per rung (each a declared attacker profile)
+    # and the headline is the largest value over the rungs (CDX-CVPL-R2-6)
+    lr = 0.0
+    per_rung = {"p": [0.0, 0.0, 0.0], "q": [0.0, 0.0, 0.0]}  # subjects, rows, top1
     for i in range(n):
-        # the ladder [[p],[q]] is a UNION of two single-QID candidate sets
-        rows = [j for j in range(m)
-                if sign_s[i] == sign_r[j]
-                and (_adm(s.p[i], r.p[j], policy) or _adm(s.q[i], r.q[j], policy))]
-        if not rows:
-            continue
-        lr += 1
-        subj = {r.id[j] for j in rows}
-        own = s.id[i] in subj
-        uni_s += own / len(subj)
-        uni_r += sum(r.id[j] == s.id[i] for j in rows) / len(rows)
-        top += own / len(subj)  # every passing cosine is +1: all tie
+        union = [j for j in range(m)
+                 if sign_s[i] == sign_r[j] and (_adm(s.p[i], r.p[j], policy) or _adm(s.q[i], r.q[j], policy))]
+        lr += bool(union)
+        for col in ("p", "q"):
+            rows = [j for j in range(m) if sign_s[i] == sign_r[j] and _adm(s[col][i], r[col][j], policy)]
+            if not rows:
+                continue
+            subj = {r.id[j] for j in rows}
+            own = s.id[i] in subj
+            per_rung[col][0] += own / len(subj)
+            per_rung[col][1] += sum(r.id[j] == s.id[i] for j in rows) / len(rows)
+            per_rung[col][2] += own / len(subj)  # every passing cosine is +1: all tie
+    uni_s = max(v[0] for v in per_rung.values())
+    uni_r = max(v[1] for v in per_rung.values())
+    top = max(v[2] for v in per_rung.values())
     cfg = CVPLConfig.from_dict({
         "qids": [{"name": "p", "generalized": False}, {"name": "q", "generalized": False}],
         "auxiliary": ["x"], "qid_as_features": False, "tau": 0.5, "null_policy": policy,

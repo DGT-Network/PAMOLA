@@ -9,10 +9,12 @@ The CVPL operator chain ``B_lambda -> phi -> psi -> s -> tau`` and the quantitie
 measured with it. See ``docs`` ("CVPL linkage metric") for what each number means.
 
 CVPL is a **white-box evaluation**: the auditor holds the source data, the release and
-(for the GT measures) the ground truth, and chooses the attacker's strategy with full
-access. Every published measure is therefore an UPPER, worst-case-oriented estimate of
-what the declared attacker achieves, not an average over attackers and not a
-Fellegi-Sunter style match probability.
+(for the GT measures) the ground truth. Every identification number is the **upper value over
+the declared attacker profiles (the rungs of the blocking ladder) and the declared fixed
+strategies** (uniform choice over subjects, uniform choice over rows, similarity top-1). It is
+not an optimal-attacker guarantee, not an average over attackers and not a Fellegi-Sunter style
+match probability. The existential rate ``cvpl_lr`` is the share of source records that have a
+candidate at all; under a fixed representation it can only grow when candidate sets grow.
 
 For source record ``x_i``:
 
@@ -21,14 +23,19 @@ For source record ``x_i``:
   vectors also counts when the projection is degenerate);
 * ``cvpl_lr`` = share of the ``N`` source records with ``|C_i| > 0`` (existence of a
   plausible link; *not* a re-identification probability);
-* with a complete ground truth ``T_i``: ``cvpl_id_uniform_subjects_gt`` (uniform choice
-  among the distinct candidate SUBJECTS), ``cvpl_id_uniform_rows_gt`` (uniform choice
-  among the candidate released ROWS), the headline ``cvpl_id_uniform_gt`` = the larger of
-  the two population values, ``cvpl_top1_success_gt`` and ``precision_at_tau``.
+* with a complete ground truth ``T_i``, evaluated PER RUNG: ``cvpl_id_uniform_subjects_gt``
+  (uniform choice among the distinct candidate SUBJECTS), ``cvpl_id_uniform_rows_gt`` (uniform
+  choice among the candidate released ROWS), ``cvpl_top1_success_gt`` and
+  ``precision_at_tau``; the headline of each is the largest value over the rungs
+  (``*_basis_rung`` names the winner) and ``cvpl_id_uniform_gt`` is the largest over rungs and
+  over the two uniform strategies (``cvpl_id_uniform_basis`` and ``..._basis_rung``).
 
 A pair whose cosine is undefined (a zero projected vector that is not an exact-equal
-pair) is *unknown*. Every measure that such a pair can influence is published with
-bounds (status ``bounded``, point value ``null``), never as a measured point value.
+pair) is *unknown*. Every measure that such a pair can influence - on every published surface,
+headline, union, trajectory, per rung, legacy - is published with bounds (status ``bounded``,
+point value ``null``), never as a measured point value. The bounds are CONSERVATIVE: they
+contain every completion and may be looser than the attainable range (for example a tie that
+an unknown candidate can reshape gets the upper bound 1).
 
 Nothing here materialises a ``|D| x |D'|`` matrix: candidates are generated from blocks,
 similarities are computed in bounded tiles, and every per-record accumulator lives only
@@ -308,14 +315,22 @@ class _Scanner:
 
     def __init__(
         self, cfg: CVPLConfig, zs: np.ndarray, zr: np.ndarray, deg_s: np.ndarray, deg_r: np.ndarray,
-        gt: Optional[PreparedGroundTruth], cls_s: np.ndarray, cls_r: np.ndarray,
-        encs: Dict[str, QIDEncoding],
+        gt: Optional[PreparedGroundTruth], classes, encs: Dict[str, QIDEncoding],
     ) -> None:
         self.cfg, self.zs, self.zr = cfg, zs, zr
         self.deg_s, self.deg_r = deg_s, deg_r
         self.gt = gt
-        self.cls_s, self.cls_r = cls_s, cls_r
+        self._classes = classes  # callable -> (cls_s, cls_r); evaluated only when first needed
+        self._cls: Optional[Tuple[np.ndarray, np.ndarray]] = None
         self.encs = encs
+
+    def _equivalence_classes(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Encoded-vector classes of the degenerate records. Built on first use, i.e. only after
+        every resource refusal has been decided and only if a pair of degenerate records is
+        actually a candidate."""
+        if self._cls is None:
+            self._cls = self._classes()
+        return self._cls
 
     def scan(self, plans: Sequence[Tuple[Any, Sequence[Sequence[str]]]], with_gt: bool) -> RungScan:
         """``plans``: ``[(RungPlan, qid_lists_of_earlier_rungs_to_exclude), ...]``."""
@@ -436,7 +451,8 @@ class _Scanner:
         # 4. both undefined: linked iff the ENCODED vectors are exactly equal, else unknown
         if d_s.any() and d_c.any():
             for r, l, c, valid in self._tiles(src_rows[d_s], loc[d_s], cand[d_c], cover):
-                eq = self.cls_s[r][:, None] == self.cls_r[c][None, :]
+                cls_s, cls_r = self._equivalence_classes()
+                eq = cls_s[r][:, None] == cls_r[c][None, :]
                 ok = np.ones_like(eq) if valid is None else valid
                 if valid is not None:
                     st.n_cand[l] += valid.sum(axis=1)
@@ -590,54 +606,75 @@ def _summary(n_cand: np.ndarray) -> Dict[str, Any]:
     }
 
 
-def _record_arrays(scan: RungScan) -> Dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
-    """Per record: (point value if every candidate were defined, lower bound, upper bound) of
-    each GT measure. An undefined-cosine candidate may or may not be accepted, may tie or
-    outrank; the bounds are the extremes over all of those possibilities (white-box: the
-    auditor may pick the attacker's best reading, so the upper bound is the headline-relevant
-    one)."""
+def _record_arrays(scan: RungScan) -> Dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+    """Per record: (point value if every candidate were defined, lower bound, upper bound,
+    uncertain flag) of each GT measure.
+
+    An undefined-cosine candidate may or may not be accepted, may tie, may outrank. The
+    bounds are conservative: they contain every completion (and may be loose where the
+    reviewer-checked reach of a completion is smaller). The uncertain flag comes from the
+    membership and count logic (is there an unknown candidate that can change the value),
+    never from comparing floating-point numbers.
+    """
     linked = scan.linked
-    unk = scan.unk_rows > 0
+    u = scan.unk_rows
+    unk = u > 0
     cnt, hit = scan.kcnt_s, scan.khit_s
     safe = np.maximum(cnt, 1)
     pt_s = np.where(cnt > 0, hit / safe, 0.0)
     hi_s = np.where(hit, 1.0 / safe, np.where(scan.uhit_new, 1.0 / (cnt + 1), 0.0))
     lo_s = np.where(hit, 1.0 / np.maximum(cnt + scan.unew_s, 1), 0.0)
+    # a new distinct unknown subject changes the share of a known hit; an unknown own subject
+    # not yet accepted can create one
+    unc_s = (hit & (scan.unew_s > 0)) | (~hit & scan.uhit_new)
 
-    kc, kh, u, uh = scan.kcnt_r, scan.khit_r, scan.unk_rows, scan.uhit_rows
+    kc, kh, uh = scan.kcnt_r, scan.khit_r, scan.uhit_rows
     pt_r = np.where(kc > 0, kh / np.maximum(kc, 1), 0.0)
     hi_r = np.where(kc + uh > 0, (kh + uh) / np.maximum(kc + uh, 1), 0.0)
     lo_r = np.where(kc + (u - uh) > 0, kh / np.maximum(kc + u - uh, 1), 0.0)
+    # exact rational comparison of hi = (kh+uh)/(kc+uh) and lo = kh/(kc+u-uh); a zero
+    # denominator stands for the value 0
+    hn, hd = kh + uh, np.maximum(kc + uh, 1)
+    ln, ld = kh, np.maximum(kc + u - uh, 1)
+    unc_r = unk & (hn * ld != ln * hd)
 
-    tc = scan.tcnt_s
-    pt_t = np.where(linked & (tc > 0), scan.thit_s / np.maximum(tc, 1), 0.0)
-    hi_t = np.where(uh > 0, 1.0, pt_t)  # an unknown row of the own subject may be the top one
+    tc, thit = scan.tcnt_s, scan.thit_s
+    pt_t = np.where(linked & (tc > 0), thit / np.maximum(tc, 1), 0.0)
+    # An unknown row can (a) be an own-subject row that becomes the unique top, or (b) shift
+    # the maximum: with a tie TOLERANCE a new maximum drops lower-scored ties (or joins one),
+    # so a tie that contains the correct subject can become a smaller tie, or a larger one.
+    # Where an unknown candidate can alter a tie containing the correct subject the upper
+    # bound is the deliberately loose 1.
+    can_raise = (uh > 0) | (unk & (thit > 0))
+    hi_t = np.where(can_raise, 1.0, pt_t)
     lo_t = np.where(unk, 0.0, pt_t)  # an unknown row may outrank the true one
+    unc_t = unk & ((uh > 0) | (thit > 0))
     return {
-        "subjects": (pt_s, lo_s, hi_s), "rows": (pt_r, lo_r, hi_r), "top1": (pt_t, lo_t, hi_t),
+        "subjects": (pt_s, lo_s, hi_s, unc_s), "rows": (pt_r, lo_r, hi_r, unc_r),
+        "top1": (pt_t, lo_t, hi_t, unc_t),
     }
 
 
-def _pop(arrs: Tuple[np.ndarray, np.ndarray, np.ndarray], mask: Optional[np.ndarray]) -> Optional[Dict[str, Any]]:
+def _pop(arrs: Tuple[np.ndarray, ...], mask: Optional[np.ndarray]) -> Optional[Dict[str, Any]]:
     """Population summary over ``mask`` (``None``: every record, without copying the arrays)."""
     den = len(arrs[0]) if mask is None else int(mask.sum())
     if den == 0:
         return None
-    pt, lo, hi = arrs if mask is None else (a[mask] for a in arrs)
+    pt, lo, hi, unc = arrs if mask is None else (a[mask] for a in arrs)
     return {
         "point": float(pt.sum() / den), "lower": float(lo.sum() / den), "upper": float(hi.sum() / den),
-        "n_uncertain": int((hi - lo > _UNC_EPS).sum()), "denominator": den,
+        "n_uncertain": int(unc.sum()), "denominator": den,
     }
 
 
 def _precision(rec, scan: RungScan, mask: Optional[np.ndarray]) -> Dict[str, Any]:
-    pt, lo, hi = rec["top1"]
+    pt, lo, hi, unc = rec["top1"]
     linked = scan.linked if mask is None else scan.linked & mask
     unlinked_unknown = ~scan.linked & (scan.unk_rows > 0)
     if mask is not None:
         unlinked_unknown &= mask
     n_l, n_ul = int(linked.sum()), int(unlinked_unknown.sum())
-    top_unc = int((hi[linked] - lo[linked] > _UNC_EPS).sum())
+    top_unc = int(unc[linked].sum())
     if n_ul == 0 and top_unc == 0:
         return {"point": float(pt[linked].sum() / n_l) if n_l else None, "lower": None, "upper": None,
                 "n_uncertain": 0, "denominator": n_l}
@@ -671,34 +708,62 @@ def _pop_status(pop: Optional[Dict[str, Any]], **extra) -> Tuple[Optional[float]
         lower=pop["lower"], upper=pop["upper"], n_uncertain=pop["n_uncertain"], **extra)
 
 
+def _max_pop(
+    cands: Sequence[Tuple[int, str, Optional[Dict[str, Any]]]],
+) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[int, str]]]:
+    """The larger of several population summaries ``(rung, strategy, pop)``.
+
+    The result is the upper value over the declared candidates (attacker profiles and fixed
+    strategies): lower = the largest lower bound, upper = the largest upper bound, point only
+    when both coincide. ``winner`` names the candidate with the largest upper value (the first
+    one on ties). A summary with no declared links takes no part."""
+    live = []
+    for rung, label, pop in cands:
+        if pop is None:
+            continue
+        lo = pop["lower"] if pop["lower"] is not None else pop["point"]
+        hi = pop["upper"] if pop["upper"] is not None else pop["point"]
+        if lo is None or hi is None:
+            continue
+        live.append((rung, label, pop, lo, hi))
+    if not live:
+        return None, None
+    lower = max(x[3] for x in live)
+    upper = max(x[4] for x in live)
+    win = max(range(len(live)), key=lambda i: (live[i][4], -i))
+    winner = (live[win][0], live[win][1])
+    den = live[win][2]["denominator"]
+    if upper <= lower:  # the largest lower bound reaches the largest upper bound: certain
+        return {"point": upper, "lower": lower, "upper": upper, "n_uncertain": 0, "denominator": den}, winner
+    n_unc = int(max(x[2]["n_uncertain"] for x in live))
+    return {"point": None, "lower": lower, "upper": upper, "n_uncertain": n_unc, "denominator": den}, winner
+
+
 def _headline(sub: Optional[Dict[str, Any]], rows: Optional[Dict[str, Any]]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    """The headline uniform-choice value: the larger of the two POPULATION values, so it
-    never falls below what either declared simple strategy achieves (upper-oriented)."""
+    """The uniform-choice value of ONE rung: the larger of the two POPULATION values of the
+    declared strategies (uniform over subjects, uniform over rows)."""
     if sub is None or rows is None:
         return None, None
-    if sub["n_uncertain"] == 0 and rows["n_uncertain"] == 0:
-        basis = "subjects" if sub["point"] >= rows["point"] else "rows"
-        best = sub if basis == "subjects" else rows
-        return dict(best), basis
-    lower, upper = max(sub["lower"], rows["lower"]), max(sub["upper"], rows["upper"])
-    n_unc = int(max(sub["n_uncertain"], rows["n_uncertain"]))
-    basis = "subjects" if sub["upper"] >= rows["upper"] else "rows"
-    if upper - lower <= _UNC_EPS:
-        return {"point": upper, "lower": lower, "upper": upper, "n_uncertain": 0,
-                "denominator": sub["denominator"]}, basis
-    return {"point": None, "lower": lower, "upper": upper, "n_uncertain": n_unc,
-            "denominator": sub["denominator"]}, basis
+    pop, winner = _max_pop([(0, "subjects", sub), (0, "rows", rows)])
+    return pop, (winner[1] if winner else None)
 
 
 def _rung_measures(scan: RungScan, n: int, gt: Optional[PreparedGroundTruth]) -> Dict[str, Any]:
     linked = scan.linked
     n_linked = int(linked.sum())
-    n_undet = int(((scan.unk_rows > 0) & ~linked).sum())
+    unknown = scan.unk_rows > 0
+    n_undet = int((unknown & ~linked).sum())
+    lr_lower = n_linked / n if n else None
+    lr_upper = (n_linked + n_undet) / n if n else None
+    lr_value = lr_lower if n_undet == 0 else None  # a point value only if no undefined pair can matter
     m: Dict[str, Any] = {
-        # a point value only if no undefined-cosine pair can matter; else bounds only
-        "cvpl_lr": (n_linked / n if n else None) if n_undet == 0 else None,
-        "cvpl_lr_lower": n_linked / n if n else None,
-        "cvpl_lr_upper": (n_linked + n_undet) / n if n else None,
+        "cvpl_lr": lr_value,
+        "cvpl_lr_lower": lr_lower,
+        "cvpl_lr_upper": lr_upper,
+        "cvpl_lr_status": _status(
+            lr_value, "measured" if n_undet == 0 else "bounded",
+            None if n_undet == 0 else "undefined_cosine_candidates", denominator=n,
+            lower=lr_lower, upper=lr_upper, n_uncertain=n_undet),
         "n_linked": n_linked,
         "n_undetermined": n_undet,
         "n_exact_fallback": int(scan.fallback_only.sum()),
@@ -712,10 +777,24 @@ def _rung_measures(scan: RungScan, n: int, gt: Optional[PreparedGroundTruth]) ->
     elig = scan.n_cand > 0
     if elig.any():
         w = 1.0 / scan.n_cand[elig]
-        m["cvpl_weighted_lr_legacy"] = float((w * linked[elig]).sum() / w.sum())
+        total = w.sum()
+        # the same fixed weights for both bounds: the weight depends on the blocking only
+        leg_lo = float((w * linked[elig]).sum() / total)
+        leg_hi = float((w * (linked | unknown)[elig]).sum() / total)
+        leg_unc = int((unknown & ~linked & elig).sum())
+        m["cvpl_weighted_lr_legacy"] = leg_lo if leg_unc == 0 else None
+        m["cvpl_weighted_lr_legacy_lower"] = leg_lo
+        m["cvpl_weighted_lr_legacy_upper"] = leg_hi
+        m["cvpl_weighted_lr_legacy_status"] = _status(
+            m["cvpl_weighted_lr_legacy"], "measured" if leg_unc == 0 else "bounded",
+            None if leg_unc == 0 else "undefined_cosine_candidates", denominator=int(elig.sum()),
+            lower=leg_lo, upper=leg_hi, n_uncertain=leg_unc)
         m["legacy_n_eligible"] = int(elig.sum())
     else:
         m["cvpl_weighted_lr_legacy"] = None
+        m["cvpl_weighted_lr_legacy_lower"] = None
+        m["cvpl_weighted_lr_legacy_upper"] = None
+        m["cvpl_weighted_lr_legacy_status"] = _status(None, "not_measured", "no_eligible_records")
         m["legacy_n_eligible"] = 0
     if gt is not None and scan.kcnt_s is not None:
         rec = _record_arrays(scan)
@@ -727,42 +806,41 @@ def _rung_measures(scan: RungScan, n: int, gt: Optional[PreparedGroundTruth]) ->
     return m
 
 
-def _gt_fields(sel: Dict[str, Any], gt: Optional[PreparedGroundTruth], n: int) -> Dict[str, Any]:
-    """The GT measures with their statuses (never a silent zero, never a bound as a point)."""
-    out: Dict[str, Any] = {"cvpl_id_uniform_basis": None}
-    g = sel.get("_gt")
-    if gt is None or gt.status in ("absent", "invalid") or g is None:
-        reason = "no_ground_truth" if gt is None or gt.status == "absent" else gt.reason
-        why = reason if reason else "ground_truth_unavailable"
-        for key in GT_MEASURES:
-            out[key] = None
-            out[f"{key}_status"] = _status(None, "not_measured", why)
-        return out
+def _absent_gt_fields(gt: Optional[PreparedGroundTruth]) -> Dict[str, Any]:
+    out: Dict[str, Any] = {"cvpl_id_uniform_basis": None, "cvpl_id_uniform_basis_rung": None}
+    reason = "no_ground_truth" if gt is None or gt.status == "absent" else gt.reason
+    why = reason if reason else "ground_truth_unavailable"
+    for key in GT_MEASURES:
+        out[key] = None
+        out[f"{key}_status"] = _status(None, "not_measured", why)
+    return out
+
+
+def _emit_gt_fields(
+    pops: Dict[str, Optional[Dict[str, Any]]], gt: PreparedGroundTruth,
+    basis: Optional[str], basis_rung: Dict[str, Optional[int]],
+) -> Dict[str, Any]:
+    """Statuses of the five GT measures from their population summaries."""
+    out: Dict[str, Any] = {"cvpl_id_uniform_basis": basis}
+    out["cvpl_id_uniform_basis_rung"] = basis_rung.get("cvpl_id_uniform_gt")
     if gt.status == "complete":
-        s = g["full"]
-        head, basis = _headline(s["subjects"], s["rows"])
-        pops = {
-            "cvpl_id_uniform_subjects_gt": s["subjects"], "cvpl_id_uniform_rows_gt": s["rows"],
-            "cvpl_id_uniform_gt": head, "cvpl_top1_success_gt": s["top1"], "precision_at_tau": s["precision"],
-        }
         for key in GT_MEASURES:
-            extra = {"basis": basis} if key == "cvpl_id_uniform_gt" else {}
+            extra: Dict[str, Any] = {}
+            if key == "cvpl_id_uniform_gt":
+                extra["basis"] = basis
+            if basis_rung.get(key) is not None:
+                extra["basis_rung"] = basis_rung[key]
             out[key], out[f"{key}_status"] = _pop_status(pops[key], **extra)
-        out["cvpl_id_uniform_basis"] = basis
+            if key != "cvpl_id_uniform_gt" and key in basis_rung:
+                out[f"{key}_basis_rung"] = basis_rung[key]
         return out
     # partial: population measures are NOT available; the subset whose correspondence is
     # fully known is reported separately, with its own denominator
     why = "ground_truth_incomplete:" + str(gt.reason)
-    k = g["known"]
-    head, basis = _headline(k["subjects"], k["rows"])
-    pops = {
-        "cvpl_id_uniform_subjects_gt": k["subjects"], "cvpl_id_uniform_rows_gt": k["rows"],
-        "cvpl_id_uniform_gt": head, "cvpl_top1_success_gt": k["top1"], "precision_at_tau": k["precision"],
-    }
     for key in GT_MEASURES:
         pop = pops[key]
         out[key] = None
-        extra: Dict[str, Any] = {"known_subset_denominator": pop["denominator"] if pop else 0}
+        extra = {"known_subset_denominator": pop["denominator"] if pop else 0}
         if pop is None:
             extra.update(known_subset_value=None, known_subset_reason=(
                 "release_membership_unknown" if gt.anonymous_release else "no_source_with_known_correspondence"))
@@ -771,8 +849,64 @@ def _gt_fields(sel: Dict[str, Any], gt: Optional[PreparedGroundTruth], n: int) -
         else:
             extra.update(known_subset_value=None, known_subset_lower=pop["lower"],
                          known_subset_upper=pop["upper"])
+        if basis_rung.get(key) is not None:
+            extra["basis_rung"] = basis_rung[key]
         out[f"{key}_status"] = _status(None, "not_measured", why, **extra)
+        if key in basis_rung and key != "cvpl_id_uniform_gt":
+            out[f"{key}_basis_rung"] = basis_rung[key]
     return out
+
+
+def _gt_fields(sel: Dict[str, Any], gt: Optional[PreparedGroundTruth], n: int) -> Dict[str, Any]:
+    """The GT measures of ONE scan (a rung) with their statuses (never a silent zero, never a
+    bound as a point)."""
+    g = sel.get("_gt")
+    if gt is None or gt.status in ("absent", "invalid") or g is None:
+        return _absent_gt_fields(gt)
+    s = g["full"] if gt.status == "complete" else g["known"]
+    head, basis = _headline(s["subjects"], s["rows"])
+    pops = {
+        "cvpl_id_uniform_subjects_gt": s["subjects"], "cvpl_id_uniform_rows_gt": s["rows"],
+        "cvpl_id_uniform_gt": head, "cvpl_top1_success_gt": s["top1"], "precision_at_tau": s["precision"],
+    }
+    fields = _emit_gt_fields(pops, gt, basis, {})
+    fields.pop("cvpl_id_uniform_basis_rung", None)
+    return fields
+
+
+def _ident_headline(
+    rung_meas: Sequence[Optional[Dict[str, Any]]], gt: Optional[PreparedGroundTruth],
+) -> Dict[str, Any]:
+    """Headline identification measures: the largest value over the declared attacker profiles
+    (the ladder's rungs). Each rung is evaluated on its own candidate sets; a rung's value is
+    never derived from another rung's. ``cvpl_id_uniform_gt`` is the largest over rungs and
+    over the two fixed strategies (uniform over subjects, uniform over rows); the winning
+    rung and strategy are named. All rungs must be measured: a maximum over only some of the
+    declared profiles would understate the upper value."""
+    if gt is None or gt.status in ("absent", "invalid") or any(
+            m is None or "_gt" not in m for m in rung_meas):
+        return _absent_gt_fields(gt)
+    key = "full" if gt.status == "complete" else "known"
+    stats = [m["_gt"][key] for m in rung_meas]
+    pops: Dict[str, Optional[Dict[str, Any]]] = {}
+    basis_rung: Dict[str, Optional[int]] = {}
+    sub, win = _max_pop([(r, "subjects", s["subjects"]) for r, s in enumerate(stats)])
+    pops["cvpl_id_uniform_subjects_gt"], basis_rung["cvpl_id_uniform_subjects_gt"] = sub, win[0] if win else None
+    rows, win = _max_pop([(r, "rows", s["rows"]) for r, s in enumerate(stats)])
+    pops["cvpl_id_uniform_rows_gt"], basis_rung["cvpl_id_uniform_rows_gt"] = rows, win[0] if win else None
+    both = [(r, "subjects", s["subjects"]) for r, s in enumerate(stats)] + [
+        (r, "rows", s["rows"]) for r, s in enumerate(stats)]
+    head, win = _max_pop(both)
+    pops["cvpl_id_uniform_gt"] = head
+    basis_rung["cvpl_id_uniform_gt"] = win[0] if win else None
+    basis = win[1] if win else None
+    top, win = _max_pop([(r, "top1", s["top1"]) for r, s in enumerate(stats)])
+    pops["cvpl_top1_success_gt"], basis_rung["cvpl_top1_success_gt"] = top, win[0] if win else None
+    prec, win = _max_pop([(r, "precision", s["precision"]) for r, s in enumerate(stats)])
+    if prec is None:  # no rung declares a link: precision is undefined, not zero
+        prec = {"point": None, "lower": None, "upper": None, "n_uncertain": 0, "denominator": 0}
+    pops["precision_at_tau"], basis_rung["precision_at_tau"] = prec, win[0] if win else None
+    return _emit_gt_fields(pops, gt, basis, basis_rung)
 
 
 # ---------------------------------------------------------------------------
@@ -799,18 +933,28 @@ def _encoded_classes(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Equivalence classes of the encoded feature vectors of the degenerate records of both
     sides (-1 for a record with a defined projection). Two records are an exact-equal pair
-    iff they share a class; aggregating by class replaces any per-pair bookkeeping."""
+    iff they share a class; aggregating by class replaces any per-pair bookkeeping.
+
+    The encoded vector of a record is fixed by one small code per feature column (the
+    standardised value of a numeric column, the category index of a categorical one), so the
+    classes are built column by column from those codes: memory is O(records), independent of
+    the encoded width, and equality is exact (no hashing, hence no collisions).
+    """
     cls_s = np.full(len(deg_s), -1, dtype=np.int64)
     cls_r = np.full(len(deg_r), -1, dtype=np.int64)
     rs, rr = np.flatnonzero(deg_s), np.flatnonzero(deg_r)
     if rs.size == 0 or rr.size == 0:
         return cls_s, cls_r
-    xs = proj.phi_rows(cols_s, rs) + 0.0
-    xr = proj.phi_rows(cols_r, rr) + 0.0
-    _, inverse = np.unique(np.vstack([xs, xr]), axis=0, return_inverse=True)
-    inverse = np.asarray(inverse).reshape(-1)
-    cls_s[rs] = inverse[: len(rs)]
-    cls_r[rr] = inverse[len(rs):]
+    comb = np.zeros(rs.size + rr.size, dtype=np.int64)
+    for name in proj.kinds:
+        codes = np.concatenate([
+            proj.column_codes(name, cols_s[name][1][rs]),
+            proj.column_codes(name, cols_r[name][1][rr]),
+        ])
+        f, uniq = pd.factorize(codes)
+        comb = pd.factorize(comb * (len(uniq) + 1) + f)[0].astype(np.int64)
+    cls_s[rs] = comb[: rs.size]
+    cls_r[rr] = comb[rs.size:]
     return cls_s, cls_r
 
 
@@ -848,16 +992,18 @@ def run_cvpl(
             "cvpl_lr": "existential_candidate_exposure",
             "cvpl_id_uniform_subjects_gt": "uniform_choice_among_distinct_candidate_subjects",
             "cvpl_id_uniform_rows_gt": "uniform_choice_among_candidate_released_rows",
-            "cvpl_id_uniform_gt": "larger_of_subjects_and_rows_population_values",
-            "cvpl_top1_success_gt": "similarity_top1_correct_identity_success",
-            "precision_at_tau": "correct_share_among_declared_top1_links",
+            "cvpl_id_uniform_gt": "largest_over_rungs_and_the_two_uniform_strategies",
+            "cvpl_top1_success_gt": "largest_over_rungs_of_similarity_top1_success",
+            "precision_at_tau": "largest_over_rungs_of_correct_share_among_declared_top1_links",
             "cvpl_weighted_lr_legacy": "weighted_existential_linkage_v1",
         },
         "interpretation": (
-            "White-box evaluation of one specified attacker (declared attributes, blocking, "
-            "projection, threshold) with full auditor access: an upper, worst-case-oriented "
-            "estimate, not an average over attackers. Not a probability of re-identification "
-            "in general and not a verdict on anonymity."
+            "White-box evaluation with full auditor access. Identification values are the upper "
+            "value over the declared attacker profiles (rungs) and declared fixed strategies "
+            "(uniform over subjects, uniform over rows, similarity top-1); not an "
+            "optimal-attacker guarantee, not an average over attackers, not a probability of "
+            "re-identification in general and not a verdict on anonymity. A bounded value is a "
+            "conservative bound: it may be loose and need not be attainable."
         ),
     }
     if n == 0:
@@ -943,7 +1089,6 @@ def run_cvpl(
     zs = np.where(deg_s[:, None], 0.0, zs / np.where(deg_s, 1.0, ns)[:, None])
     zr = np.where(deg_r[:, None], 0.0, zr / np.where(deg_r, 1.0, nr)[:, None])
     base["degenerate_vectors"] = {"source": int(deg_s.sum()), "release": int(deg_r.sum())}
-    cls_s, cls_r = _encoded_classes(proj, cols_s, cols_r, deg_s, deg_r)
 
     # -- ground truth ----------------------------------------------------------------
     gt = prepare_ground_truth(cfg, source, release)
@@ -957,7 +1102,9 @@ def run_cvpl(
     base["gt_coverage"] = base["ground_truth"]["gt_coverage"]
     use_gt = gt.status in ("complete", "partial")
 
-    scanner = _Scanner(cfg, zs, zr, deg_s, deg_r, gt if use_gt else None, cls_s, cls_r, encs)
+    scanner = _Scanner(
+        cfg, zs, zr, deg_s, deg_r, gt if use_gt else None,
+        lambda: _encoded_classes(proj, cols_s, cols_r, deg_s, deg_r), encs)
 
     # -- ladder ----------------------------------------------------------------------
     ladder = cfg.ladder
@@ -965,9 +1112,11 @@ def run_cvpl(
     plans: List[Any] = []
     rung_meas: List[Optional[Dict[str, Any]]] = []
     rung_state: List[Dict[str, Any]] = []
-    cumulative = np.zeros(n, dtype=bool)
+    cum_linked = np.zeros(n, dtype=bool)  # a KNOWN accepted pair under some rung
+    cum_possible = np.zeros(n, dtype=bool)  # ... or an undefined-cosine candidate under some rung
     cum_with_cand = np.zeros(n, dtype=bool)
     transitions: List[str] = []
+    incomplete = False  # an earlier rung could not be measured: the union is not complete
     for r, qids in enumerate(ladder):
         entry: Dict[str, Any] = {"rung": r, "qids": list(qids)}
         if r:
@@ -998,13 +1147,17 @@ def run_cvpl(
             else:
                 scan = scanner.scan([(plan, [])], use_gt)
                 meas = _rung_measures(scan, n, gt if use_gt else None)
-                cumulative |= scan.linked
+                cum_linked |= scan.linked
+                cum_possible |= scan.linked | (scan.unk_rows > 0)
                 cum_with_cand |= scan.n_cand > 0
-                entry.update(status="measured", reason=None, cumulative_lr=float(cumulative.sum() / n))
+                entry.update(status="measured", reason=None)
                 entry["measures"] = {k: v for k, v in meas.items() if k != "_gt"}
                 if use_gt:
                     entry["measures"].update(_gt_fields(meas, gt, n))
                 state = {"status": "measured", "reason": None}
+        if state["status"] != "measured":
+            incomplete = True
+        entry.update(_cumulative_lr(cum_linked, cum_possible, n, incomplete))
         rungs.append(entry)
         plans.append(plan)
         rung_meas.append(meas)
@@ -1012,24 +1165,43 @@ def run_cvpl(
 
     nested = all(t in ("relaxing", "equal") for t in transitions)
     base["blocking_ladder_trajectory"] = rungs
-    base["cvpl_lr_by_rung"] = [
-        {"rung": e["rung"], "qids": e["qids"], "status": e["status"],
-         "cvpl_lr": e.get("measures", {}).get("cvpl_lr")}
+    base["cvpl_lr_by_rung"] = []
+    for e in rungs:
+        lr = e.get("measures", {})
+        st = lr.get("cvpl_lr_status", {}).get("status") if e["status"] == "measured" else e["status"]
+        base["cvpl_lr_by_rung"].append({
+            "rung": e["rung"], "qids": e["qids"], "status": st,
+            "cvpl_lr": lr.get("cvpl_lr"), "cvpl_lr_lower": lr.get("cvpl_lr_lower"),
+            "cvpl_lr_upper": lr.get("cvpl_lr_upper"),
+        })
+    base["candidate_union_trajectory"] = [
+        {"rung": e["rung"], "qids": e["qids"], "status": e["cumulative_lr_status"],
+         "cvpl_lr_union": e["cumulative_lr"], "cvpl_lr_union_lower": e["cumulative_lr_lower"],
+         "cvpl_lr_union_upper": e["cumulative_lr_upper"]}
         for e in rungs
     ]
-    base["candidate_union_trajectory"] = [
-        {"rung": e["rung"], "cvpl_lr_union": e.get("cumulative_lr"), "qids": e["qids"]} for e in rungs
-    ]
-    base["cvpl_lr_union"] = float(cumulative.sum() / n) if any(e["status"] == "measured" for e in rungs) else None
+    final = _cumulative_lr(cum_linked, cum_possible, n, incomplete)
+    base["cvpl_lr_union"] = final["cumulative_lr"]
+    base["cvpl_lr_union_lower"] = final["cumulative_lr_lower"]
+    base["cvpl_lr_union_upper"] = final["cumulative_lr_upper"]
+    base["cvpl_lr_union_status"] = _status(
+        final["cumulative_lr"], final["cumulative_lr_status"],
+        {"measured": None, "bounded": "undefined_cosine_candidates"}.get(
+            final["cumulative_lr_status"], "rung_not_measured"),
+        denominator=n, lower=final["cumulative_lr_lower"], upper=final["cumulative_lr_upper"])
     base["n_with_candidates_union"] = int(cum_with_cand.sum())
 
     # -- headline -------------------------------------------------------------------------
-    # One rung, or a nested relaxing ladder: the last rung IS the union of the candidate sets
-    # (Theorem 1's premise). Otherwise the attacker who tries every declared profile is
-    # evaluated over the union of their candidate sets - every pair counted once.
+    # cvpl_lr (existential): one rung, or a nested relaxing ladder: the last rung IS the
+    # union of the candidate sets (Theorem 1's premise). Otherwise the attacker who tries
+    # every declared profile is evaluated over the union of their candidate sets - every pair
+    # counted once. The identification measures are NOT taken from a union: each rung is a
+    # declared attacker profile with its own candidate sets, and the headline is the largest
+    # value over the profiles (see _ident_headline).
     union_basis = (len(ladder) > 1 and not nested) or force_union
     base["headline_basis"] = "union_of_rungs" if union_basis else "last_rung"
     base["headline_rung"] = None if union_basis else len(ladder) - 1
+    base["identification_basis"] = "largest_value_over_rungs"
     base["ladder"] = {
         "n_rungs": len(ladder),
         "transitions": transitions,
@@ -1037,20 +1209,23 @@ def run_cvpl(
         "non_nested": bool(len(ladder) > 1 and not nested),
         "monotone_lr_theorem_applies": bool(nested and len(ladder) > 1),
         "note": (
-            "nested relaxing ladder: cvpl_lr cannot decrease along it (fixed phi, psi, tau) and the "
-            "last rung equals the union of all rungs; cvpl_id_uniform_gt has no monotonicity guarantee."
+            "nested relaxing ladder: cvpl_lr cannot decrease along it (fixed phi, psi, tau; "
+            "candidate sets only grow) and the last rung equals the union of all rungs; the "
+            "identification measures are evaluated per rung and the headline is the largest over "
+            "the rungs, with no monotonicity guarantee."
             if nested and len(ladder) > 1 else
-            ("rungs are not ordered by inclusion: no monotonicity statement; the headline is the "
-             "attacker trying every declared profile (union of candidate sets)"
+            ("rungs are not ordered by inclusion: no monotonicity statement; cvpl_lr is the "
+             "attacker trying every declared profile (union of candidate sets) and the "
+             "identification headline is the largest value over the rungs"
              if len(ladder) > 1 else "single rung")
         ),
     }
+    bad = [st for st in rung_state if st["status"] != "measured"]
     head_meas: Optional[Dict[str, Any]]
     head_state: Dict[str, Any]
     if not union_basis:
         head_meas, head_state = rung_meas[-1], rung_state[-1]
     else:
-        bad = [st for st in rung_state if st["status"] != "measured"]
         total = sum(int(p.comparisons) for p in plans if p is not None)
         if bad:
             na = [st for st in bad if st["status"] == "not_applicable"]
@@ -1065,8 +1240,8 @@ def run_cvpl(
             base["union_detail"] = f"{total:,} comparisons planned over all rungs, limit {cfg.max_comparisons:,}"
         else:
             cover = [(plans[r], [list(q) for q in ladder[:r]]) for r in range(len(ladder))]
-            uscan = scanner.scan(cover, use_gt)
-            head_meas = _rung_measures(uscan, n, gt if use_gt else None)
+            uscan = scanner.scan(cover, False)  # existential union only: no GT bookkeeping
+            head_meas = _rung_measures(uscan, n, None)
             head_state = {"status": "measured", "reason": None}
     if head_meas is None:
         base.update(_all_not_measured(head_state.get("reason") or "not_measured",
@@ -1079,27 +1254,54 @@ def run_cvpl(
         # to compare; no admissible candidate is a settled zero whatever the geometry
         if proj_degenerate and head["n_linked"] == 0 and head["n_with_candidates"] > 0:
             base.update(_all_not_measured("projection_degenerate"))
+        elif bad and not union_basis and use_gt:
+            # the largest identification value needs every declared profile
+            na = [st for st in bad if st["status"] == "not_applicable"]
+            reason = ("max_needs_every_rung:" + str(na[0]["reason"])) if na else "resource_limit"
+            ident = _absent_gt_fields(None)
+            for key in GT_MEASURES:
+                ident[f"{key}_status"] = _status(None, "not_applicable" if na else "not_measured", reason)
+            base.update(ident)
         else:
-            lr_status = "measured" if head["n_undetermined"] == 0 else "bounded"
-            base["cvpl_lr_status"] = _status(
-                head["cvpl_lr"], lr_status,
-                None if lr_status == "measured" else "undefined_cosine_candidates", denominator=n,
-                lower=head["cvpl_lr_lower"], upper=head["cvpl_lr_upper"],
-                n_uncertain=head["n_undetermined"])
-            base.update(_gt_fields(head_meas, gt, n))
+            base.update(_ident_headline(rung_meas, gt))
+            base["identification_by_rung"] = [
+                {"rung": e["rung"], "qids": e["qids"], "status": e["status"],
+                 **{f"{k}_status": e.get("measures", {}).get(f"{k}_status") for k in GT_MEASURES}}
+                for e in rungs
+            ] if use_gt else []
         base["undefined_policy"] = (
             "a source record with an admissible candidate whose cosine is undefined (a zero "
             "projected vector that is not an exact-equal pair) is unknown: it stays in the "
             "denominator N and every measure it can influence is published with bounds "
             "(status 'bounded', point value null) instead of a point value; n_undetermined counts "
-            "the records with no known link and at least one unknown candidate"
+            "the records with no known link and at least one unknown candidate. The bounds are "
+            "conservative: they contain every completion and may be looser than the "
+            "attainable range"
         )
     base["elapsed_seconds"] = round(time.perf_counter() - t0, 3)
     return CVPLResult(base, proj)
 
 
+def _cumulative_lr(linked: np.ndarray, possible: np.ndarray, n: int, incomplete: bool) -> Dict[str, Any]:
+    """Existential linkage of the union of the rungs seen so far, with bounds.
+
+    ``linked``: some rung holds a known accepted pair; ``possible``: ... or an undefined-cosine
+    candidate. If a rung could not be measured the union is incomplete and only the lower
+    bound exists."""
+    lower = float(linked.sum() / n)
+    if incomplete:
+        return {"cumulative_lr": None, "cumulative_lr_lower": lower, "cumulative_lr_upper": None,
+                "cumulative_lr_status": "not_measured"}
+    upper = float(possible.sum() / n)
+    if upper == lower:
+        return {"cumulative_lr": lower, "cumulative_lr_lower": lower, "cumulative_lr_upper": upper,
+                "cumulative_lr_status": "measured"}
+    return {"cumulative_lr": None, "cumulative_lr_lower": lower, "cumulative_lr_upper": upper,
+            "cumulative_lr_status": "bounded"}
+
+
 def _all_not_measured(reason: str, status: str = "not_measured") -> Dict[str, Any]:
-    out: Dict[str, Any] = {"cvpl_id_uniform_basis": None}
+    out: Dict[str, Any] = {"cvpl_id_uniform_basis": None, "cvpl_id_uniform_basis_rung": None}
     for key in ("cvpl_lr", *GT_MEASURES, "cvpl_weighted_lr_legacy"):
         out[key] = None
         out[f"{key}_status"] = _status(None, status, reason)

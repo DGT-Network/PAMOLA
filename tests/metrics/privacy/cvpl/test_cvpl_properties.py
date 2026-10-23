@@ -111,12 +111,13 @@ def test_engine_matches_an_independent_oracle(seed, tau):
         got = entry["measures"]
         assert got["cvpl_lr"] == pytest.approx(want["lr"], abs=1e-12)
         assert got["cvpl_id_uniform_subjects_gt"] == pytest.approx(want["uni"], abs=1e-9)
-    last = expected[-1]
-    assert result["cvpl_top1_success_gt"] == pytest.approx(last["top1"], abs=1e-9)
-    if last["prec"] is None:
+    # identification headline: the largest value over the declared rungs (CDX-CVPL-R2-6)
+    assert result["cvpl_top1_success_gt"] == pytest.approx(max(e["top1"] for e in expected), abs=1e-9)
+    precisions = [e["prec"] for e in expected if e["prec"] is not None]
+    if not precisions:
         assert result["precision_at_tau"] is None
     else:
-        assert result["precision_at_tau"] == pytest.approx(last["prec"], abs=1e-9)
+        assert result["precision_at_tau"] == pytest.approx(max(precisions), abs=1e-9)
     assert result["ground_truth"]["release_subject_duplicates"] is True
 
 
@@ -325,10 +326,14 @@ def test_cvpl_non_nested_headline_is_the_union_of_candidate_sets_all_measures(se
     want = _oracle(src, rel, ["a", "b", "c"], ["n1", "n2"], [], 0.5, rungs, union=True)[-1]
     # (the oracle features: n1, n2 numeric; qids a, b one-hot - same as the engine's)
     assert r["cvpl_lr"] == pytest.approx(want["lr"], abs=1e-12)
-    assert r["cvpl_id_uniform_subjects_gt"] == pytest.approx(want["uni"], abs=1e-9)
-    assert r["cvpl_top1_success_gt"] == pytest.approx(want["top1"], abs=1e-9)
-    if want["prec"] is not None:
-        assert r["precision_at_tau"] == pytest.approx(want["prec"], abs=1e-9)
+    # identification is evaluated PER RUNG (each rung a declared attacker profile); the
+    # headline is the largest value over the rungs, not a value of the union
+    per = _oracle(src, rel, ["a", "b", "c"], ["n1", "n2"], [], 0.5, rungs)
+    assert r["cvpl_id_uniform_subjects_gt"] == pytest.approx(max(e["uni"] for e in per), abs=1e-9)
+    assert r["cvpl_top1_success_gt"] == pytest.approx(max(e["top1"] for e in per), abs=1e-9)
+    precisions = [e["prec"] for e in per if e["prec"] is not None]
+    if precisions:
+        assert r["precision_at_tau"] == pytest.approx(max(precisions), abs=1e-9)
     # the headline lr is the final value of the union trajectory, and never below any rung
     assert r["cvpl_lr"] == r["candidate_union_trajectory"][-1]["cvpl_lr_union"] == r["cvpl_lr_union"]
     by_rung = [e["cvpl_lr"] for e in r["cvpl_lr_by_rung"]]
