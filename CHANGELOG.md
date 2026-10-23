@@ -84,6 +84,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **DCR / NNDR use one schema for both datasets (CDX-R2-6).** Whether a column is numeric, datetime or categorical, and the code of every category, is now decided from both inputs together before encoding. Previously each input was inferred alone, so identical records stored as category in one input and int in the other gave DCR > 0, and a date column against text was a datetime on one side only. Datasets with different column sets now raise a `ValidationError` naming the difference. DCR / NNDR values change for such mixed-type inputs.
 - **The ENRICH guard covers every column an operation writes, and an empty prefix is no
   exemption** (CDX-R2-5). `CleanInvalidValuesOperation` declares the targets of its constraints,
   white / black lists and null replacement (a whitelist-only run used to replace an existing

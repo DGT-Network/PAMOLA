@@ -31,7 +31,7 @@ import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 
-from pamola_core.metrics.commons.preprocessing import prepare_data_for_distance_metrics
+from pamola_core.metrics.commons.preprocessing import prepare_pair_for_distance_metrics
 
 
 class NearestNeighborDistanceRatio:
@@ -101,11 +101,8 @@ class NearestNeighborDistanceRatio:
 
         # Preprocess: convert all features to numeric using OrdinalEncoder for object/category columns
         # One encoding for both datasets (union of categories), see the function.
-        orig_processed = prepare_data_for_distance_metrics(
-            original_df, reference=transformed_df
-        )
-        trans_processed = prepare_data_for_distance_metrics(
-            transformed_df, reference=original_df
+        orig_processed, trans_processed = prepare_pair_for_distance_metrics(
+            original_df, transformed_df
         )
 
         # Normalize features if requested, otherwise use raw numeric values
