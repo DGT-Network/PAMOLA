@@ -28,6 +28,10 @@ import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.utils.redaction import redact_sensitive_parameters
 from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
@@ -513,6 +517,7 @@ class CategoricalOperation(FieldOperation):
                     self.logger.warning(
                         f"Operation: {self.operation_name}, Generate visualizations failed {viz_result}"
                     )
+                    self._record_visualization_failure(result, RuntimeError(viz_result))
                     if reporter:
                         reporter.add_operation(
                             f"Operation: {self.operation_name}",
@@ -786,7 +791,8 @@ class CategoricalOperation(FieldOperation):
                 viz_result_holder["result"] = f"Error: {str(e)}"
 
         try:
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
+            artifacts_before = len(result.artifacts)
             thread = threading.Thread(
                 target=ctx.run,
                 args=(run,),
@@ -794,8 +800,12 @@ class CategoricalOperation(FieldOperation):
                 daemon=True,
             )
             thread.start()
-            # Rendering is part of execute(): wait for it, no worker outlives the call.
-            thread.join()
+            # Rendering is part of execute(): the wait is bounded, and an abandoned
+            # worker can no longer write (see render_guard).
+            timeout = getattr(self, "visualization_timeout", None)
+            if not wait_for_render(thread, render_run, timeout, self.logger):
+                del result.artifacts[artifacts_before:]
+                return f"Error: visualization did not finish within {timeout}s"
             return viz_result_holder["result"]
 
         except Exception as e:

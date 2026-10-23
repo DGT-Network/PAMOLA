@@ -527,6 +527,8 @@ class UtilityMetricOperation(MetricsOperation):
 
         except Exception as e:
             self.logger.error(f"Failed to generate utility metric visualizations: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
         return visualization_paths
 

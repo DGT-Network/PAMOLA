@@ -37,6 +37,11 @@ import time
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Tuple
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.metric_utils import (
     calculate_anonymization_effectiveness,
@@ -953,11 +958,11 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 )
             else:
                 self.logger.error(f"Failed to create main visualization: {bar_result}")
-                return None
+                raise RuntimeError(f"Failed to create main visualization: {bar_result}")
 
         except Exception as e:
             self.logger.error(f"Failed to generate main suppression visualization: {e}")
-            return None
+            raise
 
         if self._suppressed_schema and len(self._suppressed_schema) > 0:
             try:
@@ -1079,7 +1084,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                     1, {"step": step, "operation": self.operation_name}
                 )
 
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
+            artifacts_before = len(result.artifacts)
             thread = threading.Thread(
                 target=ctx.run,
                 args=(run_visualizations,),
@@ -1088,7 +1094,15 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             )
 
             thread.start()
-            thread.join()
+            if not wait_for_render(
+                thread, render_run, getattr(self, "visualization_timeout", None), self.logger
+            ):
+                # nothing from an abandoned run is reported
+                del result.artifacts[artifacts_before:]
+                viz_error = VisualizationTimeoutError(
+                    "visualization did not finish within "
+                    f"{getattr(self, 'visualization_timeout', None)}s"
+                )
 
             if viz_error:
                 # Rendering is part of execute(): a failure is recorded in the result.

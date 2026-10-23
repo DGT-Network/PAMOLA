@@ -548,7 +548,7 @@ class BaseOperation(ABC):
         """Make a failed visualization visible in the result.
 
         An explicitly requested visualization is part of ``execute()``: it is
-        waited for (no timeout, no worker left running) and, when it fails, the
+        waited for (bounded by the visualization timeout; an abandoned worker cannot write) and, when it fails, the
         failure is reported in ``result.metrics["visualization_error"]`` and the
         log instead of vanishing. The operation's own data outputs are unaffected,
         so its status stays as the data processing left it.

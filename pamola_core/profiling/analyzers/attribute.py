@@ -29,6 +29,11 @@ from pathlib import Path
 import time
 from typing import Dict, Any, Optional, Union
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.common.enum.language_enum import Language
 from pamola_core.profiling.commons.attribute_utils import (
     analyze_dataset_attributes,
@@ -790,6 +795,7 @@ class DataAttributeProfilerOperation(BaseOperation):
 
         except Exception as e:
             self.logger.error(f"Error creating visualizations: {e}", exc_info=True)
+            self._record_visualization_failure(result, e)
             if reporter:
                 reporter.add_operation(
                     "Creating visualizations",
@@ -1042,14 +1048,14 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             # Copy context for the thread
             logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name="VizThread-",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             logger.info(
@@ -1058,16 +1064,11 @@ class DataAttributeProfilerOperation(BaseOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive():
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {vis_timeout}s"
+                )
 
             if visualization_error:
                 # Rendering is part of execute(): a failure is recorded in the result,

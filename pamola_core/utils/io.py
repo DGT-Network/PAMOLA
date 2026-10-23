@@ -1466,6 +1466,28 @@ def save_visualization(
     encryption_key: Optional[str] = None,
     **kwargs,
 ) -> Path:
+    """Save a figure; inside a rendering worker the write is cancellable (see ``render_guard``).
+
+    Documented on ``_save_visualization_impl``.
+    """
+    from pamola_core.utils.vis_helpers.render_guard import guarded_write
+
+    final_path = Path(file_path)
+    if not str(final_path).lower().endswith(f".{format.lower()}"):
+        final_path = final_path.with_suffix(f".{format.lower()}")
+    with guarded_write(final_path):
+        return _save_visualization_impl(
+            figure, file_path, format=format, encryption_key=encryption_key, **kwargs
+        )
+
+
+def _save_visualization_impl(
+    figure: Any,
+    file_path: Union[str, Path],
+    format: str = "png",
+    encryption_key: Optional[str] = None,
+    **kwargs,
+) -> Path:
     """
     Universal function for saving visualizations of different types.
 

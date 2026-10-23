@@ -35,6 +35,11 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.error_handler import ErrorHandler
@@ -834,6 +839,8 @@ class SplitByIDValuesOperation(TransformationOperation):
                 )
         except Exception as e:
             self.logger.error(f"Failed to create record count bar chart: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
         # 2. Pie chart: Distribution across subsets
         try:
@@ -858,6 +865,8 @@ class SplitByIDValuesOperation(TransformationOperation):
                 )
         except Exception as e:
             self.logger.error(f"Failed to create record distribution pie chart: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
         # 3. Heatmap: ID value distribution across subsets
         try:
@@ -890,6 +899,8 @@ class SplitByIDValuesOperation(TransformationOperation):
                 )
         except Exception as e:
             self.logger.error(f"Failed to create ID value distribution heatmap: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
     def _handle_visualizations(
         self,
@@ -926,7 +937,8 @@ class SplitByIDValuesOperation(TransformationOperation):
                 )
 
         try:
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
+            artifacts_before = len(result.artifacts)
             thread = threading.Thread(
                 target=ctx.run,
                 args=(run_visualizations,),
@@ -935,7 +947,15 @@ class SplitByIDValuesOperation(TransformationOperation):
             )
 
             thread.start()
-            thread.join()
+            if not wait_for_render(
+                thread, render_run, getattr(self, "visualization_timeout", None), self.logger
+            ):
+                # nothing from an abandoned run is reported
+                del result.artifacts[artifacts_before:]
+                viz_error = VisualizationTimeoutError(
+                    "visualization did not finish within "
+                    f"{getattr(self, 'visualization_timeout', None)}s"
+                )
 
             if viz_error:
                 # Rendering is part of execute(): a failure is recorded in the result.

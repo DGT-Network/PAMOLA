@@ -1378,5 +1378,7 @@ class FullMaskingOperation(AnonymizationOperation):
             self.logger.warning(
                 f"Failed to generate visualizations: {e}", exc_info=True
             )
+            # a failed render is the operation's failure, not a log line
+            raise
 
         return visualization_paths

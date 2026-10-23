@@ -60,6 +60,11 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 import pandas as pd
 
 # Import anonymization-specific utilities
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.anonymization.commons.data_utils import (
     handle_vulnerable_records,
     process_nulls,
@@ -1308,14 +1313,14 @@ class AnonymizationOperation(FieldOperation):
 
             # Copy context for the thread
             self.logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name=f"VizThread-{self.field_name}",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             self.logger.info(
@@ -1324,16 +1329,11 @@ class AnonymizationOperation(FieldOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive():
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    self.logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, self.logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {vis_timeout}s"
+                )
 
             if visualization_error:
                 # Rendering is part of execute(): a failure is recorded in the result,
@@ -1516,6 +1516,8 @@ class AnonymizationOperation(FieldOperation):
 
         except Exception as e:
             self.logger.warning(f"Error generating visualizations: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
         return visualization_paths
 

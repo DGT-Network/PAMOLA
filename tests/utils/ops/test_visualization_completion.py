@@ -2,7 +2,8 @@
 
 The render worker used to be joined with ``visualization_timeout``; when the
 renderer was slower the operation returned SUCCESS while the thread kept running
-and could write artifacts afterwards. Rendering is now waited for, with no timeout,
+and could write artifacts afterwards. Rendering is now waited for (up to the finite
+timeout; CDX-R2-7 covers the renderer that exceeds it, see test_visualization_bounded.py)
 and a failure is reported in ``result.metrics["visualization_error"]``.
 """
 
@@ -67,7 +68,7 @@ def test_execute_waits_for_a_slow_renderer_despite_a_zero_timeout(case, tmp_path
     op = make()
     op.generate_visualization = True
     op.visualization_backend = "matplotlib"
-    op.visualization_timeout = 0  # used to mean "give up immediately"
+    op.visualization_timeout = 0  # not "give up immediately": falls back to the finite default
     state = {}
     monkeypatch.setattr(type(op), "_generate_visualizations", _slow_renderer(state))
 
@@ -101,10 +102,10 @@ def test_metrics_operation_waits_too(tmp_path, monkeypatch):
     original = pd.DataFrame({"x": [float(i) for i in range(60)]})
     op = FidelityOperation(
         fidelity_metrics=["ks"], columns=["x"], generate_visualization=True,
-        visualization_backend="matplotlib", visualization_timeout=1,
+        visualization_backend="matplotlib", visualization_timeout=10,
     )
     state = {}
-    monkeypatch.setattr(type(op), "_generate_visualizations", _slow_renderer(state, delay=1.6))
+    monkeypatch.setattr(type(op), "_generate_visualizations", _slow_renderer(state, delay=1.0))
 
     result = op.execute(
         DataSource(dataframes={"main": original, "synth": original.copy()}),
