@@ -49,6 +49,7 @@ Changelog:
 
 import base64
 import hashlib
+import os
 import time
 import uuid
 from datetime import datetime
@@ -239,7 +240,12 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
         self._session_id: Optional[str] = None
         self._hash_generator = None
         self._pseudonym_cache = PseudonymizationCache() if self.use_cache else None
-        self._collision_tracker: set = set()
+        # pseudonym -> keyed digest of the source value that produced it. A
+        # collision is two DIFFERENT source values with one pseudonym; the
+        # same value met again (next chunk) is not one. Source values are kept
+        # only as keyed digests and never logged.
+        self._collision_tracker: dict = {}
+        self._collision_key = os.urandom(16)
         self._collision_probability = 0.0
         self._collision_count = 0
         self._cache_hits = 0
@@ -751,7 +757,7 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
 
             # Reset per-execution counters after every run (success or failure)
             # so the next execute() call starts from a clean state.
-            self._collision_tracker = set()
+            self._collision_tracker = {}
             self._collision_probability = 0.0
             self._collision_count = 0
             self._cache_hits = 0
@@ -813,13 +819,21 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
                 self._hash_computation_time += time.perf_counter() - start_hash_time
 
                 # Check for collisions (set lookup O(1), half the memory of dict)
-                if pseudonym in self._collision_tracker:
+                owner = hashlib.blake2b(
+                    str(value).encode("utf-8"), key=self._collision_key, digest_size=16
+                ).digest()
+                known_owner = self._collision_tracker.get(pseudonym)
+                if known_owner is None:
+                    self._collision_tracker[pseudonym] = owner
+                elif known_owner != owner:
                     self._collision_count += 1
+                    # No source value or pseudonym in the log: both are
+                    # identifying material.
                     self.logger.warning(
-                        f"Hash collision detected for '{value}' → '{pseudonym}'"
+                        "Hash collision detected: two distinct source values "
+                        f"produced the same pseudonym (collisions so far: "
+                        f"{self._collision_count})"
                     )
-                else:
-                    self._collision_tracker.add(pseudonym)
 
                 pseudonym_map[value] = pseudonym
 
@@ -827,20 +841,24 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
                 if self.use_cache and self._pseudonym_cache:
                     self._pseudonym_cache.put(str(value), pseudonym)
 
-            # Apply pseudonyms to working series
-            working_series[non_null_mask] = non_null_values.map(pseudonym_map)
+            # Apply pseudonyms by position (index labels may repeat)
+            out_values = working_series.to_numpy(dtype=object, copy=True)
+            out_values[non_null_mask.to_numpy()] = non_null_values.map(
+                pseudonym_map
+            ).to_numpy(dtype=object)
+            working_series = pd.Series(out_values, index=working_series.index)
 
         # Write result to DataFrame based on mode
         if self.mode == "REPLACE":
             if self.compound_mode:
                 # Replace primary field with pseudonymized compound; null out additional fields
-                batch[self.field_name] = working_series
+                batch[self.field_name] = working_series.to_numpy()
                 for field in self.additional_fields or []:
                     batch[field] = None
             else:
-                batch[self.field_name] = working_series
+                batch[self.field_name] = working_series.to_numpy()
         else:  # ENRICH
-            batch[self.output_field_name] = working_series
+            batch[self.output_field_name] = working_series.to_numpy()
 
         return batch
 

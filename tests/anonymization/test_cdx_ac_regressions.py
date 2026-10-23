@@ -145,3 +145,60 @@ def test_single_process_vectorized_mapping_is_reversible_across_instances(tmp_pa
     assert len(set(out)) == 12
     stored = MappingStorage(path, bytes.fromhex(KEY)).load()
     assert {stored[v] for v in values} == set(out)
+
+
+# --- CDX-AC-7: hash collision tracker ---------------------------------------
+
+from pamola_core.anonymization.pseudonymization.hash_based_op import (  # noqa: E402
+    HashBasedPseudonymizationOperation,
+)
+
+CANARY = "PII_CANARY_alice@example.test"
+
+
+def _hash_op(**kwargs):
+    return HashBasedPseudonymizationOperation(
+        field_name="email",
+        salt_config={"source": "parameter", "value": "5a" * 32},
+        use_pepper=False,
+        use_cache=False,
+        **kwargs,
+    )
+
+
+def test_repeated_value_across_chunks_is_not_a_collision_and_never_logged(
+    tmp_path, caplog
+):
+    df = pd.DataFrame({"email": [CANARY, "bob@example.test"] * 4})
+    op = _hash_op(chunk_size=2)
+    with caplog.at_level(logging.DEBUG):
+        result = op.execute(DataSource(dataframes={"main": df}), tmp_path / "t", _Reporter())
+
+    assert result.status == OperationStatus.SUCCESS, result.error_message
+    assert op._collision_count == 0
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert "PII_CANARY" not in logged
+    assert "collision" not in logged.lower()
+
+
+def test_real_collision_is_counted_without_leaking_values(tmp_path, caplog, monkeypatch):
+    op = _hash_op()
+    monkeypatch.setattr(op, "_generate_pseudonym", lambda value: "SAME")
+    batch = pd.DataFrame({"email": [CANARY, "bob@example.test", CANARY]})
+    with caplog.at_level(logging.DEBUG):
+        op.process_batch(batch)
+
+    assert op._collision_count == 1  # two distinct values, one pseudonym
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert "collision" in logged.lower()
+    assert "PII_CANARY" not in logged and "bob@" not in logged and "SAME" not in logged
+
+
+def test_hash_pseudonymization_handles_duplicate_index_labels():
+    op = _hash_op()
+    op._initialize_crypto_components()
+    batch = pd.DataFrame({"email": ["alice", "bob", None, "alice"]}, index=[5, 5, 5, 5])
+    out = op.process_batch(batch)
+    values = out["email"].tolist()
+    assert values[0] == values[3] and values[0] != values[1]
+    assert pd.isna(values[2])

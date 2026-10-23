@@ -122,6 +122,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   fails with an `InvalidParameterError` result; use `parallel_processes=1` or
   the default chunked execution.
 
+- **Hash pseudonymization logged source values and mis-counted collisions
+  (CDX-AC-7).** The collision tracker remembered only pseudonyms, so the same
+  value in a later chunk was reported as a "collision" and the warning printed
+  the source value and its pseudonym. The tracker now keeps keyed digests of
+  the sources, counts only two *distinct* values with one pseudonym, and the
+  log line carries no values.
+
 ### Removed
 
 - **`pydantic[email]` dependency (DEP-01).** Nothing in `pamola_core` or `tests`
