@@ -400,7 +400,11 @@ def apply_merge_low_freq(
         series,
         count_threshold=min_group_size,
         percent_threshold=freq_threshold,
-        combined_criteria=True,
+        # A category is rare if it fails EITHER threshold (fewer than min_group_size rows, or
+        # a share below freq_threshold): "support both count and percentage thresholds".
+        # Requiring both made the strategy a no-op on any dataset large enough for every
+        # category to have min_group_size rows.
+        combined_criteria=False,
         value_counts=value_counts,
     )
 

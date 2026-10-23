@@ -36,10 +36,23 @@ def test_merge_low_freq_merges_the_rare_categories(tmp_path):
     assert out.nunique() == 11
 
 
-def test_a_category_that_is_small_but_not_rare_by_frequency_stays(tmp_path):
-    # both criteria must hold (documented "combined" rule): count < min_group_size AND share < threshold
+def test_either_threshold_makes_a_category_rare(tmp_path):
+    # count threshold alone: 2 rows < 5, although the share (0.07%) is above a 0.01% threshold
     out = _run(tmp_path, strategy="merge_low_freq", min_group_size=5, freq_threshold=0.0001)
-    assert set(RARE) <= set(out)
+    assert not set(RARE) & set(out)
+    # frequency threshold alone: 300 rows >= min_group_size, but the share (~10%) is below 20%
+    out = _run(tmp_path, strategy="merge_low_freq", min_group_size=5, freq_threshold=0.20)
+    assert not set(COMMON) & set(out) and set(out) == {"OTHER"}
+
+
+def test_large_datasets_are_not_exempt(tmp_path):
+    # every category has far more than min_group_size rows (the PERF-01 100K/1M shape)
+    values = [f"c{i}" for i in range(50) for _ in range(100)] + ["big"] * 5000
+    op = CategoricalGeneralizationOperation(field_name="c", strategy="merge_low_freq", min_group_size=5,
+                                            freq_threshold=0.05, use_cache=False)
+    result = op.execute(DataSource(dataframes={"main": pd.DataFrame({"c": values})}), tmp_path, None)
+    out = pd.read_csv(next(a.path for a in result.artifacts if str(a.path).endswith(".csv") and "output" in str(a.path)))["c"]
+    assert set(out) == {"OTHER", "big"}
 
 
 def test_numbered_groups_are_applied_too(tmp_path):
