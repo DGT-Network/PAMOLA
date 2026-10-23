@@ -21,7 +21,7 @@ from .helpers import GT, make_df
 # ---------------------------------------------------------------------------------------
 # an independent, deliberately naive oracle (python loops, scikit-learn PCA)
 # ---------------------------------------------------------------------------------------
-def _oracle(src, rel, qids, aux, cat_aux, tau, rungs, with_gt=True):
+def _oracle(src, rel, qids, aux, cat_aux, tau, rungs, union=False):
     feats_num = ["n1"] + [c for c in aux if c.startswith("n")]
     feats_num = list(dict.fromkeys(feats_num))
     cats = list(qids) + list(cat_aux)
@@ -46,12 +46,15 @@ def _oracle(src, rel, qids, aux, cat_aux, tau, rungs, with_gt=True):
         for i in range(n_src):
             passing = []
             for j in range(len(rel)):
-                ok = True
-                for q in rung:
-                    a, b = src[q].iloc[i], rel[q].iloc[j]
-                    if not (a == b or b == "*" or a == "*"):
-                        ok = False
-                        break
+                ok = False
+                for one in (rungs if union else [rung]):
+                    this = True
+                    for q in one:
+                        a, b = src[q].iloc[i], rel[q].iloc[j]
+                        if not (a == b or b == "*" or a == "*"):
+                            this = False
+                            break
+                    ok = ok or this
                 if ok:
                     sim = float(zs[i] @ zr[j])
                     if sim >= tau - 1e-12:
@@ -304,3 +307,104 @@ def test_original_cvpl_small_dataset_and_no_ground_truth_do_not_fail():
     cfg = CVPLConfig.from_dict({"qids": ["gender"], "auxiliary": ["income"], "tau": 0.5})
     r = run_cvpl(d, make_df(5, 2), cfg)
     assert 0 <= r["cvpl_lr"] <= 1
+
+
+# --- the union headline (non-nested ladders) ----------------------------------------------------
+def _union_cfg(rungs, **kw):
+    return CVPLConfig.from_dict({
+        "qids": [{"name": q, "generalized": False} for q in ("a", "b", "c")],
+        "auxiliary": ["n1", "n2"], "tau": 0.5, "blocking_ladder": rungs, "ground_truth": GT, **kw})
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_cvpl_non_nested_headline_is_the_union_of_candidate_sets_all_measures(seed):
+    src, rel = _random_frames(seed)
+    rungs = [["a"], ["b"]]
+    r = run_cvpl(src, rel, _union_cfg(rungs))
+    assert r["ladder"]["non_nested"] is True and r["headline_basis"] == "union_of_rungs"
+    want = _oracle(src, rel, ["a", "b", "c"], ["n1", "n2"], [], 0.5, rungs, union=True)[-1]
+    # (the oracle features: n1, n2 numeric; qids a, b one-hot - same as the engine's)
+    assert r["cvpl_lr"] == pytest.approx(want["lr"], abs=1e-12)
+    assert r["cvpl_id_uniform_gt"] == pytest.approx(want["uni"], abs=1e-9)
+    assert r["cvpl_top1_success_gt"] == pytest.approx(want["top1"], abs=1e-9)
+    if want["prec"] is not None:
+        assert r["precision_at_tau"] == pytest.approx(want["prec"], abs=1e-9)
+    # the headline lr is the final value of the union trajectory, and never below any rung
+    assert r["cvpl_lr"] == r["candidate_union_trajectory"][-1]["cvpl_lr_union"] == r["cvpl_lr_union"]
+    by_rung = [e["cvpl_lr"] for e in r["cvpl_lr_by_rung"]]
+    assert r["cvpl_lr"] >= max(by_rung) and len(by_rung) == 2
+    assert r["headline_rung"] is None
+
+
+@pytest.mark.parametrize("seed", range(4))
+def test_cvpl_nested_ladder_last_rung_equals_the_union_all_measures(seed):
+    """Theorem 1's premise: on a relaxing ladder the last rung IS the union - checked by
+    forcing the union evaluation and comparing every headline measure."""
+    src, rel = _random_frames(seed)
+    cfg = _union_cfg([["a", "b", "c"], ["a", "b"], ["a"]])
+    last = run_cvpl(src, rel, cfg)
+    forced = run_cvpl(src, rel, cfg, force_union=True)
+    assert last["headline_basis"] == "last_rung" and forced["headline_basis"] == "union_of_rungs"
+    for key in ("cvpl_lr", "n_linked", "n_with_candidates", "n_compared", "cvpl_id_uniform_gt",
+                "cvpl_top1_success_gt", "precision_at_tau", "cvpl_weighted_lr_legacy"):
+        assert last[key] == pytest.approx(forced[key], abs=1e-12), key
+    assert last["candidate_count_summary"] == forced["candidate_count_summary"]
+
+
+def test_cvpl_tightening_or_mixed_ladders_also_use_the_union():
+    src, rel = _random_frames(1)
+    r = run_cvpl(src, rel, _union_cfg([["a"], ["a", "b"]]))
+    assert r["ladder"]["transitions"] == ["tightening"] and r["headline_basis"] == "union_of_rungs"
+    # a tightening rung adds no pairs: the union is the first rung
+    assert r["cvpl_lr"] == r["cvpl_lr_by_rung"][0]["cvpl_lr"]
+
+
+def test_cvpl_union_over_budget_is_not_measured_while_rungs_are_still_reported():
+    src, rel = _random_frames(2)
+    full = run_cvpl(src, rel, _union_cfg([["a"], ["b"]]))
+    each = [e["planned_comparisons"] for e in full["blocking_ladder_trajectory"]]
+    limit = max(each) + 1  # every rung fits, their sum does not
+    assert sum(each) > limit
+    r = run_cvpl(src, rel, _union_cfg([["a"], ["b"]], max_comparisons=limit))
+    assert all(e["status"] == "measured" for e in r["blocking_ladder_trajectory"])
+    assert r["cvpl_lr"] is None and r["cvpl_lr_status"]["reason"] == "resource_limit"
+    assert "union_detail" in r.metrics
+
+
+def test_cvpl_union_with_a_not_applicable_rung_is_not_applicable():
+    src = pd.DataFrame({"a": ["x", "y"], "b": ["p", "q"], "n1": [1.0, 2.0], "n2": [1.0, 2.0], "sid": ["s0", "s1"]})
+    rel = pd.DataFrame({"a": ["x", "y"], "b": ["P-general", "Q-general"], "n1": [1.0, 2.0], "n2": [1.0, 2.0], "rid": ["s0", "s1"]})
+    cfg = CVPLConfig.from_dict({
+        "qids": [{"name": "a", "generalized": False}, "b"], "auxiliary": ["n1", "n2"],
+        "blocking_ladder": [["a"], ["b"]], "ground_truth": GT})
+    r = run_cvpl(src, rel, cfg)
+    assert r["blocking_ladder_trajectory"][0]["status"] == "measured"
+    assert r["blocking_ladder_trajectory"][1]["status"] == "not_applicable"
+    assert r["cvpl_lr_status"]["status"] == "not_applicable"
+    assert "QID 'b'" in r["cvpl_lr_status"]["reason"]
+
+
+# --- visibility of bucketing and of fixes -------------------------------------------------------------
+def test_cvpl_bucketing_is_reported_never_silent():
+    rng = np.random.default_rng(0)
+    n = 300
+    src = pd.DataFrame({"g": "A", "tag": [f"t{i}" for i in range(n)], "x": rng.normal(size=n)})
+    cfg = CVPLConfig.from_dict({"qids": [{"name": "g", "generalized": False}], "auxiliary": ["tag", "x"],
+                                "max_categories": 20, "tau": 0.5, "qid_as_features": False})
+    r = run_cvpl(src, src.copy(), cfg)
+    (b,) = r["bucketed_features"]
+    assert b == {"feature": "tag", "distinct_values": 300, "encoded_width": 20,
+                 "distinct_values_collapsed": 281, "rows_in_other_bucket": 562}
+    (w,) = r["warnings"]
+    assert "'tag'" in w and "300" in w and "281" in w and "t1" not in w.replace("tag", "")  # names and counts only
+    clean = run_cvpl(src.head(10), src.head(10).copy(), cfg)
+    assert clean["bucketed_features"] == [] and clean["warnings"] == []
+
+
+def test_cvpl_not_applicable_reason_names_the_qid_and_the_fix():
+    src = pd.DataFrame({"city": ["Paris", "Lyon"], "x": [1.0, 2.0]})
+    rel = pd.DataFrame({"city": ["North", "South"], "x": [1.0, 2.0]})
+    r = run_cvpl(src, rel, CVPLConfig.from_dict({"qids": ["city"], "auxiliary": ["x"]}))
+    reason = r["cvpl_lr_status"]["reason"]
+    assert "QID 'city'" in reason and "hierarchy" in reason and "generalized=False" in reason
+    assert r["qid_status"]["city"]["fix"] == reason

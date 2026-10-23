@@ -93,7 +93,7 @@ Per QID (`{"name", "kind", "bin_width", "hierarchy", "generalized"}`):
 
 If the release contains values for a QID that none of these rules explains (for example
 `"South"` for `Lyon` with no hierarchy), that QID is **`not_applicable`**: no number is
-reported for a rung that uses it. It is never treated as a plain mismatch, which would look
+reported for a rung that uses it. The status names the QID and the fix (`qid_status[<qid>].fix`). It is never treated as a plain mismatch, which would look
 like protection. Fix it by supplying the hierarchy, by using a ladder that does not need
 the QID, or, if the QID really is exact-only and new labels just mean different people,
 by declaring `generalized=False`.
@@ -105,12 +105,25 @@ with progressively fewer constraints. The representation, `tau` and the fit are 
 every rung. The result lists every rung (`blocking_ladder_trajectory`), whether each step
 is `relaxing`, `tightening`, `equal` or `non_nested`, and `ladder.nested`.
 
-On a nested relaxing ladder `cvpl_lr` cannot decrease. `cvpl_id_uniform_gt` has no such
-guarantee: more candidates can lower it. A ladder whose rungs are not ordered by inclusion
-gets no monotonicity claim; `candidate_union_trajectory` gives the cumulative
-`cvpl_lr_union`. The headline fields refer to the **last declared rung**. Choose the rungs
-before looking at ground-truth results; picking the rung that gives the highest number with
-the ground truth in hand leaks the evaluation into the attacker.
+On a nested relaxing ladder (each rung constrains fewer QIDs than the previous) `cvpl_lr`
+cannot decrease, and the last rung **is** the union of all rungs' candidate sets (Theorem 1's
+premise); `cvpl_id_uniform_gt` has no such guarantee, more candidates can lower it.
+
+The headline fields (`cvpl_lr`, `cvpl_id_uniform_gt`, `cvpl_top1_success_gt`,
+`precision_at_tau`, counts) are always one well-defined attacker:
+
+* one rung, or a nested relaxing ladder: the last rung (`headline_basis: "last_rung"`);
+* any other ladder (`non_nested` or tightening steps): the attacker who tries **every**
+  declared profile, i.e. all measures computed on the **union** of the rungs' candidate sets,
+  each pair counted once (`headline_basis: "union_of_rungs"`). A rung that cannot be measured
+  makes the union `not_measured` / `not_applicable`; the union also has to fit
+  `max_comparisons` as a whole.
+
+Per-rung values stay available: `blocking_ladder_trajectory` (all measures per rung),
+`cvpl_lr_by_rung`, and `candidate_union_trajectory` (cumulative `cvpl_lr_union` after each
+rung; its last value equals the union headline). Choose the rungs before looking at
+ground-truth results; picking the rung that gives the highest number with the ground truth in
+hand leaks the evaluation into the attacker.
 
 ## Projection fit
 
@@ -119,6 +132,14 @@ source and release together; adding unrelated rows to either can move all distan
 `"source_only"` fits on the source. `"frozen"` reuses a fitted projection
 (`result.projection`) so that several releases of one source are measured in the same
 space - use it, or `source_only`, to compare releases.
+
+## Bounded encoding is visible
+
+Categorical attributes are encoded in at most `max_categories` columns; the rarest values
+share one bucket. Whenever that happens the result says so: `bucketed_features` lists, per
+attribute, `distinct_values`, `encoded_width`, `distinct_values_collapsed` and
+`rows_in_other_bucket`, and `warnings` carries the same in a sentence (names and counts only).
+`projection.encoding` has the per-attribute detail for every categorical feature.
 
 ## Degenerate cases
 
