@@ -676,6 +676,7 @@ class AnonymizationOperation(FieldOperation):
 
         # Work on our own copy: DataSource returns the caller's object itself.
         df = self._own_dataframe(df)
+        self._check_enrich_target(df)
 
         if self.field_name:
             if self.field_name not in df.columns:
@@ -794,8 +795,11 @@ class AnonymizationOperation(FieldOperation):
 
             # Check if output field already exists in DataFrame
             if output_field in df.columns:
-                self.logger.warning(
-                    f"Output field '{output_field}' already exists and will be overwritten"
+                # Reaching here means overwriting was requested explicitly
+                # (see _check_enrich_target).
+                self.logger.debug(
+                    f"Output field '{output_field}' already exists and is overwritten "
+                    "(overwrite_existing_output=True)"
                 )
         return output_field
 

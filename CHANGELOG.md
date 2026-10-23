@@ -48,6 +48,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **BREAKING: an existing ENRICH output column is no longer overwritten
+  silently** (DATA-04, SRS 6.8). In ENRICH mode every operation used to log a
+  WARNING and overwrite a column that already existed. It now fails with the new
+  `OutputFieldExistsError` (a `ValidationError`, naming the column only, never
+  values) before any work is done. **Typical break:** running the same ENRICH
+  operation twice over a frame that already holds its output (same
+  `column_prefix`/`output_field_name`), or an `output_field_name` equal to an
+  existing column. **Migration:** choose another `output_field_name` /
+  `column_prefix`, or pass the new `overwrite_existing_output=True` (config key of
+  the same name, default `False`) to replace the column deliberately. The check
+  sits in the anonymization, transformation and fake-data bases
+  (`BaseOperation._check_enrich_target`), so it applies to every operation built
+  on them.
 - **Quality gates now block instead of merely reporting.**
   `[tool.ruff.lint]` in `pyproject.toml` defines a narrow blocking set
   (`E9` + `F`); `.coveragerc` `fail_under` moves from `0` to `83` against a

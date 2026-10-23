@@ -43,7 +43,11 @@ from pamola_core.utils.io import ensure_directory
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.base import BasePamolaError
 from pamola_core.errors.error_handler import ErrorHandler
-from pamola_core.errors.exceptions import ConfigSaveError, DependencyMissingError
+from pamola_core.errors.exceptions import (
+    ConfigSaveError,
+    DependencyMissingError,
+    OutputFieldExistsError,
+)
 from pamola_core.utils.optional_deps import require_optional
 
 # Configure module logger
@@ -235,6 +239,7 @@ class BaseOperation(ABC):
         mode: str = "REPLACE",
         column_prefix: str = "_",
         output_field_name: Optional[str] = None,
+        overwrite_existing_output: bool = False,
         null_strategy: str = "PRESERVE",
         engine: str = "auto",
         use_dask: bool = False,
@@ -285,7 +290,11 @@ class BaseOperation(ABC):
         column_prefix : str, optional
             Prefix for newly generated columns (default="_").
         output_field_name : str, optional
-            Configuration schema instance (default is None).
+            Name of the ENRICH output column (default: ``column_prefix`` + field).
+        overwrite_existing_output : bool, optional
+            ENRICH only. When the output column already exists the operation
+            fails with ``OutputFieldExistsError``; set True to replace it
+            (default=False).
 
         null_strategy : {"PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"}, optional
             Strategy for handling null values (default="PRESERVE").
@@ -351,6 +360,7 @@ class BaseOperation(ABC):
         self.mode = mode.upper()
         self.column_prefix = column_prefix
         self.output_field_name = output_field_name
+        self.overwrite_existing_output = overwrite_existing_output
         self.null_strategy = null_strategy.upper()
         self.engine = engine.lower()
         self.use_dask = use_dask
@@ -528,6 +538,20 @@ class BaseOperation(ABC):
         else:  # auto
             engine = data_source.suggest_engine(name=dataset_name)
             return engine == "dask"
+
+    def _check_enrich_target(self, df: DataFrameType) -> None:
+        """Refuse to silently overwrite an existing ENRICH output column.
+
+        Called where the transform bases load their input, so every operation
+        built on them gets the same behaviour: ``OutputFieldExistsError`` unless
+        ``overwrite_existing_output`` is set. Only column *names* are reported.
+        """
+        field_name = getattr(self, "field_name", None)
+        if self.mode != "ENRICH" or not field_name:
+            return
+        target = self.output_field_name or f"{self.column_prefix}{field_name}"
+        if target in df.columns and not self.overwrite_existing_output:
+            raise OutputFieldExistsError(target, self.operation_name)
 
     @staticmethod
     def _own_dataframe(df: DataFrameType) -> DataFrameType:
@@ -929,6 +953,7 @@ class BaseOperation(ABC):
             "mode": self.mode,
             "column_prefix": self.column_prefix,
             "output_field_name": self.output_field_name,
+            "overwrite_existing_output": self.overwrite_existing_output,
             "null_strategy": self.null_strategy,
             "engine": self.engine,
             "use_dask": self.use_dask,

@@ -541,6 +541,7 @@ class TransformationOperation(BaseOperation):
 
         # Work on our own copy: DataSource returns the caller's object itself.
         df = self._own_dataframe(df)
+        self._check_enrich_target(df)
 
         if self.field_name:
             if self.field_name not in df.columns:
@@ -599,8 +600,11 @@ class TransformationOperation(BaseOperation):
             self.output_field_name or f"{self.column_prefix}{self.field_name}"
         )
         if output_field in df.columns:
-            self.logger.warning(
-                f"Output field '{output_field}' already exists in DataFrame and will be overwritten."
+            # Reaching here means overwriting was requested explicitly
+            # (see _check_enrich_target).
+            self.logger.debug(
+                f"Output field '{output_field}' already exists in DataFrame and is "
+                "overwritten (overwrite_existing_output=True)."
             )
 
         self.logger.debug(f"Mode ENRICH: output field set to ['{output_field}'].")

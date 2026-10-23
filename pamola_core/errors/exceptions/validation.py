@@ -236,6 +236,23 @@ class DuplicateColumnError(ValidationError):
         )
 
 
+class OutputFieldExistsError(ValidationError):
+    """An ENRICH target column already exists and overwriting was not requested."""
+
+    def __init__(self, output_field: str, operation: Optional[str] = None):
+        by = f" by {operation}" if operation else ""
+        super().__init__(
+            message=(
+                f"ENRICH output field '{output_field}' already exists in the "
+                f"dataset and would be overwritten{by}. Choose another "
+                "'output_field_name' or 'column_prefix', or pass "
+                "overwrite_existing_output=True to replace the existing column."
+            ),
+            field_name=output_field,
+            details={"output_field": output_field, "operation": operation},
+        )
+
+
 # =============================================================================
 # PARAMETER VALIDATION EXCEPTIONS
 # =============================================================================
