@@ -48,7 +48,7 @@ attestations are generated and uploaded with the files.
   - `pypi`: required reviewers, deployment restricted to tags `v*`.
   - `testpypi`: no reviewers needed.
 - Trusted publishers (PyPI project settings, Publishing):
-  - pypi.org: owner `DGT-Network`, repository `PAMOLA`, workflow `release.yml`, environment `pypi`.
+  - pypi.org: owner `realmdata-ai`, repository `PAMOLA`, workflow `release.yml`, environment `pypi`.
   - test.pypi.org: the same, environment `testpypi`.
 - Branch protection: the required check `Build: sdist + wheel` keeps its name.
 - Remove the `PYPI_API_TOKEN` repository secret once the first Trusted Publishing release has succeeded.
