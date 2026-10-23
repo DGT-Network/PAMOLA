@@ -35,6 +35,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   enumeration) and records `low_entropy_source` / `distinct_source_values`; its documentation no
   longer promises cross-run linkage the default per-run pepper cannot give.
 
+- **k-anonymity profiler: percentages are shares of RECORDS; a failed enrichment fails the run; the
+  caller's data source is left alone (ASB-3).** `threshold_compliance` and `k_distribution` divided
+  the number of equivalence classes by the number of records (two classes of 6 and 4 records with
+  threshold 5 reported `k≥2: 20%`, `k≥5: 10%`); they now count the records of each class
+  (`k≥2: 100%`, `k≥5: 60%`, `k=2-4: 40%`, `k=5-9: 60%`). **Values of both fields change.** In
+  `ENRICH`/`BOTH` mode an error while computing or writing the k column is no longer swallowed (the
+  operation used to end `SUCCESS` without the column): the run is `ERROR`. The enriched frame is an
+  artifact (`output/enriched_data_*.csv`); the operation no longer replaces `main` in the caller's
+  `DataSource`. The unused `_calculate_k_anonymity_chunked` (which counted classes as vulnerable
+  records) is removed.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the
