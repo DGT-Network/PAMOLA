@@ -423,7 +423,11 @@ def apply_merge_low_freq(
         threshold=min_group_size,
         max_groups=100,  # Reasonable limit
         group_prefix=group_prefix,
-        preserve_top_n=max_categories,
+        # Group exactly the categories identified as rare above. Passing
+        # preserve_top_n=max_categories here used to protect the 1000 most frequent
+        # categories from grouping, i.e. every category of any ordinary field, so the
+        # strategy changed nothing.
+        categories_to_group=rare_categories,
         other_label=config.get("unknown_value", DEFAULT_UNKNOWN_VALUE),
         value_counts=value_counts,
     )

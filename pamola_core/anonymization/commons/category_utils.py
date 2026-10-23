@@ -429,6 +429,7 @@ def group_rare_categories(
     preserve_top_n: Optional[int] = None,
     other_label: str = DEFAULT_OTHER_LABEL,
     value_counts: Optional[pd.Series] = None,
+    categories_to_group: Optional[Set[Any]] = None,
 ) -> Tuple[pd.Series, GroupingInfo]:
     """
     Group rare categories using privacy-preserving strategies.
@@ -508,17 +509,22 @@ def group_rare_categories(
             # Absolute count threshold
             count_threshold = int(threshold)
 
-        # Preserve top N categories if specified
-        if preserve_top_n and preserve_top_n > 0:
-            top_categories = set(value_counts.head(preserve_top_n).index)
+        if categories_to_group is not None:
+            # The caller already decided which categories are rare (e.g. with both a count
+            # and a frequency criterion); group exactly those.
+            categories_to_group = [c for c in value_counts.index if c in categories_to_group]
         else:
-            top_categories = set()
+            # Preserve top N categories if specified
+            if preserve_top_n and preserve_top_n > 0:
+                top_categories = set(value_counts.head(preserve_top_n).index)
+            else:
+                top_categories = set()
 
-        # Identify categories to group
-        categories_to_group = []
-        for category, count in value_counts.items():
-            if category not in top_categories and count < count_threshold:
-                categories_to_group.append(category)
+            # Identify categories to group
+            categories_to_group = []
+            for category, count in value_counts.items():
+                if category not in top_categories and count < count_threshold:
+                    categories_to_group.append(category)
 
         # Apply grouping strategy
         group_mapping = {}
