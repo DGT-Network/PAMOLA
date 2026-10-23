@@ -71,6 +71,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **`UtilityMetricOperation` has one vocabulary and fails early on a bad
+  request** (UTIL-01, UTIL-02). The families `classification` / `regression`
+  (schema = factory) go in `utility_metrics`; the target column is the required
+  `metric_params[family]["value_field"]`; model and metric names are declared by
+  the implementations (`SUPPORTED_MODELS` / `SUPPORTED_METRICS`). A missing or
+  unknown target column, or an unsupported model/metric name (the tooltip showed
+  `"lr"` and `target`, which never worked), is now rejected with the supported
+  names before any model is trained, instead of a `KeyError` mid-run. An empty
+  `utility_metrics` says what to pass. The `UtilityMetricsType` enum is unchanged
+  and documented as the measures reported inside a family. Docs and the
+  tooltip show a call that runs.
 - **DCR no longer builds the full n x n distance matrix** (DCR-01, DCR-02,
   DCR-03). `DistanceToClosestRecord` defaulted to the dense sklearn path:
   ~80 GB at 100K x 100K (49 GB RSS observed, or `MemoryError`), ~7 TiB at 1M.

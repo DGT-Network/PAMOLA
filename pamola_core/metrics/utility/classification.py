@@ -34,6 +34,11 @@ logger = pamola_logging.getLogger(__name__)
 class ClassificationUtility:
     """Implements the classifiers metric."""
 
+    #: Names accepted in ``models`` / ``metrics``. The single vocabulary for this
+    #: metric family; ``UtilityMetricOperation`` validates requests against it.
+    SUPPORTED_MODELS = ("logistic", "rf", "svm")
+    SUPPORTED_METRICS = ("accuracy", "f1", "roc_auc", "precision_recall_tradeoff")
+
     def __init__(
         self,
         models: Optional[List[str]] = None,

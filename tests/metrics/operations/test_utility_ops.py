@@ -81,7 +81,7 @@ def test_execute_failure(mock_super_execute, dummy_data_source, dummy_task_dir, 
 
 @patch("pamola_core.metrics.commons.safe_instantiate.safe_instantiate")
 @patch("pamola_core.metrics.operations.utility_ops.inspect.signature")
-def test_calculate_metrics_all_supported(mock_signature, mock_safe_instantiate, dummy_data):
+def test_calculate_metrics_all_supported(mock_signature, mock_safe_instantiate, dummy_data, monkeypatch):
     import pamola_core.metrics.operations.utility_ops as utility_ops_mod
     class DummyMetric:
         def __init__(self, **kwargs):
@@ -90,8 +90,10 @@ def test_calculate_metrics_all_supported(mock_signature, mock_safe_instantiate, 
             if "classification" in k.get("value_field", ""):
                 return {"classification": {"accuracy": 0.9}}
             return {"regression": {"mse": 0.1}}
-    utility_ops_mod.UTILITY_METRIC_FACTORY["classification"] = DummyMetric
-    utility_ops_mod.UTILITY_METRIC_FACTORY["regression"] = DummyMetric
+    # monkeypatch, not assignment: a leaked stub would replace the real
+    # implementations for every test that runs after this one.
+    monkeypatch.setitem(utility_ops_mod.UTILITY_METRIC_FACTORY, "classification", DummyMetric)
+    monkeypatch.setitem(utility_ops_mod.UTILITY_METRIC_FACTORY, "regression", DummyMetric)
     op = UtilityMetricOperation(utility_metrics=["classification", "regression"])
     df1, df2 = dummy_data
     classification_instance = DummyMetric()
@@ -222,14 +224,14 @@ def test_minimal_config():
     # BaseOperation defaults encryption_mode to None
     assert op.encryption_mode is None
 
-def test_calculate_metrics_metric_exception(dummy_data):
+def test_calculate_metrics_metric_exception(dummy_data, monkeypatch):
     class FailingMetric:
         def __init__(self, **kwargs):
             pass
         def calculate_metric(self, *a, **k):
             raise RuntimeError("metric failed")
     import pamola_core.metrics.operations.utility_ops as utility_ops_mod
-    utility_ops_mod.UTILITY_METRIC_FACTORY["classification"] = FailingMetric
+    monkeypatch.setitem(utility_ops_mod.UTILITY_METRIC_FACTORY, "classification", FailingMetric)
     op = UtilityMetricOperation(utility_metrics=["classification"])
     df1, df2 = dummy_data
     # ValidationError (BasePamolaError) is raised, not ValueError

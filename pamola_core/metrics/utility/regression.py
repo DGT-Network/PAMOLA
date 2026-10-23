@@ -26,6 +26,11 @@ logger = pamola_logging.getLogger(__name__)
 class RegressionUtility:
     """Implements the regressors metric."""
 
+    #: Names accepted in ``models`` / ``metrics``. The single vocabulary for this
+    #: metric family; ``UtilityMetricOperation`` validates requests against it.
+    SUPPORTED_MODELS = ("linear", "rf", "svr")
+    SUPPORTED_METRICS = ("r2", "mae", "mse", "rmse")
+
     def __init__(
         self,
         models: Optional[List[str]] = None,

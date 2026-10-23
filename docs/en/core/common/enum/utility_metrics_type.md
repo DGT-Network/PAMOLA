@@ -54,15 +54,24 @@ print(metric.value)  # "f1"
 ```
 
 ### With UtilityMetricOperation
+
+`UtilityMetricOperation` is configured with metric *families*, not with the
+members of this enum. The members name measures that a family reports, and are
+not accepted in `utility_metrics`:
+
 ```python
 from pamola_core.metrics import UtilityMetricOperation
-from pamola_core.common.enum.utility_metrics_type import UtilityMetricsType
 
 op = UtilityMetricOperation(
-    metric_type=UtilityMetricsType.R2,
-    target_column="salary"
+    utility_metrics=["regression"],            # family: "classification" | "regression"
+    metric_params={"regression": {"value_field": "salary", "metrics": ["r2", "mae"]}},
 )
 ```
+
+The implementation's own names are `accuracy`, `f1`, `roc_auc`,
+`precision_recall_tradeoff` (classification) and `r2`, `mae`, `mse`, `rmse`
+(regression). `AUROC` corresponds to `roc_auc`; `PRECISION` and `RECALL` are
+reported through `precision_recall_tradeoff`.
 
 ### Iterate All Members
 ```python

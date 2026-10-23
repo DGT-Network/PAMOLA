@@ -208,7 +208,13 @@ class UtilityMetricOperation(MetricsOperation):
 
         if not utility_metrics:
             raise DataError(
-                message="No utility metrics specified. 'utility_metrics' list is empty.",
+                message=(
+                    "No utility metrics specified. 'utility_metrics' must name at "
+                    f"least one of {sorted(UTILITY_METRIC_FACTORY)}, with the target "
+                    "column in metric_params, e.g. "
+                    "UtilityMetricOperation(utility_metrics=['regression'], "
+                    "metric_params={'regression': {'value_field': '<target column>'}})."
+                ),
                 error_code=ErrorCode.DATA_EMPTY,
             )
 
@@ -252,6 +258,10 @@ class UtilityMetricOperation(MetricsOperation):
                         param_value=metric_type,
                         reason=f"Unsupported utility metric: {metric_type}",
                     )
+
+                self._validate_metric_request(
+                    metric_type, metric_class, params, original_df, transformed_df
+                )
 
                 init_params = {
                     k: v
@@ -302,6 +312,57 @@ class UtilityMetricOperation(MetricsOperation):
                 ) from e
 
         return results
+
+    @staticmethod
+    def _validate_metric_request(
+        metric_type: str,
+        metric_class: Any,
+        params: Dict[str, Any],
+        original_df: pd.DataFrame,
+        transformed_df: pd.DataFrame,
+    ) -> None:
+        """
+        Reject an unusable request before any model is trained.
+
+        There is no sensible default target column, so it is a required setting:
+        ``metric_params[<family>]["value_field"]``. Model and metric names are
+        checked against the implementation's own vocabulary instead of failing
+        with a ``KeyError`` after earlier folds have already been fitted.
+        """
+        if not hasattr(metric_class, "SUPPORTED_MODELS"):
+            return  # a custom implementation without a declared vocabulary
+        example = (
+            f"metric_params={{'{metric_type}': {{'value_field': '<target column>'}}}}"
+        )
+        value_field = params.get("value_field")
+        if not value_field:
+            raise InvalidParameterError(
+                param_name=f"metric_params['{metric_type}']['value_field']",
+                param_value=value_field,
+                reason=f"the target column is required, e.g. {example}",
+            )
+        for label, df in (("original", original_df), ("transformed", transformed_df)):
+            if value_field not in df.columns:
+                raise InvalidParameterError(
+                    param_name=f"metric_params['{metric_type}']['value_field']",
+                    param_value=value_field,
+                    reason=(
+                        f"target column '{value_field}' is not in the {label} "
+                        f"dataset (columns: {list(df.columns)})"
+                    ),
+                )
+        for key, supported in (
+            ("models", metric_class.SUPPORTED_MODELS),
+            ("metrics", metric_class.SUPPORTED_METRICS),
+        ):
+            requested = params.get(key)
+            unknown = [v for v in (requested or []) if v not in supported]
+            if unknown:
+                raise InvalidParameterError(
+                    param_name=f"metric_params['{metric_type}']['{key}']",
+                    param_value=unknown,
+                    reason=f"unsupported {key} {unknown}; supported: {list(supported)}",
+                )
 
     def _generate_visualizations(
         self,
