@@ -10,12 +10,60 @@ import functools
 import hashlib
 import hmac
 import random
+import secrets
 import struct
-from typing import Any, Dict, List, Optional, Union, Callable
+import threading
+from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 import pamola_core.utils.logging as pamola_logging
 
 # Configure logger
 logger = pamola_logging.getLogger(__name__)
+
+
+_SEED_BITS = 64
+_SEED_MASK = (1 << _SEED_BITS) - 1
+_SEED_DOMAIN = b"pamola.fake_data.seed.v1"
+
+
+def derive_seed(key: bytes, context: str = "") -> int:
+    """64-bit seed = first 8 bytes of ``HMAC-SHA256(key, domain || context)``.
+
+    The WHOLE key takes part (no truncation to its last bytes, no 32-bit space), and distinct
+    keys give distinct seeds except with the probability of a 64-bit collision.
+    """
+    msg = _SEED_DOMAIN + b"\x00" + context.encode("utf-8")
+    return int.from_bytes(hmac.new(key, msg, hashlib.sha256).digest()[:8], "big")
+
+
+def _framed(salt: bytes, value: bytes) -> bytes:
+    """Unambiguous ``salt || value``: ``("ab", "c")`` and ``("a", "bc")`` stay different."""
+    return struct.pack(">I", len(salt)) + salt + value
+
+
+_keyless_lock = threading.Lock()
+_keyless_logged = False
+
+
+def resolve_generation_key(key: Any) -> Tuple[Any, bool]:
+    """-> ``(effective key, keyed)``.
+
+    A caller-supplied key is used as it is. Without one a fresh random key is drawn with
+    ``secrets`` (per operation instance): the replacement is then no longer a fixed, public
+    function of the original value, and a run is reproducible only with an explicit key. The
+    random key is never logged or stored; the fact is recorded as ``keyed: false``.
+    """
+    global _keyless_logged
+    if key is not None and key != "":
+        return key, True
+    with _keyless_lock:
+        first = not _keyless_logged
+        _keyless_logged = True
+    if first:
+        logger.warning(
+            "fake_data: no key was given, so a random per-run key is used and the replacements "
+            "are NOT reproducible across runs; pass an explicit key= for reproducible output."
+        )
+    return secrets.token_hex(32), False
 
 
 class PRNGenerator:
@@ -69,23 +117,21 @@ class PRNGenerator:
             Normalized seed as integer
         """
         if seed is None:
-            return random.randrange(2 ** 32)
+            return secrets.randbits(_SEED_BITS)
 
+        if isinstance(seed, bool):
+            seed = int(seed)
         if isinstance(seed, int):
-            return seed
+            return seed & _SEED_MASK
 
         if isinstance(seed, str):
-            seed = seed.encode('utf-8')
+            seed = seed.encode("utf-8")
 
-        if isinstance(seed, bytes):
-            # Create a consistent integer from bytes
-            seed_int = 0
-            for byte in seed:
-                seed_int = ((seed_int << 8) | byte) & 0xFFFFFFFF
-            return seed_int
+        if isinstance(seed, (bytes, bytearray)):
+            return derive_seed(bytes(seed))
 
-        # Fallback
-        return hash(seed) & 0xFFFFFFFF
+        # anything else: its repr, through the same keyed derivation
+        return derive_seed(repr(seed).encode("utf-8"))
 
     @functools.lru_cache(maxsize=1024)
     def generate_with_seed(self,
@@ -131,8 +177,8 @@ class PRNGenerator:
 
             if algorithm == "hmac":
                 # Use HMAC with global seed as key and salt+value as message
-                key = struct.pack("I", self.global_seed)
-                msg = salt + base_value
+                key = struct.pack(">Q", self.global_seed)
+                msg = _framed(salt, base_value)
                 h = hmac.new(key, msg, digestmod=hashlib.sha256)
                 digest = h.digest()
                 return int.from_bytes(digest[:4], byteorder='big')
@@ -142,17 +188,17 @@ class PRNGenerator:
                 hash_val = 5381  # Initial value from djb2 hash
                 for byte in combined:
                     hash_val = ((hash_val * 33) ^ byte) & 0xFFFFFFFF
-                return (hash_val ^ self.global_seed) & 0xFFFFFFFF
+                return (hash_val ^ self.global_seed) & _SEED_MASK
             else:  # "simple"
                 # Simple algorithm: combine base value and salt with global seed
                 combined = salt + base_value
-                local_seed = (self._normalize_seed(combined) ^ self.global_seed) & 0xFFFFFFFF
+                local_seed = (self._normalize_seed(combined) ^ self.global_seed) & _SEED_MASK
                 return local_seed
         else:
             # No salt provided
             if algorithm == "hmac":
-                key = struct.pack("I", self.global_seed)
-                h = hmac.new(key, base_value, digestmod=hashlib.sha256)
+                key = struct.pack(">Q", self.global_seed)
+                h = hmac.new(key, _framed(b"", base_value), digestmod=hashlib.sha256)
                 digest = h.digest()
                 return int.from_bytes(digest[:4], byteorder='big')
             elif algorithm == "fast":
@@ -160,10 +206,10 @@ class PRNGenerator:
                 hash_val = 5381
                 for byte in base_value:
                     hash_val = ((hash_val * 33) ^ byte) & 0xFFFFFFFF
-                return (hash_val ^ self.global_seed) & 0xFFFFFFFF
+                return (hash_val ^ self.global_seed) & _SEED_MASK
             else:  # "simple"
                 # Use hash of base_value combined with global seed
-                local_seed = (self._normalize_seed(base_value) ^ self.global_seed) & 0xFFFFFFFF
+                local_seed = (self._normalize_seed(base_value) ^ self.global_seed) & _SEED_MASK
                 return local_seed
 
     def get_random_by_value(self, base_value: Any, salt: Optional[Union[str, bytes]] = None) -> random.Random:
@@ -456,16 +502,6 @@ def generate_seed_from_key(key: Union[str, bytes], context: str = "") -> int:
         )
     """
     if isinstance(key, str):
-        key = key.encode('utf-8')
+        key = key.encode("utf-8")
 
-    if context:
-        key = key + context.encode('utf-8')
-
-    # Create a hash of the key
-    hash_obj = hashlib.sha256(key)
-    hash_bytes = hash_obj.digest()
-
-    # Convert first 4 bytes to integer
-    seed = int.from_bytes(hash_bytes[:4], byteorder='big')
-
-    return seed
+    return derive_seed(bytes(key), context)

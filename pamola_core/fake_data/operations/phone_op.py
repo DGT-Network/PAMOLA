@@ -16,6 +16,7 @@ from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.phone import PhoneGenerator
 from pamola_core.fake_data.schemas.phone_op_core_schema import FakePhoneOperationConfig
 import pamola_core.utils.io as io
+from pamola_core.fake_data.commons.prgn import resolve_generation_key
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.errors.exceptions.resources import FakeDataError
@@ -87,6 +88,7 @@ class FakePhoneOperation(GeneratorOperation):
         **kwargs : dict
             Forwarded to BaseOperation / GeneratorOperation.
         """
+        key, keyed = resolve_generation_key(key)  # random per-run key when none is given
         # Default description
         kwargs.setdefault(
             "description",
@@ -147,6 +149,7 @@ class FakePhoneOperation(GeneratorOperation):
             setattr(self, k, v)
 
         # Runtime stats
+        self.keyed = keyed
         self.operation_name = self.__class__.__name__
         self._original_df = None
         self.error_count = 0

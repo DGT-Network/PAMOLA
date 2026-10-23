@@ -16,6 +16,7 @@ from pamola_core.fake_data.schemas.name_op_core_schema import FakeNameOperationC
 from pamola_core.fake_data.commons.prgn import PRNGenerator
 from pamola_core.fake_data.generators.name import NameGenerator
 import pamola_core.utils.io as io
+from pamola_core.fake_data.commons.prgn import resolve_generation_key
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.errors.exceptions.resources import FakeDataError
@@ -77,6 +78,7 @@ class FakeNameOperation(GeneratorOperation):
         **kwargs : dict
             Additional parameters forwarded to GeneratorOperation and BaseOperation.
         """
+        key, keyed = resolve_generation_key(key)  # random per-run key when none is given
         # Description fallback
         kwargs.setdefault(
             "description",
@@ -129,6 +131,7 @@ class FakeNameOperation(GeneratorOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
+        self.keyed = keyed
 
         # Operation metadata
         self.operation_name = self.__class__.__name__

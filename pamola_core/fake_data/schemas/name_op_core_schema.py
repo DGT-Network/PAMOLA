@@ -38,6 +38,8 @@ class FakeNameOperationConfig(OperationConfig):
     Used for runtime parameter validation and type checking.
     """
 
+    SENSITIVE_KEYS = frozenset({"key"})
+
     schema = {
         "type": "object",
         "title": "Fake Name Operation Core Configuration",

@@ -7,6 +7,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### As-built review fixes (ASB)
+
+- **Fake data: the replacement is derived from the whole key, and a missing key means a random key
+  (ASB-1). BREAKING for keyless reproducibility.** The PRGN seed took only the last 4 bytes of a string
+  key (`aaaa-2023` and `zzzz-2023` were the same seed; the four built-in fallback seeds
+  `name-generation`, `email-generation`, ... were one and the same number) and, for names, the last 4
+  hex digits of a hash (65,536 seeds): the replacement was a public, invertible-by-enumeration function
+  of the original. The seed is now `HMAC-SHA256(key, domain || context)` truncated to 64 bits, the
+  HMAC message is length-framed, and distinct keys give distinct seeds. Without `key` a random
+  per-run key is drawn with `secrets` (logged once: reproducibility needs an explicit `key=`; the key is
+  never logged), so two runs no longer give the same replacement; `metrics.keyed` records
+  `true/false` (never the key). Reproducible output now REQUIRES an explicit `key`; outputs produced
+  with an explicit key by earlier builds differ from this release. The effective key's digest is part
+  of the cache identity and `key` is declared a sensitive config key.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the

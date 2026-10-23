@@ -16,6 +16,7 @@ from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.email import EmailGenerator
 from pamola_core.fake_data.schemas.email_op_core_schema import FakeEmailOperationConfig
 import pamola_core.utils.io as io
+from pamola_core.fake_data.commons.prgn import resolve_generation_key
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.errors.exceptions.resources import FakeDataError
@@ -101,6 +102,7 @@ class FakeEmailOperation(GeneratorOperation):
         **kwargs : dict
             Additional parameters forwarded to GeneratorOperation and BaseOperation.
         """
+        key, keyed = resolve_generation_key(key)  # random per-run key when none is given
 
         # Fallback description for this operation
         kwargs.setdefault(
@@ -169,6 +171,7 @@ class FakeEmailOperation(GeneratorOperation):
             setattr(self, k, v)
 
         # Initialize internal metrics
+        self.keyed = keyed
         self.operation_name = self.__class__.__name__
         self._original_df = None
         self.error_count = 0

@@ -1007,6 +1007,9 @@ class GeneratorOperation(FieldOperation):
             except Exception as e:
                 self.logger.warning(f"Error collecting specific metrics: {str(e)}")
 
+        # whether the replacement is keyed (reproducible) - never the key itself
+        metrics["keyed"] = bool(getattr(self, "keyed", True))
+
         return metrics
 
     def _collect_specific_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:
@@ -1612,6 +1615,13 @@ class GeneratorOperation(FieldOperation):
                 "null_strategy": self.null_strategy,
             }
         )
+        # the effective key decides every replacement: its digest (not the key) is part of the
+        # cache identity, so another key - or another random per-run key - never hits the cache
+        key = getattr(self, "key", None)
+        if key is not None:
+            import hashlib
+
+            parameters["key_digest"] = hashlib.sha256(str(key).encode("utf-8")).hexdigest()[:16]
 
         return parameters
 
