@@ -574,14 +574,22 @@ class BaseOperation(ABC):
         return [self.output_field_name or f"{self.column_prefix}{field_name}"]
 
     def _prefixed_targets(self, field_names: Any, df: DataFrameType, must_exist: bool = True) -> List[str]:
-        """ENRICH targets of an operation that writes ``column_prefix`` + each field."""
-        if not self.column_prefix:
-            return []  # without a prefix such an operation edits the source in place
+        """ENRICH targets of an operation that writes ``column_prefix`` + each field.
+
+        An empty prefix is not an exemption: the target is then the source column itself
+        (the operation edits it in place), which exists, so the guard reports it.
+        """
+        prefix = self.column_prefix or ""
         return [
-            f"{self.column_prefix}{name}"
+            f"{prefix}{name}"
             for name in (field_names or {})
             if name and (not must_exist or name in df.columns)
         ]
+
+    def _enrich_requested(self) -> bool:
+        """Whether this run writes ENRICH columns (operations with their own mode switch
+        override this)."""
+        return self.mode == "ENRICH"
 
     def _check_enrich_target(self, df: DataFrameType) -> None:
         """Refuse to silently overwrite an existing ENRICH output column.
@@ -591,7 +599,7 @@ class BaseOperation(ABC):
         ``overwrite_existing_output`` is set. Every target the operation declares
         through ``get_enrich_targets`` is checked. Only column *names* are reported.
         """
-        if self.mode != "ENRICH" or self.overwrite_existing_output:
+        if not self._enrich_requested() or self.overwrite_existing_output:
             return
         for target in self.get_enrich_targets(df):
             if target in df.columns:

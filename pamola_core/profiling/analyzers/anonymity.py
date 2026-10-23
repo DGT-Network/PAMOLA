@@ -184,6 +184,22 @@ class KAnonymityProfilerOperation(BaseOperation):
         # Operation metadata
         self.operation_name = self.__class__.__name__
 
+    def _enrich_requested(self) -> bool:
+        return self.analysis_mode in (AnalysisMode.ENRICH, AnalysisMode.BOTH)
+
+    def get_enrich_targets(self, df: pd.DataFrame) -> List[str]:
+        """The k-anonymity column written for the first quasi-identifier combination."""
+        combinations = self._prepare_qi_combinations(df, self.quasi_identifier_sets, self.id_fields)
+        if not combinations:
+            return []
+        return [
+            generate_output_field_name(
+                field_name=generate_ka_field_name(combinations[0]),
+                mode="ENRICH",
+                operation_suffix=self.output_field_suffix,
+            )
+        ]
+
     def execute(
         self,
         data_source: DataSource,
@@ -304,6 +320,9 @@ class KAnonymityProfilerOperation(BaseOperation):
                     column_name=missing_fields,
                     available_columns=list(df.columns),
                 )
+
+            # Never silently replace an existing enrichment column
+            self._check_enrich_target(df)
 
             # Prepare QI combinations
             qi_combinations = self._prepare_qi_combinations(

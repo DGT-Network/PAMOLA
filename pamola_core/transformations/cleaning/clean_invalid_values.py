@@ -451,8 +451,17 @@ class CleanInvalidValuesOperation(TransformationOperation):
             )
 
     def get_enrich_targets(self, df):
-        """One ``column_prefix``-ed copy per field of ``field_constraints``."""
-        return self._prefixed_targets(self.field_constraints, df)
+        """Every column the cleaning writes: constraints, white / black lists and null
+        replacement (one ``column_prefix``-ed copy each)."""
+        names = dict.fromkeys(self.field_constraints or {})
+        names.update(dict.fromkeys(self.whitelist_path or {}))
+        names.update(dict.fromkeys(self.blacklist_path or {}))
+        replacement = self.null_replacement
+        if isinstance(replacement, str):
+            names.update(dict.fromkeys(df.columns))  # one strategy for every column
+        elif replacement:
+            names.update(dict.fromkeys(k for k, v in replacement.items() if v is not None))
+        return list(dict.fromkeys(self._prefixed_targets(names, df)))
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
@@ -719,8 +728,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 output_column = column
                 if self.mode == "ENRICH" and self.column_prefix:
                     output_column = f"{self.column_prefix}{column}"
-                    if output_column not in batch.columns:
-                        batch[output_column] = batch[column]
+                    # an existing target only gets here with overwrite_existing_output
+                    batch[output_column] = batch[column]
 
                 if strategy == "mean" and is_numeric_dtype(batch[output_column]):
                     batch[output_column] = batch[output_column].fillna(

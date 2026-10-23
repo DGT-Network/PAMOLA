@@ -84,6 +84,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **The ENRICH guard covers every column an operation writes, and an empty prefix is no
+  exemption** (CDX-R2-5). `CleanInvalidValuesOperation` declares the targets of its constraints,
+  white / black lists and null replacement (a whitelist-only run used to replace an existing
+  `<prefix>x` silently); `KAnonymityProfilerOperation` is guarded like the transform operations
+  (its `analysis_mode` ENRICH / BOTH writes the `_KA_..._k` column); with `column_prefix=""` the
+  target is the source column itself, which exists, so it is reported unless
+  `overwrite_existing_output=True`. Cleaning with the option now replaces the target with a copy
+  of the source for null replacement too (it used to clean the stale column in place).
 - **Cache identity is type-preserving and covers every returned column** (CDX-R2-3b). The data
   fingerprint tags each value of an `object` column with its Python type (`1`, `'1'`, `1.0`
   and `True` no longer alias; a stale identity-disclosure score of 1.0 was served for data whose
