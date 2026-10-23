@@ -19,8 +19,8 @@ import numpy as np
 ROW_BUDGETS: Dict[str, Tuple[Optional[int], Optional[int]]] = {
     "SVR": (10_000, 50_000),
     "SVC": (10_000, 50_000),
-    "RandomForestRegressor": (200_000, 500_000),
-    "RandomForestClassifier": (200_000, 500_000),
+    "RandomForestRegressor": (50_000, 200_000),
+    "RandomForestClassifier": (50_000, 200_000),
 }
 
 SAMPLE_SEED = 42
