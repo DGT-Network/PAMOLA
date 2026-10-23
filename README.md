@@ -371,10 +371,10 @@ make html        # output: docs/_build/html/index.html
 
 ## Use Cases
 
-- **Data Engineering:** Prepare privacy-safe datasets for ML training.
-- **Healthcare:** HIPAA-oriented de-identification workflows (Safe Harbor support).
-- **Finance:** Privacy engineering aligned with PCI/GDPR considerations.
-- **Compliance:** Audit-ready evidence with structured per-operation artifacts.
+- **Data Engineering:** Prepare pseudonymized or masked datasets for ML training pipelines.
+- **Healthcare:** Building blocks (masking, generalization, suppression) for de-identification workflows; whether a result meets HIPAA Safe Harbor or Expert Determination is for the data owner to establish.
+- **Finance:** Privacy-engineering building blocks that can support PCI/GDPR programs.
+- **Compliance:** Structured per-operation artifacts that can serve as technical evidence in a compliance process.
 - **Data Sharing:** Risk-assessed data exchange between organizations.
 
 ---
@@ -406,11 +406,11 @@ PAMOLA.CORE provides technical building blocks for privacy compliance programs:
 
 | Regulation | Relevant Capabilities |
 |------------|----------------------|
-| **GDPR** | Pseudonymization (reversible / irreversible), data minimization (Art. 25, 32) |
-| **HIPAA** | Safe Harbor de-identification support |
+| **GDPR** | Pseudonymization (reversible / irreversible) and data-minimization techniques relevant to Art. 25 and 32 |
+| **HIPAA** | Masking, generalization and suppression operations that can be used in a de-identification process |
 | **CCPA/CPRA** | Data suppression, masking, anonymization workflows |
 
-> **Important:** PAMOLA.CORE provides technical capabilities only. Legal compliance requires organizational policies, procedures, and legal guidance beyond software tools.
+> **Important:** PAMOLA.CORE provides technical capabilities only. It never certifies that a dataset is anonymous, de-identified, or compliant with GDPR, HIPAA, CCPA/CPRA or any other regime, and a successful run is not such a determination. Privacy metrics are evidence inputs to a regulated process; legal compliance requires organizational policies, procedures, and legal guidance beyond software tools. Pseudonymized data remains personal data under GDPR.
 
 ---
 

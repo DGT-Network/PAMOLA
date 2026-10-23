@@ -139,7 +139,6 @@ Privacy model processors.
 | [k-Anonymity](./privacy_models/k_anonymity/) | 3 docs: processor, report, visualization |
 | [l-Diversity](./privacy_models/l_diversity/) | 8 docs: calculator, report, metrics, risk, strategies |
 | [t-Closeness](./privacy_models/t_closeness/t_closeness_processor.md) | Wasserstein distance |
-| [Differential Privacy](./privacy_models/differential_privacy/dp_processor.md) | Laplace/Gaussian noise |
 
 ### [Attacks](./attacks/) (9 docs)
 Privacy attack simulation.

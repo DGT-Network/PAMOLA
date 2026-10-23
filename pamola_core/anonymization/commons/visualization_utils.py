@@ -130,33 +130,6 @@ def register_visualization_artifact(
         reporter.add_artifact("png", str(path), description)
 
 
-def sample_large_dataset(
-    data: pd.Series, max_samples: int = DEFAULT_MAX_SAMPLES, random_state: int = 42
-) -> pd.Series:
-    """
-    Sample a large dataset to a manageable size for visualization.
-
-    Parameters
-    -----------
-    data : pd.Series
-        Original dataset
-    max_samples : int, optional
-        Maximum number of samples to return (default: 10000)
-    random_state : int, optional
-        Random seed for reproducibility
-
-    Returns
-    --------
-    pd.Series
-        Sampled dataset if original exceeds max_samples, otherwise original
-    """
-    if len(data) <= max_samples:
-        return data
-
-    logger.info(f"Sampling {max_samples} from {len(data)} records for visualization")
-    return data.sample(n=max_samples, random_state=random_state)
-
-
 def prepare_comparison_data(
     original_data: pd.Series,
     anonymized_data: pd.Series,
@@ -1221,7 +1194,7 @@ def _convert_flat_to_nested(
 
 def sample_large_dataset(
     data: Union[pd.Series, pd.DataFrame],
-    max_samples: int = 10000,
+    max_samples: int = DEFAULT_MAX_SAMPLES,
     random_state: int = 42,
 ) -> Union[pd.Series, pd.DataFrame]:
     """

@@ -29,8 +29,6 @@ __all__ = [
     "LDiversityModel",
     "TCloseness",
     "TClosenessModel",
-    "DifferentialPrivacyProcessor",
-    "DifferentialPrivacyModel",
     # Reports
     "KAnonymityReport",
     "LDiversityReport",
@@ -58,9 +56,6 @@ from pamola_core.privacy_models.l_diversity.calculation import LDiversityCalcula
 
 from pamola_core.privacy_models.t_closeness.calculation import TCloseness
 from pamola_core.privacy_models.t_closeness.calculation import TCloseness as TClosenessModel
-
-from pamola_core.privacy_models.differential_privacy.calculation import DifferentialPrivacyProcessor
-from pamola_core.privacy_models.differential_privacy.calculation import DifferentialPrivacyProcessor as DifferentialPrivacyModel
 
 from pamola_core.privacy_models.k_anonymity.ka_reporting import KAnonymityReport
 

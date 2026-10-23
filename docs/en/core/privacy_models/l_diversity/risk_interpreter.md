@@ -109,9 +109,10 @@ for attr, risk_score in attribute_risks.items():
     interp = interpreter.interpret_risk(risk_score, attribute=attr)
 
     if interp['regulatory_compliant']:
-        print(f"✓ {attr}: GDPR compliant")
+        print(f"✓ {attr}: risk within the configured threshold")
     else:
-        print(f"✗ {attr}: GDPR non-compliant (risk={risk_score:.1f}%)")
+        print(f"✗ {attr}: risk above the configured threshold (risk={risk_score:.1f}%)")
+    # A threshold check is technical evidence, not a legal determination.
 ```
 
 ## Risk Interpretation Levels

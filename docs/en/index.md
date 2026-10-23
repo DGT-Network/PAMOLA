@@ -57,7 +57,7 @@ git clone https://github.com/your-organization/pamola-anonymization.git
 cd pamola-anonymization
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[viz]"
 ```
 
 ### Quick Overview of Project Structure

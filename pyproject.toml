@@ -22,14 +22,12 @@ keywords = [
     "privacy",
     "anonymization",
     "data-privacy",
-    "differential-privacy",
     "k-anonymity",
     "l-diversity",
     "pseudonymization",
     "pii",
     "gdpr",
     "data-protection",
-    "synthetic-data",
     "re-identification-risk",
 ]
 
@@ -184,26 +182,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["F841"]
 
-# --- F811 quarantine: three real defects, scheduled, not swept -------------
-# Each of these redefines a name that was already defined earlier in the file,
-# so the FIRST definition is dead code. They are NOT mechanical duplicates —
-# the signatures differ — so deleting the dead half is a maintainer decision,
-# not a lint fix. Ignored per-file (never globally) so the gate can go blocking
-# now while the defects stay visible and individually attributed.
-#
-# visualization_utils.py:133 vs :1222 — `sample_large_dataset`
-#   L133  accepts pd.Series,               default DEFAULT_MAX_SAMPLES
-#   L1222 accepts Series | DataFrame,      default hardcoded 10000  <- wins
-#   Effect: DEFAULT_MAX_SAMPLES is silently not honoured.
-"pamola_core/anonymization/commons/visualization_utils.py" = ["F811"]
-#
-# reporting.py:776 vs :1178 — `generate_compliance_report`
-# reporting.py:986 vs :1227 — `generate_technical_report`
-#   The first of each pair is a method taking `self`; the second takes
-#   `processor` as its first positional parameter and wins. Any call written as
-#   `obj.generate_compliance_report(data=...)` therefore binds the instance to
-#   `processor`. This is an API defect, not a style issue.
-"pamola_core/privacy_models/l_diversity/reporting.py" = ["F811"]
+# The F811 quarantine (duplicate `sample_large_dataset`, shadowed L-Diversity
+# report methods) was removed together with the duplicates it covered.
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

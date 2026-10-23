@@ -115,6 +115,7 @@ class GeneratorOperation(FieldOperation):
         id_field: Optional[str] = None,
         mapping_store_path: Optional[str] = None,
         save_mapping: bool = False,
+        include_raw_samples_in_metrics: bool = False,
         **kwargs,
     ):
         """
@@ -138,6 +139,11 @@ class GeneratorOperation(FieldOperation):
             Pre-loaded mapping store instance (used if provided).
         save_mapping : bool, optional
             Whether to persist mapping results after processing.
+        include_raw_samples_in_metrics : bool, optional
+            Diagnostic option, default False. If True, ``metrics/*.json`` also
+            carries the most frequent original values (``value_distribution``).
+            WARNING: this writes source values, possibly PII, into a generic
+            metrics artifact.
         **kwargs : dict
             Additional arguments forwarded to FieldOperation/BaseOperation.
         """
@@ -172,7 +178,10 @@ class GeneratorOperation(FieldOperation):
         )
 
         # Create a metrics collector
-        self._metrics_collector = create_metrics_collector()
+        self.include_raw_samples_in_metrics = bool(include_raw_samples_in_metrics)
+        self._metrics_collector = create_metrics_collector(
+            include_raw_samples=self.include_raw_samples_in_metrics
+        )
 
         # === Optional Mapping Store Setup ===
         if mapping_store_path:

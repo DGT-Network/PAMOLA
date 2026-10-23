@@ -46,62 +46,12 @@ cd PAMOLA
 
 ### Step 1: Install Dependencies
 
-From the PAMOLA root directory:
+From the PAMOLA root directory (runtime dependencies are declared, pinned, in
+`pyproject.toml`; there is no separate `requirements.txt`):
 
 ```bash
-pip install -r requirements.txt
+pip install -e ".[viz]"   # drop [viz] if you do not need plots
 ```
-
-<details>
-<summary>📋 View full dependency list</summary>
-
-```
-python-decouple==3.8
-pydantic[email]==2.12.4
-matplotlib==3.8.2
-seaborn==0.13.2
-pandas==2.2.2
-torch==2.8.0
-scikit-learn==1.7.2
-deepdiff==8.6.1
-diff-match-patch==20241021
-sdv==1.18.0
-faker==33.3.1
-scipy==1.16.3
-uvicorn[standard]==0.38.0
-openpyxl==3.1.5
-xlrd==2.0.1
-rstr==3.2.2
-recordlinkage==0.16
-plotly==6.4.0
-kaleido==1.2.0
-pillow==11.3.0
-multidict==6.7.0
-bcrypt==4.3.0
-wordcloud==1.9.4
-langdetect==1.0.9
-fasttext-wheel==0.9.2
-datasketch==1.7.0
-nltk==3.9.2
-dask[complete]==2025.11.0
-pyarrow==14.0.2
-numpy==1.26.4
-pytest==8.4.2
-matplotlib-venn==1.1.2
-psutil==5.9.8
-ijson==3.4.0.post0
-chardet==5.2.0
-rapidfuzz==3.14.3
-cachetools==6.6.2
-faiss-cpu==1.12.0
-spacy==3.8.9
-phonenumbers==9.0.10
-base58==2.1.1
-cryptography==46.0.3
-PyYAML==6.0.2
-```
-
-</details>
 
 ### Step 2: Verify Installation
 
@@ -362,7 +312,7 @@ examples/data_examples/
 ```bash
 # Install from root directory
 cd /path/to/PAMOLA
-pip install -r requirements.txt
+pip install -e ".[viz]"
 
 # Or install in development mode
 pip install -e .
@@ -443,7 +393,7 @@ df['column'] = df['column'].astype('category')
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install -e ".[viz]"
 
 # Verify installation
 python -c "import pamola_core; print('OK')"
@@ -478,7 +428,6 @@ PAMOLA/
 ├── pamola_core/                     # Core library
 ├── docs/                            # Documentation
 ├── tests/                           # Unit tests
-└── requirements.txt                 # Dependencies
 ```
 
 ### Useful Shortcuts (VS Code)

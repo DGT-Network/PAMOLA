@@ -249,7 +249,7 @@ report_output = report.generate()
 from pamola_core.privacy_models import LDiversityCalculator
 from pamola_core.privacy_models.l_diversity import LDiversityReport
 
-# HIPAA-compliant l-diversity
+# l-diversity with a configured threshold (technical evidence only; this is not a HIPAA determination)
 processor = LDiversityCalculator(
     l=4,
     diversity_type='entropy',
@@ -275,8 +275,7 @@ report_data = {
     },
     'anonymization_result': {
         'status': 'SUCCESS',
-        'compliance_status': 'COMPLIANT',
-        'compliance_certification': 'HIPAA Privacy Rule §164.514'
+        'compliance_status': 'COMPLIANT',  # i.e. configured thresholds met; not a legal verdict
     }
 }
 
@@ -288,7 +287,7 @@ compliance_report = report.generate(output_format='compliance')
 
 # Verify compliance
 if compliance_report['anonymization_result']['compliance_status'] == 'COMPLIANT':
-    print("✓ HIPAA Compliance Certified")
+    print("✓ Configured l-diversity thresholds met (evidence for the data owner's own assessment)")
 ```
 
 ## Report Sections
