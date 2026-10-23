@@ -106,30 +106,60 @@ class KolmogorovSmirnovTest:
             )
 
             ks_stat, p_value = self._calculate_ks_from_dicts(orig_dist, trans_dist)
-            n_effective = max(len(orig_dist), len(trans_dist))
-        else:
-            # Fallback to standard KS test (1D distributions)
-            columns = list(set(original_df.columns) & set(transformed_df.columns))
-            if not columns:
-                raise ValidationError("No common columns to compare.")
+            return self._assemble(ks_stat, p_value, max(len(orig_dist), len(trans_dist)))
 
-            col = columns[0]
-            orig_data = original_df[col].dropna().values
-            trans_data = transformed_df[col].dropna().values
+        # Every common column, in the order of the original dataset. A non-numeric column has
+        # no KS statistic and is reported under ``skipped_columns`` instead of failing the run.
+        transformed_columns = set(transformed_df.columns)
+        common = [c for c in original_df.columns if c in transformed_columns]
+        if not common:
+            raise ValidationError("No common columns to compare.")
+        per_column: Dict[str, Dict[str, Any]] = {}
+        skipped: Dict[str, str] = {}
+        for col in common:
+            if not (
+                pd.api.types.is_numeric_dtype(original_df[col])
+                and pd.api.types.is_numeric_dtype(transformed_df[col])
+            ):
+                skipped[str(col)] = "not numeric in both datasets"
+                continue
+            per_column[str(col)] = self._calculate_column(original_df[col], transformed_df[col])
+        if not per_column:
+            raise ValidationError(
+                f"No numeric common columns to compare (skipped: {sorted(skipped)})."
+            )
+        worst = max(per_column, key=lambda c: per_column[c]["ks_statistic"])  # first on ties
+        lowest_p = min(per_column, key=lambda c: per_column[c]["p_value"])
+        result = dict(per_column[worst])
+        result.update(
+            {
+                "aggregate_rule": (
+                    "max ks_statistic over the evaluated columns; the top-level statistic, "
+                    "p_value and all other fields are those of aggregate_column"
+                ),
+                "aggregate_column": worst,
+                "columns_evaluated": list(per_column),
+                "skipped_columns": skipped,
+                "min_p_value": per_column[lowest_p]["p_value"],
+                "min_p_value_column": lowest_p,
+                "per_column": per_column,
+            }
+        )
+        return result
 
-            # Apply normalization if requested
-            if self.normalize:
-                norm_method = "zscore" if self.normalize is True else self.normalize
-                # one shared transformation: per-dataset scaling would erase the very
-                # shift / scale difference the test is asked to detect
-                orig_data, trans_data = normalize_pair_sklearn(
-                    orig_data, trans_data, norm_method
-                )
+    def _calculate_column(self, original: pd.Series, transformed: pd.Series) -> Dict[str, Any]:
+        """The standard two-sample KS test for one column."""
+        orig_data = original.dropna().values
+        trans_data = transformed.dropna().values
+        if self.normalize:
+            norm_method = "zscore" if self.normalize is True else self.normalize
+            # one shared transformation: per-dataset scaling would erase the very
+            # shift / scale difference the test is asked to detect
+            orig_data, trans_data = normalize_pair_sklearn(orig_data, trans_data, norm_method)
+        ks_stat, p_value = stats.ks_2samp(orig_data, trans_data)
+        return self._assemble(ks_stat, p_value, min(len(orig_data), len(trans_data)))
 
-            ks_stat, p_value = stats.ks_2samp(orig_data, trans_data)
-            n_effective = min(len(orig_data), len(trans_data))
-
-        # Calculate additional metrics
+    def _assemble(self, ks_stat: float, p_value: float, n_effective: int) -> Dict[str, Any]:
         effect_size = self._calculate_effect_size(ks_stat, n_effective)
         confidence_interval = self._calculate_confidence_interval(ks_stat, n_effective)
         statistical_significance = p_value < self.alpha

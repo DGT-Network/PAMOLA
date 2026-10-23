@@ -117,23 +117,37 @@ class KLDivergence:
             )
 
             kl_value, js_distance = self._calculate_kl_from_dicts(p_dict, q_dict)
-            n_effective = max(len(p_dict), len(q_dict))
-        else:
-            # Simple column-wise probability distribution
-            columns = list(set(original_df.columns) & set(transformed_df.columns))
-            if not columns:
-                raise ValidationError("No common columns to compare.")
+            return self._assemble(kl_value, js_distance, max(len(p_dict), len(q_dict)))
 
-            col = columns[0]
-            p_vals, q_vals = self._prepare_distributions(
-                original_df[col], transformed_df[col]
+        # Every common column, in the order of the original dataset.
+        transformed_columns = set(transformed_df.columns)
+        common = [c for c in original_df.columns if c in transformed_columns]
+        if not common:
+            raise ValidationError("No common columns to compare.")
+        per_column: Dict[str, Dict[str, Any]] = {}
+        for col in common:
+            p_vals, q_vals = self._prepare_distributions(original_df[col], transformed_df[col])
+            per_column[str(col)] = self._assemble(
+                self._safe_entropy(p_vals, q_vals),
+                self._jensen_shannon_distance(p_vals, q_vals),
+                min(len(original_df), len(transformed_df)),
             )
+        worst = max(per_column, key=lambda c: per_column[c]["kl_divergence"])  # first on ties
+        result = dict(per_column[worst])
+        result.update(
+            {
+                "aggregate_rule": (
+                    "max kl_divergence over the evaluated columns; the top-level values are "
+                    "those of aggregate_column"
+                ),
+                "aggregate_column": worst,
+                "columns_evaluated": list(per_column),
+                "per_column": per_column,
+            }
+        )
+        return result
 
-            kl_value = self._safe_entropy(p_vals, q_vals)
-            js_distance = self._jensen_shannon_distance(p_vals, q_vals)
-            n_effective = min(len(original_df), len(transformed_df))
-
-        # Calculate additional metrics
+    def _assemble(self, kl_value: float, js_distance: float, n_effective: int) -> Dict[str, Any]:
         effect_size = self._calculate_effect_size(kl_value)
         confidence_interval = self._calculate_confidence_interval(kl_value, n_effective)
         statistical_significance = self._is_statistically_significant(kl_value)
