@@ -1256,7 +1256,8 @@ class KAnonymityProfilerOperation(BaseOperation):
 
         except Exception as e:
             self.logger.warning(f"Error creating visualizations: {e}")
-            # Don't fail the operation due to visualization errors
+            # the worker's caller records it in result.metrics['visualization_error']
+            raise
 
         return visualization_paths
 
