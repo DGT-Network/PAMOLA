@@ -1,11 +1,11 @@
 # PAMOLA.CORE
 
 <p align="center">
-  <img src="https://realmdata.io/assets/img/logos/pamola-logo.png" alt="PAMOLA Logo" width="300"/>
+  <img src="https://realmdata.ai/assets/img/logos/pamola-logo.png" alt="PAMOLA Logo" width="300"/>
 </p>
 
 <p align="center">
-  <a href="https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD%203--Clause-blue.svg"></a>
+  <a href="https://github.com/realmdata-ai/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD%203--Clause-blue.svg"></a>
   <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10--3.12-blue.svg"></a>
   <a href="https://pypi.org/project/pamola-core/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-1.0.0.dev3-orange.svg"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-active%20development-orange.svg">
@@ -17,7 +17,7 @@
 
 **PAMOLA.CORE** is the open-source foundation of the PAMOLA platform — a Python library for **privacy-preserving data operations** with reproducible pipelines, structured artifacts, and an audit trail per operation.
 
-Developed by **[Realm Inveo Inc.](https://realmdata.io)**
+Developed by **[Realm Inveo Inc.](https://realmdata.ai)**
 
 ---
 
@@ -190,7 +190,7 @@ pip install pamola-core==1.0.0.dev3
 **From source:**
 
 ```bash
-git clone https://github.com/DGT-Network/PAMOLA.git
+git clone https://github.com/realmdata-ai/PAMOLA.git
 cd PAMOLA
 pip install -e .
 ```
@@ -276,7 +276,7 @@ Run `pamola-core --help` for the full command list.
 
 ## Examples
 
-Hands-on notebooks live under [`examples/`](https://github.com/DGT-Network/PAMOLA/tree/main/examples):
+Hands-on notebooks live under [`examples/`](https://github.com/realmdata-ai/PAMOLA/tree/main/examples):
 
 - `examples/anonymization/pseudonymization/` — simple + advanced for hash-based and consistent-mapping pseudonymization
 - `examples/anonymization/` — masking, generalization, noise, suppression
@@ -315,9 +315,9 @@ make html        # output: docs/_build/html/index.html
 | Resource | Link |
 |----------|------|
 | **PET Knowledge Base** | [realmdata.io/kb](https://realmdata.io/kb/index.html) |
-| **Technical Documentation** | [docs/en/index.md](https://github.com/DGT-Network/PAMOLA/blob/main/docs/en/index.md) |
-| **Glossary** | [realmdata.io/glossary](https://realmdata.io/pages/glossary.html) |
-| **Examples** | [`examples/`](https://github.com/DGT-Network/PAMOLA/tree/main/examples) |
+| **Technical Documentation** | [docs/en/index.md](https://github.com/realmdata-ai/PAMOLA/blob/main/docs/en/index.md) |
+| **Glossary** | [realmdata.ai/glossary](https://realmdata.ai/pages/glossary.html) |
+| **Examples** | [`examples/`](https://github.com/realmdata-ai/PAMOLA/tree/main/examples) |
 | **Changelog** | [CHANGELOG.md](CHANGELOG.md) |
 
 ---
@@ -349,7 +349,7 @@ PAMOLA.CORE provides technical building blocks for privacy compliance programs:
 ## Contributing
 
 ```bash
-git clone https://github.com/DGT-Network/PAMOLA.git
+git clone https://github.com/realmdata-ai/PAMOLA.git
 cd PAMOLA
 pip install -e ".[test]"
 pytest tests/ -v
@@ -361,11 +361,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Ownership & Licensing
 
-**PAMOLA.CORE** is developed and owned exclusively by **[Realm Inveo Inc.](https://realmdata.io)**
-
-This repository is hosted under the DGT-Network GitHub organization, which provides shared development infrastructure for Realm Inveo projects. **DGT-Network does not claim ownership of this intellectual property.** All IP rights belong exclusively to Realm Inveo Inc.
-
-**License:** BSD 3-Clause — see [LICENSE](https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE).
+PAMOLA.CORE is maintained by Realm Inveo Inc. and distributed under the BSD 3-Clause License. See [LICENSE](LICENSE) for applicable copyright notices and license terms.
 
 ---
 
@@ -373,13 +369,13 @@ This repository is hosted under the DGT-Network GitHub organization, which provi
 
 | Purpose | Contact |
 |---------|---------|
-| **General inquiries** | [contact@realmdata.io](mailto:contact@realmdata.io) |
-| **Commercial / Sales** | [sales@realmdata.io](mailto:sales@realmdata.io) |
-| **Due diligence / Legal** | [legal@realmdata.io](mailto:legal@realmdata.io) |
-| **Website** | [realmdata.io](https://realmdata.io) |
+| **General inquiries** | [contact@realmdata.ai](mailto:contact@realmdata.ai) |
+| **Commercial / Sales** | [sales@realmdata.ai](mailto:sales@realmdata.ai) |
+| **Due diligence / Legal** | [legal@realmdata.ai](mailto:legal@realmdata.ai) |
+| **Website** | [realmdata.ai](https://realmdata.ai) |
 
 ---
 
 <p align="center">
-  <sub>Built by <a href="https://realmdata.io">Realm Inveo Inc.</a></sub>
+  <sub>Built by <a href="https://realmdata.ai">Realm Inveo Inc.</a></sub>
 </p>
