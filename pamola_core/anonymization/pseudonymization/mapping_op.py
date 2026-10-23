@@ -266,6 +266,9 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         self._mapping_storage: Optional[MappingStorage] = None
         self._mapping: Dict[str, str] = {}
         self._reverse_mapping: Dict[str, str] = {}
+        # Mappings created since the last persist; only these are written on
+        # the next persist (incremental, append-only storage).
+        self._pending_mappings: Dict[str, str] = {}
         self._new_mappings_count = 0
         self._total_new_mappings = (
             0  # cumulative; never reset (unlike _new_mappings_count)
@@ -754,6 +757,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             self._mapping_storage = None
             # Reset per-execution counters after every run (success or failure)
             # so the next execute() call starts from a clean state.
+            self._pending_mappings = {}
             self._new_mappings_count = 0
             self._total_new_mappings = 0
             self._total_lookups = 0
@@ -818,6 +822,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                         pseudonym = self._generate_unique_pseudonym()
                         self._mapping[str_value] = pseudonym
                         self._reverse_mapping[pseudonym] = str_value
+                        self._pending_mappings[str_value] = pseudonym
                         self._new_mappings_count += 1
                         self._total_new_mappings += 1
 
@@ -919,24 +924,24 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         )
 
         try:
-            # Load with metadata support
-            loaded_data = self._mapping_storage.load()
-
-            if isinstance(loaded_data, dict) and "_metadata" in loaded_data:
-                self._mapping = loaded_data.get("mappings", {})
-                metadata = loaded_data["_metadata"]
-                if self.pseudonym_type == "sequential":
-                    self._sequential_counter = metadata.get("last_sequential", 0)
-                    self.logger.info(
-                        f"Restored sequential counter: {self._sequential_counter}"
-                    )
-            else:
-                # Legacy format
-                self._mapping = loaded_data
-                if self.pseudonym_type == "sequential" and self._mapping:
-                    self._calculate_sequential_counter()
-
+            # The storage returns the flat original->pseudonym mapping and its
+            # metadata separately; it raises MappingIntegrityError (wrong key,
+            # corrupted or truncated file) instead of returning partial data.
+            self._mapping, metadata = self._mapping_storage.load_with_metadata()
+            self._pending_mappings = {}
             self._reverse_mapping = {v: k for k, v in self._mapping.items()}
+
+            if self.pseudonym_type == "sequential":
+                # Never reuse a number: take the larger of the stored counter
+                # and the highest number present in the loaded pseudonyms.
+                self._calculate_sequential_counter()
+                self._sequential_counter = max(
+                    self._sequential_counter, int(metadata.get("last_sequential", 0))
+                )
+                self.logger.info(
+                    f"Restored sequential counter: {self._sequential_counter}"
+                )
+
             self._generated_pseudonyms = set(self._reverse_mapping.keys())
             self.logger.info(f"Loaded {len(self._mapping)} existing mappings")
 
@@ -951,24 +956,39 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 raise
 
     def _persist_mappings(self) -> None:
-        """Save current mappings to encrypted file."""
+        """
+        Persist the mappings created since the last persist.
+
+        Incremental: only ``_pending_mappings`` are encrypted and appended, so
+        the cost of a persist does not depend on the size of the table (the old
+        implementation re-encrypted and rewrote the whole table every
+        ``persist_frequency`` new mappings: O(n^2 / persist_frequency) in total).
+        Pending entries are cleared only after the append succeeded, so a
+        failed persist is retried with the same entries.
+        """
         with self._mapping_lock:
             try:
-                # Save with metadata
-                save_data = {
-                    "mappings": self._mapping,
-                    "_metadata": {
-                        "last_sequential": self._sequential_counter,
-                        "total_mappings": len(self._mapping),
-                        "last_updated": datetime.now().isoformat(),
-                        "pseudonym_type": self.pseudonym_type,
-                        "version": self.version,
-                    },
+                metadata = {
+                    "last_sequential": self._sequential_counter,
+                    "total_mappings": len(self._mapping),
+                    "last_updated": datetime.now().isoformat(),
+                    "pseudonym_type": self.pseudonym_type,
+                    "version": self.version,
                 }
-                self._mapping_storage.save(save_data)
+                if self._mapping_path is not None and not (
+                    self._mapping_path.exists()
+                    and self._mapping_path.stat().st_size > 0
+                ):
+                    # The file vanished since it was loaded: appending would
+                    # leave a file that lacks everything loaded earlier.
+                    self._mapping_storage.save(self._mapping, metadata)
+                else:
+                    self._mapping_storage.append(self._pending_mappings, metadata)
                 self.logger.info(
-                    f"Persisted {len(self._mapping)} mappings ({self._new_mappings_count} new)"
+                    f"Persisted {len(self._pending_mappings)} new mappings "
+                    f"({len(self._mapping)} total)"
                 )
+                self._pending_mappings = {}
                 self._new_mappings_count = 0
                 self._persist_count += 1
             except Exception as e:
@@ -1191,23 +1211,21 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             Whether to include metadata
         """
         with self._mapping_lock:
-            # Always include metadata for proper restore
-            export_data = {
-                "mappings": self._mapping,
-                "_metadata": (
-                    {
-                        "field_name": self.field_name,
-                        "pseudonym_type": self.pseudonym_type,
-                        "total_mappings": len(self._mapping),
-                        "last_sequential": self._sequential_counter,
-                        "export_timestamp": datetime.now().isoformat(),
-                        "version": self.version,
-                        "mapping_format": self.mapping_format,
-                    }
-                    if include_metadata
-                    else {}
-                ),
-            }
+            # Metadata travels in the storage's own metadata channel; the
+            # mapping itself is passed flat (no wrapper dict).
+            export_metadata = (
+                {
+                    "field_name": self.field_name,
+                    "pseudonym_type": self.pseudonym_type,
+                    "total_mappings": len(self._mapping),
+                    "last_sequential": self._sequential_counter,
+                    "export_timestamp": datetime.now().isoformat(),
+                    "version": self.version,
+                    "mapping_format": self.mapping_format,
+                }
+                if include_metadata
+                else {}
+            )
 
             # Use mapping storage with correct format
             temp_storage = MappingStorage(
@@ -1216,7 +1234,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 format=self.mapping_format,
                 backup_on_update=False,
             )
-            temp_storage.save(export_data)
+            temp_storage.save(self._mapping, export_metadata)
 
     def __getstate__(self):
         # Exclude non-picklable attrs containing threading locks so Dask's

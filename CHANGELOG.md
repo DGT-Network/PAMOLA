@@ -56,8 +56,47 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   pseudonymization families and greps every non-data artifact, log record and
   result metric for raw PII, salt and encryption-key canaries.
 
+### Fixed
+
+- **Reversible mapping could not be reloaded with the default format
+  (MAP-01, MAP-02).** `ConsistentMappingPseudonymizationOperation` with its
+  default `mapping_format="csv"` failed in a fresh instance with
+  `AttributeError: 'str' object has no attribute 'items'`: the operation handed
+  `MappingStorage` a wrapper dict (`{"mappings": ..., "_metadata": ...}`) that
+  the CSV serializer wrote as two garbage rows. JSON worked only because two
+  wrapping layers happened to use the same key names. `MappingStorage` now takes
+  the flat `original -> pseudonym` mapping and its metadata separately
+  (`save(mapping, metadata)`, `load_with_metadata()`), for both formats.
+  - A wrong key, a modified, truncated, reordered or otherwise inconsistent file
+    now raises the typed `MappingIntegrityError` (a `MappingStorageError`) with
+    an actionable message and never returns a partial mapping; the operation
+    returns an `ERROR` result and leaves the file untouched.
+  - Mapping files written by earlier releases remain readable, including the
+    CSV files that hold the wrapped table as `repr` text (recovered, with a
+    warning) so existing pseudonym tables are not lost.
+  - `MappingStorage.save()` rejects non-string keys/values (the wrapper shape).
+- **Mapping persistence was quadratic (MAP-03, MAP-04).** Every
+  `persist_frequency` new mappings the whole table was re-serialized,
+  re-encrypted and rewritten (and the previous file copied as a backup):
+  100K -> 1M rows took 16 s -> 802 s. Persistence is now append-only: only the
+  entries created since the last persist are encrypted (AES-256-GCM, fresh
+  nonce, unchanged scheme) and appended as one authenticated frame. The backup
+  is taken once, before the first modification of an existing file, instead of
+  before every write.
+  - **File layout changed.** New files start with the signature
+    `PAMOLA-MAP` followed by length-prefixed AES-GCM frames (see the module
+    docstring of `anonymization/commons/mapping_storage.py`). Files from earlier
+    releases are read transparently and converted on the first append. A mapping
+    file written by this release cannot be read by an older release.
+  - **Consistency model:** one writer per file; `save()` is an atomic replace;
+    `append()` is a single fsync'd write; a crash mid-append is reported as a
+    truncated file on the next load (restore the `.bak.*` copy).
+
 ### Removed
 
+- **`pydantic[email]` dependency (DEP-01).** Nothing in `pamola_core` or `tests`
+  imports `pydantic` or `email_validator`. `pydantic` still arrives
+  transitively through spaCy.
 - **`pamola_core.pipeline`, `pamola_core.interface`, `pamola_core.crypto`** —
   empty placeholder packages (15 lines each: a licence header and
   `__all__ = []`) that shipped in the wheel and created three public names with
