@@ -737,8 +737,8 @@ Initial development release.
 - BaseOperation / BaseTask framework
 - NLP subsystem (tokenization, entity extraction, LLM integration)
 
-[Unreleased]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev3...HEAD
-[1.0.0.dev3]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev2...v1.0.0.dev3
-[1.0.0.dev2]: https://github.com/DGT-Network/PAMOLA/compare/v1.0.0.dev1...v1.0.0.dev2
-[1.0.0.dev1]: https://github.com/DGT-Network/PAMOLA/compare/v0.0.1...v1.0.0.dev1
-[0.0.1]: https://github.com/DGT-Network/PAMOLA/releases/tag/v0.0.1
+[Unreleased]: https://github.com/realmdata-ai/PAMOLA/compare/v1.0.0.dev3...HEAD
+[1.0.0.dev3]: https://github.com/realmdata-ai/PAMOLA/compare/v1.0.0.dev2...v1.0.0.dev3
+[1.0.0.dev2]: https://github.com/realmdata-ai/PAMOLA/compare/v1.0.0.dev1...v1.0.0.dev2
+[1.0.0.dev1]: https://github.com/realmdata-ai/PAMOLA/compare/v0.0.1...v1.0.0.dev1
+[0.0.1]: https://github.com/realmdata-ai/PAMOLA/releases/tag/v0.0.1

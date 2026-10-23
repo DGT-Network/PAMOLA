@@ -49,9 +49,9 @@ classifiers = [
 ]
 
 urls.Homepage = "https://realmdata.io"
-urls.Repository = "https://github.com/DGT-Network/PAMOLA"
-urls.Changelog = "https://github.com/DGT-Network/PAMOLA/blob/main/CHANGELOG.md"
-urls."Bug Tracker" = "https://github.com/DGT-Network/PAMOLA/issues"
+urls.Repository = "https://github.com/realmdata-ai/PAMOLA"
+urls.Changelog = "https://github.com/realmdata-ai/PAMOLA/blob/main/CHANGELOG.md"
+urls."Bug Tracker" = "https://github.com/realmdata-ai/PAMOLA/issues"
 
 # NOTE: eight dependencies were removed in 1.0.0.dev4 because nothing in
 # pamola_core or tests imports them: torch, sdv, uvicorn[standard], rstr,
