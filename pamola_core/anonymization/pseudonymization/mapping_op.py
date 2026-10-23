@@ -673,6 +673,9 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                     )
                 except Exception as e:
                     self.logger.warning(f"Error generating visualizations: {str(e)}")
+                    # The data output stands, but the failed chart is reported in the result,
+                    # not only in the log.
+                    result.metrics["visualization_error"] = f"{type(e).__name__}: {e}"
             else:
                 self.logger.info(
                     "Skipping visualizations as generate_visualization is False or backend is not set"

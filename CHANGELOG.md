@@ -68,6 +68,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Pseudonymization (hash-based, consistent mapping): a failed visualization is reported in `result.metrics["visualization_error"]` (CDX-R2-7b)**, not only logged; the pseudonymized output and status are unchanged.
 - **Reversible mapping could not be reloaded with the default format
   (MAP-01, MAP-02).** `ConsistentMappingPseudonymizationOperation` with its
   default `mapping_format="csv"` failed in a fresh instance with
