@@ -419,24 +419,6 @@ class TestNumericHandleVisualizations(unittest.TestCase):
         )
         self.assertEqual(out, [])
 
-    @patch('threading.Thread')
-    @patch.object(numeric.NumericOperation, '_generate_visualizations')
-    def test_handle_visualizations_timeout(self, mock_generate, mock_thread):
-        class DummyThread:
-            def __init__(self): self._alive = True
-            def start(self): pass
-            def join(self, timeout=None): pass
-            def is_alive(self): return True
-            @property
-            def daemon(self): return False
-        mock_thread.return_value = DummyThread()
-        out = self.op._handle_visualizations(
-            self.df, self.analysis_results, self.task_dir, self.result, self.reporter,
-            vis_theme='theme', vis_backend='plotly', vis_strict=False, vis_timeout=0,
-            progress_tracker=self.progress_tracker, operation_timestamp='20240101_000000'
-        )
-        self.assertEqual(out, [])
-
     def test_handle_visualizations_no_backend(self):
         # When vis_backend=None, source defaults to "plotly" and generates visualizations
         out = self.op._handle_visualizations(

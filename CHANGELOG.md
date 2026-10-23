@@ -84,6 +84,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **A requested visualization is complete when `execute()` returns** (CDX-AC-12).
+  The render worker was joined with `visualization_timeout`; a slower renderer
+  made the operation return SUCCESS while the thread kept running and could write
+  artifacts afterwards. Every operation family (anonymization, suppression,
+  transformation, fake-data, metrics, profiling, the mapping/hash
+  pseudonymization ops through the anonymization base) now waits for the renderer
+  with no timeout, and a rendering failure is recorded in
+  `result.metrics["visualization_error"]` and the log instead of vanishing (the
+  operation's data outputs, and so its status, are unaffected). `visualization_timeout`
+  is still accepted but no longer limits rendering. Five profiling tests that
+  simulated a never-finishing worker were removed with the timeout branch.
 - **DCR and NNDR encode both datasets in one categorical space** (CDX-AC-11).
   Each dataset was ordinal-encoded on its own, so unrelated category sets
   (`['alice','bob']` vs `['xavier','zoe']`) received the same codes and every

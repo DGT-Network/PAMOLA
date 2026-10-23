@@ -543,6 +543,21 @@ class BaseOperation(ABC):
             engine = data_source.suggest_engine(name=dataset_name)
             return engine == "dask"
 
+    def _record_visualization_failure(self, result: Any, error: BaseException) -> None:
+        """Make a failed visualization visible in the result.
+
+        An explicitly requested visualization is part of ``execute()``: it is
+        waited for (no timeout, no worker left running) and, when it fails, the
+        failure is reported in ``result.metrics["visualization_error"]`` and the
+        log instead of vanishing. The operation's own data outputs are unaffected,
+        so its status stays as the data processing left it.
+        """
+        message = f"{type(error).__name__}: {error}"
+        self.logger.error(f"Visualization failed: {message}")
+        metrics = getattr(result, "metrics", None)
+        if isinstance(metrics, dict):
+            metrics["visualization_error"] = message
+
     def get_enrich_targets(self, df: DataFrameType) -> List[str]:
         """Names of the columns this operation writes in ENRICH mode.
 

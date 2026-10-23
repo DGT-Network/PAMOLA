@@ -793,13 +793,8 @@ class CategoricalOperation(FieldOperation):
                 daemon=True,
             )
             thread.start()
-            thread.join(timeout=self.visualization_timeout)
-
-            if thread.is_alive():
-                self.logger.warning(
-                    f"[VIZ] Visualization timed out after {self.visualization_timeout} seconds"
-                )
-                return "Error: Visualization thread timeout"
+            # Rendering is part of execute(): wait for it, no worker outlives the call.
+            thread.join()
             return viz_result_holder["result"]
 
         except Exception as e:

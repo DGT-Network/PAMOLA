@@ -481,26 +481,6 @@ class TestMVFHandleVisualizations(unittest.TestCase):
             unittest.mock.ANY
         )
 
-    @patch('threading.Thread')
-    @patch.object(mvf.MVFOperation, '_generate_visualizations')
-    def test_handle_visualizations_timeout(self, mock_generate, mock_thread):
-        # Simulate thread that never finishes
-        class DummyThread:
-            def __init__(self): self._alive = True
-            def start(self): pass
-            def join(self, timeout=None): pass
-            def is_alive(self): return True
-            @property
-            def daemon(self): return False
-        mock_thread.return_value = DummyThread()
-        out = self.op._handle_visualizations(
-            self.analysis_results, self.task_dir, self.result, self.reporter, self.progress_tracker,
-            vis_theme='theme', vis_backend='plotly', vis_strict=False, vis_timeout=0, operation_timestamp='20240624')
-        self.assertEqual(out, {})
-        self.op.logger.error.assert_any_call(
-            unittest.mock.ANY
-        )
-
     def test_handle_visualizations_no_backend(self):
         out = self.op._handle_visualizations(
             self.analysis_results, self.task_dir, self.result, self.reporter, self.progress_tracker,

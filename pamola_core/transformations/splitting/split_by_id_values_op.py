@@ -935,13 +935,11 @@ class SplitByIDValuesOperation(TransformationOperation):
             )
 
             thread.start()
-            thread.join(timeout=self.visualization_timeout)
+            thread.join()
 
-            if thread.is_alive():
-                self.logger.warning(
-                    f"[VIZ] Visualization thread timed out after {self.visualization_timeout}s"
-                )
-            elif viz_error:
+            if viz_error:
+                # Rendering is part of execute(): a failure is recorded in the result.
+                self._record_visualization_failure(result, viz_error)
                 self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
             else:
                 self.logger.info("[VIZ] Visualization thread completed successfully")

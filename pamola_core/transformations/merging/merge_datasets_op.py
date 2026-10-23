@@ -952,7 +952,7 @@ class MergeDatasetsOperation(TransformationOperation):
             # Log periodic status while waiting
             check_interval = 5  # seconds
             elapsed = 0
-            while viz_thread.is_alive() and elapsed < vis_timeout:
+            while viz_thread.is_alive():
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
@@ -960,15 +960,10 @@ class MergeDatasetsOperation(TransformationOperation):
                         f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
                     )
 
-            if viz_thread.is_alive():
-                self.logger.error(
-                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
-                )
-                self.logger.error(
-                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
-                )
-                visualization_paths = {}
-            elif visualization_error:
+            if visualization_error:
+                # Rendering is part of execute(): a failure is recorded in the result,
+                # never swallowed (and no worker is left running after the join).
+                self._record_visualization_failure(result, visualization_error)
                 self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )

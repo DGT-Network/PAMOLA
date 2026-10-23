@@ -679,45 +679,6 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
         self.assertTrue(len(res.error_message) > 0)
         progress_tracker.update.assert_called()
             
-    @patch('threading.Thread')
-    def test_handle_visualizations_timeout(self, mock_thread):
-        class DummyThread:
-            def __init__(self): self._alive = True
-            def start(self): pass
-            def join(self, timeout=None): pass
-            def is_alive(self): return True
-            @property
-            def daemon(self): return False
-        mock_thread.return_value = DummyThread()
-        analysis_results = {
-            'stats': {
-                'histogram': {'bins': [0, 1], 'counts': [1, 2]},
-                'min': 1, 'max': 10, 'normality': {'is_normal': True, 'shapiro': {'p_value': 0.5}}
-            },
-            'country_codes':{
-                'phone': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-            },
-            'operator_codes':{
-                'phone': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-            },
-            'messenger_mentions':{
-                'phone': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-            }
-        }
-        result = OperationResult(status=OperationStatus.SUCCESS)
-        result = self.op._handle_visualizations(analysis_results,
-                                       self.task_dir,
-                                       "20240101_000000",
-                                       result,
-                                       self.reporter,
-                                       vis_theme='theme',
-                                       vis_backend='matplotlib',
-                                       vis_strict=False,
-                                       vis_timeout=2,
-                                       progress_tracker=self.progress)
-        self.assertEqual(result, [])
-        
-        
     @patch('pamola_core.utils.ops.op_cache.operation_cache')
     @patch.object(TextSemanticCategorizerOperation, '_generate_cache_key')
     def test_no_cache(self, mock_cache_key, mock_operation_cache):
