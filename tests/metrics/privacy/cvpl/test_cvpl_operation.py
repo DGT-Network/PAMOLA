@@ -141,7 +141,7 @@ def test_cvpl_operation_rejects_parameters_that_do_not_apply(kwargs):
 def test_cvpl_operation_validates_the_configuration_at_construction():
     with pytest.raises(InvalidParameterError):
         CVPLLinkageOperation(qids=["g"], tau=2.0)
-    with pytest.raises(InvalidParameterError):
+    with pytest.raises(TypeError):  # qids is a required argument (validate-config reports it too)
         CVPLLinkageOperation(auxiliary=["x"])
     with pytest.raises(InvalidParameterError):
         CVPLLinkageOperation(qids=["g"], fit_strategy="frozen")

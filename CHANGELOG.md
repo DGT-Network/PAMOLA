@@ -353,6 +353,10 @@ unchanged public values (descriptions reworded).
 ### Added
 
 - **Public API snapshot and guard (QA-03).** `tools/audit/api_snapshot/generate_snapshot.py` records every name exported in `__all__` by `pamola_core` and its public packages (kind, module, qualname, normalised signature) and the importable public modules; `tests/test_api_snapshot.py` fails with a readable diff when the public surface changes without `tools/audit/api_snapshot/api_snapshot.json` being regenerated. Baseline `snapshots/develop_9623aee.json` and the integrated tree `snapshots/final_tree_without_cvpl.json` are committed; replace `api_snapshot.json` with a snapshot of the assembled tree before the release.
+- `CVPLLinkageOperation` is registered like its sibling metric operations: operations catalog
+  (`pamola-core list-ops`, category `metrics`), `validate-config` (explicit signature: `qids` is
+  required), the task runner, and the schema set (`cvpl_op_core_schema`, `cvpl_op_schema_exclude`,
+  `cvpl_op_tooltip`, `cvpl_op_ui_schema`) in the schema builder.
 - CVPL headline for a ladder that is not a nested relaxing chain is evaluated over the **union**
   of all rungs' candidate sets (every pair once), for all measures including the ground-truth
   ones; `cvpl_lr_by_rung` and `candidate_union_trajectory` keep the per-rung and cumulative
