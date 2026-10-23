@@ -802,13 +802,17 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
 
         # Null handling is done by base class _process_data_with_config() before calling process_batch
 
-        # Pseudonymize non-null values
-        non_null_mask = working_series.notna()
-        non_null_values = working_series[non_null_mask]
+        # Pseudonymize non-null values. Rows are addressed by POSITION: index
+        # labels may repeat (a caller's frame, a concat of frames), and a
+        # label-based write would put one person's pseudonym on every row that
+        # shares the label, nulls included.
+        non_null_flags = working_series.notna().to_numpy()
+        out_values = working_series.to_numpy(dtype=object, copy=True)
+        source_values = out_values.copy()
 
-        if len(non_null_values) > 0:
-            for idx, value in non_null_values.items():
-                str_value = str(value)
+        if non_null_flags.any():
+            for pos in non_null_flags.nonzero()[0]:
+                str_value = str(source_values[pos])
 
                 with self._mapping_lock:
                     # Measure only actual lookup/generation time, not lock wait
@@ -832,24 +836,27 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                     delta = lookup_time - self._lookup_time_mean
                     self._lookup_time_mean += delta / self._lookup_time_count
 
-                working_series.at[idx] = pseudonym
+                out_values[pos] = pseudonym
 
                 # Persist at frequency threshold (within batch loop)
                 with self._mapping_lock:
                     if self._new_mappings_count >= self.persist_frequency:
                         self._persist_mappings()
 
+        # Same index object, same row order: assign values, not an aligned Series
+        working_series = pd.Series(out_values, index=working_series.index, dtype=object)
+
         # Update the DataFrame using self.output_field_name (set in Step 3)
         if self.mode == "REPLACE":
             if self.compound_mode:
                 # Replace primary field; null out additional fields
-                batch[self.field_name] = working_series
+                batch[self.field_name] = working_series.to_numpy()
                 for field in self.additional_fields or []:
                     batch[field] = None
             else:
-                batch[self.field_name] = working_series
+                batch[self.field_name] = working_series.to_numpy()
         else:  # ENRICH
-            batch[self.output_field_name] = working_series
+            batch[self.output_field_name] = working_series.to_numpy()
 
         return batch
 
@@ -883,6 +890,22 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                         f"({self.pseudonym_length - prefix_len - suffix_len}) must be at least 4"
                     ),
                 )
+
+        if self.use_vectorization and self.parallel_processes not in (None, 1):
+            # Process workers each get a private copy of the mapping state:
+            # they would hand out the same pseudonym to different people and
+            # the parent would persist nothing. Allocation needs one owner.
+            raise InvalidParameterError(
+                param_name="parallel_processes",
+                param_value=self.parallel_processes,
+                reason=(
+                    "process-parallel execution (use_vectorization with "
+                    "parallel_processes != 1) is not supported by "
+                    "ConsistentMappingPseudonymizationOperation: the mapping "
+                    "must be allocated by a single process. Use "
+                    "parallel_processes=1 or the default chunked execution."
+                ),
+            )
 
         if self.compound_mode and not self.additional_fields:
             raise InvalidParameterError(

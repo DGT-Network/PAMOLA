@@ -105,6 +105,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `append()` is a single fsync'd write; a crash mid-append is reported as a
     truncated file on the next load (restore the `.bak.*` copy).
 
+- **Chunked/parallel processing kept resetting the caller's index (CDX-AC-5).**
+  `process_dataframe_using_chunk` / `_joblib` in `anonymization/commons` and
+  `fake_data/commons` concatenated chunks with `ignore_index=True`, so a frame
+  indexed `[100, 200, 300]` came back as `[0, 1, 2]` and downstream metrics
+  that align original and processed records by index mis-paired rows. Labels
+  are now preserved.
+- **Duplicate index labels corrupted pseudonyms (CDX-AC-4).**
+  `ConsistentMappingPseudonymizationOperation.process_batch` wrote results with
+  `Series.at[label]`, so rows sharing a label (including null rows) all received
+  the last pseudonym. Rows are now addressed by position.
+- **Process-parallel mapping pseudonymization is rejected (CDX-AC-3).** With
+  `use_vectorization=True` and `parallel_processes` other than 1 (joblib process
+  workers) each worker allocated pseudonyms from a private copy of the mapping:
+  duplicate pseudonyms and nothing persisted by the parent. The operation now
+  fails with an `InvalidParameterError` result; use `parallel_processes=1` or
+  the default chunked execution.
+
 ### Removed
 
 - **`pydantic[email]` dependency (DEP-01).** Nothing in `pamola_core` or `tests`
