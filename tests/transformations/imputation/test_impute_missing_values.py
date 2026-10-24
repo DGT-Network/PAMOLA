@@ -530,9 +530,11 @@ def test_generate_visualizations_exception(monkeypatch):
         "pamola_core.transformations.commons.visualization_utils.generate_data_distribution_comparison_vis",
         fail_vis
     )
-    # Should catch and return {}
-    result = op._generate_visualizations(get_sample_df(), get_sample_df(), {}, Path("/tmp"), "theme", "plotly", False, None)
-    assert result == {}
+    monkeypatch.setattr("pamola_core.utils.visualization.create_bar_plot", fail_vis)
+    metrics = {"imputed_values": {"age": {"count": 1}}}      # the shape the method reads
+    # ASB-OPS-7: the failure propagates (execute() records it as visualization_error)
+    with pytest.raises(Exception, match="fail"):
+        op._generate_visualizations(get_sample_df(), get_sample_df(), metrics, Path("/tmp"), "theme", "plotly", False, None)
 
 def test_save_metrics_reporter_none(tmp_path):
     op = ImputeMissingValuesOperation(

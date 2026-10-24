@@ -250,8 +250,9 @@ def test_generate_visualizations_backend_none(sample_df, tmp_path):
 def test_generate_visualizations_exception(sample_df, tmp_path):
     op = AggregateRecordsOperation(group_by_fields=['A'], aggregations={'B': ['sum']}, custom_aggregations={})
     with patch('pamola_core.transformations.grouping.aggregate_records_op.generate_record_count_per_group_vis', side_effect=Exception('fail')):
-        result = op._generate_visualizations(sample_df, sample_df, tmp_path, vis_backend='matplotlib')
-        assert result == {}
+        # ASB-OPS-7: the failure propagates to execute(), which records visualization_error
+        with pytest.raises(Exception, match='fail'):
+            op._generate_visualizations(sample_df, sample_df, tmp_path, vis_backend='matplotlib')
 
 def test_save_output_data(sample_df, tmp_path):
     op = AggregateRecordsOperation(

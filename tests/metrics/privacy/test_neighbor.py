@@ -100,10 +100,14 @@ class TestNearestNeighborDistanceRatio:
         assert "realistic" in pc and "at_risk" in pc
 
     def test_nndr_invalid_n_neighbors(self):
-        # NearestNeighborDistanceRatio does not validate n_neighbors in __init__
-        # n_neighbors=1 is accepted; it uses hardcoded 2 neighbors internally
-        metric = NearestNeighborDistanceRatio(n_neighbors=1)
-        assert metric.n_neighbors == 1  # stored but not validated
+        """ASB-OPS-4: NNDR = d1 / d_k needs k >= 2; n_neighbors is honoured, not ignored."""
+        from pamola_core.errors.exceptions import InvalidParameterError
+
+        with pytest.raises(InvalidParameterError, match="at least 2"):
+            NearestNeighborDistanceRatio(n_neighbors=1)
+        with pytest.raises(InvalidParameterError):
+            NearestNeighborDistanceRatio(n_neighbors=0)
+        assert NearestNeighborDistanceRatio(n_neighbors=3).n_neighbors == 3
 
     def test_nndr_invalid_distance_metric(self):
         df = self.get_df(n=10, d=2)

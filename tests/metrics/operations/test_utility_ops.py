@@ -284,8 +284,9 @@ def test_generate_visualizations_exception(tmp_path):
     orig_create_bar_plot = vis_mod.create_bar_plot
     vis_mod.create_bar_plot = lambda *a, **k: (_ for _ in ()).throw(Exception("viz fail"))
     try:
-        paths = op._generate_visualizations(metrics, tmp_path, vis_theme=None, vis_backend="plotly", vis_strict=False, timestamp="20240101")
-        assert isinstance(paths, dict)
+        # ASB-OPS-7: the failure propagates (execute() records it as visualization_error)
+        with pytest.raises(Exception, match="viz fail"):
+            op._generate_visualizations(metrics, tmp_path, vis_theme=None, vis_backend="plotly", vis_strict=False, timestamp="20240101")
     finally:
         vis_mod.create_bar_plot = orig_create_bar_plot
 
@@ -312,9 +313,9 @@ def test_visualization_strict_raises(tmp_path):
         raise Exception("strict error")
     vis_mod.create_bar_plot = raise_error
     try:
-        # Should not raise because error is caught and logged, not propagated
-        paths = op._generate_visualizations(metrics, tmp_path, vis_theme=None, vis_backend="plotly", vis_strict=True, timestamp="20240101")
-        assert isinstance(paths, dict)
+        # Strict or not, the chart error propagates; it is no longer logged and dropped
+        with pytest.raises(Exception, match="strict error"):
+            op._generate_visualizations(metrics, tmp_path, vis_theme=None, vis_backend="plotly", vis_strict=True, timestamp="20240101")
     finally:
         vis_mod.create_bar_plot = orig_create_bar_plot
 

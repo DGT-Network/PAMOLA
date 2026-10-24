@@ -508,15 +508,15 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
             mock_logger.assert_called()
 
     def test_generate_visualizations_exception_handling(self):
-        """Test _generate_visualizations handles exceptions and logs warning"""
+        """ASB-OPS-7: a failing chart is logged and re-raised so execute() can report it"""
         operation = self.operation
         with patch("pamola_core.profiling.analyzers.identity.generate_identifier_statistics_vis", side_effect=Exception("fail")), \
              patch.object(operation.logger, "warning") as mock_warn:
-            result = operation._generate_visualizations(
-                identifier_stats={"stat": 1}, consistency_analysis={}, distribution_analysis={}, cross_match_analysis={},
-                task_dir=Path("test_vis_dir"), vis_backend="matplotlib"
-            )
-            self.assertEqual(result, {})
+            with self.assertRaisesRegex(Exception, "fail"):
+                operation._generate_visualizations(
+                    identifier_stats={"stat": 1}, consistency_analysis={}, distribution_analysis={}, cross_match_analysis={},
+                    task_dir=Path("test_vis_dir"), vis_backend="matplotlib"
+                )
             mock_warn.assert_called()
 
     def test_generate_visualizations_progress_tracker(self):

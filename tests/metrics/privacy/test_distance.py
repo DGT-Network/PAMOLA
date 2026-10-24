@@ -226,17 +226,24 @@ class TestDistanceToClosestRecord:
             dcr.calculate_metric(orig, synth)
 
     def test__interpret_dcr_paths(self):
+        """ASB-OPS-3: the text states the numbers and applies no verdict or hard-coded threshold."""
         dcr = DistanceToClosestRecord()
-        # mean > 1.0
-        stats = {"mean": 1.1, "min": 0.5, "p5": 0.5}
-        assert "Good privacy" in dcr._interpret_dcr(stats)
-        # mean > 0.5, min < 0.3
-        stats = {"mean": 0.6, "min": 0.2, "p5": 0.5}
-        assert "Moderate privacy" in dcr._interpret_dcr(stats)
-        # mean < 0.5, min < 0.1, p5 < 0.2
-        stats = {"mean": 0.4, "min": 0.05, "p5": 0.1}
-        interp = dcr._interpret_dcr(stats)
-        assert "Poor privacy" in interp and "WARNING" in interp and "High risk" in interp
+        verdicts = ("good privacy", "moderate privacy", "poor privacy", "warning", "high risk",
+                    "caution", "recommendation")
+        for stats in ({"mean": 1.1, "min": 0.5, "p5": 0.5, "max": 2.0},
+                      {"mean": 0.6, "min": 0.2, "p5": 0.5, "max": 1.0},
+                      {"mean": 0.4, "min": 0.05, "p5": 0.1, "max": 0.9}):
+            text = dcr._interpret_dcr(stats)
+            assert f"mean {stats['mean']:.4g}" in text and f"min {stats['min']:.4g}" in text
+            assert f"5th percentile {stats['p5']:.4g}" in text
+            assert not any(word in text.lower() for word in verdicts)
+            assert "No distance threshold was supplied" in text
+        # thresholds supplied by the caller are reported as counts, still without a verdict
+        text = dcr._interpret_dcr(
+            {"mean": 0.4, "min": 0.05, "max": 0.9},
+            {"records_below": {"0.1": 3}},
+        )
+        assert "3 below 0.1" in text and "No distance threshold" not in text
 
     def test__calculate_privacy_score(self):
         dcr = DistanceToClosestRecord()

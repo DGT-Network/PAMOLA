@@ -156,8 +156,10 @@ def test_generate_visualizations_exception(tmp_path):
     metrics = {"ks": {"ks_statistic": 0.1, "p_value": 0.05}}
     # Patch create_bar_plot to raise an exception
     with patch("pamola_core.metrics.operations.fidelity_ops.create_bar_plot", side_effect=Exception("plot fail")):
-        paths = op._generate_visualizations(metrics, tmp_path, vis_theme=None, vis_backend="plotly", vis_strict=False, timestamp="20240101")
-        assert isinstance(paths, dict)
+        # ASB-OPS-7: a chart failure is not swallowed; it propagates to execute(), which records
+        # it in result.metrics["visualization_error"]
+        with pytest.raises(Exception, match="plot fail"):
+            op._generate_visualizations(metrics, tmp_path, vis_theme=None, vis_backend="plotly", vis_strict=False, timestamp="20240101")
 
 def test_calculate_metrics_with_progress_tracker(dummy_data):
     op = FidelityOperation(fidelity_metrics=[FidelityMetricsType.KS.value])
