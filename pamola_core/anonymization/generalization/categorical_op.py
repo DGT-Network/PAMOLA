@@ -50,6 +50,8 @@ import pandas as pd
 import dask.dataframe as dd
 
 # Base class
+from pamola_core.utils.artifact_policy import ArtifactClass
+from pamola_core.utils.io_helpers.crypto_utils import write_encrypted_json
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 
 # Configuration and strategies from commons
@@ -622,6 +624,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                                 description=f"Category mapping for {self.field_name}",
                                 category=Constants.Artifact_Category_Mapping,
                                 tags=["mapping", "categories", self.field_name],
+                                artifact_class=ArtifactClass.PROTECTED_MAPPING,
+                                contains_source_values=True,
                             )
                     except Exception as e:
                         self.logger.warning(f"Failed to save category mapping: {e}")
@@ -1366,10 +1370,18 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
     def _save_mapping_artifact(self, writer: DataWriter) -> Optional[Path]:
         """
-        Save category mapping as artifact.
+        Save the category mapping as a PROTECTED_MAPPING artifact.
 
+        The mapping lists original category values, so it is only written encrypted with
+        the task key. Without a key it is not written (no plain-text mapping file).
         """
         if not self._category_mapping:
+            return None
+        if not (self.use_encryption and self.encryption_key):
+            self.logger.info(
+                "Category mapping not written: it holds original values and is only "
+                "written encrypted (use_encryption=True with an encryption_key)"
+            )
             return None
 
         try:
@@ -1382,16 +1394,16 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 "mappings": self._category_mapping,
             }
 
-            result = writer.write_json(
-                data=mapping_data,
-                name=f"{self.field_name}_category_mapping",
+            # Plain text never touches the disk: encrypt in memory, write ciphertext only
+            path = writer._get_output_path(
+                f"{self.field_name}_category_mapping",
+                extension="json",
                 subdir="mappings",
                 timestamp_in_name=True,
             )
-
-            # If we reach here, the write was successful
-            self.logger.info(f"Saved category mapping to {result.path}")
-            return result.path
+            write_encrypted_json(mapping_data, path, self.encryption_key)
+            self.logger.info(f"Saved category mapping to {path}")
+            return path
 
         except Exception as e:
             self.logger.warning(f"Error saving category mapping: {e}")

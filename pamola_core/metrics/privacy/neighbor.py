@@ -24,14 +24,17 @@ Key Features:
     - Seamless integration into PAMOLA.CORE metric pipelines
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import numpy as np
 import pandas as pd
 
 from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import StandardScaler
 
-from pamola_core.metrics.commons.preprocessing import prepare_pair_for_distance_metrics
+from pamola_core.metrics.privacy.distance import reject_unsupported_distance_metric
+from pamola_core.metrics.commons.preprocessing import (
+    prepare_pair_for_distance_metrics,
+    scale_pair_for_distance,
+)
 
 
 class NearestNeighborDistanceRatio:
@@ -64,18 +67,22 @@ class NearestNeighborDistanceRatio:
         threshold: float = 0.5,
         realistic_threshold: float = 0.8,
         at_risk_threshold: float = 0.5,
+        ordinal_columns: Optional[Any] = None,
     ):
         """
         Initialize NearestNeighborDistanceRatio metric parameters.
 
         Parameters
         ----------
-            distance_metric (str): Distance metric ('euclidean', 'manhattan', 'cosine').
+            distance_metric (str): Distance metric ('euclidean', 'manhattan', 'cosine'); 'mahalanobis' is not supported in 1.0.
             n_neighbors (int): Number of neighbors to consider (default: 2).
             normalize_features (bool): Whether to normalize features before calculation.
             threshold (float): NNDR threshold for high privacy risk.
             realistic_threshold (float): Threshold for realistic privacy classification.
             at_risk_threshold (float): Threshold for at-risk privacy classification.
+            ordinal_columns (sequence of str or dict): Categorical columns whose categories have an
+                order, encoded as ranks (see ``prepare_pair_for_distance_metrics``). Every other
+                categorical column is nominal: one-hot encoded, all mismatches equally far apart.
         """
         if int(n_neighbors) < 2:
             from pamola_core.errors.exceptions import InvalidParameterError
@@ -85,12 +92,14 @@ class NearestNeighborDistanceRatio:
                 param_value=n_neighbors,
                 reason="NNDR compares the nearest neighbour with the n_neighbors-th one, so it needs at least 2",
             )
+        reject_unsupported_distance_metric(distance_metric, "NNDR")
         self.distance_metric = distance_metric
         self.n_neighbors = int(n_neighbors)
         self.normalize_features = normalize_features
         self.threshold = threshold
         self.realistic_threshold = realistic_threshold
         self.at_risk_threshold = at_risk_threshold
+        self.ordinal_columns = ordinal_columns
 
     def calculate_metric(
         self, original_df: pd.DataFrame, transformed_df: pd.DataFrame
@@ -107,21 +116,15 @@ class NearestNeighborDistanceRatio:
             Dict[str, Any]: NNDR statistics, risk assessment, privacy classification, and interpretation.
         """
 
-        # Preprocess: convert all features to numeric using OrdinalEncoder for object/category columns
-        # One encoding for both datasets (union of categories), see the function.
+        # One shared schema for both datasets: numeric/datetime/ordinal columns optionally
+        # standardized with one fit, nominal categoricals one-hot encoded with a fixed weight
+        # (a mismatch = 1 in Euclidean distance).
         orig_processed, trans_processed = prepare_pair_for_distance_metrics(
-            original_df, transformed_df
+            original_df, transformed_df, ordinal_columns=self.ordinal_columns
         )
-
-        # Normalize features if requested, otherwise use raw numeric values
-        # StandardScaler ensures all features have mean=0 and std=1, improving distance calculations
-        if self.normalize_features:
-            scaler = StandardScaler().fit(orig_processed)
-            orig_data = scaler.transform(orig_processed)
-            trans_data = scaler.transform(trans_processed)
-        else:
-            orig_data = orig_processed.values
-            trans_data = trans_processed.values
+        orig_data, trans_data = scale_pair_for_distance(
+            orig_processed, trans_processed, self.normalize_features
+        )
 
         if len(orig_data) < self.n_neighbors:
             from pamola_core.errors.exceptions import ValidationError

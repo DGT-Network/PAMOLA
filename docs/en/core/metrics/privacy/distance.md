@@ -28,7 +28,6 @@ Implements Distance to Closest Record (DCR) privacy metric, which measures the m
     - _calculate_dcr_faiss
     - _interpret_dcr
     - _calculate_dcr_sklearn
-    - _calculate_privacy_score
 
 ## 3. Architecture & Data Flow
 - DCR class calculates minimum distances from synthetic to original records
@@ -38,12 +37,16 @@ Implements Distance to Closest Record (DCR) privacy metric, which measures the m
 
 ## 4. Main Functionalities & Features
 - Calculate DCR (Distance to Closest Record) for privacy assessment
-- Support for multiple distance metrics: euclidean, manhattan, cosine, mahalanobis
-- Optional feature normalization using StandardScaler
+- Support for multiple distance metrics: euclidean, manhattan, cosine (`mahalanobis` is rejected with `InvalidParameterError` for DCR and NNDR: not supported in 1.0)
+- Optional standardization (StandardScaler) of numeric, datetime and declared-ordinal features
+- Nominal categorical features are one-hot encoded with a fixed weight: a mismatch of any two categories is one unit of Euclidean distance, whatever the categories are (`ordinal_columns` declares columns whose categories have an order; they are encoded as ranks)
 - Multiple aggregation methods: min, mean_k (k-nearest neighbors), percentile-based
 - FAISS support for efficient large-scale nearest neighbor search
-- Percentile distribution calculation for risk assessment
-- Human-readable risk interpretation and recommendations
+- The dtype decides nominal vs numeric: pandas categoricals and booleans are nominal even with numeric labels; missing values are one category of their own
+- Category identity follows pandas (`1.0` and `"1"` are different levels; `1` and `1.0` are the same); nullable booleans and integers keep a missing category; datetimes are compared in nanoseconds (timezone-aware values in UTC)
+- Forced FAISS returns the same statistics as the exact search (`percentile` falls back to it, visibly)
+- Distance statistics and percentiles; counts below caller-supplied `distance_thresholds`
+- Neutral description of the numbers (no verdicts); DCR and NNDR are technical distance diagnostics, not a probability of re-identification
 
 ## 5. API Reference & Key Methods
 | Method | Description |
@@ -53,7 +56,6 @@ Implements Distance to Closest Record (DCR) privacy metric, which measures the m
 | `_calculate_dcr_faiss(...)` | Calculate DCR using FAISS index for efficient nearest neighbors |
 | `_interpret_dcr(dcr_stats)` | Interpret DCR statistics into risk level |
 | `_calculate_dcr_sklearn(...)` | Calculate DCR using scikit-learn |
-| `_calculate_privacy_score(...)` | Calculate privacy score based on DCR stats |
 
 ## 6. Usage Examples
 ```python
@@ -77,8 +79,7 @@ print(result['risk_level'])  # Risk assessment
 ```
 
 ## 7. Troubleshooting & Investigation Guide
-- Ensure original and synthetic DataFrames have matching columns
-- For Mahalanobis metric, ensure covariance matrix is full-rank
+- Ensure original and synthetic DataFrames have matching columns
 - FAISS requires faiss installation (pip install faiss-cpu or faiss-gpu)
 - Check data preprocessing for NaN/missing values before calculation
 
@@ -88,8 +89,7 @@ print(result['risk_level'])  # Risk assessment
 - Production-ready for synthetic data validation and privacy assessment
 
 ## 9. Challenges, Limitations & Enhancement Opportunities
-- FAISS integration requires faiss-cpu or faiss-gpu installation
-- Mahalanobis metric requires full-rank covariance matrix
+- FAISS integration requires faiss-cpu or faiss-gpu installation
 - Feature preprocessing impacts DCR interpretation
 - Future: add GPU acceleration and batch processing improvements
 

@@ -24,6 +24,10 @@ import pamola_core.utils.progress as progress
 import pamola_core.utils.io_helpers.error_utils as error_utils
 import pamola_core.utils.io_helpers.format_utils as format_utils
 import pamola_core.utils.io_helpers.memory_utils as memory_utils
+from pamola_core.utils.safe_deserialization import (
+    is_pickle_format,
+    reject_pickle_for_bulk_read,
+)
 from pamola_core.utils.io_helpers.readers import (
     read_full_csv,
     read_parquet,
@@ -35,6 +39,13 @@ from pamola_core.errors.exceptions import InvalidParameterError
 
 # Configure module logger
 logger = logging.getLogger(__name__)
+
+
+def _refuse_bulk_pickle(file_paths) -> None:
+    """Bulk readers never read pickle: raise before schema discovery or any read."""
+    for path in file_paths or []:
+        if is_pickle_format(None, path):
+            reject_pickle_for_bulk_read(path)
 
 
 def detect_file_format(file_path: Union[str, Path]) -> str:
@@ -139,6 +150,7 @@ def get_common_columns(
         List of common column names
     """
     # Validate files first
+    _refuse_bulk_pickle(file_paths)
     valid_paths, missing_paths = validate_files_exist(file_paths)
 
     if not valid_paths:
@@ -233,6 +245,7 @@ def stack_files_vertically(
         Combined DataFrame or error information
     """
     # Validate files first
+    _refuse_bulk_pickle(file_paths)
     valid_paths, missing_paths = validate_files_exist(file_paths)
 
     if not valid_paths:
@@ -413,6 +426,7 @@ def process_files_in_batches(
         Combined DataFrame or error information
     """
     # Validate files first
+    _refuse_bulk_pickle(file_paths)
     valid_paths, missing_paths = validate_files_exist(file_paths)
 
     if not valid_paths:
@@ -734,6 +748,8 @@ def read_similar_files(
         file_paths = list(directory.glob(f"**/{pattern}"))
     else:
         file_paths = list(directory.glob(pattern))
+
+    _refuse_bulk_pickle(file_paths)
 
     if not file_paths:
         return error_utils.create_error_info(

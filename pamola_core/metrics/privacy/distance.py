@@ -17,8 +17,14 @@ Description:
 
     The implementation supports multiple distance metrics, feature normalization,
     aggregation strategies, and efficient nearest neighbor search using FAISS for
-    large-scale datasets. It provides detailed risk assessment and interpretable
-    privacy scores for synthetic data evaluation.
+    large-scale datasets. The result is a descriptive technical diagnostic of distances;
+    it contains no score and no verdict, and no value of it is a probability of
+    re-identification.
+
+    Feature space: numeric, datetime and declared-ordinal columns are standardized with one
+    fit on the original; nominal categorical columns are one-hot encoded and weighted so that
+    a mismatch of any two categories is one unit of Euclidean distance (see
+    ``prepare_pair_for_distance_metrics``). All backends receive the same vectors.
 
 Key Features:
     - Custom DCR calculation with sklearn and FAISS support
@@ -34,11 +40,13 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import pairwise_distances_chunked
 
 from pamola_core.common.enum.distance_metric_type import DistanceMetricType
-from pamola_core.metrics.commons.preprocessing import prepare_pair_for_distance_metrics
+from pamola_core.metrics.commons.preprocessing import (
+    prepare_pair_for_distance_metrics,
+    scale_pair_for_distance,
+)
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.exceptions import (
     DataError,
@@ -85,18 +93,33 @@ _DEFAULT_MAX_COMPARISONS = {
 
 #: (metric, aggregation) pairs for which ``_calculate_dcr_faiss`` returns the same
 #: values as ``_calculate_dcr_sklearn`` (to float32 rounding), verified by
-#: ``tests/metrics/privacy/test_distance_backends.py``. Everything else differs:
-#: for euclidean ``mean_k`` FAISS averages *squared* distances before the square
-#: root, and for ``percentile`` it takes the 10th percentile of only the k <= 10
-#: nearest neighbours rather than of all distances. Those pairs are never chosen
-#: automatically.
+#: ``tests/metrics/privacy/test_distance_backends.py``. FAISS searches only the k <= 10
+#: nearest neighbours, so ``percentile`` (a percentile of ALL distances of a row) is not
+#: reproducible with it: ``_calculate_dcr_faiss`` falls back to the exact search for it
+#: (visibly, via ``backend_fallback``), and automatic selection never chooses FAISS for it.
 _FAISS_EXACT = frozenset(
     {
         ("euclidean", "min"),
+        ("euclidean", "mean_k"),
         ("cosine", "min"),
         ("cosine", "mean_k"),
     }
 )
+
+
+def reject_unsupported_distance_metric(metric: Any, metric_name: str) -> None:
+    """DCR and NNDR do not support the Mahalanobis distance in 1.0 (string or enum)."""
+    value = metric.value if isinstance(metric, DistanceMetricType) else str(metric)
+    if value.lower() == "mahalanobis":
+        raise InvalidParameterError(
+            param_name="distance_metric",
+            param_value=value,
+            reason=(
+                f"the Mahalanobis distance is not supported for {metric_name} in 1.0: the "
+                "one-hot features of nominal columns make the covariance singular. Use "
+                "'euclidean', 'manhattan' or 'cosine'."
+            ),
+        )
 
 
 class DistanceToClosestRecord:
@@ -108,14 +131,20 @@ class DistanceToClosestRecord:
 
     This operation implements the Distance to Closest Record (DCR) privacy metric,
     which measures how close synthetic records are to the original training data.
-    Lower DCR values indicate higher privacy risk.
+    Lower DCR values mean the synthetic records lie closer to original records; the value is a
+    distance in the feature space described above, not a probability.
 
     Parameters
     -----------
     distance_metric : str, default='euclidean'
-        Distance metric to use ('euclidean', 'manhattan', 'cosine', 'mahalanobis')
+        Distance metric to use ('euclidean', 'manhattan', 'cosine'); 'mahalanobis' is not
+        supported in 1.0
     normalize_features : bool, default=True
-        Whether to normalize features using StandardScaler
+        Whether to standardize the non-nominal features (one StandardScaler fit on the original);
+        one-hot columns of nominal categoricals are never standardized, they carry a fixed weight
+    ordinal_columns : sequence of str or dict, optional
+        Categorical columns whose categories have an order (encoded as ranks); all other
+        categorical columns are nominal
     percentiles : List[int], default=[5, 25, 50, 75, 95]
         Percentiles to calculate for DCR distribution
     use_faiss : bool or None, default=None
@@ -146,6 +175,7 @@ class DistanceToClosestRecord:
         k_neighbors: int = 3,
         max_comparisons: Optional[int] = None,
         distance_thresholds: Optional[List[float]] = None,
+        ordinal_columns: Optional[Any] = None,
     ):
         """
         Initialize DistanceToClosestRecord metric with configuration options.
@@ -153,7 +183,9 @@ class DistanceToClosestRecord:
         Parameters
         -----------
         distance_metric : str
-            Distance metric to use ('euclidean', 'manhattan', 'cosine', 'mahalanobis').
+            Distance metric: 'euclidean', 'manhattan' or 'cosine'. 'mahalanobis' (string or
+            ``DistanceMetricType``) is not supported for DCR in 1.0 and raises
+            ``InvalidParameterError`` here, before any computation.
         normalize_features : bool
             Whether to normalize features using StandardScaler.
         percentiles : List[int]
@@ -172,7 +204,12 @@ class DistanceToClosestRecord:
             Distances (in the units of the normalized feature space) chosen by the caller.
             When given, the result reports how many records lie below each of them
             (``threshold_assessment``). The library applies no threshold of its own.
+        ordinal_columns : sequence of str or dict, optional
+            Categorical columns whose categories have an order, encoded as ranks (see
+            ``prepare_pair_for_distance_metrics``). Every other categorical column is nominal:
+            one-hot encoded so that all mismatches are equally far apart.
         """
+        reject_unsupported_distance_metric(distance_metric, "DCR")
         self.distance_metric = distance_metric
         self.normalize_features = normalize_features
         self.percentiles = percentiles
@@ -183,6 +220,7 @@ class DistanceToClosestRecord:
         self.distance_thresholds = (
             None if distance_thresholds is None else [float(t) for t in distance_thresholds]
         )
+        self.ordinal_columns = ordinal_columns
         self._backend_fallback: Optional[Dict[str, str]] = None
 
     def _metric_name(self) -> str:
@@ -251,22 +289,16 @@ class DistanceToClosestRecord:
         Returns
         --------
         Dict[str, Any]
-            - metrics_dict (Dict[str, Any]): Dictionary containing DCR statistics, risk assessment, privacy score, and interpretation.
+            - metrics_dict (Dict[str, Any]): Dictionary containing DCR statistics (and threshold counts when thresholds are supplied), backend and interpretation.
         """
-        # Preprocess: convert all features to numeric using OrdinalEncoder for object/category columns
-        # One encoding for both datasets (union of categories), see the function.
+        # One shared schema for both datasets: numeric/datetime/ordinal columns standardized with
+        # one fit, nominal categoricals one-hot encoded with a fixed weight (a mismatch = 1).
         orig_processed, trans_processed = prepare_pair_for_distance_metrics(
-            original_df, transformed_df
+            original_df, transformed_df, ordinal_columns=self.ordinal_columns
         )
-
-        # Normalize features if requested, otherwise use raw numeric values
-        if self.normalize_features:
-            scaler = StandardScaler().fit(orig_processed)
-            orig_scaled = scaler.transform(orig_processed)
-            trans_scaled = scaler.transform(trans_processed)
-        else:
-            orig_scaled = orig_processed.values
-            trans_scaled = trans_processed.values
+        orig_scaled, trans_scaled = scale_pair_for_distance(
+            orig_processed, trans_processed, self.normalize_features
+        )
 
         # Calculate distances
         self._backend_fallback = None
@@ -296,11 +328,6 @@ class DistanceToClosestRecord:
         # percentile of the distribution itself always flags the same share of records.
         metrics = {
             "dcr_statistics": dcr_stats,
-            "privacy_score": float(
-                self._calculate_privacy_score(
-                    dcr_values, num_columns=original_df.shape[1]
-                )
-            ),
             "backend": (
                 self._backend_fallback["to"] if self._backend_fallback else selected_backend
             ),
@@ -342,6 +369,14 @@ class DistanceToClosestRecord:
         """
         if faiss is None:
             return self._fall_back("faiss is not installed", orig_data, trans_data)
+        if self.aggregation == "percentile":
+            return self._fall_back(
+                "FAISS searches only the nearest neighbours, so the percentile of all "
+                "distances is not reproducible with it",
+                orig_data,
+                trans_data,
+            )
+        original_64, transformed_64 = orig_data, trans_data  # the exact path gets full precision
         try:
             # Ensure data is float32 for FAISS
             orig_data = orig_data.astype(np.float32)
@@ -359,7 +394,9 @@ class DistanceToClosestRecord:
                 faiss.normalize_L2(trans_data)
             else:
                 return self._fall_back(
-                    f"FAISS does not support the '{self._metric_name()}' metric", orig_data, trans_data
+                    f"FAISS does not support the '{self._metric_name()}' metric",
+                    original_64,
+                    transformed_64,
                 )
 
             # Add original data to index
@@ -376,6 +413,12 @@ class DistanceToClosestRecord:
             # Search for nearest neighbors
             distances, indices = index.search(trans_data, k)
 
+            # FAISS returns SQUARED L2 distances: take the root of every neighbour before any
+            # aggregation, so the mean over neighbours is the mean of distances (as in the
+            # exact search), not the root of the mean of squares
+            if self.distance_metric == "euclidean":
+                distances = np.sqrt(np.maximum(distances, 0))
+
             # For cosine, convert similarity to distance
             if self.distance_metric == "cosine":
                 distances = 1.0 - distances
@@ -386,19 +429,15 @@ class DistanceToClosestRecord:
                 dcr_values = distances[:, 0]
             elif self.aggregation == "mean_k":
                 dcr_values = np.mean(distances, axis=1)
-            elif self.aggregation == "percentile":
-                dcr_values = np.percentile(distances, 10, axis=1)
             else:
                 dcr_values = distances[:, 0]
-
-            # Convert back from squared distances if L2
-            if self.distance_metric == "euclidean":
-                dcr_values = np.sqrt(np.maximum(dcr_values, 0))  # Ensure non-negative
 
             return dcr_values
 
         except Exception as exc:  # noqa: BLE001 - reported in the result, not hidden
-            return self._fall_back(f"{type(exc).__name__}: {str(exc)[:200]}", orig_data, trans_data)
+            return self._fall_back(
+                f"{type(exc).__name__}: {str(exc)[:200]}", original_64, transformed_64
+            )
 
     def _fall_back(self, reason: str, orig_data: np.ndarray, trans_data: np.ndarray) -> np.ndarray:
         """Compute with the exact search instead of FAISS and say so (one warning, and the
@@ -515,38 +554,3 @@ class DistanceToClosestRecord:
         )
         return np.concatenate(list(blocks))
 
-    def _calculate_privacy_score(
-        self,
-        dcr_values: np.ndarray,
-        num_columns: int,
-    ) -> float:
-        """
-        Convert the DCR distribution to a privacy score in the range [0, 1].
-        Higher scores indicate better privacy (synthetic records are farther from original records).
-
-        Parameters
-        -----------
-        dcr_values : np.ndarray
-            Array of DCR values for synthetic records.
-        columns : Optional[List[str]]
-            List of columns used for dimensionality normalization (optional).
-
-        Returns
-        --------
-        float
-            Privacy score between 0 and 1 (higher = better privacy).
-        """
-        if len(dcr_values) == 0:
-            return 0.0
-
-        # Normalize by data dimensionality
-        dimension_factor = np.sqrt(num_columns)
-
-        # Apply robust normalization
-        normalized_dcr = np.clip(dcr_values / np.sqrt(dimension_factor), 0, 10)
-
-        # Use sigmoid-like transformation (1 - exp(-x)) for better interpretability
-        # Values close to 0 -> score near 0, larger values -> score approaches 1
-        scores = 1 - np.exp(-normalized_dcr)
-
-        return float(np.mean(scores))

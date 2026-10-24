@@ -216,13 +216,8 @@ class FakeEmailOperation(GeneratorOperation):
             data_source, task_dir, reporter, progress_tracker, **kwargs
         )
 
-        # Save mapping if requested
-        if self.save_mapping and hasattr(self, "mapping_store") and self.mapping_store:
-            mapping_dir = Path(task_dir) / "maps"
-            io.ensure_directory(mapping_dir)
-            mapping_path = mapping_dir / f"{self.name}_{self.field_name}_mapping.json"
-            self.mapping_store.save_json(mapping_path)
-            self.logger.info(f"Saved mapping to {Path(mapping_path).name}")
+        # Save mapping if requested (encrypted PROTECTED_MAPPING only)
+        self._save_protected_mapping(task_dir, result, reporter)
 
         return result
 
@@ -501,7 +496,7 @@ class FakeEmailOperation(GeneratorOperation):
                 "total_emails": total,
                 "unique_domains": unique_domains,
                 "diversity_ratio": diversity_ratio,
-                "top_domains": domain_distribution,
+                **self._labelled_domains(domain_distribution),
                 "domain_categories": domain_categories,
             }
 
@@ -534,9 +529,17 @@ class FakeEmailOperation(GeneratorOperation):
             "total_emails": total,
             "unique_domains": unique_domains,
             "diversity_ratio": diversity_ratio,
-            "top_domains": domain_distribution,
+            **self._labelled_domains(domain_distribution),
             "domain_categories": domain_categories,
         }
+
+    def _labelled_domains(self, domain_distribution: Dict[str, float]) -> Dict[str, Any]:
+        """Domain labels are source values: published only with raw samples enabled.
+
+        By default only value-free statistics are kept (counts, ratios, categories)."""
+        if self.include_raw_samples_in_metrics:
+            return {"top_domains": domain_distribution}
+        return {}
 
     def _categorize_domains_distribution(
         self, domain_counts: Counter

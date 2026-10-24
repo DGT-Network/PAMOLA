@@ -15,6 +15,11 @@ import pandas as pd
 import pamola_core.utils.io as pamola_io
 import pamola_core.utils.logging as pamola_logging
 from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
+from pamola_core.utils.io_helpers.crypto_utils import (
+    read_encrypted_json,
+    write_encrypted_json,
+)
+from pamola_core.utils.safe_deserialization import require_unsafe_pickle_opt_in
 
 # Configure module logger
 logger = pamola_logging.getLogger(__name__)
@@ -513,9 +518,18 @@ class MappingStore:
                 self.mappings[field_name]
             )
 
-    def save_json(self, path: Union[str, Path], io_module=None) -> None:
+    def save_json(
+        self,
+        path: Union[str, Path],
+        io_module=None,
+        encryption_key: Optional[str] = None,
+    ) -> None:
         """
         Saves the mapping store to a JSON file.
+
+        The mapping holds original values. Without ``encryption_key`` the file is plain
+        text: only use that for throw-away local files. ``fake_data`` operations always
+        pass the task key (see ``BaseGeneratorOperation``).
 
         Parameters
         -----------
@@ -523,12 +537,23 @@ class MappingStore:
             Path to save the JSON file
         io_module : module, optional
             Legacy parameter for backward compatibility (optional)
+        encryption_key : str, optional
+            Encrypt the file with this key
         """
         # Prepare serializable data
         serializable_data = self._prepare_serializable_data()
 
-        # Use provided io_module if available (backward compatibility)
-        if io_module:
+        if io_module and encryption_key:
+            raise InvalidParameterError(
+                param_name="io_module",
+                param_value=type(io_module).__name__,
+                reason="a custom io_module cannot be combined with encryption_key: "
+                "the mapping would be written in plain text",
+            )
+        if encryption_key:
+            write_encrypted_json(serializable_data, path, encryption_key)
+        elif io_module:
+            # Use provided io_module (backward compatibility); plain text by request
             io_module.write_json(serializable_data, path)
         else:
             # Use standard io module from pamola_core.utils
@@ -536,7 +561,36 @@ class MappingStore:
 
         logger.info(f"Saved mapping store to JSON: {path}")
 
-    def load_json(self, path: Union[str, Path], io_module=None) -> None:
+    @staticmethod
+    def _read_mapping_json(
+        path: Union[str, Path], io_module=None, encryption_key: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Read a mapping JSON (decrypting with the key when given) and validate its schema."""
+        if io_module and encryption_key:
+            raise InvalidParameterError(
+                param_name="io_module",
+                param_value=type(io_module).__name__,
+                reason="a custom io_module cannot be combined with encryption_key",
+            )
+        if io_module:
+            data = io_module.read_json(path)
+        elif encryption_key:
+            data = read_encrypted_json(path, encryption_key)  # in memory, no staging file
+        else:
+            data = pamola_io.read_json(path)
+        if not isinstance(data, dict) or not isinstance(data.get("mappings"), dict):
+            raise ValidationError(
+                f"'{Path(path).name}' does not hold a mapping store (no 'mappings' object); "
+                "it may be encrypted: pass encryption_key"
+            )
+        return data
+
+    def load_json(
+        self,
+        path: Union[str, Path],
+        io_module=None,
+        encryption_key: Optional[str] = None,
+    ) -> None:
         """
         Loads the mapping store from a JSON file.
 
@@ -546,15 +600,12 @@ class MappingStore:
             Path to the JSON file
         io_module : module, optional
             Legacy parameter for backward compatibility (optional)
+        encryption_key : str, optional
+            Key to decrypt a file written with ``save_json(..., encryption_key=...)``
         """
         logger.info(f"Loading mapping store from JSON: {path}")
 
-        # Use provided io_module if available (backward compatibility)
-        if io_module:
-            data = io_module.read_json(path)
-        else:
-            # Use standard io module from pamola_core.utils
-            data = pamola_io.read_json(path)
+        data = self._read_mapping_json(path, io_module, encryption_key)
 
         # Process the loaded data
         self._process_loaded_data(data)
@@ -569,6 +620,7 @@ class MappingStore:
         overwrite_existing: bool = True,
         fields_to_update: Optional[List[str]] = None,
         io_module=None,
+        encryption_key: Optional[str] = None,
     ) -> Dict[str, int]:
         """
         Incrementally updates mappings from a JSON file.
@@ -591,12 +643,7 @@ class MappingStore:
         """
         logger.info(f"Incrementally updating mapping store from JSON: {path}")
 
-        # Use provided io_module if available (backward compatibility)
-        if io_module:
-            data = io_module.read_json(path)
-        else:
-            # Use standard io module from pamola_core.utils
-            data = pamola_io.read_json(path)
+        data = self._read_mapping_json(path, io_module, encryption_key)
 
         # Process the data
         update_stats = {}
@@ -664,15 +711,31 @@ class MappingStore:
 
         logger.info(f"Saved mapping store to pickle: {path}")
 
-    def load_pickle(self, path: Union[str, Path]) -> None:
+    def load_pickle(
+        self, path: Union[str, Path], allow_unsafe_pickle: bool = False
+    ) -> None:
         """
         Loads the mapping store from a pickle file.
+
+        .. warning::
+           Unpickling executes code contained in the file. Load only files you
+           produced yourself or obtained from a fully trusted source. Without
+           ``allow_unsafe_pickle=True`` this method refuses to load.
+           Prefer ``load(path, format="json")``.
 
         Parameters
         -----------
         path : Union[str, Path]
             Path to the pickle file
+        allow_unsafe_pickle : bool
+            Explicit opt-in to unpickling (default: False, refuse)
+
+        Raises
+        -------
+        UnsafeDeserializationError
+            If ``allow_unsafe_pickle`` is not True
         """
+        require_unsafe_pickle_opt_in(allow_unsafe_pickle, path)
         logger.info(f"Loading mapping store from pickle: {path}")
 
         with open(path, "rb") as f:
@@ -926,6 +989,8 @@ class MappingStore:
         format: str = None,
         overwrite_existing: bool = True,
         fields_to_load: Optional[List[str]] = None,
+        allow_unsafe_pickle: bool = False,
+        encryption_key: Optional[str] = None,
     ) -> Dict[str, int]:
         """
         Loads the mapping store from a file.
@@ -941,6 +1006,11 @@ class MappingStore:
             Whether to overwrite existing mappings (default: True)
         fields_to_load : Optional[List[str]]
             List of fields to load (if None, all fields are loaded)
+        allow_unsafe_pickle : bool
+            Explicit opt-in required to load the "pickle" format, which executes
+            code from the file (default: False; pickle files are refused)
+        encryption_key : Optional[str]
+            Key for a JSON file written encrypted by ``save_json``
 
         Returns
         --------
@@ -965,16 +1035,18 @@ class MappingStore:
 
         # If not overwriting, we need to use incremental methods
         if not overwrite_existing and format.lower() == "json":
-            return self.update_from_json(path, overwrite_existing, fields_to_load)
+            return self.update_from_json(
+                path, overwrite_existing, fields_to_load, encryption_key=encryption_key
+            )
         elif not overwrite_existing and format.lower() == "csv":
             return self.load_csv(path, overwrite_existing, fields_to_load)
 
         # Otherwise, load the full file (overwriting existing data)
         if format.lower() == "json":
-            self.load_json(path)
+            self.load_json(path, encryption_key=encryption_key)
             return {}
         elif format.lower() == "pickle":
-            self.load_pickle(path)
+            self.load_pickle(path, allow_unsafe_pickle=allow_unsafe_pickle)
             return {}
         elif format.lower() == "csv":
             return self.load_csv(path, True, fields_to_load)

@@ -240,6 +240,109 @@ def _scope_nlp_degradation(execute):
     return scoped
 
 
+def _register_written_files(result, task_dir, reporter):
+    """Register files an operation wrote outside the data path, with a declared class.
+
+    One registration path for what the operation code writes directly: reversible mapping
+    files and their ``.bak.*`` copies are ``protected_mapping``; ``config.json`` and the
+    generated Markdown metric reports are ``diagnostic`` (conservative until audited).
+    Files already registered (by normalized path) are left as they are.
+    """
+    import os
+
+    from pamola_core.utils.artifact_policy import ArtifactClass
+
+    artifacts = getattr(result, "artifacts", None)
+    if task_dir is None or not isinstance(artifacts, list) or not hasattr(result, "add_artifact"):
+        return
+    root = Path(task_dir)
+    if not root.is_dir():
+        return
+    known = {os.path.normcase(os.path.abspath(str(a.path))) for a in artifacts}
+    found = []
+    for sub in ("maps",):
+        for f in sorted((root / sub).glob("*")) if (root / sub).is_dir() else []:
+            if f.is_file():
+                found.append((f, ArtifactClass.PROTECTED_MAPPING, "mapping", True))
+    cfg = root / "config.json"
+    if cfg.is_file():
+        found.append((cfg, ArtifactClass.DIAGNOSTIC, "config", False))
+    for sub in ("reports", "metrics"):
+        for f in sorted((root / sub).glob("*.md")) if (root / sub).is_dir() else []:
+            found.append((f, ArtifactClass.DIAGNOSTIC, "report", False))
+    for f, cls, category, has_values in found:
+        if os.path.normcase(os.path.abspath(str(f))) in known:
+            continue
+        suffix = f.suffix.lstrip(".") or "bin"
+        result.add_artifact(
+            suffix,
+            f,
+            f"{category} file written by the operation",
+            category=category,
+            artifact_class=cls,
+            contains_source_values=has_values,
+        )
+        if reporter is not None and hasattr(reporter, "add_artifact"):
+            try:
+                reporter.add_artifact(
+                    suffix, str(f), f"{category} file written by the operation",
+                    category=category, artifact_class=cls,
+                    contains_source_values=has_values,
+                )
+            except TypeError as exc:
+                logger.warning(
+                    "could not register %s with the task reporter: %s", f.name, exc
+                )
+
+
+def _classify_source_value_artifacts(execute):
+    """Wrap ``execute``: classify what the operation wrote.
+
+    * Files the operation wrote directly (mapping files and backups, ``config.json``,
+      Markdown reports) are registered with a declared class (``_register_written_files``).
+    * When ``ARTIFACTS_CONTAIN_SOURCE_VALUES`` is true (profiling analyzers: value
+      dictionaries, examples, ``top_values``, charts labelled with data values), every
+      artifact without an explicit class becomes ``DIAGNOSTIC`` with
+      ``contains_source_values=True`` (so ``not_for_release``), and the reporter entries for
+      the same paths follow. Nothing is redacted.
+    """
+    import functools
+
+    @functools.wraps(execute)
+    def classified(self, *args, **kwargs):
+        result = execute(self, *args, **kwargs)
+        reporter = kwargs.get("reporter", args[2] if len(args) > 2 else None)
+        task_dir = kwargs.get("task_dir", args[1] if len(args) > 1 else None)
+        try:
+            _register_written_files(result, task_dir, reporter)
+        except Exception as exc:  # never fail the operation, but never hide it either
+            logger.warning("artifact registration of written files failed: %s", exc)
+        if not getattr(self, "ARTIFACTS_CONTAIN_SOURCE_VALUES", False):
+            return result
+        from pamola_core.utils.artifact_policy import ArtifactClass
+
+        artifacts = getattr(result, "artifacts", None)
+        if not isinstance(artifacts, (list, tuple)):
+            return result
+        paths = set()
+        for artifact in artifacts:
+            if getattr(artifact, "class_is_explicit", False):
+                continue
+            artifact.artifact_class = ArtifactClass.DIAGNOSTIC
+            artifact.contains_source_values = True
+            paths.add(str(artifact.path))
+        entries = getattr(reporter, "artifacts", None)
+        for entry in entries if isinstance(entries, (list, tuple)) else []:
+            if isinstance(entry, dict) and entry.get("path") in paths:
+                entry["artifact_class"] = ArtifactClass.DIAGNOSTIC.value
+                entry["contains_source_values"] = True
+                entry["not_for_release"] = True
+        return result
+
+    classified._source_values_classified = True
+    return classified
+
+
 class BaseOperation(ABC):
     """
     Base class for all operations.
@@ -248,6 +351,10 @@ class BaseOperation(ABC):
     common functionality such as configuration management, logging,
     performance tracking, and output control.
     """
+
+    #: True for operations whose artifacts show source values by design (profiling
+    #: analyzers). Their artifacts are classified ``DIAGNOSTIC`` / ``not_for_release``.
+    ARTIFACTS_CONTAIN_SOURCE_VALUES: ClassVar[bool] = False
 
     #: Whether this operation can be driven as a pure in-memory
     #: ``DataFrame -> DataFrame`` transform via ``process_batch()``, rather than
@@ -284,6 +391,8 @@ class BaseOperation(ABC):
         if callable(execute):
             if not getattr(execute, "_nlp_scoped", False):
                 execute = _scope_nlp_degradation(execute)
+            if not getattr(execute, "_source_values_classified", False):
+                execute = _classify_source_value_artifacts(execute)
             cls.execute = _guard_visualization_dependencies(execute)
 
     def check_visualization_dependencies(self) -> None:

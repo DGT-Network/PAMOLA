@@ -7,6 +7,7 @@ decrypt_data_router, encrypt_file_router, decrypt_file_router.
 
 import json
 import pytest
+from pamola_core.errors.exceptions.crypto import DecryptionError
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -115,28 +116,18 @@ def test_try_detect_json_structure_unknown_keys(tmp_path):
 
 
 def test_try_detect_json_structure_with_mode_field(tmp_path):
-    # Only relevant if a provider is registered with that mode
-    # Use a mock provider to test mode detection path
-    mock_provider = MagicMock()
-    mock_provider.mode = "test_mode_xyz"
+    # A lone "mode" (with "data") is not an envelope: only the ciphertext fields
+    # (algorithm, iv, data) make one, so an application document stays plain JSON.
+    plain = _write_json_file(tmp_path / "mode_file.json", {"mode": "test_mode_xyz", "data": "some_data"})
+    assert try_detect_json_structure(plain) is None
 
-    original_providers = dict(PROVIDERS)
-    PROVIDERS["test_mode_xyz"] = MagicMock(return_value=mock_provider)
-
-    try:
-        data = {"mode": "test_mode_xyz", "data": "some_data"}
-        f = _write_json_file(tmp_path / "mode_file.json", data)
-        result = try_detect_json_structure(f)
-        assert result == "test_mode_xyz"
-    finally:
-        # Restore
-        PROVIDERS.clear()
-        PROVIDERS.update(original_providers)
-
-
-# ---------------------------------------------------------------------------
-# detect_encryption_mode
-# ---------------------------------------------------------------------------
+    # The ciphertext fields next to a mode other than "simple" are refused, not routed.
+    forged = _write_json_file(
+        tmp_path / "forged.json",
+        {"mode": "test_mode_xyz", "algorithm": "AES-GCM", "iv": "aa", "data": "bb"},
+    )
+    with pytest.raises(DecryptionError):
+        try_detect_json_structure(forged)
 
 def test_detect_encryption_mode_nonexistent_raises():
     with pytest.raises(FormatError):

@@ -187,7 +187,8 @@ def test_wrong_key_fails_closed_with_a_typed_actionable_error(fmt, tmp_path):
     result, _ = _run(_op(path, key=OTHER_KEY, mapping_format=fmt), ["user1"], tmp_path / "b")
     assert result.status == OperationStatus.ERROR
     assert "key" in result.error_message.lower()
-    assert not result.artifacts  # no output produced from a half-loaded mapping
+    # no data output from a half-loaded mapping (the operation config is registered as a diagnostic)
+    assert all(a.category in ("config", "report") for a in result.artifacts)
 
 
 @pytest.mark.parametrize("fmt", ["csv", "json"])

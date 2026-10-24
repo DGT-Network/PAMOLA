@@ -106,6 +106,23 @@ T = TypeVar("T", bound="BaseTask")
 OpType = TypeVar("OpType", bound="BaseOperation")
 
 
+
+def _reporter_entry(reporter, path):
+    """The reporter's merged entry for ``path`` (the single source of truth), or None."""
+    if reporter is None or path is None:
+        return None
+    find = getattr(reporter, "_find_matches", None)
+    if callable(find):
+        found = find(path)
+        return found[0] if found else None
+    return None
+
+
+def _enum_value(value):
+    """``value.value`` for an enum member, else the value itself."""
+    return getattr(value, "value", value)
+
+
 class BaseTask:
     """
     Base class for all tasks in the PAMOLA ecosystem.
@@ -1142,7 +1159,9 @@ class BaseTask:
             # Summarize artifacts
             for artifact in self.artifacts:
                 # Register with reporter if not already tracked
-                if artifact not in self.reporter.artifacts:
+                # (the reporter deduplicates by normalized path and keeps the class the
+                # operation assigned; it is carried over here, never re-derived)
+                if True:
                     # Check if artifact is encrypted
                     encrypted = False
                     encryption_mode = EncryptionMode.NONE.value
@@ -1166,11 +1185,19 @@ class BaseTask:
                         description=artifact.description,
                         category=artifact.category,
                         tags=artifact.tags,
+                        artifact_class=getattr(artifact, "artifact_class", None),
+                        contains_source_values=getattr(
+                            artifact, "contains_source_values", None
+                        ),
                         metadata={
                             "encrypted": encrypted,
                             "encryption_mode": encryption_mode,
                         },
                     )
+
+            # Task products (report, manifest, logs) are artifacts too: classified
+            # conservatively as diagnostic with source values until audited.
+            self._register_task_products()
 
             # Generate and save report
             try:
@@ -1232,6 +1259,35 @@ class BaseTask:
             self.status = "finalization_error"
             return False
 
+    def _register_task_products(self) -> None:
+        """Register task_report.json, manifest.json and the task logs in the reporter."""
+        from pamola_core.utils.artifact_policy import ArtifactClass
+
+        products = []
+        report_path = getattr(self.reporter, "report_path", None)
+        if report_path:
+            products.append(("json", report_path, "Task report"))
+        products.append(("json", Path(self.task_dir) / "manifest.json", "Task manifest"))
+        for name in ("log_file", "task_log_file"):
+            value = getattr(self.config, name, None)
+            if value:
+                products.append(("log", value, f"Task log ({name})"))
+        for artifact_type, path, description in products:
+            try:
+                self.reporter.add_artifact(
+                    artifact_type,
+                    path,
+                    description,
+                    category="task_product",
+                    artifact_class=ArtifactClass.DIAGNOSTIC,
+                    contains_source_values=True,
+                    task_product=True,
+                )
+            except Exception as e:  # a registration problem must be visible
+                self.logger.warning(
+                    f"Could not register task product '{Path(str(path)).name}': {e}"
+                )
+
     def _write_manifest(self, success: bool) -> None:
         """
         Write manifest.json to task_dir root.
@@ -1240,25 +1296,85 @@ class BaseTask:
         """
         verdict = "PASS" if success else "FAIL"
 
-        # Build artifact entries with checksums
+        # Reconcile the reporter first, then build ONE inventory keyed by file identity from
+        # operation artifacts and task products alike (no separate string-based dedup).
+        reporter = getattr(self, "reporter", None)
+        reconcile = getattr(reporter, "reconcile_aliases", None)
+        if callable(reconcile):
+            reconcile()
+        from pamola_core.utils.tasks.task_reporting import _identity_key, _normalized_path
+
+        inventory = {}  # identity -> manifest record
+
+        def _keys(path):
+            return (_identity_key(path), ("path", _normalized_path(path)))
+
+        def _add(path, record):
+            for key in _keys(path):
+                if key in inventory:
+                    return inventory[key]
+            for key in _keys(path):
+                inventory[key] = record
+            artifact_entries.append(record)
+            return record
+
         artifact_entries = []
         for artifact in self.artifacts:
             artifact_path = Path(artifact.path) if hasattr(artifact, "path") else None
+            merged = _reporter_entry(reporter, artifact_path)
+            if merged is None:  # not in the reporter: the artifact's own classification
+                merged = {
+                    "artifact_class": _enum_value(getattr(artifact, "artifact_class", None)),
+                    "contains_source_values": getattr(artifact, "contains_source_values", None),
+                    "not_for_release": bool(
+                        getattr(artifact, "contains_source_values", False)
+                        and _enum_value(getattr(artifact, "artifact_class", None))
+                        not in ("data", "protected_mapping")
+                    ),
+                }
             checksum = None
-            if artifact_path and artifact_path.is_file():
+            # a task product (report, manifest, log) carries no self-referential checksum
+            if (
+                artifact_path
+                and artifact_path.is_file()
+                and not (merged or {}).get("task_product")
+            ):
                 try:
                     h = hashlib.sha256()
                     h.update(artifact_path.read_bytes())
                     checksum = h.hexdigest()
                 except Exception:
                     pass
-            artifact_entries.append({
-                "path": str(artifact_path) if artifact_path else "",
-                "type": getattr(artifact, "artifact_type", "unknown"),
-                "category": getattr(artifact, "category", ""),
-                "description": getattr(artifact, "description", ""),
-                "sha256": checksum,
-            })
+            _add(
+                artifact_path if artifact_path else "",
+                {
+                    "path": str(artifact_path) if artifact_path else "",
+                    "type": getattr(artifact, "artifact_type", "unknown"),
+                    "category": getattr(artifact, "category", ""),
+                    "artifact_class": merged["artifact_class"],
+                    "contains_source_values": merged["contains_source_values"],
+                    "not_for_release": merged["not_for_release"],
+                    "description": getattr(artifact, "description", ""),
+                    "sha256": checksum,
+                },
+            )
+
+        # Task products (task report, manifest, logs) from the reporter's merged entries
+        for entry in getattr(reporter, "artifacts", None) or []:
+            if isinstance(entry, dict) and entry.get("task_product"):
+                _add(
+                    entry["path"],
+                    {
+                        "path": str(entry["path"]),
+                        "type": entry.get("type", "unknown"),
+                        "category": entry.get("category", ""),
+                        "artifact_class": entry["artifact_class"],
+                        "contains_source_values": entry["contains_source_values"],
+                        "not_for_release": entry["not_for_release"],
+                        "description": entry.get("description", ""),
+                        "sha256": None,
+                    },
+                )
 
         # Build pipeline steps from results dict
         steps = [

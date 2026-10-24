@@ -31,6 +31,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, TypedDict
 from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
+from pamola_core.utils.artifact_policy import (
+    ArtifactClass,
+    check_class_and_content,
+    class_for_category,
+)
 
 
 class ValidationResult(TypedDict, total=False):
@@ -64,6 +69,8 @@ class OperationArtifact:
         description: str = "",
         category: str = "output",
         tags: Optional[List[str]] = None,
+        artifact_class: Optional[ArtifactClass] = None,
+        contains_source_values: Optional[bool] = None,
     ):
         """
         Initialize an artifact.
@@ -80,12 +87,32 @@ class OperationArtifact:
             Category of the artifact (e.g., "output", "metric", "visualization")
         tags : List[str], optional
             Tags for categorizing the artifact
+        artifact_class : ArtifactClass, optional
+            Classification of the artifact (data, protected_mapping, aggregate_metric,
+            diagnostic, evidence). Derived from ``category`` when omitted.
+        contains_source_values : bool, optional
+            True when the artifact may contain original values (see the artifact policy).
+            Derived when omitted: True for the legacy ``dictionary`` category, else False.
         """
         self.artifact_type = artifact_type
         self.path = Path(path) if isinstance(path, str) else path
         self.description = description
         self.category = category
         self.tags = tags or []
+        self.class_is_explicit = artifact_class is not None
+        declared = (
+            ArtifactClass(artifact_class)
+            if artifact_class is not None
+            else class_for_category(category)
+        )
+        self.contains_source_values = (
+            bool(contains_source_values)
+            if contains_source_values is not None
+            else str(category).lower() == "dictionary"
+        )
+        self.artifact_class = check_class_and_content(
+            declared, self.contains_source_values
+        )
 
         # Additional metadata
         self.creation_time = datetime.now().isoformat()
@@ -197,6 +224,11 @@ class OperationArtifact:
             "path": str(self.path),
             "description": self.description,
             "category": self.category,
+            "artifact_class": self.artifact_class.value,
+            "contains_source_values": self.contains_source_values,
+            "not_for_release": self.contains_source_values
+            and self.artifact_class
+            not in (ArtifactClass.DATA, ArtifactClass.PROTECTED_MAPPING),
             "tags": self.tags,
             "creation_time": self.creation_time,
             "size": self.size,
@@ -296,6 +328,8 @@ class OperationResult:
         category: str = "output",
         tags: Optional[List[str]] = None,
         group: Optional[str] = None,
+        artifact_class: Optional[ArtifactClass] = None,
+        contains_source_values: Optional[bool] = None,
     ) -> OperationArtifact:
         """
         Add an artifact to the result.
@@ -320,6 +354,12 @@ class OperationResult:
         group : str, optional
             Name of the group to add this artifact to. If the group doesn't exist,
             it will be created. Default is None.
+        artifact_class : ArtifactClass, optional
+            Class of the artifact; derived from ``category`` when omitted
+            (output -> data, metrics -> aggregate_metric, mapping -> protected_mapping,
+            dictionary / visualization / unknown -> diagnostic).
+        contains_source_values : bool, optional
+            True when the artifact may contain original values; derived when omitted.
 
         Returns
         --------
@@ -337,7 +377,15 @@ class OperationResult:
         >>> result.add_artifact("png", "visualizations/histogram.png", "Distribution visualization",
         ...                    category="visualization", tags=["histogram", "distribution"])
         """
-        artifact = OperationArtifact(artifact_type, path, description, category, tags)
+        artifact = OperationArtifact(
+            artifact_type,
+            path,
+            description,
+            category,
+            tags,
+            artifact_class=artifact_class,
+            contains_source_values=contains_source_values,
+        )
         self.artifacts.append(artifact)
 
         # Add to group if specified

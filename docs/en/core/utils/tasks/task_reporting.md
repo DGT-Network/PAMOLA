@@ -578,7 +578,7 @@ with TaskReporter(
     
     # Add metrics
     reporter.add_nested_metric("quality", "fidelity_score", 0.89)
-    reporter.add_nested_metric("quality", "privacy_score", 0.95)
+    reporter.add_nested_metric("quality", "mean_dcr", 1.84)
     
     # Report is automatically saved when context exits
 ```

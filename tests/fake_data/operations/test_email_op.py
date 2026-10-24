@@ -96,6 +96,8 @@ class TestFakeEmailOperationInit(unittest.TestCase):
             "key": None,
             "context_salt": "email-context-001",
             "save_mapping": True,
+            "use_encryption": True,
+            "encryption_key": "unit-test-task-key",
             "column_prefix": "_",
             "separator_options": ["_", ".", ""],
             "number_suffix_probability": 0.4,
@@ -384,8 +386,8 @@ class PrepareData:
             "npartitions": 2,
             "use_vectorization": False,
             "parallel_processes": 2,
-            "use_encryption": False,
-            "encryption_key":  None,
+            "use_encryption": True,
+            "encryption_key": "unit-test-task-key",
             "visualization_backend": "plotly",
             "visualization_theme": None,
             "visualization_strict": False
@@ -445,11 +447,11 @@ class TestFakeEmailOperationExecute(unittest.TestCase):
                     msg=f"Artifact file does not exist: {artifact.path}"
                 )
                 self.assertTrue(
-                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
+                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png", ".md")),
                     msg=f"Unexpected artifact file type: {artifact.path}"
                 )
                 self.assertIsInstance(artifact.description, str)
-                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping", "config", "report"])
                 self.assertIsInstance(artifact.tags, list)
                 self.assertIsInstance(artifact.creation_time, str)
                 self.assertIsInstance(artifact.size, int)
@@ -506,11 +508,11 @@ class TestFakeEmailOperationExecute(unittest.TestCase):
                     msg=f"Artifact file does not exist: {artifact.path}"
                 )
                 self.assertTrue(
-                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
+                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png", ".md")),
                     msg=f"Unexpected artifact file type: {artifact.path}"
                 )
                 self.assertIsInstance(artifact.description, str)
-                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping", "config", "report"])
                 self.assertIsInstance(artifact.tags, list)
                 self.assertIsInstance(artifact.creation_time, str)
                 self.assertIsInstance(artifact.size, int)

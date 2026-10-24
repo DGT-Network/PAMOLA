@@ -26,6 +26,12 @@ import dask.dataframe as dd
 import pandas as pd
 
 import pamola_core.utils.logging as pamola_logging
+from pamola_core.utils.safe_deserialization import (
+    UnsafeDeserializationError,
+    gate_pickle,
+    is_pickle_format,
+    reject_pickle_for_bulk_read,
+)
 from pamola_core.utils.io import (
     # Pamola Core reading functions
     read_full_csv,
@@ -157,6 +163,29 @@ class DataReader:
         file_memory_infos = []
         system_memory = {}
 
+        # Unsafe-format gate FIRST: before memory estimation, Dask or any dispatch. The
+        # effective format is decided once: the explicit format AND the file suffix are
+        # checked, because the bulk readers infer the format from the suffix again.
+        _allow = kwargs.get("allow_unsafe_pickle") is True
+        _candidates = []
+        if isinstance(source, (str, Path)):
+            _candidates.append(source)
+        elif isinstance(source, dict):
+            for _v in source.values():
+                _candidates.extend(_v if isinstance(_v, list) else [_v])
+        elif isinstance(source, list):
+            _candidates.extend(source)
+        _bulk = use_dask or isinstance(source, (dict, list))
+        _has_pickle = False
+        for _c in _candidates:
+            if not isinstance(_c, (str, Path)):
+                continue
+            if is_pickle_format(file_format, _c) or is_pickle_format(None, _c):
+                _has_pickle = True
+                if _bulk:
+                    reject_pickle_for_bulk_read(_c, _allow)
+                gate_pickle(file_format or "pickle", _c, _allow)
+
         # Get source files
         source_list = []
         if isinstance(source, PathType):
@@ -273,7 +302,7 @@ class DataReader:
             memory_required_gb = memory_info.get("estimated_memory_mb", 0) / 1024
 
             # Auto-switch to Dask if memory limit is specified and exceeded
-            if memory_limit and memory_required_gb > memory_limit:
+            if memory_limit and memory_required_gb > memory_limit and not _has_pickle:
                 self.logger.warning(
                     f"File {source} requires {memory_required_gb:.2f}GB RAM, "
                     f"exceeding limit of {memory_limit:.2f}GB. Switching to Dask."
@@ -383,6 +412,8 @@ class DataReader:
                         encryption_key=encryption_key,
                         **kwargs,
                     )
+                except UnsafeDeserializationError:
+                    raise
                 except Exception as e:
                     error_info = {
                         "error_type": type(e).__name__,

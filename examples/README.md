@@ -20,7 +20,7 @@ Welcome to PAMOLA.CORE examples! This folder contains interactive Jupyter notebo
 
 ### 1. Python Installation
 
-**Required:** Python >= 3.10
+**Required:** Python >= 3.11
 
 Check your Python version:
 ```bash

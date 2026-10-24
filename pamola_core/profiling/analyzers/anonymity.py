@@ -111,6 +111,10 @@ class KAnonymityProfilerOperation(BaseOperation):
     3. BOTH: Perform both analysis and enrichment
     """
 
+    #: Profiling shows source values (value dictionaries, examples, top values, chart labels):
+    #: its artifacts are DIAGNOSTIC and not for release.
+    ARTIFACTS_CONTAIN_SOURCE_VALUES = True
+
     def __init__(
         self,
         name: str = "KAnonymityProfiler",

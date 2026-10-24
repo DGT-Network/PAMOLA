@@ -5,7 +5,7 @@
 **Total Tests:** 5,436
 **Pass Rate:** 100%
 **Public API Coverage:** 85%
-**Python:** 3.10–3.12
+**Python:** 3.11–3.12
 **Framework:** pytest + pytest-cov
 
 ---

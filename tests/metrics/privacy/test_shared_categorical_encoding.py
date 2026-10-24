@@ -20,24 +20,30 @@ def _disjoint():
     return original, transformed
 
 
-def test_unrelated_categories_get_different_codes():
+def _active(frame, column):
+    """The category each row has in the one-hot columns of ``column``."""
+    cols = [c for c in frame.columns if c.startswith(f"{column}=")]
+    return [next(c.split("=", 1)[1] for c in cols if row[c] == 1.0) for _, row in frame.iterrows()]
+
+
+def test_unrelated_categories_get_different_columns():
     original, transformed = _disjoint()
     o = prepare_data_for_distance_metrics(original, reference=transformed)
     t = prepare_data_for_distance_metrics(transformed, reference=original)
-    assert set(o["name"]) == {0.0, 1.0}      # alice, bob
-    assert set(t["name"]) == {2.0, 3.0}      # xavier, zoe
-    assert not set(o["name"]) & set(t["name"])
+    assert list(o.columns) == list(t.columns)  # one shared schema
+    assert set(_active(o, "name")) == {"alice", "bob"}
+    assert set(_active(t, "name")) == {"xavier", "zoe"}
+    assert not set(_active(o, "name")) & set(_active(t, "name"))
 
 
-def test_the_same_category_has_the_same_code_in_both_datasets():
+def test_the_same_category_has_the_same_column_in_both_datasets():
     original = pd.DataFrame({"c": ["a", "b", "c", "a"]})
     transformed = pd.DataFrame({"c": ["c", "d", "a", "a"]})
     o = prepare_data_for_distance_metrics(original, reference=transformed)
     t = prepare_data_for_distance_metrics(transformed, reference=original)
-    code = {}
-    for frame, source in ((o, original), (t, transformed)):
-        for value, enc in zip(source["c"], frame["c"]):
-            assert code.setdefault(value, enc) == enc, f"{value!r} encoded inconsistently"
+    assert list(o.columns) == list(t.columns) == ["c=a", "c=b", "c=c", "c=d"]
+    assert _active(o, "c") == original["c"].tolist()
+    assert _active(t, "c") == transformed["c"].tolist()
 
 
 def test_dcr_is_not_zero_for_datasets_with_no_category_in_common():
@@ -63,7 +69,7 @@ def test_nndr_uses_the_same_encoding():
     NearestNeighborDistanceRatio().calculate_metric(original, transformed)  # runs
     o = prepare_data_for_distance_metrics(original, reference=transformed)
     t = prepare_data_for_distance_metrics(transformed, reference=original)
-    assert not set(o["name"]) & set(t["name"])
+    assert not set(_active(o, "name")) & set(_active(t, "name"))
 
 
 def test_numeric_only_data_is_unchanged_by_the_reference():
@@ -79,4 +85,5 @@ def test_numeric_only_data_is_unchanged_by_the_reference():
 def test_single_dataset_call_keeps_working():
     df = pd.DataFrame({"c": ["x", "y", "x"], "n": [1.0, 2.0, 3.0]})
     out = prepare_data_for_distance_metrics(df)
-    assert out["c"].tolist() == [0.0, 1.0, 0.0]
+    assert list(out.columns) == ["c=x", "c=y", "n"]  # nominal: one-hot, no integer codes
+    assert out["c=x"].tolist() == [1.0, 0.0, 1.0]

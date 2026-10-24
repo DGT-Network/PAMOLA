@@ -3,7 +3,7 @@ name: Release
 # One build, many checks, one upload of the SAME files.
 #
 #   tag v*  -> validate -> build (wheel + sdist, once, twine check)
-#                          -> smoke   (exact wheel, clean venv, 3 OSes, 3.10-3.12)
+#                          -> smoke   (exact wheel, clean venv, 3 OSes, 3.11-3.12)
 #                          -> test    (pytest, source install)
 #                          -> publish-testpypi  (pre-release tags, manual runs)
 #                          -> publish-pypi      (stable tags only)
@@ -133,7 +133,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, python-version: "3.10" }
           - { os: ubuntu-latest, python-version: "3.11" }
           - { os: ubuntu-latest, python-version: "3.12" }
           - { os: windows-latest, python-version: "3.11" }
@@ -172,7 +171,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
 

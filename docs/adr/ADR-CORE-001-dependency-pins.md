@@ -43,7 +43,7 @@ imposed on every user of the library. Those are two different needs.
 
 **Constraints for 1.0.** The stabilization scope (handoff F3) forbids converting the pins in the same
 effort: every pin was tested together as a set, the 1.0 acceptance evidence (clean-wheel smoke,
-`pip check`, `pip-audit`, Parquet round trip on Python 3.10/3.11/3.12) was produced against exactly
+`pip check`, `pip-audit`, Parquet round trip on Python 3.11/3.12; Python 3.10 support was dropped in 1.0, see the security exception below) was produced against exactly
 these versions, and there is no CI job yet that would prove a looser range works.
 
 ## 2. Options
@@ -89,13 +89,13 @@ Adopt **option C** after 1.0:
 
 ## 4. Migration plan (post-1.0)
 
-1. **Baseline.** From the 1.0 tag, generate `constraints/py310.txt`, `py311.txt`, `py312.txt` from the
+1. **Baseline.** From the 1.0 tag, generate `constraints/py311.txt`, `py312.txt` from the
    current exact pins (so the first constraints file reproduces 1.0 exactly). Switch CI and
    `release.yml` to install with `-c`. No range changes yet. Exit criterion: all workflows green on the
    same resolved set as 1.0.
 2. **Lowest-direct job.** Add the lowest-direct install to CI as a non-required job; fix whatever
    fails by raising a lower bound or fixing a compatibility defect. Exit criterion: green on Linux
-   with Python 3.10 and 3.12.
+   with Python 3.11 and 3.12.
 3. **Loosen in small groups, one PR each**, in order of lowest risk: pure utilities (`tqdm`, `rich`,
    `jinja2`, `packaging`, `filelock`, `joblib`, `PyYAML`, `chardet`, `psutil`, `cachetools`,
    `python-dotenv`, `jsonschema`, `base58`, `regex`), then I/O (`openpyxl`, `xlrd`, `ijson`,
@@ -130,8 +130,8 @@ Exact pins are kept, but where `pip-audit` on the installed wheel reports a fixa
 moved to the lowest release that fixes all fixable advisories, ahead of "pin stability":
 `cryptography` 46.0.3 -> 50.0.0 (13 advisories), `nltk` 3.9.2 -> 3.10.3, `dask[complete]` 2025.11.0 ->
 2026.1.1 (brings `distributed` 2026.1.1; 2026.1.0 itself requires dask 2025.12.x), `filelock` 3.32.3 ->
-4.2.1 (Python >= 3.11 only; Python 3.10 stays on 4.1.0, the newest release it can install, which still
-carries three filelock advisories - the CI audit runs on 3.11). The one advisory with no upstream fix
+4.2.1 (requires Python >= 3.11; this is why Python 3.10 support was dropped in 1.0: the newest filelock
+that installs on 3.10, 4.1.0, still carries three advisories). The one advisory with no upstream fix
 (nltk PYSEC-2026-3740) is listed in `.github/pip-audit-ignore.txt`, with a reachability analysis in
 `.github/pip-audit-ignore.md`. This is an exception made for security, not a change of policy: the
 post-1.0 ranges plus generated constraints (section 4) remain the way to stop doing this by hand.

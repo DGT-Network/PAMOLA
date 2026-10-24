@@ -25,8 +25,13 @@ from pamola_core.common.enum.encryption_mode import EncryptionMode
 from pamola_core.utils.crypto_helpers.register_providers import register_all_providers
 
 
+from pamola_core.errors.exceptions import DecryptionError, EncryptionError
 from pamola_core.utils.crypto_helpers.audit import log_crypto_operation
 from pamola_core.utils.io_helpers.crypto_router import (
+    ENVELOPE_ALLOWED,
+    ENVELOPE_KEYS,
+    is_encryption_envelope,
+    reject_duplicate_keys,
     encrypt_file_router,
     decrypt_file_router,
     encrypt_data_router,
@@ -143,6 +148,104 @@ def encrypt_file(
 
         logger.error(f"Error encrypting file {source_path}: {e}")
         raise
+
+
+def write_encrypted_json(
+    data: Any, path: Union[str, Path], key: str, indent: int = 2
+) -> Path:
+    """Write ``data`` as an encrypted JSON file without any plain-text file on disk.
+
+    The JSON is serialized in memory, the bytes are encrypted, the ciphertext goes to a
+    temporary file in the destination directory and replaces ``path`` atomically. Use this
+    for protected mappings: a crash can leave a ciphertext leftover, never plain text.
+    """
+    import json
+    import os
+    import tempfile
+
+    if not key:
+        raise EncryptionError("an encryption key is required to write an encrypted file")
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(data, ensure_ascii=False, indent=indent, default=str).encode("utf-8")
+    envelope = encrypt_data(payload, key=key, mode="simple")
+    blob = envelope if isinstance(envelope, bytes) else json.dumps(envelope).encode("utf-8")
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(blob)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    return path
+
+
+
+
+
+class UnsupportedMemoryOnlyModeError(DecryptionError):
+    """The envelope's mode cannot be decrypted without staging a file (``age``)."""
+
+
+def read_encrypted_json(path: Union[str, Path], key: Optional[str]) -> Any:
+    """Read a JSON file, decrypting in memory: no plain-text file is ever created.
+
+    * A document without the ciphertext fields (string ``algorithm``, ``iv``, ``data``) is
+      ordinary JSON and is returned as parsed; a repeated key is refused.
+    * A document with those fields is an envelope and is authenticated first: the mode
+      must be absent (legacy) or ``simple``, the algorithm ``AES-GCM``, ``iv``/``salt``/
+      ``data`` present, and nothing but the known envelope fields may sit next to them (an
+      injected outer ``mappings`` object, a ``none`` mode with crypto fields, ... are rejected).
+    * ``age`` envelopes are not supported here (typed error); a wrong key raises
+      ``DecryptionError``.
+    """
+    import json
+
+    raw = Path(path).read_bytes()
+    if raw.startswith(b"age-encryption.org/"):
+        raise UnsupportedMemoryOnlyModeError(
+            f"'{Path(path).name}': age-encrypted files are unsupported for memory-only mapping reads"
+        )
+    try:
+        document = json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise DecryptionError(
+            f"'{Path(path).name}' is neither (unambiguous) JSON nor a supported encryption envelope: {exc}"
+        ) from exc
+    if not is_encryption_envelope(document):
+        return document
+    name = Path(path).name
+    mode = document.get("mode")
+    if mode == "age":
+        raise UnsupportedMemoryOnlyModeError(
+            f"'{name}': age envelopes are unsupported for memory-only mapping reads"
+        )
+    if mode not in (None, "simple"):
+        raise DecryptionError(
+            f"'{name}': mode {mode!r} next to encryption fields is not a valid envelope"
+        )
+    extra = set(document) - ENVELOPE_ALLOWED
+    if extra:
+        raise DecryptionError(
+            f"'{name}': unexpected fields next to the encryption envelope: {sorted(extra)}"
+        )
+    missing = [k for k in ("algorithm", "iv", "salt", "data") if k not in document]
+    if missing or document.get("algorithm") != "AES-GCM":
+        raise DecryptionError(f"'{name}': malformed encryption envelope")
+    if not key:
+        raise DecryptionError(f"'{name}' is encrypted: an encryption key is required")
+    from pamola_core.utils.io_helpers.crypto_router import get_provider
+
+    plain = get_provider("simple").decrypt_data(document, key)  # authenticates (AES-GCM)
+    if isinstance(plain, bytes):
+        plain = plain.decode("utf-8")
+    return json.loads(plain)
 
 
 def decrypt_file(

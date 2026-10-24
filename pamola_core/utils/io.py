@@ -68,6 +68,12 @@ import pandas as pd
 
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.utils.optional_deps import optional_import
+from pamola_core.utils.safe_deserialization import (
+    gate_pickle,
+    is_pickle_format,
+    reject_pickle_for_bulk_read,
+    require_unsafe_pickle_opt_in,
+)
 from pamola_core.errors.exceptions import (
     DependencyMissingError,
     DataError,
@@ -1836,7 +1842,9 @@ def read_dataframe(
     skiprows : Union[int, List[int]], optional
         Row indices to skip or number of rows to skip from the start
     **kwargs
-        Additional arguments to pass to the underlying read function
+        Additional arguments to pass to the underlying read function.
+        ``allow_unsafe_pickle=True`` is required to read the "pickle" format,
+        which executes code from the file (refused by default).
 
     Returns
     --------
@@ -1852,6 +1860,8 @@ def read_dataframe(
     # Infer format from file extension if not specified
     if file_format is None:
         file_format = format_utils.detect_format_from_extension(file_path)
+    if is_pickle_format(file_format, file_path):
+        file_format = "pickle"
 
     logger.info(f"Reading file {file_path} as {file_format}")
     start_time = time.time()
@@ -1960,6 +1970,11 @@ def read_dataframe(
             **kwargs,
         )
     elif file_format.lower() == "pickle":
+        # Unpickling executes code from the file: never implicit (see
+        # docs/en/core/security_loading_files.md).
+        require_unsafe_pickle_opt_in(
+            kwargs.pop("allow_unsafe_pickle", False), file_path
+        )
         # Handle encrypted pickle files
         with temporary_decrypted_file(
             file_path, encryption_key, suffix=".pkl", encryption_mode=encryption_mode
@@ -2058,6 +2073,9 @@ def read_multi_file_dask(
     """
     # Get file format of the first file
     file_format = file_paths[0].suffix.lower().lstrip(".")
+    for _path in file_paths:
+        if is_pickle_format(None, _path):
+            reject_pickle_for_bulk_read(_path)  # pickle is never read through the Dask path
 
     with temporary_decrypted_files(
         file_paths=file_paths, encryption_key=encryption_key, suffix=f".{file_format}"

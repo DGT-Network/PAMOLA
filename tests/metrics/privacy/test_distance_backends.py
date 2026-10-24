@@ -103,24 +103,17 @@ def test_faiss_equals_the_exact_search_where_it_is_selected(metric, aggregation)
 
 
 @faiss_required
-@pytest.mark.parametrize(
-    ("metric", "aggregation"),
-    [("euclidean", "mean_k"), ("euclidean", "percentile"), ("cosine", "percentile")],
-)
-def test_faiss_differs_where_it_is_not_selected(metric, aggregation):
-    """Why these pairs are excluded from ``_FAISS_EXACT``.
-
-    For euclidean ``mean_k`` the FAISS path averages squared distances before the
-    square root; for ``percentile`` it takes the 10th percentile of the k <= 10
-    nearest neighbours instead of all distances. If FAISS is ever aligned with the
-    exact search, move the pair into ``_FAISS_EXACT`` and delete its case here.
-    """
-    assert (metric, aggregation) not in _FAISS_EXACT
+@pytest.mark.parametrize("metric", ["euclidean", "cosine"])
+def test_faiss_percentile_falls_back_to_the_exact_search(metric):
+    """FAISS sees only the k <= 10 nearest neighbours, so a percentile of all distances is
+    computed by the exact search instead - and the result says so."""
+    assert (metric, "percentile") not in _FAISS_EXACT
     orig, trans = _arrays()
-    dcr = DistanceToClosestRecord(distance_metric=metric, aggregation=aggregation)
+    dcr = DistanceToClosestRecord(distance_metric=metric, aggregation="percentile")
     exact = dcr._calculate_dcr_sklearn(orig, trans)
     other = dcr._calculate_dcr_faiss(orig, trans)
-    assert not np.allclose(exact, other, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(other, exact)
+    assert dcr._backend_fallback["from"] == "faiss"
 
 
 @pytest.mark.parametrize(
@@ -139,7 +132,7 @@ def test_faiss_differs_where_it_is_not_selected(metric, aggregation):
             "faiss",
         ),
         # large but FAISS would change the numbers: bounded exact search
-        ({"aggregation": "mean_k"}, 100_000, 100_000, True, "sklearn"),
+        ({"aggregation": "mean_k"}, 100_000, 100_000, True, "faiss"),
         ({"aggregation": "percentile"}, 100_000, 100_000, True, "sklearn"),
         ({"distance_metric": "manhattan"}, 100_000, 100_000, True, "sklearn"),
         # explicit choices win

@@ -1,7 +1,7 @@
 [project]
 name = "pamola-core"
 version = "1.0.0rc1"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.11,<3.13"
 
 # NOTE: an entry WITH an email lands in the `Author-email` core-metadata field;
 # an entry WITHOUT one lands in the bare `Author` field. Mixing the two styles
@@ -38,7 +38,6 @@ classifiers = [
     "Intended Audience :: Legal Industry",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: BSD License",
@@ -80,7 +79,7 @@ dependencies = [
     "dask[complete]==2026.1.1",  # SEC-DEPS: pulls distributed 2026.1.1 (GHSA-c336-7962-wfj2 fixed in 2026.1.0; 2026.1.0 itself requires dask 2025.12.x)
     # >=23.0.1 clears CVE-2024-52338 (deserialization of untrusted IPC/Parquet
     # input, fixed in 17.0.0) and CVE-2026-25087 (use-after-free reading IPC
-    # files, affects 15.0.0 up to 23.0.0). Wheels exist for cp310-cp312 on
+    # files, affects 15.0.0 up to 23.0.0). Wheels exist for cp311-cp312 on
     # Linux, macOS and Windows; validated against pandas 2.2.2 / numpy 1.26.4.
     "pyarrow==23.0.1",
     "numpy==1.26.4",
@@ -105,8 +104,7 @@ dependencies = [
     # exclusively by packages removed in this release; without these lines
     # `import pamola_core` raises ModuleNotFoundError.
     "python-dotenv==1.2.3",   # pamola_core/utils/env.py:7
-    "filelock==4.2.1; python_version >= \"3.11\"",  # pamola_core/utils/tasks/context_manager.py:37; SEC-DEPS: 4.2.1 clears 3 advisories but needs Python>=3.11
-    "filelock==4.1.0; python_version < \"3.11\"",   # newest release that supports 3.10 (still carries those 3 advisories)
+    "filelock==4.2.1",        # pamola_core/utils/tasks/context_manager.py:37; SEC-DEPS: 4.2.1 clears 3 advisories (needs Python>=3.11, hence no 3.10 support)
     "joblib==1.5.3",          # anonymization/commons/processing_utils.py:23 (+18 more)
     "rich==15.0.0",           # cli/commands/list_ops.py:12
     "tqdm==4.70.0",           # utils/progress.py:67
@@ -142,7 +140,7 @@ viz = [
 ]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 extend-exclude = ["docs", "examples", "site"]
 

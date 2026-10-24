@@ -21,7 +21,9 @@ def _mixed():
 
 def test_identical_records_in_different_representations_are_identical():
     o, t = prepare_pair_for_distance_metrics(*_mixed())
-    assert o["v"].tolist() == t["v"].tolist() == [10.0, 20.0] * 6
+    # a categorical column against integers is nominal on both sides; 10 and "10" are one label
+    assert list(o.columns) == list(t.columns) == ["v=10", "v=20", "w"]
+    pd.testing.assert_frame_equal(o, t)
 
 
 def test_dcr_is_zero_for_identical_records_stored_differently():
@@ -42,7 +44,9 @@ def test_text_against_dates_is_categorical_on_both_sides():
     original = pd.DataFrame({"d": pd.to_datetime(["2020-01-01", "2020-01-02"])})
     transformed = pd.DataFrame({"d": ["alpha", "beta"]})
     o, t = prepare_pair_for_distance_metrics(original, transformed)
-    assert not set(o["d"]) & set(t["d"])
+    # nominal on both sides: one-hot columns of the union, no shared active category
+    assert list(o.columns) == list(t.columns)
+    assert not ((o.values == 1.0).any(axis=0) & (t.values == 1.0).any(axis=0)).any()
 
 
 def test_different_column_sets_raise_a_typed_error():

@@ -252,7 +252,7 @@ from pamola_core.attacks import (
 - **Module Version:** 1.0
 - **Documentation Version:** 1.0
 - **Last Updated:** 2026-03-23
-- **Python Support:** 3.10+
+- **Python Support:** 3.11+
 - **Dependencies:** numpy, pandas, scipy, scikit-learn, recordlinkage
 
 ## File Summary

@@ -151,7 +151,7 @@ class TestReadDataframeFormats:
     def test_read_pickle(self, tmp_path):
         f = tmp_path / "data.pkl"
         pd.DataFrame({"x": [1, 2]}).to_pickle(f)
-        df = io_module.read_dataframe(f)
+        df = io_module.read_dataframe(f, allow_unsafe_pickle=True)
         assert len(df) == 2
 
     def test_read_with_column_filter(self, tmp_path):

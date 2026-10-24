@@ -7,6 +7,117 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Mathematical contract of the distance and linkage metrics (MATH)
+
+- **DCR / NNDR: nominal categorical columns are one-hot encoded. DCR and NNDR values change for
+  data with categorical columns.** The categories were encoded as sorted integer codes
+  (`A=0, B=1, C=2`), which made `d(A, C) = 2 * d(A, B)` for values that have no order, so the
+  distances reflected the encoding. A categorical column is now nominal: one 0/1 column per
+  category of the union of both datasets, weighted by `1/sqrt(2)` so that a mismatch of any two
+  categories is one unit of Euclidean distance, commensurate with one standard deviation of a
+  standardized numeric column. One-hot columns are never standardized; numeric, datetime and
+  ordinal columns are standardized with a single fit on the original. All backends (exact,
+  block-wise, FAISS) receive the same vectors. A column is treated as ordinal (rank-encoded) only
+  when declared with the new `ordinal_columns` parameter of `DistanceToClosestRecord` and
+  `NearestNeighborDistanceRatio` (names, or `{column: [categories in increasing order]}`).
+  Nominal columns with more than 1000 one-hot features together raise `ResourceError`.
+- **DCR / NNDR: the nominal/ordinal decision follows the dtype.** A pandas categorical and a
+  boolean column are nominal whatever their labels are (numeric or date-like labels are names, not
+  measurements; a `True`/`False` mismatch is one unit). An object column of Python numbers is
+  numeric, never parsed as dates. Missing values (`None`, `NaN`, `pd.NA`) form one extra category
+  that cannot equal the real labels `'None'` / `'nan'`. Generated one-hot names never collide with
+  input column names and the type of a feature is tracked by position (a numeric column named
+  `c=A` next to a categorical `c` was previously scaled as a one-hot column). The
+  `ordinal_columns` declaration is validated before encoding: unknown names, repeated or empty
+  orders and numeric/datetime columns raise `ValidationError`.
+  `prepare_data_for_distance_metrics` uses the same nominal-aware schema.
+- **DCR / NNDR: the Mahalanobis distance is rejected.** `distance_metric='mahalanobis'` (string or
+  `DistanceMetricType`) raises `InvalidParameterError` ("not supported for DCR/NNDR in 1.0") when the
+  metric is constructed. It never worked (sklearn needs a covariance it was not given), and the
+  one-hot features of nominal columns make the covariance singular.
+- **DCR / NNDR: category identity is the pandas identity.** `1.0` and `"1"` are different
+  nominal levels, `1` and `1.0` the same; the text is not stripped. Nullable `boolean` / `Int64`
+  columns keep a missing category. Datetime columns of different resolutions or time zones are
+  compared in one unit (nanoseconds, UTC). `prepare_pair_for_distance_metrics` orders the features
+  canonically (so reciprocal `prepare_data_for_distance_metrics` calls agree) and
+  `scale_pair_for_distance` refuses frames with different features.
+- **DCR: forced FAISS equals the exact search.** `use_faiss=True` with `mean_k` averages the
+  distances (the square root is taken per neighbour before averaging; Euclidean `mean_k` is now also
+  eligible for automatic FAISS selection); `percentile` falls back to the exact search visibly
+  (`backend_fallback`), since FAISS sees only the nearest neighbours.
+- **CVPL: eigenvalues at the rounding level are numerically zero.** Values up to
+  `10 * eps * dimension * (largest eigenvalue)` are tied with each other, so a cut-off inside the
+  null eigenspace of a rank-deficient covariance sets `cutoff_in_degenerate_eigenspace` and adds the
+  warning.
+- **DCR: `privacy_score` is removed** (and `DistanceToClosestRecord._calculate_privacy_score`).
+  The `d * m^(-1/4)`, `1 - exp(-x)` normalization had no justification and no calibration, and
+  values with a different number of columns were not comparable. Use the raw `dcr_statistics`
+  (and `distance_thresholds`) as technical diagnostics; no DCR/NNDR value is a probability of
+  re-identification. The example notebooks no longer print or threshold it.
+- **CVPL: wording and PCA stability.** `evaluation_model` is
+  `white_box_maximum_over_declared_profiles_and_fixed_strategies` (was
+  `white_box_upper_value_over_declared_profiles`): the identification numbers are the maximum
+  over the declared attacker profiles and fixed identification strategies, not a bound for an
+  arbitrary attacker. The result carries `maturity: "experimental"`. The `projection` block reports
+  `degenerate_eigenspace`, `cutoff_in_degenerate_eigenspace` and `min_relative_eigengap`; when the
+  cut-off between retained and dropped components lies inside a (near-)degenerate eigenspace a
+  warning is added. The sign of a component is decided by the first of its largest-magnitude
+  loadings (ties within rounding no longer depend on the last bits). `source_only` / `frozen` are
+  documented as the way to compare several releases of one source; the default (`joint`) is
+  unchanged.
+
+### Security
+
+- **Review R4 of the process track (R4-1..R4-4).** An encryption envelope is recognised by its ciphertext fields only (string `algorithm`, `iv`, `data`; the legacy envelope has no `mode`): a lone `data`, `mode`, `salt`, `algorithm` or `version` key in a mapping store or hierarchy document is plain JSON again, and keyed reads of such documents work as before. One recognizer (`crypto_router.is_encryption_envelope`) serves `decrypt_data_router`, the file detection and the memory-only reader; a repeated JSON key is refused. The task reporter, when it merges aliases of one file, moves every group membership to the surviving entry (and unites tags and metadata), honours the new registration's group, and reconciles in O(n) with one `stat` per entry and a dictionary keyed by file identity instead of pairwise `samefile` calls. `manifest.json` is built from one inventory keyed by file identity, so a task product that overlaps an operation artifact under another alias is listed once and carries no self-referential checksum.
+
+- **Review R3 of the process track (R3-1..R3-5).** The memory-only reader for encrypted JSON (`crypto_utils.read_encrypted_json`) no longer trusts anything that looks like an envelope: one recognizer shared with the file router (`crypto_router.is_encryption_envelope`; envelope keys `algorithm`, `iv`, `data` (a string), `salt`, `key_derivation`, `mode`) authenticates current `simple` and legacy (mode-less) envelopes first, rejects `mode: none` combined with crypto fields and any extra outer field (an injected `mappings` object), raises `DecryptionError` for a wrong key, and refuses `age` envelopes with a typed `UnsupportedMemoryOnlyModeError`; only a document without envelope keys is plain JSON. The reporter keeps `not_for_release` as the OR of every restriction seen (a `protected_mapping` no longer clears an earlier diagnostic's restriction), never lets an inferred (category-fallback) class override an explicit one, merges every alias of a file (also those registered before the file existed) before the report and the manifest are serialized, and records task-product membership as its own flag so `manifest.json` lists the task report exactly once. A `TypeError` while registering a written file with the reporter is logged instead of swallowed.
+
+- **Review R2 of the process track (R2-1..R2-4).** The task reporter merges an artifact registered twice monotonically: `contains_source_values` is the OR, the class never becomes less protective (`protected_mapping` > `diagnostic` > `data`; never `aggregate_metric` or `evidence` with source values), `not_for_release` is derived after the merge, and paths are compared by resolved path and file identity (symlinks, case aliases); task finalization and `manifest.json` use the reporter's merged entry, and the reporter entry of an operation artifact takes the operation result's class. Encrypted mappings are read in memory (`crypto_utils.read_encrypted_json`) - `MappingStore` full and incremental loads, the `fake_data` initialization and the hierarchy reader no longer stage a decrypted file. The task report, `manifest.json` and the task logs are registered as `diagnostic` with `contains_source_values=True`; the operation `config.json` is registered also when the operation fails, and a registration failure is logged as a warning. Pickle is gated per file by the effective format (explicit format and suffix) before any dispatch or schema discovery; the multi-file and Dask readers never read pickle - they raise `UnsafeDeserializationError` without the opt-in and `UnsupportedBulkPickleError` with it (`read_similar_files` and the bulk helpers included), and a single pickle file is never switched to Dask.
+
+- **Review R1 of the process track (F1-F9).** Artifact classes now survive task finalization: the task reporter keeps one entry per normalized path, never re-derives a class already assigned, and the task manifest carries `artifact_class`, `contains_source_values` and `not_for_release`. Default metrics no longer list source values: `SplitByIDValuesOperation` reports `unique_id_count` instead of `included_records`, and `FakeEmailOperation` omits the original domain labels (`top_domains`) unless `include_raw_samples_in_metrics` is set. Protected mappings are written without any plain-text file: the JSON is serialized and encrypted in memory and the ciphertext replaces the target atomically (`crypto_utils.write_encrypted_json`); `MappingStore.save_json`/`load_json` reject `io_module` combined with `encryption_key`; the incremental load decrypts with the key and a file that is not a mapping schema raises. A `fake_data` mapping input is judged by what it is (plain JSON still loads, an encrypted envelope is decrypted with the task key) and initialization failures propagate; `save_mapping=True` without a store is a typed failure. The reversible-pseudonymization mapping and its `.bak.*` copies, `config.json` and the Markdown reports are registered artifacts with a declared class. `DataReader` and `read_dataframe` normalize `pkl`/`pickle` in any case and apply the unsafe-pickle gate before memory estimation and Dask dispatch; `UnsafeDeserializationError` propagates.
+
+- **Profiling output is `diagnostic`, not for release.** Profiling analyzers show source values by design (value
+  dictionaries, examples, `top_values`, charts labelled with data values). Their artifacts (and the matching
+  task-report entries) are now classified `diagnostic` with `contains_source_values=True` and `not_for_release=True`
+  (`BaseOperation.ARTIFACTS_CONTAIN_SOURCE_VALUES`, set on the profiling operations); nothing is redacted and the
+  files are written as before. A canary test over masking, pseudonymization, generalization, fake_data and
+  profiling operations checks that, with default settings, source values never appear in an `aggregate_metric`,
+  `evidence` or `protected_mapping` artifact, every artifact has a class, and no mapping file is in plain text.
+
+- **Reversible mappings are written encrypted only - BREAKING for `fake_data` with `save_mapping=True`.** The four
+  `fake_data` operations wrote `maps/<operation>_<field>_mapping.json` in clear text (original values and their
+  substitutes). The file is now a `protected_mapping` artifact encrypted with the task key; constructing an operation with
+  `save_mapping=True` without `use_encryption=True` and an `encryption_key` raises `ArtifactPolicyError`. `MappingStore.save_json`
+  / `load_json` / `load` accept `encryption_key`, and `mapping_store_path` files are read with the task key. The category
+  mapping of `CategoricalGeneralizationOperation` (`mappings/<field>_category_mapping.json`, original categories) is
+  written the same way and, without an encryption key, is not written at all. No operation writes a plain-text mapping file.
+
+- **Artifact classes (new module `pamola_core.utils.artifact_policy`).** Every registered artifact carries an
+  `ArtifactClass` - `data`, `protected_mapping`, `aggregate_metric`, `diagnostic` or `evidence` - in
+  `OperationArtifact`, `OperationResult.add_artifact(artifact_class=..., contains_source_values=...)`, the task
+  reporter and `to_dict()` (with `contains_source_values` and `not_for_release`). When omitted the class is derived
+  from the legacy `category` (output -> data, metrics -> aggregate_metric, mapping -> protected_mapping,
+  dictionary / visualization / unknown -> diagnostic; `dictionary` artifacts are registered with
+  `contains_source_values=True`). Rule: an artifact that contains source values is never an `aggregate_metric` or
+  `evidence` (`ArtifactPolicyError`).
+
+- **Pickle is never loaded implicitly - BREAKING for callers that read pickle files.** `MappingStore.load_pickle`
+  (and `MappingStore.load` for `.pkl`/`.pickle` files or `format="pickle"`) and `read_dataframe` for the
+  `pickle` format called `pickle.load` / `pandas.read_pickle` on a user-supplied path, which executes code
+  contained in the file. They now raise `UnsafeDeserializationError` (new module
+  `pamola_core.utils.safe_deserialization`) unless the caller passes `allow_unsafe_pickle=True`; an opt-in load
+  logs a warning and emits a `RuntimeWarning`. JSON, CSV, Parquet, Excel and the encrypted mapping format are
+  unaffected. The rest of the package has no `pickle.load`/`joblib.load`/`torch.load`/`numpy.load(allow_pickle)`
+  on user paths. Policy: `docs/en/core/security_loading_files.md`.
+
+### Removed
+
+- **Python 3.10 is no longer supported.** `requires-python` is `>=3.11,<3.13`; the 3.10 classifier, the 3.10 jobs of
+  the release smoke and test matrices, and the 3.10 mentions in README and docs were removed. Reason: the fixed
+  `filelock` 4.2.1 (three advisories: CVE-2026-112940, -112913, -112907) requires Python 3.11 or newer, and the newest
+  release installable on 3.10 (4.1.0) is still affected; `filelock==4.2.1` is now an unconditional pin. Ruff
+  `target-version` is `py311`. Applications on Python 3.10 must stay on `1.0.0.dev*` or upgrade Python.
+
 ## [1.0.0rc1] - 2026-10-24
 
 ### As-built review fixes (ASB)
@@ -699,7 +810,7 @@ unchanged public values (descriptions reworded).
     version; hierarchy mappings are never written to `config.json`, cache metadata or logs (digest and
     size instead); `OperationResult.metrics` carries the full structured result (statuses, bounds,
     nulls, trajectories); a cached run returns `SUCCESS` (it returned `PENDING`).
-  - Documented: CVPL is a white-box, upper-bound evaluation; duplicate-row invariance holds under a
+  - Documented: CVPL is a white-box evaluation whose identification quantities are the maximum over the declared attacker profiles and fixed strategies (not an upper bound for an arbitrary attacker); duplicate-row invariance holds under a
     fixed representation only; G2/G4 differ from BEST (pinned, legacy-only).
 - **CVPL linkage exposure metric** (`pamola_core.metrics.CVPLLinkageOperation`, engine in
   `pamola_core.metrics.privacy.cvpl`; ADR-CVPL-001). The operator chain

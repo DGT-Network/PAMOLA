@@ -24,9 +24,108 @@ import socket
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
+from pamola_core.utils.artifact_policy import (
+    ArtifactClass,
+    check_class_and_content,
+    class_for_category,
+)
 from pamola_core.errors.exceptions import ReportingError
 from pamola_core.utils.io import write_json, ensure_directory
 from pamola_core.utils.tasks.task_config import validate_path_security
+
+
+def _normalized_path(path: Any) -> str:
+    """Canonical key for an artifact file: symlinks resolved, case folded per platform."""
+    p = os.path.abspath(str(path))
+    try:
+        p = os.path.realpath(p)
+    except OSError:
+        pass
+    return os.path.normcase(p)
+
+
+def _identity_key(path: Any):
+    """File identity: (device, inode) for an existing file, else the normalized path.
+
+    One ``stat`` per path; hard links, symlinks and case aliases of an existing file share
+    the key. A path that does not exist yet is keyed by its normalized path and is
+    reconciled once the file exists."""
+    try:
+        st = os.stat(str(path))
+        if st.st_ino:
+            return ("id", st.st_dev, st.st_ino)
+    except OSError:
+        pass
+    return ("path", _normalized_path(path))
+
+
+def _same_artifact_path(a: Any, b: Any) -> bool:
+    """True when two path strings name the same file (identity key or normalized path)."""
+    return _identity_key(a) == _identity_key(b) or _normalized_path(a) == _normalized_path(b)
+
+
+#: Protection order for source-bearing artifacts and for explicit classes in general.
+_PROTECTION_RANK = {
+    ArtifactClass.PROTECTED_MAPPING.value: 4,
+    ArtifactClass.DIAGNOSTIC.value: 3,
+    ArtifactClass.DATA.value: 2,
+    ArtifactClass.AGGREGATE_METRIC.value: 1,
+    ArtifactClass.EVIDENCE.value: 0,
+}
+_SOURCE_BEARING = (
+    ArtifactClass.PROTECTED_MAPPING.value,
+    ArtifactClass.DIAGNOSTIC.value,
+    ArtifactClass.DATA.value,
+)
+
+
+def _merge_artifact_entries(existing: Dict[str, Any], new: Dict[str, Any]) -> None:
+    """Merge ``new`` into ``existing`` monotonically (in place).
+
+    * ``contains_source_values`` is the OR of both;
+    * an explicitly declared class is never overridden by one that was only inferred from
+      the legacy category; between explicit classes the more protective one is kept
+      (protected_mapping > diagnostic > data), and with source values never an
+      aggregate_metric or evidence;
+    * ``not_for_release`` is the OR of every restriction seen: it is never cleared because
+      another class (a protected mapping, say) won;
+    * ``task_product`` membership is the OR of both;
+    * tags are united and missing metadata keys are added.
+    """
+    contains = bool(existing.get("contains_source_values")) or bool(
+        new.get("contains_source_values")
+    )
+    candidates = [existing, new]
+    explicit = [c for c in candidates if c.get("class_explicit")]
+    if contains:
+        pool = [c["artifact_class"] for c in explicit if c["artifact_class"] in _SOURCE_BEARING]
+        if not pool and not explicit:
+            pool = [
+                c["artifact_class"] for c in candidates if c["artifact_class"] in _SOURCE_BEARING
+            ]
+        cls = max(pool, key=_PROTECTION_RANK.get) if pool else ArtifactClass.DIAGNOSTIC.value
+    else:
+        pool = [c["artifact_class"] for c in explicit] or [
+            c["artifact_class"] for c in candidates
+        ]
+        cls = max(pool, key=_PROTECTION_RANK.get)
+    restricted = bool(existing.get("not_for_release")) or bool(new.get("not_for_release"))
+    existing["artifact_class"] = cls
+    existing["contains_source_values"] = contains
+    existing["class_explicit"] = bool(existing.get("class_explicit") or new.get("class_explicit"))
+    existing["classified_explicitly"] = existing["class_explicit"] or bool(
+        existing.get("classified_explicitly") or new.get("classified_explicitly")
+    )
+    existing["not_for_release"] = restricted or (
+        contains
+        and cls not in (ArtifactClass.DATA.value, ArtifactClass.PROTECTED_MAPPING.value)
+    )
+    existing["task_product"] = bool(existing.get("task_product") or new.get("task_product"))
+    for tag in new.get("tags") or []:
+        if tag not in existing.setdefault("tags", []):
+            existing["tags"].append(tag)
+    for k, v in (new.get("metadata") or {}).items():
+        existing.setdefault("metadata", {}).setdefault(k, v)
 
 
 class ArtifactGroup:
@@ -241,6 +340,9 @@ class TaskReporter:
         tags: Optional[List[str]] = None,
         group_name: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        artifact_class: Optional[ArtifactClass] = None,
+        contains_source_values: Optional[bool] = None,
+        task_product: bool = False,
     ):
         """
         Add an artifact to the report.
@@ -254,6 +356,8 @@ class TaskReporter:
             tags: Tags for categorizing the artifact
             group_name: Name of the group to add this artifact to
             metadata: Additional metadata for the artifact
+            artifact_class: Class of the artifact (data, protected_mapping,
+                aggregate_metric, diagnostic, evidence); derived from ``category`` when omitted
         """
         # Use progress manager for artifact addition if available
         if self.progress_manager:
@@ -280,6 +384,9 @@ class TaskReporter:
                         tags or [],
                         group_name,
                         metadata or {},
+                        artifact_class,
+                        contains_source_values,
+                        task_product,
                     )
 
                     progress.update(1, {"status": "added"})
@@ -300,6 +407,9 @@ class TaskReporter:
                 tags or [],
                 group_name,
                 metadata or {},
+                artifact_class,
+                contains_source_values,
+                task_product,
             )
 
     def _process_artifact(
@@ -311,6 +421,9 @@ class TaskReporter:
         tags: List[str],
         group_name: Optional[str],
         metadata: Dict[str, Any],
+        artifact_class: Optional[ArtifactClass] = None,
+        contains_source_values: Optional[bool] = None,
+        task_product: bool = False,
     ):
         """
         Process and add an artifact to the report (internal helper method).
@@ -347,19 +460,148 @@ class TaskReporter:
             "filename": filename,
             "description": description,
             "category": category,
+            **self._classification(category, artifact_class, contains_source_values),
+            "task_product": bool(task_product),
             "tags": tags,
             "size_bytes": size_bytes,
             "timestamp": timestamp or datetime.now().isoformat(),
             "metadata": metadata,
         }
 
+        # One entry per normalized path: a second registration merges, and never
+        # replaces a classification that was already assigned.
+        matches = self._find_matches(path_str)
+        if matches:
+            first = matches[0]
+            for other in matches[1:]:  # earlier aliases that only now turn out to be one file
+                _merge_artifact_entries(first, other)
+                self._replace_entry(other, first)
+            _merge_artifact_entries(first, artifact)
+            if group_name:
+                if group_name not in self.artifact_groups:
+                    self.add_artifact_group(group_name)
+                self._join_group(self.artifact_groups[group_name], first)
+            self._build_index()
+            return
         self.artifacts.append(artifact)
+        self._index_entry(artifact)
 
         # Add to group if specified
         if group_name:
             if group_name not in self.artifact_groups:
                 self.add_artifact_group(group_name)
             self.artifact_groups[group_name].add_artifact(artifact)
+
+    @staticmethod
+    def _classification(category, artifact_class, contains_source_values) -> Dict[str, Any]:
+        """artifact_class / contains_source_values / not_for_release for one entry."""
+        explicit = artifact_class is not None
+        cls = ArtifactClass(artifact_class) if explicit else class_for_category(category)
+        has_values = (
+            bool(contains_source_values)
+            if contains_source_values is not None
+            else str(category).lower() == "dictionary"
+        )
+        cls = check_class_and_content(cls, has_values)
+        return {
+            "artifact_class": cls.value,
+            "contains_source_values": has_values,
+            "not_for_release": has_values
+            and cls not in (ArtifactClass.DATA, ArtifactClass.PROTECTED_MAPPING),
+            "class_explicit": explicit,
+            "classified_explicitly": explicit or contains_source_values is not None,
+        }
+
+    # ---- alias index: O(1) per lookup, O(n) per rebuild --------------------------------
+    def _index_entry(self, entry: Dict[str, Any]) -> None:
+        idx = self.__dict__.setdefault("_alias_index", {})
+        path = entry.get("path", "")
+        idx[("path", _normalized_path(path))] = entry
+        ident = _identity_key(path)
+        idx[ident] = entry
+        if ident[0] == "path":  # not on disk yet: its identity is unknown until it is
+            self.__dict__.setdefault("_pending", []).append(entry)
+        self._indexed_count = len(self.artifacts)
+
+    def _refresh_pending(self) -> None:
+        """Entries registered before their file existed get their file identity now; two
+        entries that turn out to be one file are merged."""
+        pending = self.__dict__.get("_pending")
+        if not pending:
+            return
+        idx = self._alias_index
+        still = []
+        for entry in list(pending):
+            if not any(entry is e for e in self.artifacts):
+                continue
+            ident = _identity_key(entry.get("path", ""))
+            if ident[0] == "path":
+                still.append(entry)
+                continue
+            other = idx.get(ident)
+            if other is not None and other is not entry:
+                _merge_artifact_entries(other, entry)
+                self._replace_entry(entry, other)
+                self._indexed_count = len(self.artifacts)
+            else:
+                idx[ident] = entry
+        self._pending = still
+
+    def _build_index(self) -> None:
+        self._alias_index = {}
+        self._pending = []
+        for entry in self.artifacts:
+            self._index_entry(entry)
+        self._indexed_count = len(self.artifacts)
+
+    def _find_matches(self, path: Any) -> list:
+        """Entries naming the same file as ``path`` (usually zero or one)."""
+        if getattr(self, "_indexed_count", -1) != len(self.artifacts):
+            self.reconcile_aliases()  # entries were added or removed without the index
+        self._refresh_pending()
+        idx = self.__dict__.get("_alias_index", {})
+        found = []
+        for key in (("path", _normalized_path(path)), _identity_key(path)):
+            entry = idx.get(key)
+            if entry is not None and not any(entry is f for f in found):
+                found.append(entry)
+        return found
+
+    @staticmethod
+    def _join_group(group: "ArtifactGroup", entry: Dict[str, Any]) -> None:
+        if not any(e is entry for e in group.artifacts):
+            group.artifacts.append(entry)
+
+    def _replace_entry(self, old: Dict[str, Any], keep: Dict[str, Any]) -> None:
+        """Drop ``old`` and move every group membership it had to ``keep``."""
+        self.artifacts[:] = [e for e in self.artifacts if e is not old]
+        for group in self.artifact_groups.values():
+            if any(e is old for e in group.artifacts):
+                group.artifacts[:] = [e for e in group.artifacts if e is not old]
+                self._join_group(group, keep)
+
+    def reconcile_aliases(self) -> None:
+        """Merge entries that name one file (files created after registration, hard links,
+        case aliases on a case-insensitive filesystem). O(n): one ``stat`` per entry and a
+        dictionary keyed by file identity. Runs before the report and the manifest are
+        serialized; group memberships, tags and metadata are united."""
+        owner: Dict[Any, Dict[str, Any]] = {}
+        for entry in list(self.artifacts):
+            keep = None
+            for key in (("path", _normalized_path(entry.get("path", ""))), _identity_key(entry.get("path", ""))):
+                found = owner.get(key)
+                if found is not None and found is not entry:
+                    keep = found
+                    break
+            if keep is None:
+                owner[("path", _normalized_path(entry.get("path", "")))] = entry
+                owner[_identity_key(entry.get("path", ""))] = entry
+                continue
+            _merge_artifact_entries(keep, entry)
+            self._replace_entry(entry, keep)
+            owner[("path", _normalized_path(entry.get("path", "")))] = keep
+            owner[_identity_key(entry.get("path", ""))] = keep
+        self._build_index()
 
     def add_artifact_group(self, name: str, description: str = "") -> ArtifactGroup:
         """
@@ -584,6 +826,7 @@ class TaskReporter:
         -------
             Report as a dictionary
         """
+        self.reconcile_aliases()
         # Use progress manager for report generation if available
         if self.progress_manager:
             with self.progress_manager.create_operation_context(
