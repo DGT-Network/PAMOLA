@@ -1385,7 +1385,6 @@ class CellSuppressionOperation(AnonymizationOperation):
             Timestamp string for file naming.
         """
         import threading
-        import contextvars
 
         step = "Generate visualizations"
         self.logger.info(

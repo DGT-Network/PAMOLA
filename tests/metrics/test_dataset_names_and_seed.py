@@ -6,7 +6,6 @@ Before: both dataset names defaulted to "main" (DCR 0, KS 0 - a silent self-comp
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from pamola_core.metrics.operations.fidelity_ops import FidelityOperation
 from pamola_core.utils.ops.op_data_source import DataSource
