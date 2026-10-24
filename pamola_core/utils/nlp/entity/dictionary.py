@@ -13,6 +13,7 @@ from pamola_core.utils.nlp.entity.base import (
     BaseEntityExtractor,
     EntityMatchResult,
 )
+from pamola_core.errors.exceptions import ModelLoadError, ModelNotAvailableError
 from pamola_core.utils.nlp.model_manager import nlp_model_manager
 
 # Configure logger
@@ -146,6 +147,12 @@ class GenericDictionaryExtractor(BaseEntityExtractor):
                 conflicts=[]
             )
 
+        except (ModelNotAvailableError, ModelLoadError) as e:
+            # The missing model is already reported once, with the reason, in the
+            # degraded-resource registry (see utils.nlp.remote_resources);
+            # logging it for every record would only bury that signal.
+            logger.debug(f"NER model unavailable, skipping NER fallback: {e}")
+            return None
         except Exception as e:
             logger.error(f"Error in NER extraction: {e}")
             return None

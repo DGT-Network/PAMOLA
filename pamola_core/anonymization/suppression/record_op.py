@@ -40,6 +40,11 @@ import time
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Tuple
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.metric_utils import (
     calculate_anonymization_effectiveness,
@@ -500,6 +505,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
         Union[pd.DataFrame, Dict[str, pd.DataFrame]]
             The processed DataFrame, or a dictionary of DataFrames if applicable.
         """
+        if isinstance(input_data, pd.DataFrame) and len(input_data) == 0:
+            return self._process_empty(input_data, reporter=reporter)
+
         if self.use_dask and self.npartitions > 1:
             self.logger.info("Parallel Enabled")
             self.logger.info("Parallel Engine: Dask")
@@ -536,6 +544,36 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 progress_tracker=progress_tracker,
                 reporter=reporter,
             )
+
+    def _process_empty(
+        self, input_data: pd.DataFrame, reporter: Optional[Any] = None
+    ) -> Tuple[pd.Series, pd.DataFrame]:
+        """
+        Handle a 0-row DataFrame: no record can be suppressed, schema is preserved.
+
+        A 0-row frame is a normal shape (an upstream filter removed every
+        record). Every engine below chunks the input and concatenates the
+        chunks, and concatenating no chunks raises, so the empty case is
+        answered here, once, with an empty mask and the unchanged schema.
+        """
+        self._original_record_count = 0
+        self._batch_number = 0
+        self._suppressed_records_count = 0
+        self._suppression_reasons = {}
+
+        self.logger.warning(
+            f"{self.operation_name}: input has 0 rows, nothing to suppress"
+        )
+        if reporter:
+            reporter.add_operation(
+                f"Operation {self.operation_name}",
+                status="info",
+                details={"message": "Input has 0 rows, nothing to suppress"},
+            )
+        return (
+            pd.Series(False, index=input_data.index, dtype=bool),
+            input_data.copy(deep=True),
+        )
 
     def _process_with_pandas(
         self,
@@ -1176,11 +1214,11 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 )
             else:
                 self.logger.error(f"Failed to create main visualization: {bar_result}")
-                return None
+                raise RuntimeError(f"Failed to create main visualization: {bar_result}")
 
         except Exception as e:
             self.logger.error(f"Failed to generate main suppression visualization: {e}")
-            return None
+            raise
 
         # Create suppression breakdown visualization if multiple reasons
         if len(self._suppression_reasons) > 1:
@@ -1281,7 +1319,8 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     1, {"step": step, "operation": self.operation_name}
                 )
 
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
+            artifacts_before = len(result.artifacts)
             thread = threading.Thread(
                 target=ctx.run,
                 args=(run_visualizations,),
@@ -1290,22 +1329,19 @@ class RecordSuppressionOperation(AnonymizationOperation):
             )
 
             thread.start()
-            thread.join(timeout=self.visualization_timeout)
-
-            if thread.is_alive():
-                self.logger.warning(
-                    f"[VIZ] Visualization thread timed out after {self.visualization_timeout}s"
+            if not wait_for_render(
+                thread, render_run, getattr(self, "visualization_timeout", None), self.logger
+            ):
+                # nothing from an abandoned run is reported
+                del result.artifacts[artifacts_before:]
+                viz_error = VisualizationTimeoutError(
+                    "visualization did not finish within "
+                    f"{render_run.limit:g}s"
                 )
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="warning",
-                        details={
-                            "step": "Generate visualizations",
-                            "message": f"Visualization thread timed out after {self.visualization_timeout}s",
-                        },
-                    )
-            elif viz_error:
+
+            if viz_error:
+                # Rendering is part of execute(): a failure is recorded in the result.
+                self._record_visualization_failure(result, viz_error)
                 self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
                 if reporter:
                     reporter.add_operation(

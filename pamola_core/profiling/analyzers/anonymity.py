@@ -57,6 +57,11 @@ from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.common.enum.analysis_mode_enum import AnalysisMode
 from pamola_core.profiling.schemas.anonymity_core_schema import (
@@ -184,6 +189,22 @@ class KAnonymityProfilerOperation(BaseOperation):
         # Operation metadata
         self.operation_name = self.__class__.__name__
 
+    def _enrich_requested(self) -> bool:
+        return self.analysis_mode in (AnalysisMode.ENRICH, AnalysisMode.BOTH)
+
+    def get_enrich_targets(self, df: pd.DataFrame) -> List[str]:
+        """The k-anonymity column written for the first quasi-identifier combination."""
+        combinations = self._prepare_qi_combinations(df, self.quasi_identifier_sets, self.id_fields)
+        if not combinations:
+            return []
+        return [
+            generate_output_field_name(
+                field_name=generate_ka_field_name(combinations[0]),
+                mode="ENRICH",
+                operation_suffix=self.output_field_suffix,
+            )
+        ]
+
     def execute(
         self,
         data_source: DataSource,
@@ -305,6 +326,9 @@ class KAnonymityProfilerOperation(BaseOperation):
                     available_columns=list(df.columns),
                 )
 
+            # Never silently replace an existing enrichment column
+            self._check_enrich_target(df)
+
             # Prepare QI combinations
             qi_combinations = self._prepare_qi_combinations(
                 df, self.quasi_identifier_sets, self.id_fields
@@ -407,14 +431,9 @@ class KAnonymityProfilerOperation(BaseOperation):
                     **kwargs_encryption,
                 )
 
-                # Update data source with enriched DataFrame
-                if enriched_df is not None:
-                    if hasattr(data_source, "dataframes"):
-                        data_source.dataframes["main"] = enriched_df
-                    else:
-                        self.logger.warning(
-                            f"Cannot update data source: expected DataSource object but got {type(data_source)}"
-                        )
+                # The enriched frame is an artifact of this run (output CSV + metrics). The
+                # caller's DataSource is NOT modified: replacing its "main" frame would hand
+                # the caller a different object than the one it registered.
 
             # Final progress update
             if progress_tracker:
@@ -697,8 +716,10 @@ class KAnonymityProfilerOperation(BaseOperation):
             return enriched_df
 
         except Exception as e:
-            self.logger.error(f"Error in enrichment: {e}")
-            return None
+            # A requested enrichment that could not be produced is a failed run, not a
+            # successful one without the column: the outer handler turns this into ERROR.
+            self.logger.error("Error in enrichment: %s", type(e).__name__)
+            raise
 
     def _calculate_k_anonymity(
         self,
@@ -916,58 +937,6 @@ class KAnonymityProfilerOperation(BaseOperation):
 
         return group_sizes.values  # k-values
 
-    def _calculate_k_anonymity_chunked(
-        self, df: pd.DataFrame, fields: List[str]
-    ) -> Dict[str, Any]:
-        """
-        Calculate k-anonymity metrics using chunked processing.
-        """
-        # Aggregate counts across chunks
-        group_counts = {}
-
-        for chunk in get_dataframe_chunks(df, self.chunk_size):
-            chunk_counts = chunk.groupby(fields, dropna=False).size()
-            for group, count in chunk_counts.items():
-                group_counts[group] = group_counts.get(group, 0) + count
-
-        # Convert to array of k-values
-        k_values = np.array(list(group_counts.values()))
-
-        # Calculate metrics (same as non-chunked version)
-        total_records = len(df)
-        unique_groups = len(k_values)
-
-        metrics = {
-            "min_k": int(k_values.min()) if len(k_values) > 0 else 0,
-            "max_k": int(k_values.max()) if len(k_values) > 0 else 0,
-            "mean_k": float(k_values.mean()) if len(k_values) > 0 else 0,
-            "median_k": float(np.median(k_values)) if len(k_values) > 0 else 0,
-            "unique_groups": unique_groups,
-            "unique_percent": (
-                (unique_groups / total_records * 100) if total_records > 0 else 0
-            ),
-            "vulnerable_count": int(np.sum(k_values < self.threshold_k)),
-            "vulnerable_percent": (
-                float(np.sum(k_values < self.threshold_k) / total_records * 100)
-                if total_records > 0
-                else 0
-            ),
-            "k_distribution": self._calculate_k_distribution(k_values),
-            "threshold_compliance": self._calculate_threshold_compliance(
-                k_values, total_records
-            ),
-        }
-
-        # Calculate entropy
-        probabilities = k_values / total_records
-        entropy = -np.sum(probabilities * np.log2(probabilities + 1e-10))
-        metrics["entropy"] = float(entropy)
-        metrics["normalized_entropy"] = (
-            float(entropy / np.log2(unique_groups)) if unique_groups > 1 else 0
-        )
-
-        return metrics
-
     def _calculate_k_values(self, df: pd.DataFrame, fields: List[str]) -> pd.Series:
         """
         Calculate k-value for each record.
@@ -984,56 +953,75 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         Calculate k-values using chunked processing.
         """
-        # First pass: count groups
-        group_counts = {}
+        # First pass: count groups. The same key representation (the group
+        # index produced by groupby, scalar for one field and tuple for
+        # several, with missing values as their own group) is used in both
+        # passes, so a lookup can never miss because of a representation
+        # difference.
+        group_counts = None
+
+        if len(df) == 0:
+            return pd.Series([], index=df.index, dtype="int64")
 
         for chunk in get_dataframe_chunks(df, self.chunk_size):
             chunk_counts = chunk.groupby(fields, dropna=False).size()
-            for group, count in chunk_counts.items():
-                group_counts[group] = group_counts.get(group, 0) + count
+            if group_counts is None:
+                group_counts = chunk_counts
+            else:
+                group_counts = group_counts.add(chunk_counts, fill_value=0)
 
-        # Second pass: assign k-values
-        k_values = pd.Series(index=df.index, dtype="int64")
+        group_counts = group_counts.astype("int64")
 
-        for i, chunk in enumerate(get_dataframe_chunks(df, self.chunk_size)):
-            start_idx = i * self.chunk_size
-            end_idx = min((i + 1) * self.chunk_size, len(df))
+        # Second pass: assign k-values by looking each row's key up in the
+        # global counts.
+        parts = []
+        for chunk in get_dataframe_chunks(df, self.chunk_size):
+            # Keys come from the same groupby as in the first pass (so missing
+            # values are normalized identically); rows map to their group by
+            # position, never by label.
+            grouped = chunk.groupby(fields, dropna=False)
+            per_group = group_counts.reindex(grouped.size().index).to_numpy()
+            row_group = grouped.ngroup().to_numpy()
+            parts.append(pd.Series(per_group[row_group], index=chunk.index))
 
-            # Get group keys for this chunk
-            chunk_groups = chunk[fields].apply(tuple, axis=1)
+        k_values = pd.concat(parts)
 
-            # Map to k-values
-            chunk_k = chunk_groups.map(group_counts)
-            k_values.iloc[start_idx:end_idx] = chunk_k
-
-        return k_values
+        if k_values.isna().any():
+            raise ValueError(
+                "k-value assignment failed: some records did not match any group"
+            )
+        return k_values.astype("int64")
 
     def _calculate_k_distribution(self, k_values: np.ndarray) -> Dict[str, float]:
         """
-        Calculate distribution of k-values across ranges.
+        Share of RECORDS (not of equivalence classes) whose k falls in each range.
+
+        ``k_values`` holds the size of every equivalence class; every record of a class has
+        that class size as its own k, so a class of size ``k`` contributes ``k`` records.
         """
-        total = len(k_values)
+        total = int(np.sum(k_values))
         if total == 0:
             return {}
 
-        ranges = {
-            "k=1": np.sum(k_values == 1),
-            "k=2-4": np.sum((k_values >= 2) & (k_values <= 4)),
-            "k=5-9": np.sum((k_values >= 5) & (k_values <= 9)),
-            "k=10-19": np.sum((k_values >= 10) & (k_values <= 19)),
-            "k=20-49": np.sum((k_values >= 20) & (k_values <= 49)),
-            "k=50-99": np.sum((k_values >= 50) & (k_values <= 99)),
-            "k≥100": np.sum(k_values >= 100),
-        }
+        def records(mask: np.ndarray) -> int:
+            return int(np.sum(k_values[mask]))
 
-        # Convert to percentages
+        ranges = {
+            "k=1": records(k_values == 1),
+            "k=2-4": records((k_values >= 2) & (k_values <= 4)),
+            "k=5-9": records((k_values >= 5) & (k_values <= 9)),
+            "k=10-19": records((k_values >= 10) & (k_values <= 19)),
+            "k=20-49": records((k_values >= 20) & (k_values <= 49)),
+            "k=50-99": records((k_values >= 50) & (k_values <= 99)),
+            "k≥100": records(k_values >= 100),
+        }
         return {k: float(v / total * 100) for k, v in ranges.items()}
 
     def _calculate_threshold_compliance(
         self, k_values: np.ndarray, total_records: int
     ) -> Dict[str, float]:
         """
-        Calculate percentage of records meeting various k-thresholds.
+        Percentage of RECORDS whose k (their equivalence class size) is at least each threshold.
         """
         if total_records == 0:
             return {}
@@ -1042,7 +1030,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         compliance = {}
 
         for t in thresholds:
-            compliant = np.sum(k_values >= t)
+            compliant = int(np.sum(k_values[k_values >= t]))  # records in classes of size >= t
             compliance[f"k≥{t}"] = float(compliant / total_records * 100)
 
         return compliance
@@ -1232,7 +1220,8 @@ class KAnonymityProfilerOperation(BaseOperation):
 
         except Exception as e:
             self.logger.warning(f"Error creating visualizations: {e}")
-            # Don't fail the operation due to visualization errors
+            # the worker's caller records it in result.metrics['visualization_error']
+            raise
 
         return visualization_paths
 
@@ -1487,14 +1476,14 @@ class KAnonymityProfilerOperation(BaseOperation):
 
             # Copy context for the thread
             self.logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name="VizThread-",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             self.logger.info(
@@ -1503,26 +1492,16 @@ class KAnonymityProfilerOperation(BaseOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive() and elapsed < vis_timeout:
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    self.logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, self.logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {render_run.limit:g}s"
+                )
 
-            if viz_thread.is_alive():
-                self.logger.error(
-                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
-                )
-                self.logger.error(
-                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
-                )
-                visualization_paths = {}
-            elif visualization_error:
+            if visualization_error:
+                # Rendering is part of execute(): a failure is recorded in the result,
+                # never swallowed (and no worker is left running after the join).
+                self._record_visualization_failure(result, visualization_error)
                 self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )

@@ -37,10 +37,9 @@ L_DIVERSITY_DEFAULTS: Dict[str, Any] = {
         "hist_bins": int(os.getenv("PAMOLA_L_DIVERSITY_HIST_BINS", 20)),
         "save_format": os.getenv("PAMOLA_L_DIVERSITY_SAVE_FORMAT", "png"),
     },
-    # Compliance settings
-    "compliance": {
+    # Threshold settings (technical thresholds only; no law is mapped to them)
+    "thresholds": {
         "risk_threshold": float(os.getenv("PAMOLA_L_DIVERSITY_RISK_THRESHOLD", 0.5)),
-        "supported_regulations": ["GDPR", "HIPAA", "CCPA"],
     },
 }
 

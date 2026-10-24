@@ -70,7 +70,7 @@ class NameGenerator(BaseGenerator):
         if self.config.get("prgn_generator"):
             self.prgn_generator = self.config.get("prgn_generator")
         elif self.config.get("key"):
-            seed = utils.hash_value(self.config.get("key"), self.config.get("context_salt", ""))
+            seed = utils.hash_value(self.config.get("key"), self.config.get("context_salt") or "")
             self.prgn_generator = PRNGenerator(global_seed=seed)
 
         # Initialize mapping store if provided

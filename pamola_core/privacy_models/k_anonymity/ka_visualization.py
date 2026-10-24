@@ -30,13 +30,18 @@ import os
 from datetime import datetime
 from typing import List, Tuple, Optional
 
-import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
 
 from pathlib import Path
 from pamola_core.utils.io import save_plot  # Use centralized function
 from pamola_core.errors.exceptions import ColumnNotFoundError, ValidationError
+
+# The plotting stack ships with the `viz` extra: a missing one is reported as such,
+# not as a bare ModuleNotFoundError.
+from pamola_core.utils.optional_deps import require_optional
+
+plt = require_optional("matplotlib.pyplot", extra="viz")
+sns = require_optional("seaborn", extra="viz")
 
 
 # Configure logging

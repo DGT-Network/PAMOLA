@@ -81,21 +81,47 @@ flowchart TD
 ## 7. Usage Examples
 ```python
 from pamola_core.metrics.operations.utility_ops import UtilityMetricOperation
-op = UtilityMetricOperation(utility_metrics=["classification", "regression"], columns=["A", "B"], use_dask=True, sample_size=1000)
-result = op.execute(data_source, task_dir, reporter, progress_tracker)
+
+# utility_metrics names the metric *family*: "classification" or "regression".
+# The target column is required and is set per family as `value_field`.
+op = UtilityMetricOperation(
+    utility_metrics=["regression"],
+    metric_params={
+        "regression": {
+            "value_field": "amount",        # required: the target column
+            "models": ["linear", "rf"],     # optional; default linear, rf, svr
+            "metrics": ["r2", "mae"],       # optional; default r2, mae, mse, rmse
+            "cv_folds": 5,                  # optional
+        }
+    },
+)
+result = op.execute(
+    data_source, task_dir, reporter,
+    original_dataset_name="main", transformed_dataset_name="synth",
+)
 ```
+
+Vocabulary: classification models `logistic`, `rf`, `svm`, metrics `accuracy`,
+`f1`, `roc_auc`, `precision_recall_tradeoff`; regression models `linear`, `rf`,
+`svr`, metrics `r2`, `mae`, `mse`, `rmse`. Anything else is rejected before a
+model is trained. There is no default target column, so `utility_metrics` and
+`value_field` must be given explicitly.
+
+Run time grows with the number of rows, mostly through the kernel models
+(`svm`, `svr`) and `rf`. Measured on 12 cores, 6 numeric features, default
+models, 5-fold: 10K rows take about 1.5 min for regression and 3 min for
+classification. Pass `models=["logistic"]` / `["linear"]` for a quick check.
 
 ## 8. Sample Configuration JSON
 ```json
 {
-  "operation": "UtilityOperation",
-  "metric": "classification",
-  "input_data": "data/input.csv",
-  "reference_data": "data/reference.csv",
-  "parameters": {
-    "task_type": "classification",
-    "scoring": "accuracy",
-    "aggregation": "mean"
+  "utility_metrics": ["classification"],
+  "metric_params": {
+    "classification": {
+      "value_field": "label",
+      "models": ["logistic", "rf"],
+      "metrics": ["accuracy", "f1", "roc_auc"]
+    }
   }
 }
 ```

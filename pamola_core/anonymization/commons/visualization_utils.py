@@ -130,33 +130,6 @@ def register_visualization_artifact(
         reporter.add_artifact("png", str(path), description)
 
 
-def sample_large_dataset(
-    data: pd.Series, max_samples: int = DEFAULT_MAX_SAMPLES, random_state: int = 42
-) -> pd.Series:
-    """
-    Sample a large dataset to a manageable size for visualization.
-
-    Parameters
-    -----------
-    data : pd.Series
-        Original dataset
-    max_samples : int, optional
-        Maximum number of samples to return (default: 10000)
-    random_state : int, optional
-        Random seed for reproducibility
-
-    Returns
-    --------
-    pd.Series
-        Sampled dataset if original exceeds max_samples, otherwise original
-    """
-    if len(data) <= max_samples:
-        return data
-
-    logger.info(f"Sampling {max_samples} from {len(data)} records for visualization")
-    return data.sample(n=max_samples, random_state=random_state)
-
-
 def prepare_comparison_data(
     original_data: pd.Series,
     anonymized_data: pd.Series,
@@ -384,7 +357,7 @@ def create_metric_visualization(
 
     except Exception as e:
         logger.error(f"Error creating metric visualization: {str(e)}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def create_comparison_visualization(
@@ -472,7 +445,7 @@ def create_comparison_visualization(
         logger.exception(
             f"[{field_name}] Exception during comparison visualization: {e}"
         )
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def generate_flat_counts(
@@ -622,7 +595,7 @@ def create_distribution_visualization(
 
     except Exception as e:
         logger.error(f"Error creating distribution visualization: {str(e)}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def create_category_distribution_comparison(
@@ -758,7 +731,7 @@ def create_category_distribution_comparison(
 
     except Exception as e:
         logger.error(f"Error creating category distribution comparison: {str(e)}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def create_hierarchy_sunburst(
@@ -857,7 +830,7 @@ def create_hierarchy_sunburst(
 
     except Exception as e:
         logger.error(f"Error creating hierarchy sunburst: {str(e)}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]
 
 
 def _is_nested_hierarchy(data: Dict[str, Any]) -> bool:
@@ -1221,7 +1194,7 @@ def _convert_flat_to_nested(
 
 def sample_large_dataset(
     data: Union[pd.Series, pd.DataFrame],
-    max_samples: int = 10000,
+    max_samples: int = DEFAULT_MAX_SAMPLES,
     random_state: int = 42,
 ) -> Union[pd.Series, pd.DataFrame]:
     """
@@ -1454,4 +1427,4 @@ def create_metrics_overview_visualization(
 
     except Exception as e:
         logger.error(f"Failed to create metrics summary visualization: {e}")
-        return None
+        raise  # the caller records it in result.metrics["visualization_error"]

@@ -212,7 +212,7 @@ def normalize_currency_value(
         numeric_value = float(cleaned_value)
         return numeric_value, currency_code, True
     except (ValidationError, ValueError, TypeError):
-        logger.debug(f"Failed to parse currency value: {value}")
+        logger.debug("Failed to parse a currency value")
         return None, currency_code, False
 
 

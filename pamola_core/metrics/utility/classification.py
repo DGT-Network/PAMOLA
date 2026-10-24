@@ -26,6 +26,8 @@ from sklearn.metrics import (
 from sklearn.preprocessing import label_binarize
 
 import pamola_core.utils.logging as pamola_logging
+from pamola_core.metrics.commons.model_budget import apply_budget
+from pamola_core.metrics.commons.preprocessing import encode_pair_with_dummies
 
 # Configure module logger
 logger = pamola_logging.getLogger(__name__)
@@ -33,6 +35,11 @@ logger = pamola_logging.getLogger(__name__)
 
 class ClassificationUtility:
     """Implements the classifiers metric."""
+
+    #: Names accepted in ``models`` / ``metrics``. The single vocabulary for this
+    #: metric family; ``UtilityMetricOperation`` validates requests against it.
+    SUPPORTED_MODELS = ("logistic", "rf", "svm")
+    SUPPORTED_METRICS = ("accuracy", "f1", "roc_auc", "precision_recall_tradeoff")
 
     def __init__(
         self,
@@ -65,6 +72,7 @@ class ClassificationUtility:
             metrics = ["accuracy", "f1", "roc_auc", "precision_recall_tradeoff"]
 
         self.models = models
+        self._sampling_note = None
         self.metrics = metrics
         self.cv_folds = cv_folds
         self.stratified = stratified
@@ -100,8 +108,11 @@ class ClassificationUtility:
         results = {}
 
         # Setup data frame & cross validation
-        original_df = pd.get_dummies(original_df)
-        transformed_df = pd.get_dummies(transformed_df)
+        # One feature space for both datasets (union of categories, aligned
+        # columns); the target column is not encoded.
+        original_df, transformed_df = encode_pair_with_dummies(
+            original_df, transformed_df, exclude=[value_field]
+        )
 
         X_original = original_df.drop(columns=[value_field])
         y_original = original_df[value_field]
@@ -151,6 +162,7 @@ class ClassificationUtility:
 
         for model_name in self.models:
             model = self.model_dict[model_name]
+            self._sampling_note = None
 
             # Store values for each fold
             accuracies = []
@@ -261,6 +273,8 @@ class ClassificationUtility:
                 }
 
             if model_results:
+                if self._sampling_note:
+                    model_results["sampling"] = self._sampling_note
                 results[model_name] = model_results
 
         return results
@@ -310,6 +324,8 @@ class ClassificationUtility:
         thresholds_values: list
             Thresholds values.
         """
+        X_train, y_train, X_test, y_test, note = apply_budget(model, X_train, y_train, X_test, y_test)
+        self._sampling_note = self._sampling_note or note
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         y_prob = model.predict_proba(X_test)

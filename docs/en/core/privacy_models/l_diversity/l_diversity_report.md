@@ -18,7 +18,7 @@
 
 `LDiversityReport` generates comprehensive reports for l-Diversity anonymization. It extends `PrivacyReport` with l-Diversity-specific metrics, including diversity calculations, risk assessments, and compliance status.
 
-**Purpose:** Document l-Diversity transformations for compliance, stakeholder communication, and audit trails.
+**Purpose:** Document l-Diversity transformations for stakeholder communication, and audit trails.
 
 **Location:** `pamola_core/privacy_models/l_diversity/reporting.py`
 
@@ -64,7 +64,7 @@ def generate(self, output_format: str = 'comprehensive') -> Dict[str, Any]:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `output_format` | str | 'comprehensive' | 'comprehensive', 'compliance', or 'technical' |
+| `output_format` | str | 'comprehensive' | 'comprehensive' or 'technical' |
 
 **Returns:** Complete report dictionary
 
@@ -73,8 +73,8 @@ def generate(self, output_format: str = 'comprehensive') -> Dict[str, Any]:
 # Comprehensive report (all sections)
 full_report = report.generate(output_format='comprehensive')
 
-# Compliance-focused report
-compliance_report = report.generate(output_format='compliance')
+# Threshold check against caller-chosen thresholds
+threshold_report = report.generate_threshold_report(data, quasi_ids, sensitive_attrs, l_threshold=3)
 
 # Technical details only
 tech_report = report.generate(output_format='technical')
@@ -116,7 +116,7 @@ tech_report = report.generate(output_format='technical')
     },
     'anonymization_result': {
         'status': 'SUCCESS',
-        'compliance_status': 'COMPLIANT',
+        'threshold_status': 'MET',
         'transformation_type': 'suppression',
         'execution_time_seconds': 3.45
     },
@@ -154,7 +154,7 @@ report = LDiversityReport(processor=processor)
 report_output = report.generate()
 
 # Access sections
-print(f"Compliance: {report_output['anonymization_result']['compliance_status']}")
+print(f"Threshold: {report_output['anonymization_result']['threshold_status']}")
 print(f"Min diversity: {report_output['privacy_evaluation']['min_diversity']}")
 ```
 
@@ -243,52 +243,19 @@ report = LDiversityReport(report_data=report_data)
 report_output = report.generate()
 ```
 
-### Example 5: Compliance-Focused Report
+### Example 5: Threshold Report
+
+Thresholds are chosen by the caller; no law or regulation is mapped to a value,
+and the result is technical evidence, not a legal determination.
 
 ```python
-from pamola_core.privacy_models import LDiversityCalculator
-from pamola_core.privacy_models.l_diversity import LDiversityReport
-
-# HIPAA-compliant l-diversity
-processor = LDiversityCalculator(
-    l=4,
-    diversity_type='entropy',
-    k=5
+report = LDiversityReport(processor)
+threshold_report = report.generate_threshold_report(
+    data, quasi_ids, sensitive_attrs,
+    l_threshold=4, k_threshold=5, diversity_type='distinct',
 )
-
-anonymized = processor.apply_model(df, quasi_ids, suppression=True)
-
-# Build compliance report
-report_data = {
-    'l_diversity_configuration': {
-        'l': 4,
-        'diversity_type': 'entropy',
-        'k': 5,
-        'regulatory_framework': 'HIPAA'
-    },
-    'privacy_evaluation': processor.evaluate_privacy(anonymized, quasi_ids),
-    'dataset_information': {
-        'original_records': len(df),
-        'anonymized_records': len(anonymized),
-        'regulatory_framework': 'HIPAA',
-        'compliance_required': True
-    },
-    'anonymization_result': {
-        'status': 'SUCCESS',
-        'compliance_status': 'COMPLIANT',
-        'compliance_certification': 'HIPAA Privacy Rule §164.514'
-    }
-}
-
-report = LDiversityReport(
-    report_data=report_data,
-    diversity_type='entropy'
-)
-compliance_report = report.generate(output_format='compliance')
-
-# Verify compliance
-if compliance_report['anonymization_result']['compliance_status'] == 'COMPLIANT':
-    print("✓ HIPAA Compliance Certified")
+print(threshold_report['threshold_met'])
+print(threshold_report['threshold_details'])
 ```
 
 ## Report Sections
@@ -322,17 +289,17 @@ Before/after statistics:
 ### Privacy Evaluation
 
 Diversity metrics:
-- Compliance status
+- Threshold result
 - Minimum diversity value
 - Maximum diversity value
 - Average diversity value
-- Non-compliant groups count
+- Groups below the threshold count
 
 ### Anonymization Result
 
 Transformation details:
 - Status (SUCCESS/FAILED)
-- Compliance status
+- Threshold result
 - Transformation type
 - Execution time
 - Success notes/error messages
@@ -381,7 +348,7 @@ Paths to generated visualizations (if available):
        'anonymization_result': {
            'notes': 'Selected l=3 based on privacy-utility trade-off. '
                     'Entropy diversity used for skewed distributions.',
-           'justification': 'Balances HIPAA compliance with data utility'
+           'justification': 'Balances the chosen threshold with data utility'
        }
    }
    ```
@@ -409,8 +376,8 @@ Paths to generated visualizations (if available):
    # For technical team
    tech_report = report.generate(output_format='technical')
 
-   # For compliance/audit
-   compliance_report = report.generate(output_format='compliance')
+   # For audit evidence
+   threshold_report = report.generate_threshold_report(data, quasi_ids, sensitive_attrs, l_threshold=3)
 
    # For stakeholders
    full_report = report.generate(output_format='comprehensive')
@@ -426,9 +393,9 @@ Paths to generated visualizations (if available):
 ## Summary
 
 `LDiversityReport` transforms l-Diversity evaluation results into professional documentation suitable for:
-- Compliance verification and audits
+- Threshold evidence for audits
 - Stakeholder communication
 - Risk documentation
-- Regulatory reporting (HIPAA, GDPR, CCPA)
+- Evidence for the data owner's own regulatory assessment
 
 Always generate reports through the processor's cache for efficiency. Choose output format based on intended audience and use case.

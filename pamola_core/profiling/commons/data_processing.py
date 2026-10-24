@@ -5,15 +5,14 @@ This module provides functions for preparing and preprocessing data before analy
 including handling of missing values, type conversion, and chunked processing.
 """
 
-import logging
 from typing import Dict, Any, Tuple, Callable
 
 import pandas as pd
 import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.progress import process_dataframe_in_chunks
 
-# Configure logger using the custom logging utility
-logger = pamola_logging.configure_logging(level=logging.INFO)
+# A module logger only: handlers, level and propagation belong to the application
+logger = pamola_logging.getLogger(__name__)
 
 
 def prepare_numeric_data(

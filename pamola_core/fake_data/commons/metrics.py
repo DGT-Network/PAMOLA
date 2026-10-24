@@ -26,6 +26,19 @@ logger = logging.getLogger(__name__)
 class MetricsCollector:
     """Base class for metrics collectors."""
 
+    def __init__(self, include_raw_samples: bool = False):
+        """
+        Parameters
+        ----------
+        include_raw_samples : bool
+            Diagnostic option, default False. If True, ``value_distribution``
+            (the most frequent values of the series with their shares) is
+            collected. WARNING: for the original data these are source values,
+            possibly PII, and they end up in the metrics artifact. The
+            value-distribution plot needs them and is skipped when False.
+        """
+        self.include_raw_samples = include_raw_samples
+
     def collect_metrics(
         self,
         orig_data: Optional[pd.Series] = None,
@@ -97,9 +110,11 @@ class MetricsCollector:
         total_records = len(data)
         unique_values = non_null_data.nunique()
 
-        # Value distribution (top 20 most common values)
-        value_counts = non_null_data.value_counts(normalize=True)
-        top_values = value_counts.head(20).to_dict()
+        # Value distribution (top 20 most common values) is raw data: opt-in only
+        top_values = None
+        if self.include_raw_samples:
+            value_counts = non_null_data.value_counts(normalize=True)
+            top_values = value_counts.head(20).to_dict()
 
         # Length statistics for string data
         length_stats = {}
@@ -120,12 +135,14 @@ class MetricsCollector:
                 logger.warning(f"Could not calculate length statistics: {e}")
                 length_stats = {"error": str(e)}
 
-        return {
+        stats = {
             "total_records": total_records,
             "unique_values": unique_values,
-            "value_distribution": top_values,
             "length_stats": length_stats,
         }
+        if top_values is not None:
+            stats["value_distribution"] = top_values
+        return stats
 
     @staticmethod
     def collect_transformation_metrics(
@@ -505,16 +522,21 @@ class MetricsCollector:
         return visualizations
 
 
-def create_metrics_collector() -> MetricsCollector:
+def create_metrics_collector(include_raw_samples: bool = False) -> MetricsCollector:
     """
     Factory function to create a metrics collector.
+
+    Parameters
+    ----------
+    include_raw_samples : bool
+        Collect raw ``value_distribution`` too (diagnostic, exposes source values).
 
     Returns
     --------
     MetricsCollector
         Instance of a metrics collector
     """
-    return MetricsCollector()
+    return MetricsCollector(include_raw_samples=include_raw_samples)
 
 
 def generate_metrics_report(

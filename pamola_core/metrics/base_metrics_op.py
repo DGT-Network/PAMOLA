@@ -38,10 +38,15 @@ Framework:
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_data_operation,
@@ -65,6 +70,7 @@ from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.exceptions import (
     ColumnNotFoundError,
+    InvalidParameterError,
     ValidationError,
     FeatureNotImplementedError,
 )
@@ -78,6 +84,13 @@ class MetricsOperation(BaseOperation):
     including data source handling, result processing, metric calculation,
     and automatic switching to Dask for large dataset processing.
     """
+
+    #: Whether the two inputs are row-aligned pairs that may be intersected on their
+    #: index and sampled together (fidelity / utility / DCR style metrics). An
+    #: operation whose populations differ by design - e.g. a linkage measurement where
+    #: the source row count is the denominator and a suppressed row has no
+    #: counterpart - sets this to ``False`` and receives both frames untouched.
+    requires_aligned_inputs: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -193,6 +206,23 @@ class MetricsOperation(BaseOperation):
                 operation_name=self.operation_name,
             )
 
+            # A metric compares two datasets. Both names defaulting to "main" compared a
+            # dataset with itself (DCR 0, KS 0), so the same name twice is only accepted when a
+            # column_mapping compares different columns of that one dataset.
+            if self.original_dataset_name == self.transformed_dataset_name and not any(
+                src != dst for src, dst in (self.column_mapping or {}).items()
+            ):
+                raise InvalidParameterError(
+                    param_name="transformed_dataset_name",
+                    param_value=self.transformed_dataset_name,
+                    reason=(
+                        "original_dataset_name and transformed_dataset_name resolve to the same "
+                        f"dataset '{self.original_dataset_name}', so the metric would compare it "
+                        "with itself. Pass both names explicitly (or a column_mapping that "
+                        "compares different columns of one dataset)."
+                    ),
+                )
+
             # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
@@ -246,8 +276,15 @@ class MetricsOperation(BaseOperation):
                     f"Original dataset '{self.original_dataset_name}' loaded with {len(original_df)} records."
                 )
 
+                # The result depends on both inputs, so both identify the entry.
+                transformed_df = self._get_dataset_by_name(
+                    data_source, self.transformed_dataset_name, **kwargs
+                )
+
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(original_df, reporter)
+                cache_result = self._check_cache(
+                    original_df, reporter, transformed_df=transformed_df
+                )
 
                 if cache_result:
                     self.logger.info(f"Using cached result for {self.operation_name}")
@@ -320,13 +357,18 @@ class MetricsOperation(BaseOperation):
 
             try:
                 # Sample aligned data
-                sampled_orig, sampled_trans = self._sample_aligned(
-                    original_df=original_df,
-                    transformed_df=transformed_df,
-                    sample_size=self.sample_size,
-                    columns=self.columns,
-                    column_mapping=self.column_mapping,
-                )
+                if self.requires_aligned_inputs:
+                    sampled_orig, sampled_trans = self._sample_aligned(
+                        original_df=original_df,
+                        transformed_df=transformed_df,
+                        sample_size=self.sample_size,
+                        columns=self.columns,
+                        column_mapping=self.column_mapping,
+                        # the seed that is part of the cache key is the one that selects the sample
+                        random_state=self.seed if self.seed is not None else 42,
+                    )
+                else:
+                    sampled_orig, sampled_trans = original_df, transformed_df
 
                 # Create child progress tracker for calculate processing
                 data_tracker = None
@@ -404,9 +446,13 @@ class MetricsOperation(BaseOperation):
                     ),
                 )
 
-                # Add metrics to result
+                # Add metrics to result. Scalar-only by default; a metric whose numbers
+                # are meaningless without their status/bounds/trajectory (CVPL) publishes
+                # the full structured object, nulls included, so no consumer has to
+                # reopen the JSON artifact to learn whether a number was measured.
+                structured = getattr(self, "publish_structured_metrics", False)
                 for key, value in processed_metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
+                    if structured or isinstance(value, (int, float, str, bool)):
                         result.add_metric(key, value)
 
                 # Register metrics artifact
@@ -480,6 +526,11 @@ class MetricsOperation(BaseOperation):
                     current_steps,
                     {"step": "Saving Cache", "operation_name": self.operation_name},
                 )
+
+            # The cached copy must carry the final status: set it before saving, not after
+            # (a cache hit used to come back as PENDING).
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
 
             # Cache the result if caching is enabled
             if self.use_cache:
@@ -986,14 +1037,14 @@ class MetricsOperation(BaseOperation):
 
             # Copy context for the thread
             self.logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name=f"VizThread-{self.operation_name}",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             self.logger.info(
@@ -1002,26 +1053,16 @@ class MetricsOperation(BaseOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive() and elapsed < vis_timeout:
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    self.logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, self.logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {render_run.limit:g}s"
+                )
 
-            if viz_thread.is_alive():
-                self.logger.error(
-                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
-                )
-                self.logger.error(
-                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
-                )
-                visualization_paths = {}
-            elif visualization_error:
+            if visualization_error:
+                # Rendering is part of execute(): a failure is recorded in the result,
+                # never swallowed (and no worker is left running after the join).
+                self._record_visualization_failure(result, visualization_error)
                 self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
@@ -1143,8 +1184,46 @@ class MetricsOperation(BaseOperation):
         # cleanup memory from instance
         helpers.cleanup_memory(instance=self)
 
+    def _metrics_cache_key(
+        self, original_df: pd.DataFrame, transformed_df: pd.DataFrame
+    ) -> str:
+        """
+        Cache key for a metric: identifies BOTH inputs and everything that selects
+        what is compared.
+
+        The inherited key hashes one DataFrame. A metric compares two, so keying on
+        the original alone returned the previous score for a different transformed
+        dataset whenever the original and the configuration were unchanged.
+        """
+        from pamola_core.utils.ops.op_cache import operation_cache
+
+        parameters = dict(self._get_base_parameters())
+        parameters.update(
+            {
+                "original_dataset_name": self.original_dataset_name,
+                "transformed_dataset_name": self.transformed_dataset_name,
+                "columns": self.columns,
+                "column_mapping": self.column_mapping,
+                "sample_size": self.sample_size,
+                "seed": self.seed,
+                "config": self.config.to_dict() if self.config is not None else None,
+            }
+        )
+        data_hash = (
+            f"{helpers.generate_data_hash(original_df)}:"
+            f"{helpers.generate_data_hash(transformed_df)}"
+        )
+        return operation_cache.generate_cache_key(
+            operation_name=self.operation_name,
+            parameters=parameters,
+            data_hash=data_hash,
+        )
+
     def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
+        self,
+        df: pd.DataFrame,
+        reporter: Any,
+        transformed_df: Optional[pd.DataFrame] = None,
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for this operation.
@@ -1152,9 +1231,12 @@ class MetricsOperation(BaseOperation):
         Parameters
         ----------
         df : pd.DataFrame
-            DataFrame for the operation
+            Original DataFrame for the operation
         reporter : Any
             Reporter object for tracking progress and artifacts
+        transformed_df : pd.DataFrame, optional
+            Transformed DataFrame. Part of the cache identity; without it the key
+            covers the original only (legacy behaviour, kept for direct callers).
 
         Returns
         -------
@@ -1165,7 +1247,11 @@ class MetricsOperation(BaseOperation):
             return None
 
         try:
-            cache_key = self._generate_cache_key(df)
+            cache_key = (
+                self._metrics_cache_key(df, transformed_df)
+                if transformed_df is not None
+                else self._generate_cache_key(df)
+            )
             self.logger.debug(f"Checking cache for key: {cache_key}")
 
             cached_result = self.operation_cache.get_cache(
@@ -1224,8 +1310,8 @@ class MetricsOperation(BaseOperation):
             return False
 
         try:
-            # Generate cache key
-            cache_key = self._generate_cache_key(original_df)
+            # Generate cache key (both inputs, same as in _check_cache)
+            cache_key = self._metrics_cache_key(original_df, transformed_df)
 
             # Prepare cache data
             cache_data = helpers.build_base_cache(

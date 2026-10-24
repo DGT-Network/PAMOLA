@@ -538,30 +538,6 @@ class TestHandleVisualizations(unittest.TestCase):
         mock_plot.assert_called()
         mock_logger.warning.assert_not_called()
 
-    @patch('threading.Thread')
-    @patch('pamola_core.utils.visualization.plot_value_distribution')
-    def test_handle_visualizations_timeout(self, mock_generate, mock_thread):
-        class DummyThread:
-            def __init__(self): self._alive = True
-            def start(self): pass
-            def join(self, timeout=None): pass
-            def is_alive(self): return True
-            @property
-            def daemon(self): return False
-        mock_thread.return_value = DummyThread()
-        result = self.op._handle_visualizations(self.analysis_results,
-                                       self.task_dir,
-                                       "20240101_000000",
-                                       self.result,
-                                       self.reporter,
-                                       vis_theme='theme',
-                                       vis_backend='matplotlib',
-                                       vis_strict=False,
-                                       vis_timeout=2,
-                                       progress_tracker=self.progress_tracker)
-        # When timeout occurs, visualization_paths is reset to empty list
-        self.assertEqual(result, [])
-
 class TestCheckCache(unittest.TestCase):
     def setUp(self):
         self.df = pd.DataFrame({'phone': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]})

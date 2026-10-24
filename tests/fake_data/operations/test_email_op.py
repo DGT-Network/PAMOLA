@@ -4,6 +4,8 @@ from collections import Counter
 from pathlib import Path
 from unittest.mock import Mock, patch
 import pandas as pd
+
+from pamola_core.errors.exceptions.resources import FakeDataError
 from pamola_core.fake_data import FakeEmailOperation
 from pamola_core.fake_data.generators.email import EmailGenerator
 from pamola_core.utils.ops.op_registry import unregister_operation, get_operation_class
@@ -48,7 +50,8 @@ class TestFakeEmailOperationInit(unittest.TestCase):
         self.assertIsNone(op.full_name_field)
         self.assertIsNone(op.name_format)
         self.assertIsNone(op.id_field)
-        self.assertIsNone(op.key)
+        self.assertFalse(op.keyed)  # no key given: a random per-run key is used (ASB-1)
+        self.assertEqual(len(op.key), 64)
         self.assertIsNone(op.context_salt)
         self.assertEqual(op.column_prefix, "_")
 
@@ -119,7 +122,8 @@ class TestFakeEmailOperationInit(unittest.TestCase):
         self.assertEqual(op.full_name_field, "full_name")
         self.assertEqual(op.name_format, "FL")
         self.assertEqual(op.id_field, "id")
-        self.assertIsNone(op.key)
+        self.assertFalse(op.keyed)  # no key given: a random per-run key is used (ASB-1)
+        self.assertEqual(len(op.key), 64)
         self.assertEqual(op.context_salt, "email-context-001")
         self.assertEqual(op.column_prefix, "_")
 
@@ -294,8 +298,9 @@ class TestFakeEmailOperationProcessBatch(unittest.TestCase):
         self.op.process_value = Mock(side_effect=fail_then_pass)
         df = pd.DataFrame({"email": ["fail@example.com"]})
 
-        result = self.op.process_batch(df)
-        self.assertEqual(result["email"][0], "fail@example.com")
+        # fail closed (CDX-R2-11): the original value is never written back
+        with self.assertRaises(FakeDataError):
+            self.op.process_batch(df)
 
     def test_missing_optional_name_fields(self):
         self.op.first_name_field = "first_name"

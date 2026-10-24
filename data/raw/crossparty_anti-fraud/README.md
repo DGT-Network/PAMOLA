@@ -439,4 +439,4 @@ See [LICENSE](./LICENSE) for full terms.
 
 * * *
 
-**Maintainer:** [REALM Data](https://realmdata.io)  | **Repository:** [github.com/DGT-Network/PAMOLA](https://github.com/DGT-NETWORK/PAMOLA/data) | **Version:** 1.0.0
+**Maintainer:** [REALM Data](https://realmdata.ai)  | **Repository:** [github.com/realmdata-ai/PAMOLA](https://github.com/DGT-NETWORK/PAMOLA/data) | **Version:** 1.0.0

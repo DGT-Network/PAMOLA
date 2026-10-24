@@ -1,7 +1,7 @@
 # Attacks Module Index
 
 **Module:** `pamola_core.attacks`
-**Location:** `d:/AIShowRoom/DGT-Network/PAMOLA/docs/en/core/attacks/`
+**Location:** `docs/en/core/attacks/`
 **Status:** Complete Documentation (8 files)
 
 ## Quick Navigation

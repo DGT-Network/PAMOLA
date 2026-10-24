@@ -48,6 +48,11 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Union
 import pandas as pd
 
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.exceptions import (
@@ -110,6 +115,7 @@ class GeneratorOperation(FieldOperation):
         id_field: Optional[str] = None,
         mapping_store_path: Optional[str] = None,
         save_mapping: bool = False,
+        include_raw_samples_in_metrics: bool = False,
         **kwargs,
     ):
         """
@@ -133,6 +139,11 @@ class GeneratorOperation(FieldOperation):
             Pre-loaded mapping store instance (used if provided).
         save_mapping : bool, optional
             Whether to persist mapping results after processing.
+        include_raw_samples_in_metrics : bool, optional
+            Diagnostic option, default False. If True, ``metrics/*.json`` also
+            carries the most frequent original values (``value_distribution``).
+            WARNING: this writes source values, possibly PII, into a generic
+            metrics artifact.
         **kwargs : dict
             Additional arguments forwarded to FieldOperation/BaseOperation.
         """
@@ -167,7 +178,10 @@ class GeneratorOperation(FieldOperation):
         )
 
         # Create a metrics collector
-        self._metrics_collector = create_metrics_collector()
+        self.include_raw_samples_in_metrics = bool(include_raw_samples_in_metrics)
+        self._metrics_collector = create_metrics_collector(
+            include_raw_samples=self.include_raw_samples_in_metrics
+        )
 
         # === Optional Mapping Store Setup ===
         if mapping_store_path:
@@ -642,6 +656,10 @@ class GeneratorOperation(FieldOperation):
             self.logger.error(error_message)
             raise ValidationError(error_message)
 
+        # Work on our own copy: DataSource returns the caller's object itself.
+        df = self._own_dataframe(df)
+        self._check_enrich_target(df)
+
         if self.field_name not in df.columns:
             error_message = f"Field {self.field_name} not found in DataFrame"
             self.logger.error(error_message)
@@ -661,6 +679,8 @@ class GeneratorOperation(FieldOperation):
             error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
             self.logger.error(error_msg)
             raise TypeValidationError(error_msg) from e
+
+        self._remember_input_for_cache(df)
 
         return df
 
@@ -689,8 +709,11 @@ class GeneratorOperation(FieldOperation):
 
             # Check if output field already exists in DataFrame
             if output_field in df.columns:
-                self.logger.warning(
-                    f"Output field '{output_field}' already exists and will be overwritten"
+                # Reaching here means overwriting was requested explicitly
+                # (see _check_enrich_target).
+                self.logger.debug(
+                    f"Output field '{output_field}' already exists and is overwritten "
+                    "(overwrite_existing_output=True)"
                 )
         return output_field
 
@@ -993,6 +1016,9 @@ class GeneratorOperation(FieldOperation):
             except Exception as e:
                 self.logger.warning(f"Error collecting specific metrics: {str(e)}")
 
+        # whether the replacement is keyed (reproducible) - never the key itself
+        metrics["keyed"] = bool(getattr(self, "keyed", True))
+
         return metrics
 
     def _collect_specific_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:
@@ -1143,14 +1169,14 @@ class GeneratorOperation(FieldOperation):
 
             # Copy context for the thread
             self.logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name=f"VizThread-{self.field_name}",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             self.logger.info(
@@ -1159,26 +1185,16 @@ class GeneratorOperation(FieldOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive() and elapsed < vis_timeout:
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    self.logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, self.logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {render_run.limit:g}s"
+                )
 
-            if viz_thread.is_alive():
-                self.logger.error(
-                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
-                )
-                self.logger.error(
-                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
-                )
-                visualization_paths = {}
-            elif visualization_error:
+            if visualization_error:
+                # Rendering is part of execute(): a failure is recorded in the result,
+                # never swallowed (and no worker is left running after the join).
+                self._record_visualization_failure(result, visualization_error)
                 self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
@@ -1323,6 +1339,8 @@ class GeneratorOperation(FieldOperation):
 
         except Exception as e:
             self.logger.warning(f"Error generating visualizations: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
         return visualization_paths
 
@@ -1606,6 +1624,13 @@ class GeneratorOperation(FieldOperation):
                 "null_strategy": self.null_strategy,
             }
         )
+        # the effective key decides every replacement: its digest (not the key) is part of the
+        # cache identity, so another key - or another random per-run key - never hits the cache
+        key = getattr(self, "key", None)
+        if key is not None:
+            import hashlib
+
+            parameters["key_digest"] = hashlib.sha256(str(key).encode("utf-8")).hexdigest()[:16]
 
         return parameters
 

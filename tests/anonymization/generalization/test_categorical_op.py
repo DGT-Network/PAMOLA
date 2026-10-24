@@ -525,11 +525,12 @@ class TestCategoricalGeneralizationOperation:
     
     
     def test_visualization_generation(self):
-        """Test visualization generation."""
+        """Test visualization generation (visualization is opt-in since VIZ-01)."""
         operation = CategoricalGeneralizationOperation(
             field_name="category",
             strategy="hierarchy",
-            external_dictionary_path=TEST_HIERARCHY_PATH
+            external_dictionary_path=TEST_HIERARCHY_PATH,
+            generate_visualization=True,
         )
         
         # Set fresh basic data

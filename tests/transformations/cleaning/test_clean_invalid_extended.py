@@ -32,7 +32,7 @@ class TestRangeConstraints:
     def test_numeric_range(self, reporter, tmp_path):
         df = pd.DataFrame({"age": [15, 25, 35, 150, -5, 45], "id": range(6)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"age": {"min": 0, "max": 120}},
+            field_constraints={"age": {"constraint_type": "valid_range", "min_value": 0, "max_value": 120}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -40,7 +40,7 @@ class TestRangeConstraints:
     def test_min_only(self, reporter, tmp_path):
         df = pd.DataFrame({"val": [-10, 0, 10, 20], "id": range(4)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"val": {"min": 0}},
+            field_constraints={"val": {"constraint_type": "min_value", "min_value": 0}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -48,7 +48,7 @@ class TestRangeConstraints:
     def test_max_only(self, reporter, tmp_path):
         df = pd.DataFrame({"val": [10, 50, 100, 200], "id": range(4)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"val": {"max": 100}},
+            field_constraints={"val": {"constraint_type": "max_value", "max_value": 100}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -57,12 +57,15 @@ class TestRangeConstraints:
 # --- Type constraints ---
 class TestTypeConstraints:
     def test_numeric_type_check(self, reporter, tmp_path):
+        # "type" is not a constraint: a field entry that names no constraint_type is rejected
+        # (ASB-OPS-14) instead of being skipped silently
         df = pd.DataFrame({"age": [25, 30, "abc", 40, None], "id": range(5)})
         op = CleanInvalidValuesOperation(
             field_constraints={"age": {"type": "numeric"}},
         )
         result = _run(op, df, tmp_path, reporter)
-        assert result.status == OperationStatus.SUCCESS
+        assert result.status == OperationStatus.ERROR
+        assert "no valid constraint_type" in result.error_message and "'age'" in result.error_message
 
     def test_string_type_check(self, reporter, tmp_path):
         df = pd.DataFrame({"name": ["Alice", 123, "Carol", None], "id": range(4)})
@@ -70,7 +73,8 @@ class TestTypeConstraints:
             field_constraints={"name": {"type": "string"}},
         )
         result = _run(op, df, tmp_path, reporter)
-        assert result.status == OperationStatus.SUCCESS
+        assert result.status == OperationStatus.ERROR
+        assert "no valid constraint_type" in result.error_message and "'name'" in result.error_message
 
 
 # --- Regex constraints ---
@@ -81,7 +85,7 @@ class TestRegexConstraints:
             "id": range(5),
         })
         op = CleanInvalidValuesOperation(
-            field_constraints={"email": {"regex": r"^[^@]+@[^@]+\.[^@]+$"}},
+            field_constraints={"email": {"data_type": "categorical", "constraint_type": "pattern", "pattern": r"^[^@]+@[^@]+\.[^@]+$"}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -89,7 +93,7 @@ class TestRegexConstraints:
     def test_numeric_pattern(self, reporter, tmp_path):
         df = pd.DataFrame({"code": ["123", "abc", "456", "7x8"], "id": range(4)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"code": {"regex": r"^\d+$"}},
+            field_constraints={"code": {"data_type": "categorical", "constraint_type": "pattern", "pattern": r"^\d+$"}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -106,8 +110,8 @@ class TestMultipleFields:
         })
         op = CleanInvalidValuesOperation(
             field_constraints={
-                "age": {"min": 0, "max": 120},
-                "score": {"min": 0, "max": 5},
+                "age": {"constraint_type": "valid_range", "min_value": 0, "max_value": 120},
+                "score": {"constraint_type": "valid_range", "min_value": 0, "max_value": 5},
             },
         )
         result = _run(op, df, tmp_path, reporter)
@@ -119,7 +123,8 @@ class TestNullReplacement:
     def test_null_replacement_string(self, reporter, tmp_path):
         df = pd.DataFrame({"name": ["Alice", None, "Carol"], "id": range(3)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"name": {"not_null": True}},
+            field_constraints={"name": {"data_type": "categorical", "constraint_type": "disallowed_values",
+                                        "disallowed_values": ["Carol"]}},
             null_replacement="UNKNOWN",
         )
         result = _run(op, df, tmp_path, reporter)
@@ -133,7 +138,7 @@ class TestNullReplacement:
         })
         op = CleanInvalidValuesOperation(
             field_constraints={
-                "age": {"min": 0, "max": 120},
+                "age": {"constraint_type": "valid_range", "min_value": 0, "max_value": 120},
             },
             null_replacement={"age": 0, "name": "N/A"},
         )
@@ -152,7 +157,7 @@ class TestEdgeCases:
     def test_nonexistent_field(self, reporter, tmp_path):
         df = pd.DataFrame({"val": [1, 2, 3]})
         op = CleanInvalidValuesOperation(
-            field_constraints={"nonexistent": {"min": 0}},
+            field_constraints={"nonexistent": {"constraint_type": "min_value", "min_value": 0}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status in (OperationStatus.SUCCESS, OperationStatus.ERROR)
@@ -162,7 +167,7 @@ class TestEdgeCases:
         vals = [i if i % 10 != 0 else -999 for i in range(n)]
         df = pd.DataFrame({"val": vals, "id": range(n)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"val": {"min": 0}},
+            field_constraints={"val": {"constraint_type": "min_value", "min_value": 0}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -170,7 +175,7 @@ class TestEdgeCases:
     def test_all_invalid(self, reporter, tmp_path):
         df = pd.DataFrame({"val": [-1, -2, -3], "id": range(3)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"val": {"min": 0}},
+            field_constraints={"val": {"constraint_type": "min_value", "min_value": 0}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -178,7 +183,7 @@ class TestEdgeCases:
     def test_all_valid(self, reporter, tmp_path):
         df = pd.DataFrame({"val": [10, 20, 30], "id": range(3)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"val": {"min": 0, "max": 100}},
+            field_constraints={"val": {"constraint_type": "valid_range", "min_value": 0, "max_value": 100}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -186,7 +191,7 @@ class TestEdgeCases:
     def test_single_row(self, reporter, tmp_path):
         df = pd.DataFrame({"val": [-1], "id": [0]})
         op = CleanInvalidValuesOperation(
-            field_constraints={"val": {"min": 0}},
+            field_constraints={"val": {"constraint_type": "min_value", "min_value": 0}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -197,12 +202,12 @@ class TestEdgeCases:
             field_constraints={"val": {"type": "numeric"}},
         )
         result = _run(op, df, tmp_path, reporter)
-        assert result.status == OperationStatus.SUCCESS
+        assert result.status == OperationStatus.ERROR      # "type" names no constraint (ASB-OPS-14)
 
     def test_with_nan(self, reporter, tmp_path):
         df = pd.DataFrame({"val": [1.0, np.nan, 3.0, np.nan], "id": range(4)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"val": {"min": 0}},
+            field_constraints={"val": {"constraint_type": "min_value", "min_value": 0}},
         )
         result = _run(op, df, tmp_path, reporter)
         assert result.status == OperationStatus.SUCCESS
@@ -210,7 +215,7 @@ class TestEdgeCases:
     def test_dask_execution(self, reporter, tmp_path):
         df = pd.DataFrame({"val": [1, -1, 3, -3], "id": range(4)})
         op = CleanInvalidValuesOperation(
-            field_constraints={"val": {"min": 0}},
+            field_constraints={"val": {"constraint_type": "min_value", "min_value": 0}},
             use_dask=True,
         )
         result = _run(op, df, tmp_path, reporter)

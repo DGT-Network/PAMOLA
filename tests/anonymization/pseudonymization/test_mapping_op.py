@@ -286,13 +286,13 @@ def test_process_batch_tolerates_none_additional_fields_runtime(sample_df):
 # ----------------------- Dask pickle round-trip -----------------------
 
 
-def test_pickle_round_trip_preserves_op_and_key():
+def test_pickle_round_trip_preserves_the_configuration_but_not_the_key():
     op = _make_op()
     data = pickle.dumps(op)
     restored = pickle.loads(data)
     assert restored.field_name == op.field_name
     assert restored.pseudonym_type == op.pseudonym_type
-    # Private encryption key bytes survive pickle (needed for distributed Dask).
-    assert restored._mapping_encryption_key == op._mapping_encryption_key
+    # The encryption key never leaves the object through pickle (ASB-2); a copy cannot open the mapping.
+    assert restored._mapping_encryption_key is None
     # Public hex attribute is NOT restored (security).
     assert not hasattr(restored, "mapping_encryption_key")

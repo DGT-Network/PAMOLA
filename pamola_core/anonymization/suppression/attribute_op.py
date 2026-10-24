@@ -37,6 +37,11 @@ import time
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Tuple
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.metric_utils import (
     calculate_anonymization_effectiveness,
@@ -953,11 +958,11 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 )
             else:
                 self.logger.error(f"Failed to create main visualization: {bar_result}")
-                return None
+                raise RuntimeError(f"Failed to create main visualization: {bar_result}")
 
         except Exception as e:
             self.logger.error(f"Failed to generate main suppression visualization: {e}")
-            return None
+            raise
 
         if self._suppressed_schema and len(self._suppressed_schema) > 0:
             try:
@@ -1079,7 +1084,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                     1, {"step": step, "operation": self.operation_name}
                 )
 
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
+            artifacts_before = len(result.artifacts)
             thread = threading.Thread(
                 target=ctx.run,
                 args=(run_visualizations,),
@@ -1088,22 +1094,19 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             )
 
             thread.start()
-            thread.join(timeout=self.visualization_timeout)
-
-            if thread.is_alive():
-                self.logger.warning(
-                    f"[VIZ] Visualization thread timed out after {self.visualization_timeout}s"
+            if not wait_for_render(
+                thread, render_run, getattr(self, "visualization_timeout", None), self.logger
+            ):
+                # nothing from an abandoned run is reported
+                del result.artifacts[artifacts_before:]
+                viz_error = VisualizationTimeoutError(
+                    "visualization did not finish within "
+                    f"{render_run.limit:g}s"
                 )
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="warning",
-                        details={
-                            "step": "Generate visualizations",
-                            "message": f"Visualization thread timed out after {self.visualization_timeout}s",
-                        },
-                    )
-            elif viz_error:
+
+            if viz_error:
+                # Rendering is part of execute(): a failure is recorded in the result.
+                self._record_visualization_failure(result, viz_error)
                 self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
                 if reporter:
                     reporter.add_operation(

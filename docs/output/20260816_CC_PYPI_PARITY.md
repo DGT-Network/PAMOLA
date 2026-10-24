@@ -135,12 +135,12 @@ it is "the library appears installed and is silently empty."
    procurement review early.
 3. **Points at a different repository.** The stub's `Project-URL` entries
    reference `github.com/realminveo/pamola-core` and `docs.realmdata.io`,
-   not `github.com/DGT-Network/PAMOLA`. So the default install advertises a
+   not `github.com/realmdata-ai/PAMOLA`. So the default install advertises a
    repo that is not this one.
 
 There is an irony worth noting: **the stub's packaging metadata is better than
 the real release's.** It has a genuine author email
-(`info@realminveo.com`), keywords, `Intended Audience` classifiers, and five
+(`info@realmdata.ai`), keywords, `Intended Audience` classifiers, and five
 `Project-URL` entries — everything P-02 says `1.0.0.dev3` is missing. The
 metadata to fix F-04 already exists; it is attached to the wrong artifact.
 

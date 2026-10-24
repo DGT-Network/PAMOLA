@@ -209,6 +209,50 @@ class ColumnNotFoundError(BasePamolaError):
         )
 
 
+class DuplicateColumnError(ValidationError):
+    """A DataFrame has several columns with the same name.
+
+    Selecting a field by name is ambiguous then: pandas returns a DataFrame
+    instead of a Series and every operation downstream fails with an unrelated
+    error. Rejected up front with the names to fix.
+    """
+
+    def __init__(
+        self,
+        duplicated_columns: List[str],
+        dataset_name: Optional[str] = None,
+    ):
+        names = [str(c) for c in duplicated_columns]
+        where = f" in dataset '{dataset_name}'" if dataset_name else ""
+        super().__init__(
+            message=(
+                f"Duplicate column names{where}: {', '.join(repr(n) for n in names)}. "
+                "Operations select fields by name, which is ambiguous when a name "
+                "occurs more than once. Rename or drop the repeated columns "
+                "before running the operation."
+            ),
+            field_name=names[0] if names else None,
+            details={"duplicated_columns": names, "dataset_name": dataset_name},
+        )
+
+
+class OutputFieldExistsError(ValidationError):
+    """An ENRICH target column already exists and overwriting was not requested."""
+
+    def __init__(self, output_field: str, operation: Optional[str] = None):
+        by = f" by {operation}" if operation else ""
+        super().__init__(
+            message=(
+                f"ENRICH output field '{output_field}' already exists in the "
+                f"dataset and would be overwritten{by}. Choose another "
+                "'output_field_name' or 'column_prefix', or pass "
+                "overwrite_existing_output=True to replace the existing column."
+            ),
+            field_name=output_field,
+            details={"output_field": output_field, "operation": operation},
+        )
+
+
 # =============================================================================
 # PARAMETER VALIDATION EXCEPTIONS
 # =============================================================================

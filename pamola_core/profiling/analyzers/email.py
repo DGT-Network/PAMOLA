@@ -29,6 +29,12 @@ from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
+from pamola_core.utils.redaction import redact_sensitive_parameters
 from pamola_core.profiling.commons.email_utils import (
     analyze_email_field,
     create_domain_dictionary,
@@ -838,6 +844,7 @@ class EmailOperation(FieldOperation):
 
         except Exception as e:
             self.logger.error(f"Error creating visualizations: {e}", exc_info=True)
+            self._record_visualization_failure(result, e)
             if reporter:
                 reporter.add_operation(
                     "Creating visualizations",
@@ -1103,14 +1110,14 @@ class EmailOperation(FieldOperation):
 
             # Copy context for the thread
             self.logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name="VizThread-",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             self.logger.info(
@@ -1119,26 +1126,16 @@ class EmailOperation(FieldOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive() and elapsed < vis_timeout:
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    self.logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, self.logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {render_run.limit:g}s"
+                )
 
-            if viz_thread.is_alive():
-                self.logger.error(
-                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
-                )
-                self.logger.error(
-                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
-                )
-                visualization_paths = {}
-            elif visualization_error:
+            if visualization_error:
+                # Rendering is part of execute(): a failure is recorded in the result,
+                # never swallowed (and no worker is left running after the join).
+                self._record_visualization_failure(result, visualization_error)
                 self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
@@ -1203,7 +1200,7 @@ def analyze_email_fields(
         Additional parameters for the operations:
         - top_n: int, number of top domains to include in results (default: 20)
         - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
-        - generate_visualization: bool, whether to generate visualization (default: True)
+        - generate_visualization: bool, whether to generate visualization (default: False)
         - profile_type: str, type of profiling for organizing artifacts (default: 'email')
 
     Returns
@@ -1247,11 +1244,13 @@ def analyze_email_fields(
                 "fields": email_fields,
                 "top_n": top_n,
                 "min_frequency": min_frequency,
-                "parameters": {
-                    k: v
-                    for k, v in kwargs.items()
-                    if isinstance(v, (str, int, float, bool))
-                },
+                "parameters": redact_sensitive_parameters(
+                    {
+                        k: v
+                        for k, v in kwargs.items()
+                        if isinstance(v, (str, int, float, bool))
+                    }
+                ),
             },
         )
 

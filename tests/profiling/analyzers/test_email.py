@@ -178,7 +178,8 @@ class TestEmailOperation(unittest.TestCase):
         self.operation = EmailOperation(
             field_name=self.field_name,
             top_n=20,
-            min_frequency=1
+            min_frequency=1,
+            generate_visualization=True
         )
         
         # Mock objects

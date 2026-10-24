@@ -11,6 +11,7 @@ License: BSD 3-Clause
 """
 
 import hashlib
+import warnings
 from typing import Any, Optional, Union, Dict
 import dask.dataframe as dd
 import numpy as np
@@ -26,6 +27,12 @@ from pamola_core.utils.ops.op_result import (
     OperationStatus,
 )
 from pamola_core.errors.exceptions import TypeValidationError
+from pamola_core.utils.redaction import (  # noqa: F401  (re-exported: one definition, see redaction.py)
+    REDACTED,
+    is_sensitive_parameter,
+    redact_sensitive_parameters,
+    secret_identity,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -117,196 +124,142 @@ def safe_numpy_bytes(arr: np.ndarray) -> bytes:
     return arr.tobytes()
 
 
-def smart_sample_indices(n: int, sample_size: int) -> np.ndarray:
+#: Rows hashed per step. Bounds the temporary memory of the streaming hash
+#: (one chunk of one column at a time), whatever the size of the frame.
+_HASH_CHUNK_ROWS = 200_000
+
+
+class UnhashableDataError(ValueError):
+    """A value cannot be fingerprinted faithfully, so no cache key may be derived from it."""
+
+
+def _update_with_series(hasher: "hashlib.blake2b", s: pd.Series) -> None:
+    """Feed every value of ``s`` (and nothing else) into ``hasher``, chunk by chunk.
+
+    Type-preserving: for ``object`` columns the Python type of each value is hashed next to
+    the value, so ``1`` and ``'1'`` (or ``1.0``, ``True``) differ; other dtypes are
+    identified by the dtype in the frame header. There is no text fallback: a value that
+    cannot be hashed (a list, a dict) raises ``UnhashableDataError`` and the caller must
+    skip caching rather than key on an approximation.
     """
-    Generate evenly-spaced sample indices using linspace.
-    Ensures representative sampling across entire dataset.
-    """
-    if n <= sample_size:
-        return np.arange(n)
-    return np.linspace(0, n - 1, sample_size, dtype=int)
-
-
-def get_series_signature(s: pd.Series, sample_size: int = 5000) -> str:
-    """
-    Generate deterministic signature for pandas Series.
-    """
-    metadata = {
-        "type": "series",
-        "length": len(s),
-        "dtype": str(s.dtype),
-    }
-
-    if s.empty:
-        return stable_json(metadata)
-
-    # Smart sampling - evenly distributed across entire series
-    indices = smart_sample_indices(len(s), sample_size)
-    sample_vals = s.iloc[indices].to_numpy()
-    sample_hash = blake(safe_numpy_bytes(sample_vals))
-
-    # Global checksums
-    checksums = {"nulls": int(s.isna().sum())}
-
-    # Numeric stats - single pass optimization
-    if pd.api.types.is_numeric_dtype(s):
+    is_object = s.dtype == object
+    values, kinds = hashlib.blake2b(digest_size=32), hashlib.blake2b(digest_size=32)
+    for start in range(0, len(s), _HASH_CHUNK_ROWS):
+        chunk = s.iloc[start : start + _HASH_CHUNK_ROWS]
         try:
-            stats = s.agg(["sum", "min", "max"])
-            _sum = stats["sum"]
+            hashed = pd.util.hash_pandas_object(chunk, index=False, categorize=True)
+        except TypeError as exc:
+            raise UnhashableDataError(
+                f"column '{s.name}' holds values that cannot be fingerprinted ({exc})"
+            ) from exc
+        values.update(hashed.to_numpy().tobytes())
+        if is_object:
+            names = np.array([type(v).__qualname__ for v in chunk.to_numpy()], dtype=object)
+            kinds.update(pd.util.hash_array(names).tobytes())
+    # two separate streams, merged at the end: the digest must not depend on the chunk size
+    hasher.update(values.digest())
+    if is_object:
+        hasher.update(kinds.digest())
 
-            checksums["sum"] = (
-                str(_sum) if pd.isna(_sum) or np.isinf(_sum) else round(float(_sum), 8)
-            )
-            checksums["min"] = str(stats["min"])
-            checksums["max"] = str(stats["max"])
-        except Exception:
-            # Fallback if agg fails
-            pass
 
-    return stable_json(
-        {"metadata": metadata, "sample_hash": sample_hash, "checksums": checksums}
+def _update_with_index(hasher: "hashlib.blake2b", index: pd.Index) -> None:
+    for start in range(0, len(index), _HASH_CHUNK_ROWS):
+        chunk = index[start : start + _HASH_CHUNK_ROWS]
+        hashed = pd.util.hash_pandas_object(chunk, index=False)
+        hasher.update(hashed.to_numpy().tobytes())
+
+
+def _update_with_frame(hasher: "hashlib.blake2b", df: pd.DataFrame) -> None:
+    hasher.update(
+        stable_json(
+            {
+                "type": "pandas_df",
+                "shape": list(df.shape),
+                "columns": [str(c) for c in df.columns],
+                "dtypes": [str(t) for t in df.dtypes],
+                "index_dtype": str(df.index.dtype),
+            }
+        ).encode()
     )
-
-
-def get_df_signature(df: pd.DataFrame, sample_size: int = 5000) -> str:
-    """
-    Generate deterministic signature for pandas DataFrame.
-
-    """
-    metadata = {
-        "type": "pandas_df",
-        "shape": df.shape,
-        "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
-        "columns": df.columns.tolist(),
-    }
-
-    if df.empty:
-        return stable_json(metadata)
-
-    indices = smart_sample_indices(len(df), sample_size)
-    sample_df = df.iloc[indices]
-
-    # Concatenate bytes from all columns for comprehensive hash
-    sample_bytes = []
-    for col in sample_df.columns:
-        arr = sample_df[col].to_numpy()
-        sample_bytes.append(safe_numpy_bytes(arr))
-
-    sample_hash = blake(b"".join(sample_bytes))
-
-    checksums = {
-        "rows": df.shape[0],
-    }
-
-    # Null counts - O(rows * cols), but vectorized and fast
-    checksums["nulls"] = {col: int(df[col].isna().sum()) for col in df.columns}
-
-    # Numeric stats - OPTIMIZED: single pass for all stats
-    numeric_cols = df.select_dtypes(include="number").columns
-    if len(numeric_cols) > 0:
-        try:
-            stats = df[numeric_cols].agg(["sum", "min", "max"]).to_dict()
-
-            checksums["numeric"] = {}
-            for col in numeric_cols:
-                _sum = stats[col]["sum"]
-                checksums["numeric"][col] = {
-                    "sum": (
-                        str(_sum)
-                        if pd.isna(_sum) or np.isinf(_sum)
-                        else round(float(_sum), 8)
-                    ),
-                    "min": str(stats[col]["min"]),
-                    "max": str(stats[col]["max"]),
-                }
-        except Exception:
-            # Fallback: skip numeric checksums if agg fails
-            pass
-
-    return stable_json(
-        {"metadata": metadata, "sample_hash": sample_hash, "checksums": checksums}
-    )
-
-
-def get_dask_df_signature(df: dd.DataFrame, sample_size: int = 5000) -> str:
-    """
-    Generate deterministic signature for Dask DataFrame.
-
-    Note: Dask doesn't support iloc with array indices efficiently.
-    Falls back to head() for sampling to avoid expensive compute.
-    This is acceptable since we have global checksums to catch changes.
-    """
-    metadata = {
-        "type": "dask_df",
-        "npartitions": df.npartitions,
-        "columns": df.columns.tolist(),
-        "dtypes": {c: str(df.dtypes[c]) for c in df.columns},
-    }
-
-    try:
-        sample_df = df.head(sample_size, npartitions=2)
-    except Exception:
-        return stable_json({"metadata": metadata, "sample_hash": None})
-
-    if len(sample_df) == 0:
-        return stable_json({"metadata": metadata})
-
-    # Hash sample (same as pandas)
-    sample_bytes = []
-    for col in sample_df.columns:
-        sample_bytes.append(safe_numpy_bytes(sample_df[col].to_numpy()))
-    sample_hash = blake(b"".join(sample_bytes))
-
-    return stable_json(
-        {
-            "metadata": metadata,
-            "sample_hash": sample_hash,
-            "checksums": {"npartitions": df.npartitions},
-        }
-    )
+    _update_with_index(hasher, df.index)
+    for position in range(df.shape[1]):
+        _update_with_series(hasher, df.iloc[:, position])
 
 
 def generate_data_hash(
-    data: Union[pd.DataFrame, pd.Series, dd.DataFrame], sample_size: int = 5000
+    data: Union[pd.DataFrame, pd.Series, dd.DataFrame], sample_size: Optional[int] = None
 ) -> str:
     """
-    Generate a deterministic hash for pandas/dask data structures.
+    Generate a deterministic hash that identifies the exact contents of the data.
 
-    The hash represents:
-    - Data structure (shape, dtypes, columns)
-    - Sample of actual values (evenly distributed across dataset)
-    - Global statistics (null counts, numeric sum/min/max)
+    The hash covers the structure (shape, column names, dtypes), the index labels
+    and **every value**. It is computed as a stream over fixed-size chunks of one
+    column at a time, so the temporary memory is bounded and no full copy of the
+    frame is made. Changing any single cell, or reordering rows or index labels,
+    changes the hash. It is used as cache identity, where a weaker fingerprint
+    returns a stale result for different data.
 
     Parameters
     ----------
     data : Union[pd.DataFrame, pd.Series, dd.DataFrame]
-        Input data to hash
-    sample_size : int, default=5000
-        Number of rows to include in sample hash.
-        Rows are selected using linspace for even distribution.
+        Input data to hash. A Dask frame is hashed partition by partition.
+    sample_size : int, optional
+        **Deprecated and ignored.** The hash always covers every value; the earlier sampled
+        fingerprint is gone because it missed changes outside the sample. Passing a value emits
+        a ``DeprecationWarning``; the parameter will be removed in a later release.
+
     Returns
     -------
     str
-        32-character hex hash string (BLAKE2b)
+        64-character hex digest (BLAKE2b-256).
+
+    Raises
+    ------
+    TypeValidationError
+        For an unsupported type.
+    Exception
+        Whatever hashing the values raised. There is deliberately no fallback to
+        a type-and-length fingerprint: callers must disable caching for that call.
     """
-    try:
-        if isinstance(data, pd.Series):
-            sig = get_series_signature(data, sample_size)
-        elif isinstance(data, pd.DataFrame):
-            sig = get_df_signature(data, sample_size)
-        elif isinstance(data, dd.DataFrame):
-            sig = get_dask_df_signature(data, sample_size)
-        else:
-            raise TypeValidationError(
+    if sample_size is not None:
+        warnings.warn(
+            "generate_data_hash(sample_size=...) is deprecated and ignored: the hash covers "
+            "every value. Remove the argument.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    hasher = hashlib.blake2b(digest_size=32)
+    if isinstance(data, pd.Series):
+        hasher.update(
+            stable_json(
+                {"type": "series", "length": len(data), "dtype": str(data.dtype),
+                 "name": str(data.name)}
+            ).encode()
+        )
+        _update_with_index(hasher, data.index)
+        _update_with_series(hasher, data)
+    elif isinstance(data, pd.DataFrame):
+        _update_with_frame(hasher, data)
+    elif isinstance(data, dd.DataFrame):
+        hasher.update(
+            stable_json(
+                {"type": "dask_df", "npartitions": data.npartitions,
+                 "columns": [str(c) for c in data.columns]}
+            ).encode()
+        )
+        for i in range(data.npartitions):
+            _update_with_frame(hasher, data.get_partition(i).compute())
+    else:
+        raise TypeValidationError(
+            param_name="data",
+            expected_type="pandas.Series, pandas.DataFrame or dask.dataframe.DataFrame",
+            actual_type=type(data).__name__,
+            message=(
                 f"Unsupported data type: {type(data).__name__}. "
                 "Expected pandas.Series, pandas.DataFrame, or dask.dataframe.DataFrame"
-            )
-
-        return blake(sig.encode())
-
-    except Exception:
-        fallback = f"{type(data).__name__}_{getattr(data, '__len__', lambda: 0)()}"
-        return blake(fallback.encode())
+            ),
+        )
+    return hasher.hexdigest()
 
 
 def build_base_cache(
@@ -327,7 +280,7 @@ def build_base_cache(
 
     return {
         "timestamp": datetime.now().isoformat(),
-        "parameters": parameters,
+        "parameters": redact_sensitive_parameters(parameters),
         "status": (
             result.status.name
             if isinstance(result.status, OperationStatus)

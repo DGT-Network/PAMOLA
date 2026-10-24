@@ -98,6 +98,17 @@ context and was corrected too.
 
 ---
 
+## 2026-10-23 — scope: singling-out and formal DP leave the 1.0 artifact
+
+Maintainer decision: neither formal differential privacy nor singling-out is a
+CORE 1.0 capability. `privacy_models/differential_privacy/` and
+`attacks/singling_out.py` (added 2026-08-17 below, never tested) were removed
+rather than excluded from the wheel, together with the dead report generators
+and `email_dask.py` / `longtext.py`. Wheel file count 615 -> 605. If either
+capability returns it needs a design, tests and an explicit promotion.
+
+---
+
 ## 2026-08-17 — 1.0 cleanup: ~12 600 lines removed, singling-out added
 
 Sections A and B of `docs/output/20260816_CC_RUNBOOK_1_0.md` executed, plus the
@@ -217,7 +228,7 @@ TD-PC-09 resolved. Full record and sign-off in
 ## 2026-08-16 — Working copy bootstrapped; repository audit
 
 Set up `D:\VK\_DEVEL\pamola_core` as a working copy of
-`https://github.com/DGT-Network/PAMOLA` and established the CC working
+`https://github.com/realmdata-ai/PAMOLA` and established the CC working
 conventions, mirroring the BEST PRW setup.
 
 - `git init` + `origin` → full fetch → checked out `develop` (default branch).

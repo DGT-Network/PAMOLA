@@ -16,8 +16,10 @@ from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.email import EmailGenerator
 from pamola_core.fake_data.schemas.email_op_core_schema import FakeEmailOperationConfig
 import pamola_core.utils.io as io
+from pamola_core.fake_data.commons.prgn import resolve_generation_key
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
+from pamola_core.errors.exceptions.resources import FakeDataError
 from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
@@ -100,6 +102,7 @@ class FakeEmailOperation(GeneratorOperation):
         **kwargs : dict
             Additional parameters forwarded to GeneratorOperation and BaseOperation.
         """
+        key, keyed = resolve_generation_key(key)  # random per-run key when none is given
 
         # Fallback description for this operation
         kwargs.setdefault(
@@ -168,6 +171,7 @@ class FakeEmailOperation(GeneratorOperation):
             setattr(self, k, v)
 
         # Initialize internal metrics
+        self.keyed = keyed
         self.operation_name = self.__class__.__name__
         self._original_df = None
         self.error_count = 0
@@ -301,10 +305,22 @@ class FakeEmailOperation(GeneratorOperation):
                 synthetic_value = self.process_value(value, **gen_params)
                 generated_values.append(synthetic_value)
             except Exception as e:
+                # Fail closed: a failed transformation must never leave the
+                # original identifier in the output, and the original value
+                # must not reach the log or the exception text.
                 self.logger.error(
-                    f"Error generating email for value '{value}': {str(e)}"
+                    "Generation of %s failed at row position %d (%s)",
+                    "email",
+                    idx,
+                    type(e).__name__,
                 )
-                generated_values.append(value if pd.notna(value) else np.nan)
+                raise FakeDataError(
+                    field_name=self.field_name,
+                    reason=(
+                        f"generation failed at row position {idx} "
+                        f"({type(e).__name__}); the original value was not written"
+                    ),
+                ) from None
 
         # Update the dataframe with generated values
         result[self.output_field_name] = generated_values

@@ -1,6 +1,6 @@
 """
 PAMOLA.CORE - L-Diversity Processor
-Advanced processor for l-diversity anonymization, ensuring compliance with privacy-preserving techniques.
+Advanced processor for l-diversity anonymization.
 Designed for scalable, efficient anonymization with modular architecture.
 
 (C) 2024 Realm Inveo Inc., DTX, Titan Technology, & DGT Network Inc.
@@ -20,18 +20,18 @@ Provides flexible and performance-optimized data privacy transformations with a 
   - `apply_model.py`: Model application and transformation.
   - `metrics.py`: Privacy, utility, and fidelity metric assessments.
   - `privacy.py`: Risk and privacy evaluations.
-  - `reporting.py`: Compliance and documentation report generation.
+  - `reporting.py`: Threshold-check and documentation report generation.
   - `visualization.py`: Diversity assessment visualization tools.
 
 ## Use Cases:
 - Privacy-preserving data anonymization for regulated environments.
-- GDPR, HIPAA, CCPA compliance.
+- Threshold checks that can serve as technical evidence in a regulated process.
 - Secure large-scale dataset anonymization for research and analytics.
 
 ## TODO:
 - Extend adaptive performance scaling.
 - Expand metadata-driven anonymization policies.
-- Implement additional compliance audit mechanisms.
+- Implement additional audit mechanisms.
 """
 
 import logging
@@ -95,18 +95,17 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
 
     def _setup_logging(self, log_level: str):
         """
-        Configure logging with flexible verbosity
+        Set the verbosity of this module's logger
 
         Parameters
         -----------
         log_level : str
             Logging level (e.g., 'INFO', 'DEBUG', 'WARNING')
         """
-        logging.basicConfig(
-            level=getattr(logging, log_level.upper()),
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        )
+        # Library code never configures the root logger (``logging.basicConfig``): handlers
+        # and formats belong to the application. Only this module's logger gets the level.
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(getattr(logging, log_level.upper()))
 
     def _check_configuration(self):
         """

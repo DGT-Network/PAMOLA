@@ -44,6 +44,10 @@ PAMOLA Anonymization is a comprehensive data privacy solution designed to anonym
 - Compliance with privacy regulations
 - Safe public data publication
 
+## Regulatory positioning
+
+See the [regulatory evidence map](core/regulatory_evidence_map.md): it maps the library's measurements to individualization, linkability and inference, and states what each one does not establish.
+
 ## Getting Started
 
 ### Installation
@@ -53,7 +57,7 @@ git clone https://github.com/your-organization/pamola-anonymization.git
 cd pamola-anonymization
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[viz]"
 ```
 
 ### Quick Overview of Project Structure

@@ -47,6 +47,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
 import pandas as pd
 
 from pamola_core.common.helpers.data_helper import DataHelper
@@ -88,6 +89,7 @@ from pamola_core.anonymization.commons.privacy_metric_utils import (
 # Pseudonymization utilities imports
 from pamola_core.anonymization.commons.pseudonymization_utils import (
     format_pseudonym_output,
+    scrubbed_config,
 )
 
 # Validation imports
@@ -251,6 +253,19 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         self.operation_name = self.__class__.__name__
         self.version = "1.1.0"
 
+        # Result caching is unsafe for a reversible mapping: the cache identity
+        # (data + parameters) does not cover the mapping file, its contents or
+        # the key, so a hit could return pseudonyms that the mapping table in
+        # use never issued (e.g. after changing `mapping_file`). The mapping
+        # file itself is the persistent state; there is nothing to cache.
+        if self.use_cache:
+            self.logger.warning(
+                "use_cache is ignored by ConsistentMappingPseudonymizationOperation: "
+                "pseudonyms depend on the mapping file, which the result cache "
+                "cannot identify."
+            )
+            self.use_cache = False
+
         # Store encryption key as private bytes; remove the public hex attr set by
         # the config setattr loop above to prevent accidental serialization/logging.
         # (Defense-in-depth: ConsistentMappingPseudonymizationConfig.SENSITIVE_KEYS
@@ -266,6 +281,9 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         self._mapping_storage: Optional[MappingStorage] = None
         self._mapping: Dict[str, str] = {}
         self._reverse_mapping: Dict[str, str] = {}
+        # Mappings created since the last persist; only these are written on
+        # the next persist (incremental, append-only storage).
+        self._pending_mappings: Dict[str, str] = {}
         self._new_mappings_count = 0
         self._total_new_mappings = (
             0  # cumulative; never reset (unlike _new_mappings_count)
@@ -657,6 +675,9 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                     )
                 except Exception as e:
                     self.logger.warning(f"Error generating visualizations: {str(e)}")
+                    # The data output stands, but the failed chart is reported in the result,
+                    # not only in the log.
+                    result.metrics["visualization_error"] = f"{type(e).__name__}: {e}"
             else:
                 self.logger.info(
                     "Skipping visualizations as generate_visualization is False or backend is not set"
@@ -754,6 +775,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             self._mapping_storage = None
             # Reset per-execution counters after every run (success or failure)
             # so the next execute() call starts from a clean state.
+            self._pending_mappings = {}
             self._new_mappings_count = 0
             self._total_new_mappings = 0
             self._total_lookups = 0
@@ -762,6 +784,24 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             self._lookup_time_count = 0
             self._lookup_time_mean = 0.0
             self._persist_count = 0
+
+    def _process_data_with_config(self, *args, **kwargs):
+        """
+        Run the shared chunk/parallel pipeline with a shared-memory scheduler.
+
+        Pseudonym allocation mutates this instance (mapping, counters,
+        pending entries). A Dask process or distributed scheduler would give
+        every worker a private copy: duplicate pseudonyms and nothing persisted
+        by the owner. Whatever scheduler the caller configured, Dask work for
+        this operation therefore runs on threads, which share the instance
+        (allocation is serialized by the mapping lock).
+        """
+        try:
+            import dask
+        except ImportError:  # pragma: no cover - dask is a base dependency
+            return super()._process_data_with_config(*args, **kwargs)
+        with dask.config.set(scheduler="threads"):
+            return super()._process_data_with_config(*args, **kwargs)
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
@@ -798,53 +838,73 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
 
         # Null handling is done by base class _process_data_with_config() before calling process_batch
 
-        # Pseudonymize non-null values
-        non_null_mask = working_series.notna()
-        non_null_values = working_series[non_null_mask]
+        # Pseudonymize non-null values. Rows are addressed by POSITION: index
+        # labels may repeat (a caller's frame, a concat of frames), and a
+        # label-based write would put one person's pseudonym on every row that
+        # shares the label, nulls included.
+        non_null_flags = working_series.notna().to_numpy()
+        out_values = working_series.to_numpy(dtype=object, copy=True)
+        source_values = out_values.copy()
 
-        if len(non_null_values) > 0:
-            for idx, value in non_null_values.items():
-                str_value = str(value)
+        if non_null_flags.any():
+            positions = non_null_flags.nonzero()[0]
+            # Bulk application: resolve each DISTINCT value once (in order of first
+            # appearance, so new pseudonyms are allocated exactly as a row-by-row pass
+            # would allocate them), then place the results by position. The per-row loop
+            # took the mapping lock three times and ran a clock and a running mean per row.
+            texts = pd.Series(source_values[positions], dtype=object).astype(str)
+            codes, uniques = pd.factorize(texts, sort=False)
+            counts = np.bincount(codes, minlength=len(uniques))
+            resolved = np.empty(len(uniques), dtype=object)
 
-                with self._mapping_lock:
-                    # Measure only actual lookup/generation time, not lock wait
-                    lookup_start = time.perf_counter()
-                    self._total_lookups += 1
-
-                    if str_value in self._mapping:
-                        pseudonym = self._mapping[str_value]
-                        self._mapping_hits += 1
-                    else:
-                        pseudonym = self._generate_unique_pseudonym()
-                        self._mapping[str_value] = pseudonym
-                        self._reverse_mapping[pseudonym] = str_value
-                        self._new_mappings_count += 1
-                        self._total_new_mappings += 1
-
-                    # Welford running mean: update inside lock to avoid race on mean state
-                    lookup_time = time.perf_counter() - lookup_start
-                    self._lookup_time_count += 1
-                    delta = lookup_time - self._lookup_time_mean
-                    self._lookup_time_mean += delta / self._lookup_time_count
-
-                working_series.at[idx] = pseudonym
-
-                # Persist at frequency threshold (within batch loop)
-                with self._mapping_lock:
+            with self._mapping_lock:
+                lookup_start = time.perf_counter()
+                hits = 0
+                for i, str_value in enumerate(uniques):
+                    existing = self._mapping.get(str_value)
+                    if existing is not None:
+                        resolved[i] = existing
+                        hits += int(counts[i])
+                        continue
+                    pseudonym = self._generate_unique_pseudonym()
+                    self._mapping[str_value] = pseudonym
+                    self._reverse_mapping[pseudonym] = str_value
+                    self._pending_mappings[str_value] = pseudonym
+                    self._new_mappings_count += 1
+                    self._total_new_mappings += 1
+                    resolved[i] = pseudonym
+                    hits += int(counts[i]) - 1  # later occurrences find it in the mapping
+                    # Persist at the frequency threshold, as the row-by-row pass did
                     if self._new_mappings_count >= self.persist_frequency:
                         self._persist_mappings()
+
+                n_lookups = int(len(positions))
+                self._total_lookups += n_lookups
+                self._mapping_hits += hits
+                elapsed = time.perf_counter() - lookup_start
+                # running mean of the per-lookup time, updated once per batch
+                total = self._lookup_time_count + n_lookups
+                self._lookup_time_mean = (
+                    self._lookup_time_mean * self._lookup_time_count + elapsed
+                ) / total
+                self._lookup_time_count = total
+
+            out_values[positions] = resolved[codes]
+
+        # Same index object, same row order: assign values, not an aligned Series
+        working_series = pd.Series(out_values, index=working_series.index, dtype=object)
 
         # Update the DataFrame using self.output_field_name (set in Step 3)
         if self.mode == "REPLACE":
             if self.compound_mode:
                 # Replace primary field; null out additional fields
-                batch[self.field_name] = working_series
+                batch[self.field_name] = working_series.to_numpy()
                 for field in self.additional_fields or []:
                     batch[field] = None
             else:
-                batch[self.field_name] = working_series
+                batch[self.field_name] = working_series.to_numpy()
         else:  # ENRICH
-            batch[self.output_field_name] = working_series
+            batch[self.output_field_name] = working_series.to_numpy()
 
         return batch
 
@@ -879,6 +939,22 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                     ),
                 )
 
+        if self.use_vectorization and self.parallel_processes not in (None, 1):
+            # Process workers each get a private copy of the mapping state:
+            # they would hand out the same pseudonym to different people and
+            # the parent would persist nothing. Allocation needs one owner.
+            raise InvalidParameterError(
+                param_name="parallel_processes",
+                param_value=self.parallel_processes,
+                reason=(
+                    "process-parallel execution (use_vectorization with "
+                    "parallel_processes != 1) is not supported by "
+                    "ConsistentMappingPseudonymizationOperation: the mapping "
+                    "must be allocated by a single process. Use "
+                    "parallel_processes=1 or the default chunked execution."
+                ),
+            )
+
         if self.compound_mode and not self.additional_fields:
             raise InvalidParameterError(
                 param_name="compound_mode",
@@ -911,32 +987,39 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         self._mapping_path = maps_dir / self.mapping_file
         self.logger.info(f"Mapping file path: {self._mapping_path}")
 
+        if not self.create_if_not_exists and not self._mapping_path.exists():
+            # Do not silently start a NEW mapping when the caller said the
+            # mapping must already exist (a new table would hand out fresh
+            # pseudonyms that do not match the earlier release).
+            raise PamolaFileNotFoundError(str(self._mapping_path))
+
         self._mapping_storage = MappingStorage(
             mapping_file=self._mapping_path,
             encryption_key=self._mapping_encryption_key,
             format=self.mapping_format,
             backup_on_update=self.backup_on_update,
+            create_if_missing=self.create_if_not_exists,
         )
 
         try:
-            # Load with metadata support
-            loaded_data = self._mapping_storage.load()
-
-            if isinstance(loaded_data, dict) and "_metadata" in loaded_data:
-                self._mapping = loaded_data.get("mappings", {})
-                metadata = loaded_data["_metadata"]
-                if self.pseudonym_type == "sequential":
-                    self._sequential_counter = metadata.get("last_sequential", 0)
-                    self.logger.info(
-                        f"Restored sequential counter: {self._sequential_counter}"
-                    )
-            else:
-                # Legacy format
-                self._mapping = loaded_data
-                if self.pseudonym_type == "sequential" and self._mapping:
-                    self._calculate_sequential_counter()
-
+            # The storage returns the flat original->pseudonym mapping and its
+            # metadata separately; it raises MappingIntegrityError (wrong key,
+            # corrupted or truncated file) instead of returning partial data.
+            self._mapping, metadata = self._mapping_storage.load_with_metadata()
+            self._pending_mappings = {}
             self._reverse_mapping = {v: k for k, v in self._mapping.items()}
+
+            if self.pseudonym_type == "sequential":
+                # Never reuse a number: take the larger of the stored counter
+                # and the highest number present in the loaded pseudonyms.
+                self._calculate_sequential_counter()
+                self._sequential_counter = max(
+                    self._sequential_counter, int(metadata.get("last_sequential", 0))
+                )
+                self.logger.info(
+                    f"Restored sequential counter: {self._sequential_counter}"
+                )
+
             self._generated_pseudonyms = set(self._reverse_mapping.keys())
             self.logger.info(f"Loaded {len(self._mapping)} existing mappings")
 
@@ -951,24 +1034,36 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 raise
 
     def _persist_mappings(self) -> None:
-        """Save current mappings to encrypted file."""
+        """
+        Persist the mappings created since the last persist.
+
+        Incremental: only ``_pending_mappings`` are encrypted and appended, so
+        the cost of a persist does not depend on the size of the table (the old
+        implementation re-encrypted and rewrote the whole table every
+        ``persist_frequency`` new mappings: O(n^2 / persist_frequency) in total).
+        Pending entries are cleared only after the append succeeded, so a
+        failed persist is retried with the same entries.
+        """
         with self._mapping_lock:
             try:
-                # Save with metadata
-                save_data = {
-                    "mappings": self._mapping,
-                    "_metadata": {
-                        "last_sequential": self._sequential_counter,
-                        "total_mappings": len(self._mapping),
-                        "last_updated": datetime.now().isoformat(),
-                        "pseudonym_type": self.pseudonym_type,
-                        "version": self.version,
-                    },
+                metadata = {
+                    "last_sequential": self._sequential_counter,
+                    "total_mappings": len(self._mapping),
+                    "last_updated": datetime.now().isoformat(),
+                    "pseudonym_type": self.pseudonym_type,
+                    "version": self.version,
                 }
-                self._mapping_storage.save(save_data)
+                if self._mapping_path is not None and not self._mapping_path.exists():
+                    # The file vanished since it was loaded: appending would
+                    # leave a file that lacks everything loaded earlier.
+                    self._mapping_storage.save(self._mapping, metadata)
+                else:
+                    self._mapping_storage.append(self._pending_mappings, metadata)
                 self.logger.info(
-                    f"Persisted {len(self._mapping)} mappings ({self._new_mappings_count} new)"
+                    f"Persisted {len(self._pending_mappings)} new mappings "
+                    f"({len(self._mapping)} total)"
                 )
+                self._pending_mappings = {}
                 self._new_mappings_count = 0
                 self._persist_count += 1
             except Exception as e:
@@ -1082,6 +1177,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 "encryption": "AES-256-GCM",
             },
             timing_info=timing_info,
+            include_raw_samples=self.include_raw_samples_in_metrics,
         )
 
         # Effectiveness metrics
@@ -1190,23 +1286,21 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             Whether to include metadata
         """
         with self._mapping_lock:
-            # Always include metadata for proper restore
-            export_data = {
-                "mappings": self._mapping,
-                "_metadata": (
-                    {
-                        "field_name": self.field_name,
-                        "pseudonym_type": self.pseudonym_type,
-                        "total_mappings": len(self._mapping),
-                        "last_sequential": self._sequential_counter,
-                        "export_timestamp": datetime.now().isoformat(),
-                        "version": self.version,
-                        "mapping_format": self.mapping_format,
-                    }
-                    if include_metadata
-                    else {}
-                ),
-            }
+            # Metadata travels in the storage's own metadata channel; the
+            # mapping itself is passed flat (no wrapper dict).
+            export_metadata = (
+                {
+                    "field_name": self.field_name,
+                    "pseudonym_type": self.pseudonym_type,
+                    "total_mappings": len(self._mapping),
+                    "last_sequential": self._sequential_counter,
+                    "export_timestamp": datetime.now().isoformat(),
+                    "version": self.version,
+                    "mapping_format": self.mapping_format,
+                }
+                if include_metadata
+                else {}
+            )
 
             # Use mapping storage with correct format
             temp_storage = MappingStorage(
@@ -1215,18 +1309,29 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 format=self.mapping_format,
                 backup_on_update=False,
             )
-            temp_storage.save(export_data)
+            temp_storage.save(self._mapping, export_metadata)
 
     def __getstate__(self):
-        # Exclude non-picklable attrs containing threading locks so Dask's
-        # _normalize_pickle determinism check can serialize this object.
-        # Actual execution uses the original in-memory instance (not the unpickled one).
+        """State for ``pickle`` / ``copy`` / Dask tokenization WITHOUT secrets.
+
+        The encryption key and the plaintext mapping (original value -> pseudonym) never
+        leave the object through serialization: they are replaced by empty values, the output
+        encryption key and the key-bearing config entries are redacted. An unpickled copy is a
+        configuration holder only; it cannot open the mapping file (no key) and must be
+        recreated with the key to run. Execution uses the original in-memory instance (the
+        scheduler is forced to threads, see ``_process_data_with_config``).
+        """
         state = self.__dict__.copy()
-        state.pop("_mapping_lock", None)  # threading.RLock — not picklable
-        state.pop("_mapping_storage", None)  # MappingStorage — contains threading.RLock
-        state.pop(
-            "_pseudonym_generator", None
-        )  # PseudonymGenerator — contains threading.Lock
+        state.pop("_mapping_lock", None)  # threading.RLock - not picklable
+        state.pop("_mapping_storage", None)  # MappingStorage - contains threading.RLock
+        state.pop("_pseudonym_generator", None)  # PseudonymGenerator - contains threading.Lock
+        state["_mapping_encryption_key"] = None
+        for name in ("_mapping", "_reverse_mapping", "_pending_mappings"):
+            state[name] = {}
+        state["_generated_pseudonyms"] = set()
+        state["encryption_key"] = None
+        if "config" in state:
+            state["config"] = scrubbed_config(state["config"])
         return state
 
     def __setstate__(self, state):

@@ -75,6 +75,16 @@ class DataAttributeProfilerOperationConfig(OperationConfig):
                         "title": "Sample Size",
                         "description": "Number of sample values to extract and inspect per column for profiling.",
                     },
+                    "include_raw_samples_in_metrics": {
+                        "type": "boolean",
+                        "default": False,
+                        "title": "Include Raw Samples In Metrics",
+                        "description": (
+                            "Diagnostic only. If true, the attribute profile and "
+                            "attribute_sample_*.json carry sample_size raw values of every "
+                            "column. WARNING: those are source values, possibly PII."
+                        ),
+                    },
                     "max_columns": {
                         "type": ["integer", "null"],
                         "minimum": 1,

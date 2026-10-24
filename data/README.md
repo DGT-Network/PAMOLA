@@ -49,4 +49,4 @@ Sample data is programmatically generated using the Python [Faker](https://faker
 
 ---
 
-**Questions:** info@realmdata.io
+**Questions:** info@realmdata.ai

@@ -235,6 +235,12 @@ operations:
     version: "1.0.0"
     description: Measure privacy risk of processed data.
 
+  - name: CVPLLinkageOperation
+    category: metrics
+    module: pamola_core.metrics.operations.cvpl_ops
+    version: "1.0.0"
+    description: Measure how far a protected release can be linked back to its source (CVPL).
+
   # ── Fake Data ──────────────────────────────────────────────────────────
   - name: FakeEmailOperation
     category: fake_data

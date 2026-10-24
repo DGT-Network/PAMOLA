@@ -7,20 +7,20 @@
 
 ## Overview
 
-`RiskInterpreter` translates numeric risk values into human-readable assessments. It provides context-aware interpretation based on domain and regulatory requirements.
+`RiskInterpreter` translates numeric risk values into human-readable assessments. It provides context-aware interpretation based on the data domain and a caller-chosen l-diversity threshold. Results are technical evidence; no law or regulation is mapped to a threshold and nothing here is a statement of legal compliance.
 
 **Location:** `pamola_core/privacy_models/l_diversity/interpretation.py`
 
 ## Core Methods
 
-### __init__(domain="general", regulation=None, custom_thresholds=None)
+### __init__(domain="general", l_threshold=3, custom_thresholds=None)
 
 **Signature:**
 ```python
 def __init__(
     self,
     domain: str = "general",
-    regulation: str = None,
+    l_threshold: int = 3,
     custom_thresholds: Dict[str, List[float]] = None
 ):
 ```
@@ -30,7 +30,7 @@ def __init__(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `domain` | str | "general" | Domain context (healthcare, finance, education, telecom) |
-| `regulation` | str | None | Regulatory framework (GDPR, HIPAA, CCPA, PIPEDA, APPI) |
+| `l_threshold` | int | 3 | l-diversity threshold used by `interpret_threshold()`; chosen by the caller |
 | `custom_thresholds` | Dict | None | Custom risk thresholds |
 
 ## Supported Domains
@@ -59,7 +59,7 @@ from pamola_core.privacy_models.l_diversity.interpretation import RiskInterprete
 # Healthcare-specific interpretation
 interpreter = RiskInterpreter(
     domain='healthcare',
-    regulation='HIPAA'
+    l_threshold=4
 )
 
 risk_score = 25.5
@@ -67,15 +67,14 @@ interpretation = interpreter.interpret_risk(risk_score)
 
 print(f"Risk Score: {risk_score}")
 print(f"Level: {interpretation['level']}")
-print(f"Compliant: {interpretation['regulatory_compliant']}")
+print(f"Threshold check: {interpreter.interpret_threshold(2.0)['threshold_met']}")
 ```
 
 ### Example 2: Financial Data Interpretation
 
 ```python
 interpreter = RiskInterpreter(
-    domain='finance',
-    regulation='None'
+    domain='finance'
 )
 
 # Financial data requires stricter thresholds
@@ -99,19 +98,20 @@ interpreter = RiskInterpreter(custom_thresholds=custom_thresholds)
 interpretation = interpreter.interpret_risk(18.5)
 ```
 
-### Example 4: Regulatory Compliance Check
+### Example 4: Threshold Check
 
 ```python
-interpreter = RiskInterpreter(regulation='GDPR')
+interpreter = RiskInterpreter(l_threshold=3)
 
 # Check multiple attributes
-for attr, risk_score in attribute_risks.items():
-    interp = interpreter.interpret_risk(risk_score, attribute=attr)
+for attr, min_l in attribute_min_l.items():
+    check = interpreter.interpret_threshold(min_l, 'distinct')
 
-    if interp['regulatory_compliant']:
-        print(f"✓ {attr}: GDPR compliant")
+    if check['threshold_met']:
+        print(f"✓ {attr}: risk within the configured threshold")
     else:
-        print(f"✗ {attr}: GDPR non-compliant (risk={risk_score:.1f}%)")
+        print(f"✗ {attr}: below the configured threshold (l={min_l})")
+    # A threshold check is technical evidence, not a legal determination.
 ```
 
 ## Risk Interpretation Levels
@@ -126,12 +126,12 @@ Note: Thresholds vary by domain and regulation.
 
 ## Best Practices
 
-1. **Match Domain and Regulation:**
+1. **Match the domain and choose the threshold deliberately:**
    ```python
-   # For HIPAA-covered healthcare data
+   # Healthcare data, stricter l chosen by the data owner
    interpreter = RiskInterpreter(
        domain='healthcare',
-       regulation='HIPAA'
+       l_threshold=4
    )
    ```
 
@@ -143,14 +143,13 @@ Note: Thresholds vary by domain and regulation.
        print(f"{attr}: {interp['level']}")
    ```
 
-3. **Document Regulatory Compliance:**
+3. **Record the threshold result as evidence (not as a compliance verdict):**
    ```python
-   interpreter = RiskInterpreter(regulation='GDPR')
+   interpreter = RiskInterpreter(l_threshold=3)
 
-   for attr, risk_score in risks.items():
-       interp = interpreter.interpret_risk(risk_score)
-       compliance_status = 'COMPLIANT' if interp['regulatory_compliant'] else 'NON-COMPLIANT'
-       print(f"{attr}: {compliance_status} (GDPR)")
+   for attr, min_l in min_l_by_attribute.items():
+       check = interpreter.interpret_threshold(min_l)
+       print(f"{attr}: threshold {'met' if check['threshold_met'] else 'not met'} (l >= 3)")
    ```
 
 4. **Use for Risk Communication:**

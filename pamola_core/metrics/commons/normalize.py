@@ -175,6 +175,35 @@ def normalize_array_sklearn(data: np.ndarray, method: str = "zscore") -> np.ndar
         )
 
 
+def normalize_pair_sklearn(
+    first: np.ndarray, second: np.ndarray, method: Any = "zscore"
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Normalize two arrays that will be COMPARED, with one shared transformation.
+
+    ``zscore`` and ``minmax`` are fitted on the concatenation of both arrays and applied to
+    each; fitting them per array would give both the same mean / spread and erase exactly the
+    shift or scale difference the comparison is meant to measure. ``probability`` (and
+    ``none``) are per-distribution by definition and are applied to each array on its own.
+    """
+    if method in [False, "none"]:
+        return first, second
+    if method in [True, "zscore"]:
+        combined = np.concatenate([first, second]).astype(float)
+        spread = np.std(combined)
+        if spread == 0:
+            return first, second
+        mean = np.mean(combined)
+        return (first - mean) / spread, (second - mean) / spread
+    if method == "minmax":
+        combined = np.concatenate([first, second]).astype(float)
+        low, span = np.min(combined), np.ptp(combined)
+        if span == 0:
+            return first, second
+        return (first - low) / span, (second - low) / span
+    return normalize_array_sklearn(first, method), normalize_array_sklearn(second, method)
+
+
 def round_metric_values(metrics: Dict[str, Any], decimals: int = 2) -> Dict[str, Any]:
     """
     Round numeric values in a metrics dictionary for better readability.

@@ -55,6 +55,12 @@ include =
     pamola_core/metrics/operations/fidelity_ops.py
     pamola_core/metrics/operations/privacy_ops.py
     pamola_core/metrics/operations/utility_ops.py
+    pamola_core/metrics/operations/cvpl_ops.py
+    pamola_core/metrics/privacy/cvpl/__init__.py
+    pamola_core/metrics/privacy/cvpl/compat.py
+    pamola_core/metrics/privacy/cvpl/config.py
+    pamola_core/metrics/privacy/cvpl/engine.py
+    pamola_core/metrics/privacy/cvpl/projection.py
     pamola_core/metrics/commons/validation_rules.py
     pamola_core/metrics/commons/schema_manager.py
     pamola_core/metrics/commons/__init__.py

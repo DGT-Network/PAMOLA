@@ -68,6 +68,11 @@ from threading import Lock
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.metric_utils import (
     calculate_suppression_metrics,
@@ -656,6 +661,9 @@ class CellSuppressionOperation(AnonymizationOperation):
         Union[pd.DataFrame, Dict[str, pd.DataFrame]]
             The processed DataFrame, or a dictionary of DataFrames if applicable.
         """
+        if isinstance(input_data, pd.DataFrame) and len(input_data) == 0:
+            return self._process_empty(input_data, reporter=reporter)
+
         if self.use_dask and self.npartitions > 1:
             return self._process_with_dask(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
@@ -670,6 +678,38 @@ class CellSuppressionOperation(AnonymizationOperation):
             return self._process_with_pandas(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
             )
+
+    def _process_empty(
+        self, input_data: pd.DataFrame, reporter: Optional[Any] = None
+    ) -> Tuple[pd.Series, pd.DataFrame]:
+        """
+        Handle a 0-row DataFrame: nothing to suppress, schema is preserved.
+
+        A 0-row frame is a normal shape (an upstream filter removed every
+        record). Every engine below chunks the input and concatenates the
+        chunks, and concatenating no chunks raises, so the empty case is
+        answered here, once, with an empty mask and the (ENRICH-aware) schema.
+        """
+        self._batch_number = 0
+        self._cells_suppressed = 0
+        self._total_cells_processed = 0
+        self._non_null_cells_processed = 0
+        self._suppression_by_strategy = {}
+
+        output_data = input_data.copy(deep=True)
+        if self.mode == "ENRICH" and self.output_field_name:
+            output_data[self.output_field_name] = output_data[self.field_name]
+
+        self.logger.warning(
+            f"{self.operation_name}: input has 0 rows, nothing to suppress"
+        )
+        if reporter:
+            reporter.add_operation(
+                f"Operation {self.operation_name}",
+                status="info",
+                details={"message": "Input has 0 rows, nothing to suppress"},
+            )
+        return pd.Series(False, index=input_data.index, dtype=bool), output_data
 
     def _process_with_pandas(
         self,
@@ -1274,7 +1314,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 self.logger.error(
                     f"Failed to create comparison visualization: {viz_path}"
                 )
-                return None
+                raise RuntimeError(f"comparison visualization failed: {viz_path}")
 
             # Create histogram if numeric data
             if pd.api.types.is_numeric_dtype(original_series):
@@ -1293,24 +1333,26 @@ class CellSuppressionOperation(AnonymizationOperation):
                     if not hist_path.startswith("Error"):
                         result.add_artifact(
                             artifact_type="png",
-                            path=viz_path,
+                            path=hist_path,
                             description="Generated histogram visualization",
                             category=Constants.Artifact_Category_Visualization,
                         )
                     else:
                         self.logger.error(
-                            f"Failed to create histogram visualization: {viz_path}"
+                            f"Failed to create histogram visualization: {hist_path}"
                         )
-                        return None
+                        raise RuntimeError(f"histogram visualization failed: {hist_path}")
 
                 except Exception as e:
                     self.logger.warning(f"Failed to generate visualization: {e}")
+                    raise
 
             return viz_path
 
         except Exception as e:
+            # reported by the caller in result.metrics["visualization_error"]
             self.logger.error(f"Failed to generate visualization: {e}")
-            return None
+            raise
 
     def _handle_visualizations(
         self,
@@ -1343,7 +1385,6 @@ class CellSuppressionOperation(AnonymizationOperation):
             Timestamp string for file naming.
         """
         import threading
-        import contextvars
 
         step = "Generate visualizations"
         self.logger.info(
@@ -1374,7 +1415,8 @@ class CellSuppressionOperation(AnonymizationOperation):
                     1, {"step": step, "operation": self.operation_name}
                 )
 
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
+            artifacts_before = len(result.artifacts)
             thread = threading.Thread(
                 target=ctx.run,
                 args=(run_visualizations,),
@@ -1383,22 +1425,19 @@ class CellSuppressionOperation(AnonymizationOperation):
             )
 
             thread.start()
-            thread.join(timeout=self.visualization_timeout)
-
-            if thread.is_alive():
-                self.logger.warning(
-                    f"[VIZ] Visualization thread timed out after {self.visualization_timeout}s"
+            if not wait_for_render(
+                thread, render_run, getattr(self, "visualization_timeout", None), self.logger
+            ):
+                # nothing from an abandoned run is reported
+                del result.artifacts[artifacts_before:]
+                viz_error = VisualizationTimeoutError(
+                    "visualization did not finish within "
+                    f"{render_run.limit:g}s"
                 )
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="warning",
-                        details={
-                            "step": "Generate visualizations",
-                            "message": f"Visualization thread timed out after {self.visualization_timeout}s",
-                        },
-                    )
-            elif viz_error:
+
+            if viz_error:
+                # Rendering is part of execute(): a failure is recorded in the result.
+                self._record_visualization_failure(result, viz_error)
                 self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
                 if reporter:
                     reporter.add_operation(
@@ -1903,11 +1942,20 @@ def apply_suppression_strategy(
 
     elif strategy == "constant":
         try:
-            suppression_value_casted = np.array([suppression_value]).astype(
-                original_dtype
-            )[0]
+            if isinstance(original_dtype, pd.CategoricalDtype):
+                # casting to a categorical dtype maps a value outside its categories to NaN
+                suppression_value_casted = suppression_value
+            else:
+                suppression_value_casted = np.array([suppression_value]).astype(
+                    original_dtype
+                )[0]
         except Exception:
             suppression_value_casted = suppression_value
+        if isinstance(original_dtype, pd.CategoricalDtype):
+            # The engine turns text columns of large frames into "category". A constant that
+            # is not one of the categories cannot be assigned to it, and batches that gained
+            # different categories cannot be compared or concatenated; work on plain values.
+            batch[working_field] = batch[working_field].astype(object)
         batch.loc[batch_mask, working_field] = suppression_value_casted
 
     elif strategy == "group_mean":
@@ -1959,6 +2007,8 @@ def apply_suppression_strategy(
     try:
         if pd.api.types.is_numeric_dtype(original_dtype):
             batch[working_field] = pd.to_numeric(batch[working_field], errors="coerce")
+        elif isinstance(original_dtype, pd.CategoricalDtype) and strategy == "constant":
+            pass  # converted to plain values above; casting back would turn the constant into NaN
         else:
             batch[working_field] = batch[working_field].astype(
                 original_dtype, errors="ignore"

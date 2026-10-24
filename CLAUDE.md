@@ -31,7 +31,7 @@ python -m build
 pamola-core --help
 ```
 
-Installing pulls `torch`, `sdv`, `spacy`, `faiss-cpu`, `dask[complete]` — expect a multi-GB install.
+Installing pulls `spacy`, `faiss-cpu`, `dask[complete]`, `scikit-learn` and the rest of the pinned runtime set (`torch` and `sdv` were removed in 1.0.0.dev4) — expect a large install (hundreds of MB).
 
 ## What this is
 

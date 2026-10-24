@@ -1,11 +1,11 @@
 # PAMOLA.CORE
 
 <p align="center">
-  <img src="https://realmdata.io/assets/img/logos/pamola-logo.png" alt="PAMOLA Logo" width="300"/>
+  <img src="https://realmdata.ai/assets/img/logos/pamola-logo.png" alt="PAMOLA Logo" width="300"/>
 </p>
 
 <p align="center">
-  <a href="https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD%203--Clause-blue.svg"></a>
+  <a href="https://github.com/realmdata-ai/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD%203--Clause-blue.svg"></a>
   <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10--3.12-blue.svg"></a>
   <a href="https://pypi.org/project/pamola-core/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-1.0.0.dev4-orange.svg"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-active%20development-orange.svg">
@@ -17,7 +17,7 @@
 
 **PAMOLA.CORE** is the open-source foundation of the PAMOLA platform — a Python library for **privacy-preserving data operations** with reproducible pipelines, structured artifacts, and an audit trail per operation.
 
-Developed by **[Realm Inveo Inc.](https://realmdata.io)**
+Developed by **[Realm Inveo Inc.](https://realmdata.ai)**
 
 ---
 
@@ -119,10 +119,10 @@ All classes below are exported from the top-level `pamola_core` package.
 | **Profiling — Dataset-level** | `KAnonymityProfilerOperation`, `DataAttributeProfilerOperation` |
 | **Transformation** | `AddOrModifyFieldsOperation`, `RemoveFieldsOperation`, `CleanInvalidValuesOperation`, `ImputeMissingValuesOperation`, `AggregateRecordsOperation`, `MergeDatasetsOperation`, `SplitByIDValuesOperation`, `SplitFieldsOperation` |
 | **Fake Data** | `FakeNameOperation`, `FakeEmailOperation`, `FakePhoneOperation`, `FakeOrganizationOperation` |
-| **Metrics** | `FidelityOperation` (KS, KL-divergence), `PrivacyMetricOperation` (DCR, NNDR, uniqueness, k-anonymity, l-diversity), `UtilityMetricOperation` (classification, regression) |
+| **Metrics** | `FidelityOperation` (KS, KL-divergence), `PrivacyMetricOperation` (DCR, NNDR, uniqueness, k-anonymity, l-diversity), `CVPLLinkageOperation` (blocked, projected linkage exposure of a release against its source; see [docs](docs/en/core/metrics/privacy/cvpl.md)), `UtilityMetricOperation` (classification, regression) |
 | **Analysis helpers** | `analyze_dataset_summary`, `analyze_descriptive_stats`, `analyze_correlation`, `visualize_distribution_df`, `calculate_full_risk` |
 
-> **Note on attack simulation:** `pamola_core/attacks/` is an **internal** package with no stability guarantee, and it is deliberately narrow — it carries only the attacks that measure *anonymization* quality: `LinkageAttack` (including the CVPL variant) and `AttributeInference`. There are no public, registered `Attack*Operation` classes.
+> **Note on attack simulation:** `pamola_core/attacks/` is an **internal** package with no stability guarantee, and it is deliberately narrow — it carries only the attacks that measure *anonymization* quality: `LinkageAttack` (its TF-IDF / SVD "CVPLA" variant, which is **not** the CVPL metric below) and `AttributeInference`. The CVPL linkage metric lives in `pamola_core.metrics.privacy.cvpl` and is run through `CVPLLinkageOperation`. There are no public, registered `Attack*Operation` classes.
 >
 > Two corrections to earlier releases of this note. These modules are **not** used by `PrivacyMetricOperation` — that operation imports `pamola_core.metrics.privacy`. And DCR/NNDR live in `pamola_core.metrics.privacy.distance` and `.neighbor`; duplicate copies that had accumulated under `attacks/` were removed, as was membership inference, which measures model privacy rather than anonymization.
 >
@@ -200,7 +200,7 @@ pip install --pre pamola-core
 **From source:**
 
 ```bash
-git clone https://github.com/DGT-Network/PAMOLA.git
+git clone https://github.com/realmdata-ai/PAMOLA.git
 cd PAMOLA
 pip install -e .
 ```
@@ -224,8 +224,16 @@ DependencyMissingError: no visualization backend is installed ...
 They ship with the viz extra: pip install 'pamola-core[viz]'
 ```
 
-Operations that can draw accept `generate_visualization=False` and run normally
-on a base install.
+Visualization is **off by default**: operations only draw when you pass
+`generate_visualization=True`. A default run starts no render thread, writes no
+plot files and logs nothing about charts, with or without the `viz` extra. With
+`generate_visualization=True` the charts are written and registered as
+artifacts before `execute()` returns; on a base install that request returns a
+single `ERROR` result naming `pip install 'pamola-core[viz]'` instead of running
+and logging a traceback from every layer of the plotting stack.
+
+> **Behaviour change before `1.0.0`:** `generate_visualization` used to default to
+> `True`. Pass `generate_visualization=True` to keep the old behaviour.
 
 **Test extras:**
 
@@ -315,13 +323,13 @@ Run `pamola-core --help` for the full command list.
 
 ## Examples
 
-Hands-on notebooks live under [`examples/`](https://github.com/DGT-Network/PAMOLA/tree/main/examples):
+Hands-on notebooks live under [`examples/`](https://github.com/realmdata-ai/PAMOLA/tree/main/examples):
 
 - `examples/anonymization/pseudonymization/` — simple + advanced for hash-based and consistent-mapping pseudonymization
 - `examples/anonymization/` — masking, generalization, noise, suppression
 - `examples/profiling/` — field-level and dataset-level profilers
 - `examples/transformations/` — merge, split, aggregate, clean, impute
-- `examples/fake_data/` — synthetic identity, email, phone, organization
+- `examples/fake_data/` — fake-value substitution for names, email, phone, organization (replacement values, reproducible when a key is given; not synthetic data)
 - `examples/metrics/` — fidelity, privacy, utility metrics
 - `examples/data_examples/sample.csv` — non-PII synthetic sample used by the notebooks
 
@@ -354,20 +362,41 @@ make html        # output: docs/_build/html/index.html
 | Resource | Link |
 |----------|------|
 | **PET Knowledge Base** | [realmdata.io/kb](https://realmdata.io/kb/index.html) |
-| **Technical Documentation** | [docs/en/index.md](https://github.com/DGT-Network/PAMOLA/blob/main/docs/en/index.md) |
-| **Glossary** | [realmdata.io/glossary](https://realmdata.io/pages/glossary.html) |
-| **Examples** | [`examples/`](https://github.com/DGT-Network/PAMOLA/tree/main/examples) |
+| **Technical Documentation** | [docs/en/index.md](https://github.com/realmdata-ai/PAMOLA/blob/main/docs/en/index.md) |
+| **Glossary** | [realmdata.io/glossary](https://realmdata.ai/pages/glossary.html) |
+| **Examples** | [`examples/`](https://github.com/realmdata-ai/PAMOLA/tree/main/examples) |
 | **Changelog** | [CHANGELOG.md](CHANGELOG.md) |
 
 ---
 
 ## Use Cases
 
-- **Data Engineering:** Prepare privacy-safe datasets for ML training.
-- **Healthcare:** HIPAA-oriented de-identification workflows (Safe Harbor support).
-- **Finance:** Privacy engineering aligned with PCI/GDPR considerations.
-- **Compliance:** Audit-ready evidence with structured per-operation artifacts.
+- **Data Engineering:** Prepare pseudonymized or masked datasets for ML training pipelines.
+- **Healthcare:** Building blocks (masking, generalization, suppression) for de-identification workflows; whether a result meets HIPAA Safe Harbor or Expert Determination is for the data owner to establish.
+- **Finance:** Privacy-engineering building blocks that can support PCI/GDPR programs.
+- **Compliance:** Structured per-operation artifacts that can serve as technical evidence in a compliance process.
 - **Data Sharing:** Risk-assessed data exchange between organizations.
+
+---
+
+## What the terms mean here
+
+Privacy-engineering vocabulary is used loosely in the industry. This is what PAMOLA.CORE 1.0 means by each term, what it provides for it, and what it does **not** claim. The definitions follow the 1.0 specification.
+
+| Term | What it means in CORE | What CORE provides | What CORE does **not** claim |
+|---|---|---|---|
+| **Anonymization process** | A workflow you run and evidence you collect: profile the data, transform it, measure the residual risk, repeat. | Operations for each step (profiling, generalization, suppression, masking, pseudonymization, noise, metrics) and per-run artifacts (`config.json`, metrics, reports). | That any single operation, or the whole pipeline, makes data anonymous. The decision that a dataset is anonymous belongs to you and your organization, on the evidence you collect. |
+| **De-identification** | Removing or replacing direct identifiers (names, e-mails, phone numbers, account numbers) so a record no longer names a person. | Suppression, masking, pseudonymization and generalization operations; profilers that help find direct identifiers and quasi-identifiers. | That removing direct identifiers is enough. Quasi-identifiers (age, geography, dates, occupation) can still single a person out; the k-anonymity profiler and the privacy metrics measure that, they do not prove it away. |
+| **Masking** | Hiding all or part of a value's original representation (`FullMaskingOperation`, `PartialMaskingOperation`). | Full masking and partial masking (keep a configurable prefix and suffix, mask the rest). | Irreversibility against a motivated attacker: a masked value that keeps its length, format or a prefix still carries information. |
+| **Pseudonymization** | Replacing an identifier with a consistent substitute while keeping the ability to link records. `HashBasedPseudonymizationOperation` (salted hash) and `ConsistentMappingPseudonymizationOperation` (encrypted, reversible mapping file). | Consistent substitutes; for the mapping variant, a mapping file encrypted with a key you supply. | That pseudonymized data is anonymous. It is not: the linkage capability is the point, and the mapping file (or the hash key) is the re-identification key. Protect it as such. |
+| **Uniform (non-DP) noise** | Random perturbation drawn from a uniform distribution to reduce precision (`UniformNumericNoiseOperation`, `UniformTemporalNoiseOperation`). | Bounded, seeded perturbation of numeric and temporal fields. | Any differential-privacy guarantee. There is no sensitivity analysis, no epsilon, no privacy budget. Uniform noise reduces precision; it does not give a formal bound on what an attacker learns. |
+| **Differential Privacy (DP)** | A formal guarantee, defined by a privacy parameter epsilon, on the output of a randomized mechanism. | Nothing. CORE 1.0 does not ship a differential-privacy mechanism, epsilon accounting or DP training. | Any DP property. Do not describe CORE output as differentially private. |
+| **Fake-value substitution** | Replacing values with plausible generated ones (`FakeNameOperation`, `FakeEmailOperation`, `FakePhoneOperation`, `FakeOrganizationOperation`). | Deterministic generators (seeded, reproducible), consistent per source value when requested. | That the substituted dataset is a statistically faithful or anonymous version of the original. It is the original rows with some fields replaced. |
+| **Synthetic data** | A new dataset produced by a model trained on the original (GAN, copula, diffusion and similar). | Nothing for generation: CORE 1.0 does not generate synthetic data. It does measure how close a synthetic dataset is to its source (`PrivacyMetricOperation`: DCR, NNDR; `FidelityOperation`; `UtilityMetricOperation`) and a basic linkability measure (CVPL), so you can evaluate data produced by other tools. | That a dataset is private because it is synthetic. The metrics are evidence, not a verdict. |
+
+### Privacy metrics are evidence, not determinations
+
+The metrics in CORE (k-anonymity and uniqueness profilers, distance to closest record, nearest-neighbour distance ratio, fidelity and utility metrics, and the CVPL linkability measure) report measurements. None of them decides that data is legally anonymous, compliant with a regulation, or safe to release, and none of their wording should be read that way. See the [regulatory evidence map](docs/en/core/regulatory_evidence_map.md) for what each measurement does and does not establish.
 
 ---
 
@@ -377,18 +406,18 @@ PAMOLA.CORE provides technical building blocks for privacy compliance programs:
 
 | Regulation | Relevant Capabilities |
 |------------|----------------------|
-| **GDPR** | Pseudonymization (reversible / irreversible), data minimization (Art. 25, 32) |
-| **HIPAA** | Safe Harbor de-identification support |
+| **GDPR** | Pseudonymization (reversible / irreversible) and data-minimization techniques relevant to Art. 25 and 32 |
+| **HIPAA** | Masking, generalization and suppression operations that can be used in a de-identification process |
 | **CCPA/CPRA** | Data suppression, masking, anonymization workflows |
 
-> **Important:** PAMOLA.CORE provides technical capabilities only. Legal compliance requires organizational policies, procedures, and legal guidance beyond software tools.
+> **Important:** PAMOLA.CORE provides technical capabilities only. It never certifies that a dataset is anonymous, de-identified, or compliant with GDPR, HIPAA, CCPA/CPRA or any other regime, and a successful run is not such a determination. Privacy metrics are evidence inputs to a regulated process; legal compliance requires organizational policies, procedures, and legal guidance beyond software tools. Pseudonymized data remains personal data under GDPR.
 
 ---
 
 ## Contributing
 
 ```bash
-git clone https://github.com/DGT-Network/PAMOLA.git
+git clone https://github.com/realmdata-ai/PAMOLA.git
 cd PAMOLA
 pip install -e ".[test]"
 pytest tests/ -v
@@ -400,11 +429,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Ownership & Licensing
 
-**PAMOLA.CORE** is developed and owned exclusively by **[Realm Inveo Inc.](https://realmdata.io)**
-
-This repository is hosted under the DGT-Network GitHub organization, which provides shared development infrastructure for Realm Inveo projects. **DGT-Network does not claim ownership of this intellectual property.** All IP rights belong exclusively to Realm Inveo Inc.
-
-**License:** BSD 3-Clause — see [LICENSE](https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE).
+PAMOLA.CORE is maintained by Realm Inveo Inc. and distributed under the BSD 3-Clause License. See [LICENSE](LICENSE) for applicable copyright notices and license terms.
 
 ---
 
@@ -412,13 +437,13 @@ This repository is hosted under the DGT-Network GitHub organization, which provi
 
 | Purpose | Contact |
 |---------|---------|
-| **General inquiries** | [contact@realmdata.io](mailto:contact@realmdata.io) |
-| **Commercial / Sales** | [sales@realmdata.io](mailto:sales@realmdata.io) |
-| **Due diligence / Legal** | [legal@realmdata.io](mailto:legal@realmdata.io) |
-| **Website** | [realmdata.io](https://realmdata.io) |
+| **General inquiries** | [contact@realmdata.ai](mailto:contact@realmdata.ai) |
+| **Commercial / Sales** | [sales@realmdata.ai](mailto:sales@realmdata.ai) |
+| **Due diligence / Legal** | [legal@realmdata.ai](mailto:legal@realmdata.ai) |
+| **Website** | [realmdata.io](https://realmdata.ai) |
 
 ---
 
 <p align="center">
-  <sub>Built by <a href="https://realmdata.io">Realm Inveo Inc.</a></sub>
+  <sub>Built by <a href="https://realmdata.ai">Realm Inveo Inc.</a></sub>
 </p>

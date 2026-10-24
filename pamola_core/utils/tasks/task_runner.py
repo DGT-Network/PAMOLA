@@ -59,6 +59,7 @@ from pamola_core.metrics import (
     FidelityOperation,
     UtilityMetricOperation,
     PrivacyMetricOperation,
+    CVPLLinkageOperation,
 )
 
 
@@ -198,6 +199,7 @@ class TaskRunner(BaseTask):
             FidelityOperation.__name__,
             UtilityMetricOperation.__name__,
             PrivacyMetricOperation.__name__,
+            CVPLLinkageOperation.__name__,
         ]
 
         self.operations_not_include_field_name: List[str] = [
@@ -217,6 +219,7 @@ class TaskRunner(BaseTask):
             FidelityOperation.__name__,
             UtilityMetricOperation.__name__,
             PrivacyMetricOperation.__name__,
+            CVPLLinkageOperation.__name__,
         ]
 
     def add_to_operations_sequence(self, class_name: str) -> None:
@@ -246,9 +249,11 @@ class TaskRunner(BaseTask):
             field (str, optional): Single target field
         """
 
+        from pamola_core.utils.redaction import redact_sensitive_parameters
+
         self.lst_result.append(
             {
-                "parameters": parameters,
+                "parameters": redact_sensitive_parameters(parameters),
                 "class_name": class_name,
                 "dataset_name": operation.get("dataset_name", "main"),
                 "operation_type": operation_type,

@@ -105,8 +105,18 @@ def process_dataframe_using_dask(
             processed_partition = process_function(partition.copy(deep=True))
             return processed_partition
 
-        # Apply to Dask DataFrame
-        processed_partitions = ddf.map_partitions(process_partition)
+        # Apply to Dask DataFrame. Supply `meta` from an EMPTY frame so graph
+        # construction never runs `process_function` on Dask's fabricated
+        # sample rows (for stateful operations that would allocate and persist
+        # a phantom entry such as 'a' -> '000001').
+        try:
+            meta = process_function(ddf._meta.copy(deep=True)).iloc[0:0]
+        except Exception:
+            meta = None
+        if meta is not None:
+            processed_partitions = ddf.map_partitions(process_partition, meta=meta)
+        else:
+            processed_partitions = ddf.map_partitions(process_partition)
 
         task_logger.info(
             f"Processing completed for {total_rows} rows in {npartitions} partitions"
@@ -235,7 +245,9 @@ def process_dataframe_using_joblib(
             task_logger.warning("Some chunks failed to process.")
             return df, False
 
-        return pd.concat(processed_chunks, ignore_index=True), True
+        # Keep the caller's index labels: downstream metrics align original and
+        # processed records by index (SRS 6.3).
+        return pd.concat(processed_chunks), True
     except Exception as e:
         task_logger.error(f"Error during process using Joblib: {str(e)}")
         task_logger.warning("Returning as is")
@@ -331,7 +343,9 @@ def process_dataframe_using_chunk(
             task_logger.warning("Some chunks failed to process.")
             return df, False
 
-        return pd.concat(processed_chunks, ignore_index=True), True
+        # Keep the caller's index labels: downstream metrics align original and
+        # processed records by index (SRS 6.3).
+        return pd.concat(processed_chunks), True
     except Exception as e:
         # Catch any error that occurs during the entire processing loop
         task_logger.error(f"Error during process using chunk: {str(e)}")

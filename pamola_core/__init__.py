@@ -65,6 +65,7 @@ __all__ = [
     "SplitByIDValuesOperation",
     "SplitFieldsOperation",
     # metrics
+    "CVPLLinkageOperation",
     "FidelityOperation",
     "UtilityMetricOperation",
     "PrivacyMetricOperation",
@@ -160,6 +161,7 @@ from pamola_core.transformations import (
 
 # ── metrics ────────────────────────────────────────────────────────────────
 from pamola_core.metrics import (
+    CVPLLinkageOperation,
     FidelityOperation,
     PrivacyMetricOperation,
     RuleCode,

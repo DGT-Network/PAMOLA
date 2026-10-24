@@ -20,6 +20,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 __all__ = [
     # operations/
+    "CVPLLinkageOperation",
     "FidelityOperation",
     "PrivacyMetricOperation",
     "UtilityMetricOperation",
@@ -30,6 +31,8 @@ __all__ = [
     "calculate_provisional_risk",
     "calculate_predicted_utility",
 ]
+
+from pamola_core.metrics.operations.cvpl_ops import CVPLLinkageOperation
 
 from pamola_core.metrics.operations.fidelity_ops import FidelityOperation
 

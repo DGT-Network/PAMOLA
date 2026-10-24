@@ -40,7 +40,7 @@ default — so `0.0.1`, being the only *final* release, wins.
 
 The stub additionally declares `License-Expression: LicenseRef-Proprietary`
 against the project's BSD-3-Clause, and points its `Project-URL` entries at
-`github.com/realminveo/pamola-core` rather than `github.com/DGT-Network/PAMOLA`.
+`github.com/realminveo/pamola-core` rather than `github.com/realmdata-ai/PAMOLA`.
 
 ---
 

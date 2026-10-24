@@ -158,7 +158,7 @@ class MaskingPatterns:
             regex=r"^(\d{4})-?(\d{4})-?(\d{4})-?(\d{4})$",
             mask_groups=[2, 3],
             preserve_groups=[1, 4],
-            description="Keep first 4 and last 4 (PCI compliant)",
+            description="Keep first 4 and last 4",
             preserve_separators=True,
             validation_regex=CREDIT_CARD_REGEX,
             min_length=13,

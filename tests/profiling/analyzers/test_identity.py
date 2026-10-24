@@ -508,15 +508,15 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
             mock_logger.assert_called()
 
     def test_generate_visualizations_exception_handling(self):
-        """Test _generate_visualizations handles exceptions and logs warning"""
+        """ASB-OPS-7: a failing chart is logged and re-raised so execute() can report it"""
         operation = self.operation
         with patch("pamola_core.profiling.analyzers.identity.generate_identifier_statistics_vis", side_effect=Exception("fail")), \
              patch.object(operation.logger, "warning") as mock_warn:
-            result = operation._generate_visualizations(
-                identifier_stats={"stat": 1}, consistency_analysis={}, distribution_analysis={}, cross_match_analysis={},
-                task_dir=Path("test_vis_dir"), vis_backend="matplotlib"
-            )
-            self.assertEqual(result, {})
+            with self.assertRaisesRegex(Exception, "fail"):
+                operation._generate_visualizations(
+                    identifier_stats={"stat": 1}, consistency_analysis={}, distribution_analysis={}, cross_match_analysis={},
+                    task_dir=Path("test_vis_dir"), vis_backend="matplotlib"
+                )
             mock_warn.assert_called()
 
     def test_generate_visualizations_progress_tracker(self):
@@ -598,41 +598,6 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
                 "[DIAG] Visualization failed after 0.00s: Exception: fail"
             )
             mock_error.assert_any_call("[DIAG] Stack trace:", exc_info=True)
-
-    def test_handle_visualizations_thread_timeout(self):
-        """Test _handle_visualizations handles thread timeout and logs error"""
-        operation = self.operation
-        result = MagicMock()
-        reporter = MagicMock()
-        # Simulate a long-running thread by patching threading.Thread
-        class DummyThread:
-            def __init__(self, *a, **kw):
-                self._alive = True
-                self.daemon = False
-            def start(self): pass
-            def join(self, timeout=None): pass
-            def is_alive(self): return True
-        with patch("threading.Thread", DummyThread), \
-             patch.object(operation.logger, "error") as mock_error:
-            operation._handle_visualizations(
-                result=result,
-                reporter=reporter,
-                identifier_stats={},
-                consistency_analysis={},
-                distribution_analysis={},
-                cross_match_analysis={},
-                task_dir=Path("test_vis_dir"),
-                vis_theme=None,
-                vis_backend="matplotlib",
-                vis_strict=False,
-                progress_tracker=None,
-                operation_timestamp="20250101_000000",
-                vis_timeout=0.01
-            )
-            mock_error.assert_any_call("[DIAG] Visualization thread still alive after 0.01s timeout")
-            mock_error.assert_any_call(
-                "[DIAG] Thread state: alive=True, daemon=False"
-            )
 
     def test_handle_visualizations_visualization_error(self):
         """Test _handle_visualizations logs error if visualization fails in thread"""

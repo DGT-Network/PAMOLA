@@ -28,6 +28,11 @@ import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    prepare_render_context,
+    wait_for_render,
+)
+from pamola_core.utils.redaction import redact_sensitive_parameters
 from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources,
@@ -512,6 +517,7 @@ class CategoricalOperation(FieldOperation):
                     self.logger.warning(
                         f"Operation: {self.operation_name}, Generate visualizations failed {viz_result}"
                     )
+                    self._record_visualization_failure(result, RuntimeError(viz_result))
                     if reporter:
                         reporter.add_operation(
                             f"Operation: {self.operation_name}",
@@ -785,7 +791,8 @@ class CategoricalOperation(FieldOperation):
                 viz_result_holder["result"] = f"Error: {str(e)}"
 
         try:
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
+            artifacts_before = len(result.artifacts)
             thread = threading.Thread(
                 target=ctx.run,
                 args=(run,),
@@ -793,13 +800,12 @@ class CategoricalOperation(FieldOperation):
                 daemon=True,
             )
             thread.start()
-            thread.join(timeout=self.visualization_timeout)
-
-            if thread.is_alive():
-                self.logger.warning(
-                    f"[VIZ] Visualization timed out after {self.visualization_timeout} seconds"
-                )
-                return "Error: Visualization thread timeout"
+            # Rendering is part of execute(): the wait is bounded, and an abandoned
+            # worker can no longer write (see render_guard).
+            timeout = getattr(self, "visualization_timeout", None)
+            if not wait_for_render(thread, render_run, timeout, self.logger):
+                del result.artifacts[artifacts_before:]
+                return f"Error: visualization did not finish within {render_run.limit:g}s"
             return viz_result_holder["result"]
 
         except Exception as e:
@@ -1093,7 +1099,7 @@ def analyze_categorical_fields(
         Additional parameters for the operations:
         - top_n: int, number of top values to include in results (default: 15)
         - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
-        - generate_visualization: bool, whether to generate visualization (default: True)
+        - generate_visualization: bool, whether to generate visualization (default: False)
         - profile_type: str, type of profiling for organizing artifacts (default: 'categorical')
 
     Returns
@@ -1162,11 +1168,13 @@ def analyze_categorical_fields(
                 "fields": cat_fields,
                 "top_n": top_n,
                 "min_frequency": min_frequency,
-                "parameters": {
-                    k: v
-                    for k, v in kwargs.items()
-                    if isinstance(v, (str, int, float, bool))
-                },
+                "parameters": redact_sensitive_parameters(
+                    {
+                        k: v
+                        for k, v in kwargs.items()
+                        if isinstance(v, (str, int, float, bool))
+                    }
+                ),
             },
         )
 

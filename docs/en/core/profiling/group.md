@@ -164,7 +164,7 @@ result = analyze_resume_group_variation(
 | `reporter` | Any | Yes | - | Reporter object for tracking artifacts |
 | `progress_tracker` | HierarchicalProgressTracker | No | None | Progress tracking object |
 | `title_prefix` | str | No | "Group" | Prefix for plot titles |
-| `generate_visualization` | bool | No | True | Whether to create visualizations |
+| `generate_visualization` | bool | No | False | Whether to create visualizations |
 | `save_details` | bool | No | True | Whether to save detailed group information |
 | `handle_nulls` | str | No | "as_value" | How to handle nulls ('as_value', 'exclude') |
 | `analyze_collapsibility` | bool | No | True | Whether to analyze group collapsibility |

@@ -52,6 +52,7 @@ from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.exceptions import (
     DataError,
     InvalidParameterError,
+    ResourceError,
     ValidationError,
 )
 
@@ -227,7 +228,7 @@ class PrivacyMetricOperation(MetricsOperation):
         )
 
         for metric_type in privacy_metrics:
-            params = metric_params.get(metric_type, {})
+            params = dict(metric_params.get(metric_type, {}))
 
             try:
                 if progress_tracker:
@@ -269,9 +270,15 @@ class PrivacyMetricOperation(MetricsOperation):
                             "params": params,
                         },
                     )
-                self.logger.info(f"Calculated {metric_type.upper()} metric: {result}")
+                self.logger.info(
+                    f"Calculated {metric_type.upper()} metric: {self._log_summary(result)}"
+                )
                 results[metric_type] = result
 
+            except ResourceError:
+                # A typed limit error already says what to change; wrapping it in
+                # a generic ValidationError would hide the type callers match on.
+                raise
             except Exception as e:
                 self.logger.error(f"[{metric_type.upper()}] Metric failed: {e}")
                 raise ValidationError(
@@ -279,6 +286,18 @@ class PrivacyMetricOperation(MetricsOperation):
                 ) from e
 
         return results
+
+    @staticmethod
+    def _log_summary(result: Any, max_items: int = 20) -> Any:
+        """A log-sized view of a metric result: long per-record vectors (for example the NNDR
+        values) are replaced by their length, never printed."""
+        if isinstance(result, dict):
+            return {k: PrivacyMetricOperation._log_summary(v, max_items) for k, v in result.items()}
+        if isinstance(result, (list, tuple)) and len(result) > max_items:
+            return f"<{len(result)} values>"
+        if hasattr(result, "shape") and getattr(result, "size", 0) > max_items:
+            return f"<{result.size} values>"
+        return result
 
     def _generate_dcr_visualizations(
         self,
@@ -339,16 +358,16 @@ class PrivacyMetricOperation(MetricsOperation):
                     f"Failed to create DCR statistics visualization: {dcr_plot_result}"
                 )
 
-        # DCR risk assessment
-        dcr_risk_assessment = metrics["dcr"].get("risk_assessment")
-        if dcr_risk_assessment is not None:
+        # Records below the distance thresholds the caller supplied (if any)
+        dcr_risk_assessment = (metrics["dcr"].get("threshold_assessment") or {}).get("records_below")
+        if dcr_risk_assessment:
             risk_plot_path = (
                 viz_dir / f"{self.name}_dcr_risk_assessment_{timestamp}.png"
             )
             risk_plot_result = create_bar_plot(
                 dcr_risk_assessment,
                 output_path=risk_plot_path,
-                title="DCR Risk Assessment",
+                title="DCR: records below the supplied distance thresholds",
                 x_label="Metric",
                 y_label="Value",
                 backend=vis_backend,
@@ -675,6 +694,8 @@ class PrivacyMetricOperation(MetricsOperation):
 
         except Exception as e:
             self.logger.error(f"Failed to generate privacy metric visualizations: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
         return visualization_paths
 

@@ -154,7 +154,7 @@ class KAnonymityReport(PrivacyReport):
             summary.append("\nPrivacy:")
             summary.append(f"- Minimum k: {privacy.get('min_k', 'N/A')}")
             summary.append(f"- Records at risk: {privacy.get('at_risk_records', 'N/A')}")
-            summary.append(f"- Compliance: {'Yes' if privacy.get('compliant', False) else 'No'}")
+            summary.append(f"- Threshold met: {'Yes' if privacy.get('threshold_met', False) else 'No'}")
 
         # Add information loss
         if "information_loss" in self.report_data:
@@ -209,14 +209,17 @@ def generate_anonymization_report(report_data: Dict[str, Any],
         raise
 
 
-def generate_compliance_report(report_data: Dict[str, Any],
-                               output_path: Optional[str] = None,
-                               regulation: str = "GDPR") -> Dict[str, Any]:
+def generate_threshold_report(report_data: Dict[str, Any],
+                              output_path: Optional[str] = None,
+                              k_threshold: Optional[int] = None) -> Dict[str, Any]:
     """
-    Generates a regulatory compliance report for k-anonymity.
+    Generates a neutral k-anonymity threshold report.
 
-    This specialized report focuses on compliance aspects of
-    k-anonymity transformations for specific regulations.
+    States whether the minimum group size reached the threshold and how many
+    records fall below it. The threshold is chosen by the caller (default: the
+    k the data was processed with). No law or regulation is mapped to a
+    threshold and the result is not a statement of legal compliance; it is
+    technical evidence for the data owner's own assessment.
 
     Parameters
     -----------
@@ -224,95 +227,70 @@ def generate_compliance_report(report_data: Dict[str, Any],
         Dictionary containing k-anonymity report data.
     output_path : str, optional
         Path to save the report.
-    regulation : str, optional
-        Regulation to check compliance against ('GDPR', 'HIPAA', 'CCPA', etc.)
+    k_threshold : int, optional
+        Minimum k to test against. Defaults to the configured k value.
 
     Returns
     --------
     dict
-        The compliance report.
+        Report with ``k_threshold``, ``actual_min_k``, ``threshold_met``,
+        ``at_risk_records`` and ``at_risk_percentage``.
     """
     try:
         import pamola_core.configs.settings as config_settings
 
-        # Create base report
-        report = KAnonymityReport(report_data)
-        base_report = report.generate(include_visualizations=False)
+        if k_threshold is None:
+            k_threshold = report_data.get("k_anonymity_configuration", {}).get(
+                "k_value"
+            )
 
-        # Extract compliance-relevant information
-        compliance_report = {
+        threshold_report = {
             "report_metadata": {
                 "creation_time": datetime.now().isoformat(),
                 "pamola_version": getattr(
                     config_settings, "PAMOLA_VERSION", "unknown"
                 ),
-                "report_type": f"k-anonymity {regulation} compliance"
+                "report_type": "k-anonymity threshold check"
             },
-            "regulation": regulation,
-            "compliance_status": "Unknown",
-            "compliance_details": {}
+            "k_threshold": k_threshold,
+            "actual_min_k": None,
+            "threshold_met": None,
+            "at_risk_records": None,
+            "at_risk_percentage": None,
         }
 
-        # Determine compliance based on regulation
         if "privacy_evaluation" in report_data:
             privacy = report_data["privacy_evaluation"]
+            actual_min_k = privacy.get("min_k", 0)
+            threshold_report["actual_min_k"] = actual_min_k
+            threshold_report["at_risk_records"] = privacy.get("at_risk_records", "N/A")
+            threshold_report["at_risk_percentage"] = privacy.get(
+                "percentage_at_risk", "N/A"
+            )
+            if k_threshold is not None:
+                threshold_report["threshold_met"] = bool(actual_min_k >= k_threshold)
+                if not threshold_report["threshold_met"]:
+                    threshold_report["reason"] = (
+                        f"Minimum k value ({actual_min_k}) is below the "
+                        f"threshold ({k_threshold})"
+                    )
 
-            if regulation.upper() == "GDPR":
-                # GDPR typically requires k>=5 for good practice
-                k_threshold = 5
-                compliance_report["compliance_details"]["required_k"] = k_threshold
-                compliance_report["compliance_details"]["actual_k"] = privacy.get("min_k", 0)
-                compliance_report["compliance_details"]["at_risk_records"] = privacy.get("at_risk_records", "N/A")
-                compliance_report["compliance_details"]["at_risk_percentage"] = privacy.get("percentage_at_risk", "N/A")
-
-                # Determine overall compliance
-                if privacy.get("min_k", 0) >= k_threshold:
-                    compliance_report["compliance_status"] = "Compliant"
-                else:
-                    compliance_report["compliance_status"] = "Non-compliant"
-                    compliance_report["compliance_details"][
-                        "reason"] = f"Minimum k value ({privacy.get('min_k', 0)}) is below required threshold ({k_threshold})"
-
-            elif regulation.upper() == "HIPAA":
-                # HIPAA often has stricter requirements, k>=10
-                k_threshold = 10
-                compliance_report["compliance_details"]["required_k"] = k_threshold
-                compliance_report["compliance_details"]["actual_k"] = privacy.get("min_k", 0)
-                compliance_report["compliance_details"]["at_risk_records"] = privacy.get("at_risk_records", "N/A")
-
-                # Determine overall compliance
-                if privacy.get("min_k", 0) >= k_threshold:
-                    compliance_report["compliance_status"] = "Compliant"
-                else:
-                    compliance_report["compliance_status"] = "Non-compliant"
-                    compliance_report["compliance_details"][
-                        "reason"] = f"Minimum k value ({privacy.get('min_k', 0)}) is below required threshold ({k_threshold})"
-
-            else:
-                # Default case
-                compliance_report["compliance_status"] = "Unknown regulation"
-                compliance_report["compliance_details"][
-                    "note"] = f"No specific compliance criteria defined for {regulation}"
-
-        # Add dataset information
         if "dataset_information" in report_data:
-            compliance_report["dataset"] = report_data["dataset_information"]
+            threshold_report["dataset"] = report_data["dataset_information"]
 
-        # Add anonymization details
         if "anonymization_result" in report_data:
-            compliance_report["anonymization_details"] = {
+            threshold_report["anonymization_details"] = {
                 "method": report_data["anonymization_result"].get("method", "Unknown"),
                 "execution_time": report_data["anonymization_result"].get("execution_time", "N/A"),
                 "timestamp": report_data["anonymization_result"].get("timestamp", "N/A")
             }
 
-        # Save if output path is provided
         if output_path:
-            write_json(compliance_report, output_path)
-            logger.info(f"Compliance report saved to {output_path}")
+            write_json(threshold_report, output_path)
+            logger.info(f"Threshold report saved to {output_path}")
 
-        return compliance_report
+        return threshold_report
 
     except Exception as e:
-        logger.error(f"Error generating compliance report: {e}")
+        logger.error(f"Error generating threshold report: {e}")
         raise

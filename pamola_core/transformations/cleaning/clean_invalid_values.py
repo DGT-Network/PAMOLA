@@ -35,6 +35,11 @@ from pandas.api.types import (
     is_datetime64_any_dtype,
 )
 
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -43,7 +48,11 @@ from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.error_handler import ErrorHandler
-from pamola_core.errors.exceptions import FeatureNotImplementedError, ValidationError
+from pamola_core.errors.exceptions import (
+    FeatureNotImplementedError,
+    InvalidParameterError,
+    ValidationError,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
@@ -53,6 +62,43 @@ from pamola_core.transformations.schemas.clean_invalid_values_core_schema import
 
 # Configure module logger
 logger = logging.getLogger(__name__)
+
+
+#: constraint_type -> (field kinds it applies to, parameters it needs). The kinds mirror the
+#: branches of ``process_batch``: a constraint outside its kind used to be skipped silently.
+_CONSTRAINTS = {
+    "min_value": (("numeric",), ("min_value",)),
+    "max_value": (("numeric",), ("max_value",)),
+    "valid_range": (("numeric",), ("min_value", "max_value")),
+    "custom_function": (("numeric",), ()),
+    "allowed_values": (("categorical",), ("allowed_values",)),
+    "disallowed_values": (("categorical",), ("disallowed_values",)),
+    "whitelist_file": (("categorical",), ("whitelist_file",)),
+    "blacklist_file": (("categorical",), ("blacklist_file",)),
+    "pattern": (("categorical",), ("pattern",)),
+    "min_date": (("date",), ("min_date",)),
+    "max_date": (("date",), ("max_date",)),
+    "date_range": (("date",), ("min_date", "max_date")),
+    "valid_format": (("date", "text"), ("valid_format",)),
+    "min_length": (("text",), ("min_length",)),
+    "max_length": (("text",), ("max_length",)),
+    "valid_pattern": (("text",), ("valid_pattern",)),
+}
+_KIND_DECLARATION = {"numeric": "numeric", "categorical": "categorical", "date": "date", "text": "text"}
+
+
+def _field_kinds(dtype, data_type) -> set:
+    """The kinds of constraint ``process_batch`` applies to a column of this dtype / declaration."""
+    kinds = set()
+    if is_numeric_dtype(dtype) or data_type == "numeric":
+        kinds.add("numeric")
+    if isinstance(dtype, CategoricalDtype) or data_type == "categorical":
+        kinds.add("categorical")
+    if is_datetime64_any_dtype(dtype) or data_type == "date":
+        kinds.add("date")
+    if is_string_dtype(dtype) or is_object_dtype(dtype) or data_type == "text":
+        kinds.add("text")
+    return kinds
 
 
 @register(version="1.0.0")
@@ -450,6 +496,19 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 },
             )
 
+    def get_enrich_targets(self, df):
+        """Every column the cleaning writes: constraints, white / black lists and null
+        replacement (one ``column_prefix``-ed copy each)."""
+        names = dict.fromkeys(self.field_constraints or {})
+        names.update(dict.fromkeys(self.whitelist_path or {}))
+        names.update(dict.fromkeys(self.blacklist_path or {}))
+        replacement = self.null_replacement
+        if isinstance(replacement, str):
+            names.update(dict.fromkeys(df.columns))  # one strategy for every column
+        elif replacement:
+            names.update(dict.fromkeys(k for k, v in replacement.items() if v is not None))
+        return list(dict.fromkeys(self._prefixed_targets(names, df)))
+
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data.
@@ -477,8 +536,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 output_field_name = field_name
                 if self.mode == "ENRICH" and self.column_prefix:
                     output_field_name = f"{self.column_prefix}{field_name}"
-                    if output_field_name not in batch.columns:
-                        batch[output_field_name] = batch[field_name]
+                    # Always start from the source: an existing target only gets here when
+                    # overwrite_existing_output was requested, and must then be replaced.
+                    batch[output_field_name] = batch[field_name]
 
                 if is_numeric_dtype(batch[output_field_name]) or data_type == "numeric":
                     try:
@@ -670,8 +730,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 output_field_name = field_name
                 if self.mode == "ENRICH" and self.column_prefix:
                     output_field_name = f"{self.column_prefix}{field_name}"
-                    if output_field_name not in batch.columns:
-                        batch[output_field_name] = batch[field_name]
+                    # Always start from the source: an existing target only gets here when
+                    # overwrite_existing_output was requested, and must then be replaced.
+                    batch[output_field_name] = batch[field_name]
 
                 with open(whitelist_path) as f:
                     allowed_values = set(map(str.strip, f))
@@ -688,8 +749,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 output_field_name = field_name
                 if self.mode == "ENRICH" and self.column_prefix:
                     output_field_name = f"{self.column_prefix}{field_name}"
-                    if output_field_name not in batch.columns:
-                        batch[output_field_name] = batch[field_name]
+                    # Always start from the source: an existing target only gets here when
+                    # overwrite_existing_output was requested, and must then be replaced.
+                    batch[output_field_name] = batch[field_name]
 
                 with open(blacklist_path) as f:
                     disallowed_values = set(map(str.strip, f))
@@ -712,8 +774,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 output_column = column
                 if self.mode == "ENRICH" and self.column_prefix:
                     output_column = f"{self.column_prefix}{column}"
-                    if output_column not in batch.columns:
-                        batch[output_column] = batch[column]
+                    # an existing target only gets here with overwrite_existing_output
+                    batch[output_column] = batch[column]
 
                 if strategy == "mean" and is_numeric_dtype(batch[output_column]):
                     batch[output_column] = batch[output_column].fillna(
@@ -786,6 +848,53 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
         return parameters
 
+    def _validate_constraints(self, df) -> None:
+        """Reject a constraint that cannot apply instead of skipping it silently.
+
+        Raises ``InvalidParameterError`` naming the field and the fix when the constraint type
+        is missing or unknown, its parameters are missing, or the field is not of a kind the
+        constraint applies to (for example ``allowed_values`` on a field that is not declared
+        ``"data_type": "categorical"`` and is not a pandas ``category`` column).
+        """
+        for field_name, config in (self.field_constraints or {}).items():
+            if not field_name or field_name not in df.columns:
+                continue
+            config = config or {}
+            constraint_type = config.get("constraint_type")
+            param = f"field_constraints['{field_name}']"
+            if constraint_type not in _CONSTRAINTS:
+                raise InvalidParameterError(
+                    param_name=f"{param}['constraint_type']",
+                    param_value=constraint_type,
+                    reason=(
+                        f"field '{field_name}' has no valid constraint_type, so nothing would "
+                        f"be checked. Use one of: {', '.join(sorted(_CONSTRAINTS))}."
+                    ),
+                )
+            kinds, needs = _CONSTRAINTS[constraint_type]
+            missing = [key for key in needs if config.get(key) is None]
+            if missing:
+                raise InvalidParameterError(
+                    param_name=f"{param}[{missing[0]!r}]",
+                    param_value=None,
+                    reason=(
+                        f"constraint '{constraint_type}' on field '{field_name}' needs "
+                        f"{', '.join(repr(k) for k in missing)}; without it nothing is checked."
+                    ),
+                )
+            present = _field_kinds(df.dtypes[field_name], config.get("data_type"))
+            if not present & set(kinds):
+                declare = " or ".join(f'"data_type": "{_KIND_DECLARATION[k]}"' for k in kinds)
+                raise InvalidParameterError(
+                    param_name=f"{param}['constraint_type']",
+                    param_value=constraint_type,
+                    reason=(
+                        f"constraint '{constraint_type}' does not apply to field '{field_name}' "
+                        f"(dtype {df.dtypes[field_name]}), so it would be ignored. Declare "
+                        f"{declare} for the field, or use a constraint type that matches its dtype."
+                    ),
+                )
+
     def _process_dataframe(
         self, df: pd.DataFrame, progress_tracker: Optional[HierarchicalProgressTracker]
     ) -> pd.DataFrame:
@@ -807,6 +916,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
         from pamola_core.transformations.commons.processing_utils import (
             process_dataframe_with_config,
         )
+
+        self._validate_constraints(df)
 
         processed_df = process_dataframe_with_config(
             df=df,
@@ -1091,14 +1202,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             # Copy context for the thread
             self.logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name="VizThread-",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             self.logger.info(
@@ -1107,26 +1218,16 @@ class CleanInvalidValuesOperation(TransformationOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive() and elapsed < vis_timeout:
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    self.logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, self.logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {render_run.limit:g}s"
+                )
 
-            if viz_thread.is_alive():
-                self.logger.error(
-                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
-                )
-                self.logger.error(
-                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
-                )
-                visualization_paths = {}
-            elif visualization_error:
+            if visualization_error:
+                # Rendering is part of execute(): a failure is recorded in the result,
+                # never swallowed (and no worker is left running after the join).
+                self._record_visualization_failure(result, visualization_error)
                 self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
@@ -1448,6 +1549,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}"
             )
             self.logger.debug("[VIZ] Stack trace:", exc_info=True)
+            # a failed render is the operation's failure, not a log line
+            raise
 
         return visualization_paths
 

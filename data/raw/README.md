@@ -152,5 +152,5 @@ See [LICENSE](../../LICENSE) for full terms.
 
 ---
 
-**Maintainer:** [Realm Inveo Inc.](https://realmdata.io) - info@realmdata.io  
-**Repository:** [github.com/DGT-Network/PAMOLA](https://github.com/DGT-Network/PAMOLA)
+**Maintainer:** [Realm Inveo Inc.](https://realmdata.ai) - info@realmdata.ai  
+**Repository:** [github.com/realmdata-ai/PAMOLA](https://github.com/realmdata-ai/PAMOLA)

@@ -25,6 +25,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Union
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
@@ -539,6 +544,10 @@ class TransformationOperation(BaseOperation):
             )
             raise ValidationError(error_msg)
 
+        # Work on our own copy: DataSource returns the caller's object itself.
+        df = self._own_dataframe(df)
+        self._check_enrich_target(df)
+
         if self.field_name:
             if self.field_name not in df.columns:
                 error_msg = f"Field '{self.field_name}' not found in DataFrame columns"
@@ -596,8 +605,11 @@ class TransformationOperation(BaseOperation):
             self.output_field_name or f"{self.column_prefix}{self.field_name}"
         )
         if output_field in df.columns:
-            self.logger.warning(
-                f"Output field '{output_field}' already exists in DataFrame and will be overwritten."
+            # Reaching here means overwriting was requested explicitly
+            # (see _check_enrich_target).
+            self.logger.debug(
+                f"Output field '{output_field}' already exists in DataFrame and is "
+                "overwritten (overwrite_existing_output=True)."
             )
 
         self.logger.debug(f"Mode ENRICH: output field set to ['{output_field}'].")
@@ -863,14 +875,14 @@ class TransformationOperation(BaseOperation):
 
             # Copy context for the thread
             self.logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name=f"VizThread-{self.field_label}",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             self.logger.info(
@@ -879,26 +891,16 @@ class TransformationOperation(BaseOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive() and elapsed < vis_timeout:
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    self.logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, self.logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {render_run.limit:g}s"
+                )
 
-            if viz_thread.is_alive():
-                self.logger.error(
-                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
-                )
-                self.logger.error(
-                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
-                )
-                visualization_paths = {}
-            elif visualization_error:
+            if visualization_error:
+                # Rendering is part of execute(): a failure is recorded in the result,
+                # never swallowed (and no worker is left running after the join).
+                self._record_visualization_failure(result, visualization_error)
                 self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
@@ -1173,6 +1175,8 @@ class TransformationOperation(BaseOperation):
 
         except Exception as e:
             self.logger.warning(f"Error generating visualizations: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
         return visualization_paths
 

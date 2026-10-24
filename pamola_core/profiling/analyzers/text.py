@@ -32,6 +32,11 @@ from typing import Callable, Dict, List, Any, Optional, Union, Tuple
 
 import pandas as pd
 
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.profiling.commons.text_utils import (
     analyze_language,
     analyze_null_and_empty,
@@ -42,6 +47,7 @@ from pamola_core.profiling.commons.text_utils import (
     find_dictionary_file,
 )
 from pamola_core.errors.codes import ErrorCode
+from pamola_core.utils.nlp.remote_resources import get_degraded_resources
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.schemas.text_core_schema import (
     TextSemanticCategorizerOperationConfig,
@@ -1537,6 +1543,13 @@ class TextSemanticCategorizerOperation(FieldOperation):
         result : OperationResult
             Operation result to add metrics to
         """
+        # Offline-by-default signal: if an NLP model/corpus could not be
+        # obtained (downloads disabled, or enabled but the network is down)
+        # the run used a weaker fallback. Say so instead of looking normal.
+        degraded_resources = get_degraded_resources()
+        if degraded_resources:
+            result.add_metric("nlp_resources_degraded", degraded_resources)
+
         # Add from metrics if available (for cached results)
         if "metrics" in analysis_results:
             for key, value in analysis_results["metrics"].items():
@@ -1761,14 +1774,14 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             # Copy context for the thread
             self.logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name="VizThread-",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             self.logger.info(
@@ -1777,26 +1790,16 @@ class TextSemanticCategorizerOperation(FieldOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive() and elapsed < vis_timeout:
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    self.logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, self.logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {render_run.limit:g}s"
+                )
 
-            if viz_thread.is_alive():
-                self.logger.error(
-                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
-                )
-                self.logger.error(
-                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
-                )
-                visualization_paths = []
-            elif visualization_error:
+            if visualization_error:
+                # Rendering is part of execute(): a failure is recorded in the result,
+                # never swallowed (and no worker is left running after the join).
+                self._record_visualization_failure(result, visualization_error)
                 self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )

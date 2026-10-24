@@ -445,27 +445,31 @@ def test_generate_visualizations_backend_none(tmp_path, sample_df):
     )
     assert result == {}
 
+#: the metrics shape _generate_visualizations reads (an empty dict is not a valid input)
+VALID_METRICS = {"invalid_values": {"a": {"count": 1, "constraint_type": "min_value"}}}
+
+
 def test_generate_visualizations_utility_exception(tmp_path, sample_df):
     op = CleanInvalidValuesOperation()
-    with patch("pamola_core.transformations.commons.visualization_utils.generate_dataset_overview_vis", side_effect=Exception("fail")), \
+    with patch("pamola_core.utils.visualization.create_heatmap", side_effect=Exception("fail")), \
          patch("pamola_core.transformations.commons.visualization_utils.generate_field_count_comparison_vis", return_value=tmp_path/"f.png"), \
          patch("pamola_core.transformations.commons.visualization_utils.generate_record_count_comparison_vis", return_value=tmp_path/"r.png"), \
          patch("pamola_core.transformations.commons.visualization_utils.generate_data_distribution_comparison_vis", return_value=tmp_path/"d.png"), \
          patch("pamola_core.transformations.commons.visualization_utils.sample_large_dataset", side_effect=lambda df, max_size: df):
-        result = op._generate_visualizations(
-            original_df=sample_df,
-            processed_df=sample_df,
-            metrics={},
-            task_dir=tmp_path,
-            vis_theme=None,
-            vis_backend="plotly",
-            vis_strict=False,
-            progress_tracker=None,
-            operation_timestamp="test"
-        )
-        # Should still return a dict, but missing the failed one
-        assert isinstance(result, dict)
-        assert "dataset_overview" not in result or result["dataset_overview"] is not None
+        # ASB-OPS-7: a chart failure is not swallowed here any more; it propagates to the
+        # caller, which records it in result.metrics["visualization_error"].
+        with pytest.raises(Exception, match="fail"):
+            op._generate_visualizations(
+                original_df=sample_df,
+                processed_df=sample_df,
+                metrics=VALID_METRICS,
+                task_dir=tmp_path,
+                vis_theme=None,
+                vis_backend="matplotlib",
+                vis_strict=False,
+                progress_tracker=None,
+                operation_timestamp="test"
+            )
 
 def test_generate_visualizations_large_df_triggers_sampling(tmp_path):
     op = CleanInvalidValuesOperation()
@@ -478,10 +482,10 @@ def test_generate_visualizations_large_df_triggers_sampling(tmp_path):
         result = op._generate_visualizations(
             original_df=df,
             processed_df=df,
-            metrics={},
+            metrics=VALID_METRICS,
             task_dir=tmp_path,
             vis_theme=None,
-            vis_backend="plotly",
+            vis_backend="matplotlib",
             vis_strict=False,
             progress_tracker=None,
             operation_timestamp="test"
@@ -502,10 +506,10 @@ def test_generate_visualizations_progress_tracker(tmp_path, sample_df):
         op._generate_visualizations(
             original_df=sample_df,
             processed_df=sample_df,
-            metrics={},
+            metrics=VALID_METRICS,
             task_dir=tmp_path,
             vis_theme=None,
-            vis_backend="plotly",
+            vis_backend="matplotlib",
             vis_strict=False,
             progress_tracker=progress,
             operation_timestamp="test"

@@ -19,16 +19,18 @@ fields in PAMOLA.CORE.
 class UtilityMetricOperationTooltip:
     utility_metrics = (
         "What it does: Selects which downstream-task utility metrics to compute.\n"
-        "• classification: Trains a classifier on original vs transformed data and reports "
-        "AUROC, Accuracy, F1, Precision, and Recall.\n"
-        "• regression: Trains a regressor and reports R2, MSE, and MAE.\n"
-        "• Choose based on the target column type."
+        "• classification: Trains classifiers on original vs transformed data and reports "
+        "accuracy, f1, roc_auc and the precision/recall trade-off.\n"
+        "• regression: Trains regressors and reports r2, mae, mse and rmse.\n"
+        "• Choose based on the target column type; the target column itself is set in "
+        "metric_params (value_field)."
     )
 
     metric_params = (
         "What it does: Optional dictionary of metric-specific parameters keyed by metric name.\n"
-        "• Example: {\"classification\": {\"target\": \"label\", \"models\": [\"rf\", \"lr\"]}}.\n"
-        "• Includes target column, model selection, and downstream-task hyperparameters."
+        "• Required: value_field, the target column. "
+        "Example: {\"classification\": {\"value_field\": \"label\", \"models\": [\"rf\", \"logistic\"]}}.\n"
+        "• Classification models: logistic, rf, svm; regression models: linear, rf, svr."
     )
 
     columns = (

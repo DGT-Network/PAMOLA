@@ -202,7 +202,7 @@ def test_execute_success(mock_load_settings, mock_writer, mock_cache, dummy_data
     mock_writer.return_value.write = MagicMock()
     # Patch OperationResult
     with patch("pamola_core.metrics.base_metrics_op.OperationResult", wraps=OperationResult) as mock_result:
-        result = op.execute(dummy_data_source, dummy_task_dir, dummy_reporter, dummy_progress_tracker)
+        result = op.execute(dummy_data_source, dummy_task_dir, dummy_reporter, dummy_progress_tracker, original_dataset_name="orig", transformed_dataset_name="synth")
         assert result.status in [OperationStatus.PENDING, OperationStatus.SUCCESS, OperationStatus.ERROR]
 
 @patch("pamola_core.metrics.base_metrics_op.OperationCache")
@@ -215,7 +215,7 @@ def test_execute_cache_hit(mock_writer, mock_cache, dummy_data_source, dummy_tas
     op.save_config = MagicMock()
     op._prepare_directories = MagicMock(return_value={"cache": dummy_task_dir / "cache"})
     with patch("pamola_core.metrics.base_metrics_op.OperationResult", wraps=OperationResult):
-        result = op.execute(dummy_data_source, dummy_task_dir, dummy_reporter, dummy_progress_tracker)
+        result = op.execute(dummy_data_source, dummy_task_dir, dummy_reporter, dummy_progress_tracker, original_dataset_name="orig", transformed_dataset_name="synth")
         assert result.status == OperationStatus.SUCCESS
 
 def test_execute_error(dummy_data_source, dummy_task_dir, dummy_reporter, dummy_progress_tracker):
@@ -225,7 +225,7 @@ def test_execute_error(dummy_data_source, dummy_task_dir, dummy_reporter, dummy_
     op.save_config = MagicMock()
     op._prepare_directories = MagicMock()
     with patch("pamola_core.metrics.base_metrics_op.OperationResult", wraps=OperationResult) as mock_result:
-        result = op.execute(dummy_data_source, dummy_task_dir, dummy_reporter, dummy_progress_tracker)
+        result = op.execute(dummy_data_source, dummy_task_dir, dummy_reporter, dummy_progress_tracker, original_dataset_name="orig", transformed_dataset_name="synth")
         assert result.status == OperationStatus.ERROR
         assert "fail" in result.error_message
 

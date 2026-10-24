@@ -233,6 +233,15 @@ class BaseOperationConfig(OperationConfig):
                 "title": "Encryption Key",
                 "description": "Key or passphrase used for encryption when enabled.",
             },
+            "overwrite_existing_output": {
+                "type": "boolean",
+                "title": "Overwrite Existing Output",
+                "description": (
+                    "ENRICH mode only. If false (default), an existing output column "
+                    "makes the operation fail; if true it is replaced."
+                ),
+                "default": False,
+            },
             "force_recalculation": {
                 "type": "boolean",
                 "title": "Force Recalculation",
@@ -242,8 +251,8 @@ class BaseOperationConfig(OperationConfig):
             "generate_visualization": {
                 "type": "boolean",
                 "title": "Generate Visualization",
-                "description": "If true, automatically generate visualization outputs after processing.",
-                "default": True,
+                "description": "If true, generate visualization outputs during processing (requires the 'viz' extra).",
+                "default": False,
             },
         },
         "allOf": [

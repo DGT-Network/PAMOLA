@@ -18,7 +18,7 @@
 
 ## Overview
 
-The `privacy_models` module provides a comprehensive suite of privacy-preserving anonymization models. It implements four major privacy models: k-Anonymity, l-Diversity, t-Closeness, and Differential Privacy. Each model offers different privacy guarantees and utility trade-offs suitable for various use cases.
+The `privacy_models` module provides a comprehensive suite of privacy-preserving anonymization models. It implements three privacy models: k-Anonymity, l-Diversity and t-Closeness. Formal differential privacy is not part of PAMOLA.CORE 1.0. Each model offers different privacy guarantees and utility trade-offs suitable for various use cases.
 
 All models inherit from `BasePrivacyModelProcessor`, which defines a consistent interface for evaluation and application.
 
@@ -59,29 +59,18 @@ Maintains **statistical similarity** between group distributions and the overall
 
 **Best For:** Preserving statistical properties, data utility sensitive applications, publishing aggregated statistics
 
-### 4. Differential Privacy
-Adds **calibrated noise** to ensure output indistinguishability via Laplace or Gaussian mechanisms.
-
-**Key Features:**
-- Epsilon-based privacy budgets
-- Laplace and Gaussian noise mechanisms
-- Query-level privacy guarantees
-- Sensitivity parameter customization
-
-**Best For:** Strong theoretical privacy, query responses, statistical analysis, federated learning
-
 ## Model Comparison
 
-| Aspect | k-Anonymity | l-Diversity | t-Closeness | Differential Privacy |
-|--------|-------------|-------------|-------------|----------------------|
-| **Privacy Guarantee** | Group indistinguishability | Attribute diversity | Distribution closeness | Output indistinguishability |
-| **Attack Model** | Identity disclosure | Attribute disclosure | Inference attacks | Composition attacks |
-| **Computational Cost** | Low-Medium | High | Medium-High | Medium |
-| **Data Utility** | High | Medium | High | Medium-Low (ε dependent) |
-| **Quasi-Identifier Approach** | Required | Required | Optional | Not applicable |
-| **Scalability** | Excellent | Good (with caching) | Good | Excellent |
-| **Regulatory Fit** | GDPR, HIPAA | HIPAA, HIPAA+ | GDPR with utility focus | Research, federated systems |
-| **Implementation Complexity** | Simple | Complex | Medium | Medium |
+| Aspect | k-Anonymity | l-Diversity | t-Closeness |
+|--------|-------------|-------------|-------------|
+| **Privacy Guarantee** | Group indistinguishability | Attribute diversity | Distribution closeness |
+| **Attack Model** | Identity disclosure | Attribute disclosure | Inference attacks |
+| **Computational Cost** | Low-Medium | High | Medium-High |
+| **Data Utility** | High | Medium | High |
+| **Quasi-Identifier Approach** | Required | Required | Optional |
+| **Scalability** | Excellent | Good (with caching) | Good |
+| **Regulatory Fit** | GDPR, HIPAA | HIPAA, HIPAA+ | GDPR with utility focus |
+| **Implementation Complexity** | Simple | Complex | Medium |
 
 ## Architecture
 
@@ -103,11 +92,8 @@ pamola_core.privacy_models/
 │   ├── apply_model.py               # Anonymization strategies
 │   ├── reporting.py                 # LDiversityReport
 │   ├── visualization.py             # LDiversityVisualizer
-│   └── report_generators/           # Compliance and technical reports
-├── t_closeness/
-│   └── calculation.py               # TCloseness processor
-└── differential_privacy/
-    └── calculation.py               # DifferentialPrivacyProcessor
+└── t_closeness/
+    └── calculation.py               # TCloseness processor
 ```
 
 ### Common Interface
@@ -192,25 +178,6 @@ processor = TCloseness(
 # Evaluate t-closeness
 evaluation = processor.evaluate_privacy(df, quasi_identifiers=['age', 'zip_code'])
 print(f"Is t-close: {evaluation['is_t_close']}")
-```
-
-### Example 4: Differential Privacy
-
-```python
-from pamola_core.privacy_models import DifferentialPrivacyProcessor
-
-# Create processor
-processor = DifferentialPrivacyProcessor(
-    epsilon=0.5,        # Privacy budget
-    sensitivity=1.0,    # Query sensitivity
-    mechanism='laplace' # or 'gaussian'
-)
-
-# Apply differential privacy
-evaluation = processor.evaluate_privacy(
-    df,
-    quasi_identifiers=['age', 'zip_code']
-)
 ```
 
 ## Usage Patterns
@@ -431,8 +398,7 @@ anonymized = processor.apply_model(df, quasi_ids)
 - [k-Anonymity Documentation](./k_anonymity/k_anonymity_processor.md)
 - [l-Diversity Documentation](./l_diversity/l_diversity_calculator.md)
 - [t-Closeness Documentation](./t_closeness/t_closeness_processor.md)
-- [Differential Privacy Documentation](./differential_privacy/dp_processor.md)
 
 ## Summary
 
-The `privacy_models` module provides flexible, production-ready privacy-preserving techniques. Start with k-Anonymity for basic privacy, graduate to l-Diversity for sensitive attributes, and consider t-Closeness or Differential Privacy for specific use cases. Use adaptive parameters and multi-model evaluation for robust privacy guarantees.
+The `privacy_models` module provides flexible, production-ready privacy-preserving techniques. Start with k-Anonymity for basic privacy, graduate to l-Diversity for sensitive attributes, and consider t-Closeness for distribution-sensitive use cases. Use adaptive parameters and multi-model evaluation for robust privacy guarantees.

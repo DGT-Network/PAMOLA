@@ -530,9 +530,11 @@ def test_generate_visualizations_exception(monkeypatch):
         "pamola_core.transformations.commons.visualization_utils.generate_data_distribution_comparison_vis",
         fail_vis
     )
-    # Should catch and return {}
-    result = op._generate_visualizations(get_sample_df(), get_sample_df(), {}, Path("/tmp"), "theme", "plotly", False, None)
-    assert result == {}
+    monkeypatch.setattr("pamola_core.utils.visualization.create_bar_plot", fail_vis)
+    metrics = {"imputed_values": {"age": {"count": 1}}}      # the shape the method reads
+    # ASB-OPS-7: the failure propagates (execute() records it as visualization_error)
+    with pytest.raises(Exception, match="fail"):
+        op._generate_visualizations(get_sample_df(), get_sample_df(), metrics, Path("/tmp"), "theme", "plotly", False, None)
 
 def test_save_metrics_reporter_none(tmp_path):
     op = ImputeMissingValuesOperation(
@@ -685,8 +687,9 @@ def test_generate_visualizations_invalid_backend():
         invalid_values=get_invalid_values(),
         output_format="csv"
     )
-    # Should catch and return a dict (may not contain error strings, but should not be empty)
-    result = op._generate_visualizations(get_sample_df(), get_sample_df(), {}, Path("/tmp"), "theme", "invalid_backend", False, None)
+    # an unusable backend yields a dict; metrics carry the keys a real run produces (chart failures
+    # propagate since CDX-R2-7, so a metrics dict missing them is no longer swallowed)
+    result = op._generate_visualizations(get_sample_df(), get_sample_df(), {"imputed_values": {}}, Path("/tmp"), "theme", "invalid_backend", False, None)
     assert isinstance(result, dict)
 
 def test_process_batch_multiindex_column():

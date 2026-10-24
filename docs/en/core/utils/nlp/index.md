@@ -282,6 +282,14 @@ export PAMOLA_DISABLE_CACHE=0
 
 # Model paths
 export PAMOLA_FASTTEXT_MODEL=/path/to/fasttext/model
+
+# Remote model/corpus downloads (FastText, spaCy, NLTK, Hugging Face Hub).
+# OFF by default: pamola-core opens no network connection unless you set this.
+# Without it, missing models are not fetched; the affected feature falls back to
+# a simpler method and the gap is listed in the operation result
+# (metric `nlp_resources_degraded`). With it set but no network, the failure is
+# reported once per resource instead of being retried per record.
+export PAMOLA_ALLOW_REMOTE_DOWNLOADS=1
 ```
 
 ### Dependency Management

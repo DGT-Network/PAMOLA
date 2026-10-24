@@ -1135,6 +1135,7 @@ class FullMaskingOperation(AnonymizationOperation):
             original_data=original_data,
             processed_data=anonymized_data,
             operation_params=operation_params,
+            include_raw_samples=self.include_raw_samples_in_metrics,
         )
 
         # Custom or strategy-specific metrics
@@ -1378,5 +1379,7 @@ class FullMaskingOperation(AnonymizationOperation):
             self.logger.warning(
                 f"Failed to generate visualizations: {e}", exc_info=True
             )
+            # a failed render is the operation's failure, not a log line
+            raise
 
         return visualization_paths

@@ -222,7 +222,10 @@ from pamola_core.transformations.cleaning.clean_invalid_values import CleanInval
 # Define constraints for columns
 field_constraints = {
     "age": {"constraint_type": "min_value", "min_value": 0},
-    "status": {"constraint_type": "allowed_values", "allowed_values": ["active", "inactive"]}
+    # allowed_values / disallowed_values / pattern apply to categorical fields: declare it
+    # (or pass a pandas category column), otherwise the constraint is rejected, not skipped
+    "status": {"data_type": "categorical", "constraint_type": "allowed_values",
+               "allowed_values": ["active", "inactive"]}
 }
 
 # Create operation instance

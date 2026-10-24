@@ -77,7 +77,7 @@ def execute(
 **Features:**
 - Full integration with PAMOLA framework (caching, progress tracking, metrics)
 - Support for pandas and Dask DataFrames
-- Deterministic output when salt + pepper are fixed (referential integrity)
+- Deterministic across runs ONLY with `use_pepper=False` and a non-trivial fixed salt; with the default session pepper the same input gets a different pseudonym in every run (consistent within one run)
 - Compound hashing across multiple fields
 - Collision probability estimation and tracking
 - Conditional processing (mode, condition_field, ka_risk_field)
@@ -172,9 +172,11 @@ op = HashBasedPseudonymizationOperation(
 
 - **Algorithm:** Uses SHA3 (not SHA1/MD5); both `sha3_256` and `sha3_512` are collision-resistant.
 - **Salt:** Required to prevent rainbow-table attacks. Use at least 256-bit random salt.
-- **Pepper:** Session-scoped random bytes, kept in memory only — adds extra entropy beyond stored salt.
-- **Irreversibility:** No mapping is stored; original values cannot be recovered.
-- **Determinism:** Identical salt + pepper produces identical pseudonyms (required for referential integrity across datasets).
+- **Construction:** `H(H(value || salt) || pepper)` with SHA3-256/512 (single pass; it is neither HMAC nor a key-stretching KDF). `H(value || salt)` alone when `use_pepper=False`.
+- **Pepper:** `use_pepper=True` (default) draws fresh random bytes (`secrets`) for EVERY run and keeps them in memory only. Consequence: pseudonyms are consistent inside one run (all chunks and workers) but **cannot be linked across runs, and the pepper cannot be supplied or restored**. If you need the same pseudonym for the same input in two runs or two datasets, use `use_pepper=False` with a high-entropy secret salt (a 256-bit random value, kept as a secret) - or the consistent-mapping operation.
+- **Irreversibility:** No mapping is stored; the hash cannot be inverted. It can still be **reproduced for every candidate value**: see the low-entropy warning.
+- **Low-entropy warning (SRS 7.3).** Hashing a field whose possible values are few or guessable (a status, a year, a postcode, a first name, a small id range) does not hide it: whoever can enumerate the candidates and knows the salt (a fixed salt without pepper, or a leaked salt) hashes each and reads the original back. When the source field has at most 1000 distinct values the operation logs one warning per run (counts only) and records `pseudonymization.low_entropy_source` and `distinct_source_values` in the metrics. The 1000 threshold is a heuristic on the data, not a proof either way: a field with many values can still be guessable (phone numbers, national ids).
+- **Secrets are not serialized:** the salt value, the pepper and the output encryption key are not part of the object's pickled state, `copy`, or Dask tokenization (the config's salt is redacted); they are handed to the operation's own parallel workers only for the duration of its parallel run. An operation copied or pickled elsewhere cannot hash and must be recreated from its parameters.
 
 ## Metrics
 

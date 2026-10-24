@@ -30,6 +30,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Union
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.transformations.schemas.split_fields_op_core_schema import (
     SplitFieldsOperationConfig,
 )
@@ -655,6 +660,8 @@ class SplitFieldsOperation(TransformationOperation):
                 )
         except Exception as e:
             self.logger.error(f"Failed to create fields-per-subset bar chart: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
         # 2. Network diagram: field distribution across subsets
         try:
@@ -677,6 +684,8 @@ class SplitFieldsOperation(TransformationOperation):
                 )
         except Exception as e:
             self.logger.error(f"Failed to create field-subset network diagram: {e}")
+            # a failed render is the operation's failure, not a log line
+            raise
 
         # 3. Bar chart: schema comparison (optional)
         if isinstance(input_data, pd.DataFrame):
@@ -745,7 +754,8 @@ class SplitFieldsOperation(TransformationOperation):
                 )
 
         try:
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
+            artifacts_before = len(result.artifacts)
             thread = threading.Thread(
                 target=ctx.run,
                 args=(run_visualizations,),
@@ -754,13 +764,19 @@ class SplitFieldsOperation(TransformationOperation):
             )
 
             thread.start()
-            thread.join(timeout=self.visualization_timeout)
-
-            if thread.is_alive():
-                self.logger.warning(
-                    f"[VIZ] Visualization thread timed out after {self.visualization_timeout}s"
+            if not wait_for_render(
+                thread, render_run, getattr(self, "visualization_timeout", None), self.logger
+            ):
+                # nothing from an abandoned run is reported
+                del result.artifacts[artifacts_before:]
+                viz_error = VisualizationTimeoutError(
+                    "visualization did not finish within "
+                    f"{render_run.limit:g}s"
                 )
-            elif viz_error:
+
+            if viz_error:
+                # Rendering is part of execute(): a failure is recorded in the result.
+                self._record_visualization_failure(result, viz_error)
                 self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
             else:
                 self.logger.info("[VIZ] Visualization thread completed successfully")

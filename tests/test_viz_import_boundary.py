@@ -60,6 +60,9 @@ def test_import_pamola_core_loads_no_viz_backend():
         "from pamola_core.utils.vis_helpers import base",
         "import pamola_core.profiling",
         "import pamola_core.anonymization",
+        "import pamola_core.privacy_models",
+        "import pamola_core.privacy_models.k_anonymity",
+        "import pamola_core.privacy_models.l_diversity",
     ],
 )
 def test_core_subpackages_load_no_viz_backend(statement):
@@ -92,3 +95,49 @@ def test_optional_import_returns_none_for_absent_module():
     from pamola_core.utils.optional_deps import optional_import
 
     assert optional_import("definitely_not_installed_xyz") is None
+
+
+
+
+#: Modules that draw and therefore need the `viz` extra. Each used to import
+#: matplotlib/seaborn directly, so a base install got a bare ModuleNotFoundError
+#: about a package the user never asked for.
+VIZ_ONLY_MODULES = (
+    "pamola_core.privacy_models.k_anonymity.ka_visualization",
+    "pamola_core.privacy_models.l_diversity.visualization",
+    "pamola_core.privacy_models.l_diversity.advanced_visualization",
+)
+
+_HIDE_BACKENDS_THEN_IMPORT = """
+import sys
+for name in ('matplotlib', 'matplotlib.pyplot', 'matplotlib.patches', 'seaborn'):
+    sys.modules[name] = None
+from pamola_core.errors.exceptions import DependencyMissingError
+try:
+    import {module}
+except DependencyMissingError as exc:
+    print('DEPENDENCY_MISSING::' + str(exc))
+except ImportError as exc:
+    print('BARE_IMPORT_ERROR::' + repr(exc))
+else:
+    print('IMPORTED')
+"""
+
+
+@pytest.mark.parametrize("module", VIZ_ONLY_MODULES)
+def test_viz_only_modules_name_the_extra_when_the_backend_is_missing(module):
+    """Importing a plotting module without the stack must say what to install.
+
+    The backend is hidden by putting ``None`` in ``sys.modules`` (which makes the
+    import machinery raise), so the check holds on a machine that has the stack.
+    """
+    result = subprocess.run(
+        [sys.executable, "-c", _HIDE_BACKENDS_THEN_IMPORT.format(module=module)],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    out = result.stdout.strip().splitlines()[-1]
+    assert out.startswith("DEPENDENCY_MISSING::"), out
+    assert "pamola-core[viz]" in out

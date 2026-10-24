@@ -5,7 +5,6 @@ This module provides functions for generating and formatting analysis reports
 and artifacts, including JSON reports, CSV dictionaries, and metadata formatting.
 """
 
-import logging
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
@@ -14,8 +13,8 @@ from typing import Dict, Any, Optional
 from pamola_core.utils.io import ensure_directory
 import pamola_core.utils.logging as pamola_logging
 
-# Configure logger using the custom logging utility
-logger = pamola_logging.configure_logging(level=logging.INFO)
+# A module logger only: handlers, level and propagation belong to the application
+logger = pamola_logging.getLogger(__name__)
 
 
 def save_profiling_results(

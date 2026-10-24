@@ -384,7 +384,6 @@ def apply_merge_low_freq(
     freq_threshold = config.get("freq_threshold", 0.01)
     group_rare_as = config.get("group_rare_as", GroupRareAs.OTHER.value)
     rare_value_template = config.get("rare_value_template", "OTHER_{n}")
-    max_categories = config.get("max_categories", 1000)
     random_seed = config.get("random_seed")
 
     # Create local RNG for thread safety
@@ -401,7 +400,11 @@ def apply_merge_low_freq(
         series,
         count_threshold=min_group_size,
         percent_threshold=freq_threshold,
-        combined_criteria=True,
+        # A category is rare if it fails EITHER threshold (fewer than min_group_size rows, or
+        # a share below freq_threshold): "support both count and percentage thresholds".
+        # Requiring both made the strategy a no-op on any dataset large enough for every
+        # category to have min_group_size rows.
+        combined_criteria=False,
         value_counts=value_counts,
     )
 
@@ -423,7 +426,11 @@ def apply_merge_low_freq(
         threshold=min_group_size,
         max_groups=100,  # Reasonable limit
         group_prefix=group_prefix,
-        preserve_top_n=max_categories,
+        # Group exactly the categories identified as rare above. Passing
+        # preserve_top_n=max_categories here used to protect the 1000 most frequent
+        # categories from grouping, i.e. every category of any ordinary field, so the
+        # strategy changed nothing.
+        categories_to_group=rare_categories,
         other_label=config.get("unknown_value", DEFAULT_UNKNOWN_VALUE),
         value_counts=value_counts,
     )

@@ -17,7 +17,7 @@
 
 ## Overview
 
-`BasePrivacyModelProcessor` is an abstract base class that defines the standard interface for all privacy model implementations in PAMOLA.CORE. It enforces a consistent API across different anonymization models (k-Anonymity, l-Diversity, t-Closeness, Differential Privacy).
+`BasePrivacyModelProcessor` is an abstract base class that defines the standard interface for all privacy model implementations in PAMOLA.CORE. It enforces a consistent API across different anonymization models (k-Anonymity, l-Diversity, t-Closeness).
 
 **Purpose:** Ensure uniform behavior and interchangeability among privacy models.
 
@@ -35,8 +35,7 @@
 BasePrivacyModelProcessor (ABC)
 ├── KAnonymityProcessor
 ├── LDiversityCalculator
-├── TCloseness
-└── DifferentialPrivacyProcessor
+└── TCloseness
 ```
 
 All concrete processors inherit from this base class and implement its abstract methods.
@@ -72,7 +71,6 @@ def process(self, data: Any) -> Any:
 - Implementation varies by processor
 - k-Anonymity: Applies grouping and suppression
 - l-Diversity: Ensures attribute diversity
-- Differential Privacy: Adds noise
 
 ### 2. evaluate_privacy(data, quasi_identifiers, **kwargs)
 
@@ -458,7 +456,6 @@ def apply_model(
 - [KAnonymityProcessor](./k_anonymity/k_anonymity_processor.md)
 - [LDiversityCalculator](./l_diversity/l_diversity_calculator.md)
 - [TCloseness](./t_closeness/t_closeness_processor.md)
-- [DifferentialPrivacyProcessor](./differential_privacy/dp_processor.md)
 
 ## Summary Analysis
 

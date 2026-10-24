@@ -42,6 +42,16 @@ if _LANGDETECT_AVAILABLE:
     # Set seed for consistent language detection
     DetectorFactory.seed = 0
 
+from pamola_core.utils.nlp.remote_resources import (
+    disabled_reason,
+    download_already_failed,
+    mark_download_failed,
+    record_degraded,
+    remote_downloads_allowed,
+)
+
+_FASTTEXT_RESOURCE = 'fasttext:lid.176'
+
 # Check for FastText availability
 _FASTTEXT_AVAILABLE = DependencyManager.check_dependency('fasttext')
 
@@ -174,6 +184,20 @@ def _get_fasttext_model():
         model_path = os.path.join(model_dir, 'lid.176.bin')
 
         if not os.path.exists(model_path):
+            # Offline by default: fetch the 125 MB model only on explicit
+            # opt-in (PAMOLA_ALLOW_REMOTE_DOWNLOADS=1). Otherwise record the
+            # degradation once and let detection fall back to langdetect /
+            # heuristics.
+            if not remote_downloads_allowed():
+                record_degraded(
+                    _FASTTEXT_RESOURCE,
+                    disabled_reason(f"FastText model '{model_path}'")
+                    + " Language detection falls back to langdetect/heuristics.",
+                )
+                return None
+            if download_already_failed(_FASTTEXT_RESOURCE):
+                return None
+
             # Create the directory only when there is something to put in it.
             # Doing it unconditionally left an empty `resources/models/` inside
             # the package tree on every call, including calls that never
@@ -206,7 +230,7 @@ def _get_fasttext_model():
                     tmp_path
                 )
                 os.replace(tmp_path, model_path)
-            except BaseException:
+            except BaseException as download_error:
                 # Leave no trace of a failed attempt.
                 try:
                     os.unlink(tmp_path)
@@ -218,7 +242,18 @@ def _get_fasttext_model():
                         os.rmdir(model_dir)
                     except OSError:
                         pass
-                raise
+                if not isinstance(download_error, Exception):
+                    raise
+                # Opted in, but the network is unavailable: one actionable
+                # signal, remembered so later calls do not retry per record.
+                mark_download_failed(
+                    _FASTTEXT_RESOURCE,
+                    f"download of the FastText language model failed "
+                    f"({download_error!r}); check network access or place "
+                    f"'lid.176.bin' in '{model_dir}'. Language detection falls "
+                    "back to langdetect/heuristics.",
+                )
+                return None
 
         # Load the model
         model = fasttext.load_model(model_path)

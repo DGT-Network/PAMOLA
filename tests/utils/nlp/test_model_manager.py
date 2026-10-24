@@ -20,6 +20,10 @@ class TestNLPModelManager(unittest.TestCase):
         NLPModelManager._instance = None
         self.manager = NLPModelManager()
 
+    def tearDown(self):
+        # do not leave a manager holding mocked caches for the next test file (ASB-10)
+        NLPModelManager._instance = None
+
     def test_singleton_behavior(self):
         m1 = NLPModelManager()
         m2 = NLPModelManager()

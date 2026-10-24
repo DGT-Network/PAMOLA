@@ -102,7 +102,7 @@ class TestKAnonymityEvaluatePrivacy:
         assert "min_k" in result
         assert "at_risk_records" in result
         assert "at_risk_groups" in result
-        assert "compliant" in result
+        assert "threshold_met" in result
 
     def test_k_equals_1_boundary(self, sample_data):
         """Test k=1 boundary condition (all individual records)."""
@@ -111,7 +111,7 @@ class TestKAnonymityEvaluatePrivacy:
         result = processor.evaluate_privacy(sample_data, quasi_identifiers)
 
         assert result["min_k"] >= 1
-        assert result["compliant"] == True  # noqa: E712 — numpy.bool_ is not `is True`
+        assert result["threshold_met"] == True  # noqa: E712 — numpy.bool_ is not `is True`
 
     def test_k_equals_n_boundary(self, sample_data):
         """Test k=n where n is dataset size (all records in one group)."""
@@ -128,7 +128,7 @@ class TestKAnonymityEvaluatePrivacy:
         quasi_identifiers = ["age", "city"]
         result = processor.evaluate_privacy(k3_compliant_data, quasi_identifiers)
 
-        assert result["compliant"] == True  # noqa: E712 — numpy.bool_
+        assert result["threshold_met"] == True  # noqa: E712 — numpy.bool_
         assert result["min_k"] >= 3
 
     def test_non_compliant_dataset(self):
@@ -142,7 +142,7 @@ class TestKAnonymityEvaluatePrivacy:
         quasi_identifiers = ["age", "city"]
         result = processor.evaluate_privacy(data, quasi_identifiers)
 
-        assert result["compliant"] == False  # noqa: E712 — numpy.bool_
+        assert result["threshold_met"] == False  # noqa: E712 — numpy.bool_
 
     def test_missing_quasi_identifier_column(self, sample_data):
         """Test error handling for missing quasi-identifier column."""
@@ -323,7 +323,7 @@ class TestKAnonymityEdgeCases:
         result = processor.evaluate_privacy(data, quasi_identifiers)
 
         assert result["min_k"] >= 4
-        assert result["compliant"] == True  # noqa: E712 — numpy.bool_
+        assert result["threshold_met"] == True  # noqa: E712 — numpy.bool_
 
     def test_null_values_in_data(self):
         """Test handling of null values in quasi-identifiers."""
@@ -349,7 +349,7 @@ class TestKAnonymityEdgeCases:
         quasi_identifiers = ["age", "city"]
         result = processor.evaluate_privacy(data, quasi_identifiers)
 
-        assert result["compliant"] == False  # noqa: E712 — numpy.bool_
+        assert result["threshold_met"] == False  # noqa: E712 — numpy.bool_
 
     def test_all_unique_rows(self):
         """Test dataset with all unique quasi-identifier combinations."""
@@ -362,7 +362,7 @@ class TestKAnonymityEdgeCases:
         result = processor.evaluate_privacy(data, quasi_identifiers)
 
         assert result["min_k"] == 1
-        assert result["compliant"] == False  # noqa: E712 — numpy.bool_
+        assert result["threshold_met"] == False  # noqa: E712 — numpy.bool_
 
     def test_numeric_quasi_identifiers(self):
         """Test with numeric quasi-identifier columns."""
@@ -375,7 +375,7 @@ class TestKAnonymityEdgeCases:
         quasi_identifiers = ["age", "income"]
         result = processor.evaluate_privacy(data, quasi_identifiers)
 
-        assert result["compliant"] == True  # noqa: E712 — numpy.bool_
+        assert result["threshold_met"] == True  # noqa: E712 — numpy.bool_
 
     def test_string_quasi_identifiers(self):
         """Test with string quasi-identifier columns."""
@@ -388,7 +388,7 @@ class TestKAnonymityEdgeCases:
         quasi_identifiers = ["city", "state"]
         result = processor.evaluate_privacy(data, quasi_identifiers)
 
-        assert result["compliant"] == True  # noqa: E712 — numpy.bool_
+        assert result["threshold_met"] == True  # noqa: E712 — numpy.bool_
 
     def test_mixed_type_quasi_identifiers(self):
         """Test with mixed data types in quasi-identifiers."""

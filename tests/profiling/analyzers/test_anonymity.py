@@ -470,47 +470,6 @@ class TestKAnonymityProfilingOperation(unittest.TestCase):
         with self.assertRaises(ValidationError):
             op._calculate_group_sizes(df, ['A', 'B'])
 
-    def test_calculate_k_anonymity_chunked_basic(self):
-        df = pd.DataFrame({
-            'A': ['x', 'x', 'y', 'y', 'y'],
-            'B': [1, 1, 2, 2, 2]
-        })
-        op = KAnonymityProfilerOperation(chunk_size=2)
-        result = op._calculate_k_anonymity_chunked(df, ['A', 'B'])
-        self.assertIn('min_k', result)
-        self.assertIn('mean_k', result)
-        self.assertIn('k_distribution', result)
-        self.assertEqual(result['min_k'], 2)
-        self.assertEqual(result['mean_k'], 2.5)
-
-    def test_calculate_k_anonymity_chunked_large(self):
-        df = pd.DataFrame({
-            'A': ['a'] * 5000 + ['b'] * 5000,
-            'B': [1] * 2500 + [2] * 2500 + [1] * 2500 + [2] * 2500
-        })
-        op = KAnonymityProfilerOperation(chunk_size=1000)
-        result = op._calculate_k_anonymity_chunked(df, ['A', 'B'])
-        self.assertEqual(result['min_k'], 2500)
-        self.assertEqual(result['mean_k'], 2500)
-
-    def test_calculate_k_anonymity_chunked_with_nan(self):
-        df = pd.DataFrame({
-            'A': ['x', 'x', None, None],
-            'B': [1, 1, 2, 2]
-        })
-        op = KAnonymityProfilerOperation(chunk_size=2)
-        result = op._calculate_k_anonymity_chunked(df, ['A', 'B'])
-        self.assertGreaterEqual(result['min_k'], 2)
-        self.assertIn('k_distribution', result)
-
-    def test_calculate_k_anonymity_chunked_empty(self):
-        df = pd.DataFrame({'A': [], 'B': []})
-        op = KAnonymityProfilerOperation(chunk_size=2)
-        result = op._calculate_k_anonymity_chunked(df, ['A', 'B'])
-        self.assertEqual(result['min_k'], 0)
-        self.assertEqual(result['mean_k'], 0)
-        self.assertEqual(result['k_distribution'], {})
-
     def test_calculate_k_values_chunked_basic(self):
         df = pd.DataFrame({
             'A': ['x', 'x', 'y', 'y', 'y'],

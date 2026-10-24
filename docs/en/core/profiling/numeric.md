@@ -134,7 +134,7 @@ if result.status.name == "SUCCESS":
 | `reporter` | Any | Yes | - | Reporter object for tracking artifacts |
 | `progress_tracker` | HierarchicalProgressTracker | No | None | Progress tracking object |
 | `near_zero_threshold` | float | No | 1e-10 | Threshold for near-zero detection |
-| `generate_visualization` | bool | No | True | Whether to create visualizations |
+| `generate_visualization` | bool | No | False | Whether to create visualizations |
 | `include_timestamp` | bool | No | True | Whether to include timestamps in filenames |
 | `profile_type` | str | No | "numeric" | Type of profiling for organizing artifacts |
 

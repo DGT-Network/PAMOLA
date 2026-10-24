@@ -22,13 +22,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
 # Import file saving utility
 from pamola_core.utils.io import save_plot
+
+# The plotting stack ships with the `viz` extra: a missing one is reported as such,
+# not as a bare ModuleNotFoundError.
+from pamola_core.utils.optional_deps import require_optional
+
+plt = require_optional("matplotlib.pyplot", extra="viz")
+sns = require_optional("seaborn", extra="viz")
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -695,11 +700,11 @@ class LDiversityVisualizer:
                 overall_compliant = overall_risk.get('overall_compliant', False)
 
                 status_color = 'green' if overall_compliant else 'red'
-                status_text = 'COMPLIANT' if overall_compliant else 'NON-COMPLIANT'
+                status_text = 'THRESHOLD MET' if overall_compliant else 'THRESHOLD NOT MET'
 
                 plt.figtext(
                     0.5, 0.01,
-                    f"Overall Status: {status_text} | Min Diversity: {min_diversity:.2f} | "
+                    f"Overall l-diversity threshold: {status_text} | Min Diversity: {min_diversity:.2f} | "
                     f"Prosecutor Risk: {prosecutor_risk:.2f}%",
                     ha='center',
                     fontsize=12,

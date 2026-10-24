@@ -27,7 +27,7 @@ This module:
 - Validates configuration before use to prevent runtime errors
 - Manages privacy model parameters (l, diversity_type, c_value)
 - Configures processing strategies (Dask, memory optimization)
-- Handles visualization and compliance settings
+- Handles visualization and threshold settings
 
 ### Module Structure
 
@@ -70,10 +70,9 @@ L_DIVERSITY_DEFAULTS = {
         "save_format": "png",         # Output format
     },
 
-    # Compliance
-    "compliance": {
+    # Thresholds (no law or regulation is mapped to them)
+    "thresholds": {
         "risk_threshold": 0.5,        # Privacy risk threshold
-        "supported_regulations": ["GDPR", "HIPAA", "CCPA"],
     }
 }
 ```
@@ -115,12 +114,11 @@ L_DIVERSITY_DEFAULTS = {
 | `visualization.hist_bins` | int | 20 | `PAMOLA_L_DIVERSITY_HIST_BINS` | Number of bins for histogram visualizations |
 | `visualization.save_format` | str | "png" | `PAMOLA_L_DIVERSITY_SAVE_FORMAT` | Image format (png, jpg, pdf, svg) |
 
-### Compliance Parameters
+### Threshold Parameters
 
 | Parameter | Type | Default | Environment Variable | Description |
 |-----------|------|---------|----------------------|-------------|
-| `compliance.risk_threshold` | float | 0.5 | `PAMOLA_L_DIVERSITY_RISK_THRESHOLD` | Privacy risk threshold (0.0-1.0) |
-| `compliance.supported_regulations` | list | ["GDPR", "HIPAA", "CCPA"] | (not environment-configurable) | Applicable regulations |
+| `thresholds.risk_threshold` | float | 0.5 | `PAMOLA_L_DIVERSITY_RISK_THRESHOLD` | Privacy risk threshold (0.0-1.0) |
 
 ## Validation Rules
 
@@ -532,7 +530,7 @@ large_dataset_config = get_l_diversity_config({
 })
 ```
 
-### 5. **Compliance Configuration**
+### 5. **Threshold Configuration**
 
 ```python
 from pamola_core.configs.config_variables import get_l_diversity_config
@@ -541,9 +539,8 @@ from pamola_core.configs.config_variables import get_l_diversity_config
 privacy_config = get_l_diversity_config({
     "l": 5,                                    # Higher diversity level
     "k": 5,                                    # Higher k-anonymity
-    "compliance": {
+    "thresholds": {
         "risk_threshold": 0.1,                 # Stricter threshold
-        "supported_regulations": ["GDPR", "CCPA"]
     }
 })
 ```
@@ -555,7 +552,7 @@ The `config_variables.py` module provides:
 - **Centralized L-Diversity Configuration**: All parameters in one place
 - **Environment Integration**: Direct environment variable binding
 - **Validation Framework**: Type and range checking before use
-- **Nested Structures**: Support for hierarchical parameters (visualization, compliance)
+- **Nested Structures**: Support for hierarchical parameters (visualization, thresholds)
 - **Deep Merge**: Proper handling of partial overrides
 - **Error Resilience**: Graceful fallback to defaults on validation failure
 - **Flexible Override**: Environment > Parameter > Default precedence

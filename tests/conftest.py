@@ -64,6 +64,9 @@ PAMOLA_ENV_VARS = (
     # fixture sets them again immediately afterwards.
     "PAMOLA_EXECUTION_LOG_PATH",
     "PAMOLA_MODEL_DIR",
+    # Offline by default (SEC-01): a developer who exported the opt-in must not
+    # change what the suite measures.
+    "PAMOLA_ALLOW_REMOTE_DOWNLOADS",
 )
 
 
@@ -77,6 +80,66 @@ def isolate_pamola_env(monkeypatch):
     """
     for name in PAMOLA_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def restore_logging_state():
+    """Give every test the logging configuration it found, whatever an earlier test did.
+
+    ``caplog`` reads the root logger. Once any code sets ``propagate = False`` on
+    ``pamola_core`` (the four profiling modules did that at import time through
+    ``configure_logging()``), calls ``logging.disable(...)`` or replaces handlers,
+    every later ``caplog`` assertion on a ``pamola_core.*`` logger sees an empty log
+    in the full-suite order while it passes when run by name. The fixture snapshots
+    propagation, level, ``disabled`` and handlers of every ``pamola_core`` logger and
+    the global ``logging.disable`` threshold, and restores them around each test;
+    loggers created during the test go back to the defaults.
+    """
+    import logging
+
+    manager = logging.root.manager
+
+    def _is_ours(name):
+        return name == "pamola_core" or name.startswith("pamola_core.")
+
+    def _snapshot():
+        return {
+            name: (lg.propagate, lg.level, lg.disabled, list(lg.handlers))
+            for name, lg in list(manager.loggerDict.items())
+            if _is_ours(name) and isinstance(lg, logging.Logger)
+        }
+
+    before = _snapshot()
+    disable_before = manager.disable
+    yield
+    logging.disable(disable_before)
+    for name, lg in list(manager.loggerDict.items()):
+        if not _is_ours(name) or not isinstance(lg, logging.Logger):
+            continue
+        propagate, level, disabled, handlers = before.get(
+            name, (True, logging.NOTSET, False, [])
+        )
+        lg.propagate = propagate
+        lg.setLevel(level)
+        lg.disabled = disabled
+        lg.handlers[:] = handlers
+
+
+@pytest.fixture(autouse=True)
+def reset_remote_resource_state():
+    """Start every test with a clean degraded-resource registry and no override.
+
+    The registry is process-wide by design (one warning per missing resource
+    per process), so without this a test that records a missing model would
+    change the metrics of every later text-profiling test.
+    """
+    from pamola_core.utils.nlp import remote_resources
+
+    remote_resources.configure_remote_downloads(None)
+    remote_resources.reset_degraded_resources()
+    yield
+    remote_resources.configure_remote_downloads(None)
+    remote_resources.reset_degraded_resources()
 
 
 @pytest.fixture(autouse=True)

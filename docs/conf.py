@@ -220,7 +220,7 @@ html_theme = "alabaster"
 
 html_theme_options = {
     "description": "Privacy-preserving data operations for AI pipelines",
-    "github_user": "DGT-Network",
+    "github_user": "realmdata-ai",
     "github_repo": "PAMOLA",
     "github_banner": True,
     "fixed_sidebar": True,
@@ -266,7 +266,7 @@ PAMOLA Core API Reference
 =========================
 
 **PAMOLA Core** is an open-source Python library for privacy-preserving data
-operations developed by `Realm Inveo Inc. <https://realminveo.com>`_ and
+operations developed by `Realm Inveo Inc. <https://realmdata.ai>`_ and
 `DGT Network Inc. <https://dgt.world>`_.
 
 Complete reference for every public symbol exported by ``pamola_core``.

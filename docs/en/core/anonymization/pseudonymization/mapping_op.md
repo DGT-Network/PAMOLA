@@ -48,7 +48,7 @@ def __init__(
 | `mapping_file` | Optional[Union[str, Path]] | None | Custom mapping file name (auto-generated if None) |
 | `mapping_format` | str | "csv" | Storage format for mapping: `"csv"` or `"json"` |
 | `create_if_not_exists` | bool | True | Create mapping file if it does not exist |
-| `backup_on_update` | bool | True | Back up mapping file before each update |
+| `backup_on_update` | bool | True | Back up an existing mapping file once, before the run first modifies it |
 | `persist_frequency` | int | 1000 | Persist to disk after N newly created mappings |
 | `pseudonym_type` | str | "uuid" | Pseudonym format: `"uuid"`, `"sequential"`, or `"random_string"` |
 | `pseudonym_prefix` | Optional[str] | None | Prefix prepended to each pseudonym |
@@ -101,10 +101,14 @@ Resolves a single value to its pseudonym; creates a new mapping if the value is 
 ## Mapping Storage
 
 - **Encryption:** AES-256-GCM with the provided key.
-- **Format:** CSV or JSON. Both are encrypted at rest.
+- **Format:** `mapping_format` selects how the table is serialized inside the encrypted file (CSV or JSON). Both are encrypted at rest and are read back identically by a fresh instance.
 - **File name:** Auto-derived from field name if `mapping_file` is not provided.
-- **Persistence:** Mappings are persisted after every `persist_frequency` new entries and at the end of each run.
-- **Backup:** When `backup_on_update=True`, a `.bak` copy is created before each write.
+- **Reuse across runs:** A later run (new instance or new process) that points at the same `mapping_file` with the same key loads the table and keeps every existing pseudonym; only values it has not seen get new pseudonyms (sequential numbering continues without reuse).
+- **Persistence:** Incremental and append-only. After every `persist_frequency` new entries, and at the end of the run, only the entries created since the previous persist are encrypted (AES-256-GCM, fresh nonce) and appended as one frame, so the cost of a persist does not grow with the size of the table. Frames are numbered and authenticated, so a dropped, duplicated or reordered frame is detected.
+- **Failure behaviour (fail closed):** A wrong key, a modified or corrupted file, a truncated file, a source value with two pseudonyms or a pseudonym shared by two source values makes the run return an error (`MappingIntegrityError`); no partial mapping is used and the file is left untouched.
+- **Single writer:** One process may write a mapping file at a time. A crash while appending leaves a truncated last frame, reported as an error on the next load; restore the `.bak.*` copy taken before that run.
+- **Backup:** When `backup_on_update=True`, one `.bak.<timestamp>` copy is created before the run first modifies an existing file (the last five are kept).
+- **Older files:** Files written by earlier releases (single encrypted blob) are still readable, including the JSON files and the CSV files whose rows held the wrapped table; the first append converts them to the current layout after taking a backup.
 
 ## Usage Examples
 
@@ -180,10 +184,10 @@ op = ConsistentMappingPseudonymizationOperation(
 ## Security Considerations
 
 - **Encryption Key:** Must be a 256-bit key, either 64-character hex string or 32 raw bytes. Invalid format or size raises `ValidationError` at construction time.
-- **Key Handling:** The public attribute is removed after init; key is stored privately as `_mapping_encryption_key` to prevent accidental serialization/logging.
+- **Key Handling:** The public attribute is removed after init; the key is stored privately as `_mapping_encryption_key`. The key and the plaintext mapping (original -> pseudonym) are NOT part of the pickled / copied / Dask-tokenized state: an unpickled copy is a configuration holder that cannot open the mapping file and must be recreated with the key. Corruption errors of the mapping file name the position and shape of the problem, never the content of a row.
 - **Reversibility:** Authorized holders of the key can reverse-lookup original values from pseudonyms. Protect the key with the same rigor as the source data.
 - **Storage at Rest:** Every mapping write is AES-256-GCM encrypted; tampering is detected via the GCM authentication tag.
-- **Backup:** Before each persistence, a `.bak` copy is created to allow recovery from interrupted writes.
+- **Backup:** Before the run first modifies an existing mapping file, a `.bak.<timestamp>` copy is created to allow recovery from interrupted writes.
 
 ## Metrics
 

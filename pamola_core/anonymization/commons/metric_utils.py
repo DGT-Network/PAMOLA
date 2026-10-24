@@ -129,6 +129,21 @@ def calculate_anonymization_effectiveness(
         }
 
 
+def _public_strategy_params(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Strategy parameters for the metrics artifact.
+
+    The category mapping / hierarchy dictionary map SOURCE category values to their generalized
+    values: they are a data artifact of the operation (written to ``mappings/``), not generic
+    metrics. The metrics keep only their size.
+    """
+    public = dict(params)
+    for key in ("category_mapping", "hierarchy_dict"):
+        value = public.pop(key, None)
+        if isinstance(value, dict):
+            public[f"{key}_size"] = len(value)
+    return public
+
+
 def calculate_generalization_metrics(
     original_series: pd.Series,
     anonymized_series: pd.Series,
@@ -158,7 +173,10 @@ def calculate_generalization_metrics(
     """
     try:
         # Initialize metrics dictionary with proper typing
-        metrics: Dict[str, Any] = {"strategy": strategy, "parameters": strategy_params}
+        metrics: Dict[str, Any] = {
+            "strategy": strategy,
+            "parameters": _public_strategy_params(strategy_params),
+        }
 
         # Calculate basic effectiveness
         effectiveness = calculate_anonymization_effectiveness(
@@ -677,12 +695,16 @@ def calculate_process_performance(
 
 
 def get_value_distribution_summary(
-    series: pd.Series, max_categories: int = 10
+    series: pd.Series,
+    max_categories: int = 10,
+    include_raw_samples: bool = False,
 ) -> Dict[str, Any]:
     """
     Get a simple summary of value distribution.
 
-    Lightweight distribution info for process monitoring.
+    Lightweight distribution info for process monitoring. By default the
+    summary contains counts and ratios only; it never contains values taken
+    from the data.
 
     Parameters
     -----------
@@ -690,6 +712,13 @@ def get_value_distribution_summary(
         Data to summarize
     max_categories : int
         Maximum categories to include
+    include_raw_samples : bool
+        Diagnostic option, default False. If True, ``top_values`` (the most
+        frequent values of a low-cardinality series with their counts) is
+        added. WARNING: those are the actual values of ``series`` -- for the
+        pre-transformation side they are the source data, possibly PII.
+        Enabling this writes them to whatever artifact receives the summary
+        (typically ``metrics/*.json``).
 
     Returns
     --------
@@ -712,8 +741,9 @@ def get_value_distribution_summary(
             ),
         }
 
-        # Add top values for categorical data
-        if unique_count <= max_categories * 2:
+        # Raw values are opt-in (SEC-04/SEC-05): the summary lands in generic
+        # metrics artifacts that are not the operation's protected output.
+        if include_raw_samples and unique_count <= max_categories * 2:
             value_counts = series.value_counts().head(max_categories)
             summary["top_values"] = {str(k): int(v) for k, v in value_counts.items()}
 
@@ -730,6 +760,7 @@ def collect_operation_metrics(
     processed_data: pd.Series,
     operation_params: Dict[str, Any],
     timing_info: Optional[Dict[str, float]] = None,
+    include_raw_samples: bool = False,
 ) -> Dict[str, Any]:
     """
     Collect all relevant metrics for an anonymization operation.
@@ -748,6 +779,11 @@ def collect_operation_metrics(
         Operation parameters
     timing_info : Optional[Dict[str, float]]
         Timing information (start_time, end_time)
+    include_raw_samples : bool
+        Diagnostic option, default False. If True, the ``field_info``
+        summaries also carry the most frequent raw values of low-cardinality
+        fields (``top_values``). WARNING: this puts source values, possibly
+        PII, into the metrics artifact.
 
     Returns
     --------
@@ -759,8 +795,12 @@ def collect_operation_metrics(
         "operation_type": operation_type,
         "timestamp": datetime.now().isoformat(),
         "field_info": {
-            "original": get_value_distribution_summary(original_data),
-            "processed": get_value_distribution_summary(processed_data),
+            "original": get_value_distribution_summary(
+                original_data, include_raw_samples=include_raw_samples
+            ),
+            "processed": get_value_distribution_summary(
+                processed_data, include_raw_samples=include_raw_samples
+            ),
         },
     }
 

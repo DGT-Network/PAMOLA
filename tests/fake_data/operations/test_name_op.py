@@ -4,6 +4,8 @@ from collections import Counter
 from pathlib import Path
 from unittest.mock import Mock, patch
 import pandas as pd
+
+from pamola_core.errors.exceptions.resources import FakeDataError
 from pamola_core.fake_data import FakeNameOperation
 from pamola_core.fake_data.generators.name import NameGenerator
 from pamola_core.utils.ops.op_registry import unregister_operation, get_operation_class
@@ -43,7 +45,8 @@ class TestFakeNameOperationInit(unittest.TestCase):
         self.assertFalse(op.save_mapping)
         self.assertIsNone(op.mapping_store_path)
         self.assertIsNone(op.id_field)
-        self.assertIsNone(op.key)
+        self.assertFalse(op.keyed)  # no key given: a random per-run key is used (ASB-1)
+        self.assertEqual(len(op.key), 64)
         self.assertIsNone(op.context_salt)
         self.assertEqual(op.column_prefix, "_")
         self.assertEqual(op.language, "en")
@@ -61,7 +64,7 @@ class TestFakeNameOperationInit(unittest.TestCase):
         self.assertFalse(gen_config["use_faker"])
         self.assertEqual(gen_config["case"], "title")
         self.assertEqual(gen_config["dictionaries"], {})
-        self.assertIsNone(gen_config["key"])
+        self.assertEqual(len(gen_config["key"]), 64)  # random per-run key (ASB-1)
         self.assertIsNone(gen_config["context_salt"])
 
         # Internal counters
@@ -277,8 +280,8 @@ class TestFakeNameProcessBatch(unittest.TestCase):
             "name": ["fail_value"],
             "gender": ["F"]
         })
-        result = self.op.process_batch(df)
-        self.assertEqual(result["name"].iloc[0], "fail_value")  # fallback to original
+        with self.assertRaises(FakeDataError):  # fail closed: no fallback to the original
+            self.op.process_batch(df)
         self.assertEqual(self.op.process_count, 0)
 
     def test_gender_conversion_variants(self):

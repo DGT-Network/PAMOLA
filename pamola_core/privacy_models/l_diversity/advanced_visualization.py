@@ -10,7 +10,7 @@ Key Features:
 - Attack model visualization
 - Attribute correlation heatmaps
 - Disclosure risk analysis
-- Regulatory compliance visualization
+- Threshold-check visualization (technical evidence, not a legal determination)
 
 This module works seamlessly with the L-Diversity processor's
 centralized cache mechanism for efficient visualization generation.
@@ -27,13 +27,18 @@ import math
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import seaborn as sns
 
 # Import file saving utility
 from pamola_core.utils.io import save_plot
 from pamola_core.errors.exceptions import ColumnNotFoundError, ValidationError
+
+# The plotting stack ships with the `viz` extra: a missing one is reported as such,
+# not as a bare ModuleNotFoundError.
+from pamola_core.utils.optional_deps import require_optional
+
+plt = require_optional("matplotlib.pyplot", extra="viz")
+mpatches = require_optional("matplotlib.patches", extra="viz")
+sns = require_optional("seaborn", extra="viz")
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -732,17 +737,22 @@ class LDiversityAdvancedVisualizer:
             ax.axis("off")
             return fig, None
 
-    def visualize_regulatory_compliance(
+    def visualize_threshold_check(
         self,
         data: pd.DataFrame,
         quasi_identifiers: List[str],
         sensitive_attributes: List[str],
-        regulation: str = "GDPR",
+        l_threshold: int = 3,
+        diversity_type: str = "distinct",
+        c_value: Optional[float] = None,
         save_path: Optional[Union[str, Path]] = None,
         **kwargs,
     ) -> Tuple[plt.Figure, Optional[str]]:
         """
-        Visualize compliance with a specific privacy regulation
+        Visualize whether the data meets a caller-chosen l-diversity threshold.
+
+        The result is technical evidence about the configured threshold only;
+        it says nothing about compliance with any law or regulation.
 
         Parameters
         -----------
@@ -752,8 +762,12 @@ class LDiversityAdvancedVisualizer:
             Quasi-identifier columns
         sensitive_attributes : List[str]
             Sensitive attribute columns
-        regulation : str, optional
-            Regulation to assess compliance with (default: 'GDPR')
+        l_threshold : int, optional
+            Minimum l to test against (default: 3)
+        diversity_type : str, optional
+            'distinct', 'entropy' or 'recursive' (default: 'distinct')
+        c_value : float, optional
+            c parameter for recursive (c, l)-diversity
         save_path : str or Path, optional
             Path to save visualization
         **kwargs : dict
@@ -768,43 +782,11 @@ class LDiversityAdvancedVisualizer:
             # Get configuration by merging defaults with kwargs
             config = {**self.config, **kwargs}
 
-            # Define regulatory requirements
-            regulatory_requirements = {
-                "GDPR": {
-                    "l_threshold": 3,
-                    "diversity_type": "distinct",
-                    "description": "General Data Protection Regulation (EU)",
-                    "key_articles": ["Art. 5", "Art. 25", "Art. 35"],
-                },
-                "HIPAA": {
-                    "l_threshold": 4,
-                    "diversity_type": "recursive",
-                    "c_value": 0.5,
-                    "description": "Health Insurance Portability and Accountability Act (US)",
-                    "key_articles": ["§164.514(b)"],
-                },
-                "CCPA": {
-                    "l_threshold": 3,
-                    "diversity_type": "entropy",
-                    "description": "California Consumer Privacy Act (US)",
-                    "key_articles": ["1798.140", "1798.100"],
-                },
-                "PIPEDA": {
-                    "l_threshold": 3,
-                    "diversity_type": "distinct",
-                    "description": "Personal Information Protection and Electronic Documents Act (Canada)",
-                    "key_articles": ["Principle 4.5", "Principle 4.7"],
-                },
-            }
-
-            # Get requirements for the specified regulation
-            if regulation not in regulatory_requirements:
-                self.logger.warning(
-                    f"Unknown regulation: {regulation}, using GDPR defaults"
-                )
-                regulation = "GDPR"
-
-            req = regulatory_requirements[regulation]
+            # The threshold under test is chosen by the caller; this module does
+            # not map any law or regulation to a threshold.
+            req = {"l_threshold": l_threshold, "diversity_type": diversity_type}
+            if c_value is not None:
+                req["c_value"] = c_value
 
             # Try to get risk metrics from the processor
             risk_metrics = None
@@ -812,14 +794,14 @@ class LDiversityAdvancedVisualizer:
                 # If processor has evaluate_privacy method, use it
                 if hasattr(self.processor, "evaluate_privacy"):
                     try:
-                        # Extract regulatory parameters
+                        # Extract threshold parameters
                         risk_kwargs = kwargs.get("risk_kwargs", {})
                         risk_kwargs["diversity_type"] = req["diversity_type"]
                         risk_kwargs["l_threshold"] = req["l_threshold"]
                         if "c_value" in req:
                             risk_kwargs["c_value"] = req["c_value"]
 
-                        # Get risk metrics from processor with regulatory parameters
+                        # Get risk metrics from processor with the threshold parameters
                         risk_metrics = self.processor.evaluate_privacy(
                             data, quasi_identifiers, sensitive_attributes, **risk_kwargs
                         )
@@ -833,7 +815,7 @@ class LDiversityAdvancedVisualizer:
                     try:
                         risk_assessor = self.processor.risk_assessor
 
-                        # Extract regulatory parameters
+                        # Extract threshold parameters
                         risk_kwargs = kwargs.get("risk_kwargs", {})
                         risk_kwargs["diversity_type"] = req["diversity_type"]
                         risk_kwargs["l_threshold"] = req["l_threshold"]
@@ -870,7 +852,7 @@ class LDiversityAdvancedVisualizer:
                     if sa in attribute_risks:
                         sa_risk = attribute_risks[sa]
                         compliance_data[sa] = {
-                            "compliant": sa_risk.get("compliant", False),
+                            "threshold_met": sa_risk.get("compliant", False),
                             "min_diversity": sa_risk.get("min_diversity", 0),
                             "risk_percentage": sa_risk.get("risk_percentage", 0),
                         }
@@ -886,7 +868,7 @@ class LDiversityAdvancedVisualizer:
 
                 for sa in sensitive_attributes:
                     compliance_data[sa] = {
-                        "compliant": False,
+                        "threshold_met": False,
                         "min_diversity": 1,  # Below most thresholds
                         "risk_percentage": 70,  # High risk
                     }
@@ -922,19 +904,19 @@ class LDiversityAdvancedVisualizer:
             # Determine gauge color based on compliance score
             if compliance_score >= 100:
                 gauge_color = "green"
-                compliance_status = "COMPLIANT"
+                threshold_status = "THRESHOLD MET"
             elif compliance_score >= 75:
                 gauge_color = "yellowgreen"
-                compliance_status = "MOSTLY COMPLIANT"
+                threshold_status = "NEAR THRESHOLD"
             elif compliance_score >= 50:
                 gauge_color = "gold"
-                compliance_status = "PARTIALLY COMPLIANT"
+                threshold_status = "BELOW THRESHOLD"
             elif compliance_score >= 25:
                 gauge_color = "orange"
-                compliance_status = "MOSTLY NON-COMPLIANT"
+                threshold_status = "WELL BELOW THRESHOLD"
             else:
                 gauge_color = "red"
-                compliance_status = "NON-COMPLIANT"
+                threshold_status = "FAR BELOW THRESHOLD"
 
             # Draw filled portion of gauge
             start_angle = -180  # Start at 6 o'clock position
@@ -973,7 +955,7 @@ class LDiversityAdvancedVisualizer:
             ax1.text(
                 center[0],
                 center[1] - 0.25,
-                compliance_status,
+                threshold_status,
                 ha="center",
                 va="center",
                 fontsize=12,
@@ -981,29 +963,20 @@ class LDiversityAdvancedVisualizer:
                 weight="bold",
             )
 
-            # Add regulation info
+            # Title of the check
             ax1.text(
                 center[0],
                 center[1] + 0.6,
-                f"{regulation}",
+                "l-diversity threshold check",
                 ha="center",
                 va="center",
                 fontsize=16,
                 weight="bold",
             )
 
-            ax1.text(
-                center[0],
-                center[1] + 0.5,
-                req["description"],
-                ha="center",
-                va="center",
-                fontsize=10,
-            )
-
             # Add threshold info
             threshold_text = (
-                f"Required l-diversity: {req['l_threshold']} ({req['diversity_type']})"
+                f"Tested l-diversity: {req['l_threshold']} ({req['diversity_type']})"
             )
             if "c_value" in req:
                 threshold_text += f", c={req['c_value']}"
@@ -1032,8 +1005,8 @@ class LDiversityAdvancedVisualizer:
 
             # Data rows
             for sa, metrics in compliance_data.items():
-                status = "Compliant" if metrics["compliant"] else "Non-Compliant"
-                status_color = "green" if metrics["compliant"] else "red"
+                status = "Threshold met" if metrics["threshold_met"] else "Below threshold"
+                status_color = "green" if metrics["threshold_met"] else "red"
 
                 # Format min diversity value
                 min_div = metrics["min_diversity"]
@@ -1047,7 +1020,7 @@ class LDiversityAdvancedVisualizer:
                 table_data.append([sa, status, min_div_text, f"{risk:.1f}%"])
 
                 # Set row color based on compliance
-                if metrics["compliant"]:
+                if metrics["threshold_met"]:
                     cell_color = "#e6ffe6"  # Light green
                 else:
                     cell_color = "#ffe6e6"  # Light red
@@ -1072,7 +1045,7 @@ class LDiversityAdvancedVisualizer:
                 # Generate recommendations based on compliance
                 if overall_compliant:
                     recommendations = (
-                        f"Dataset is compliant with {regulation} requirements. "
+                        "The configured l-diversity threshold is met. "
                         "Maintain current privacy protections."
                     )
                 else:
@@ -1080,24 +1053,24 @@ class LDiversityAdvancedVisualizer:
                     non_compliant = [
                         sa
                         for sa, metrics in compliance_data.items()
-                        if not metrics["compliant"]
+                        if not metrics["threshold_met"]
                     ]
 
                     if non_compliant:
                         recommendations = (
-                            f"Dataset fails to meet {regulation} requirements for attributes: "
+                            "The configured l-diversity threshold is not met for attributes: "
                             f"{', '.join(non_compliant)}. "
                             "Consider additional generalization or suppression."
                         )
                     else:
                         recommendations = (
-                            f"Dataset does not fully meet {regulation} requirements. "
+                            "The configured l-diversity threshold is not fully met. "
                             "Review privacy protections."
                         )
             else:
                 # Default recommendation
                 recommendations = (
-                    "Cannot assess compliance without proper risk metrics. "
+                    "Cannot test the threshold without proper risk metrics. "
                     "Use a risk assessor for accurate evaluation."
                 )
 
@@ -1115,7 +1088,9 @@ class LDiversityAdvancedVisualizer:
             )
 
             # Set main title
-            plt.suptitle(f"Regulatory Compliance: {regulation}", fontsize=16)
+            plt.suptitle(
+                f"l-diversity threshold check (l >= {req['l_threshold']})", fontsize=16
+            )
             plt.tight_layout(rect=[0, 0, 1, 0.96])  # Make room for suptitle
 
             # Save figure if path provided
@@ -1126,7 +1101,7 @@ class LDiversityAdvancedVisualizer:
                 save_path = Path(save_path)
                 if save_path.is_dir():
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"regulatory_compliance_{regulation}_{timestamp}.{config['save_format']}"
+                    filename = f"l_diversity_threshold_check_{timestamp}.{config['save_format']}"
                     save_path = save_path / filename
 
                 # Use centralized save_plot utility
@@ -1140,18 +1115,18 @@ class LDiversityAdvancedVisualizer:
 
                 if saved_path:
                     self.logger.info(
-                        f"Regulatory compliance visualization saved to {saved_path}"
+                        f"Threshold-check visualization saved to {saved_path}"
                     )
                 else:
                     self.logger.warning(
-                        "Failed to save regulatory compliance visualization"
+                        "Failed to save threshold-check visualization"
                     )
 
             return fig, saved_path
 
         except Exception as e:
             self.logger.error(
-                f"Error during regulatory compliance visualization: {e}", exc_info=True
+                f"Error during threshold-check visualization: {e}", exc_info=True
             )
             # Create an error figure
             fig, ax = plt.subplots(figsize=(8, 6))
@@ -1426,17 +1401,20 @@ def visualize_attack_models(
     )
 
 
-def visualize_regulatory_compliance(
+def visualize_threshold_check(
     data: pd.DataFrame,
     quasi_identifiers: List[str],
     sensitive_attributes: List[str],
     processor=None,
-    regulation: str = "GDPR",
+    l_threshold: int = 3,
+    diversity_type: str = "distinct",
+    c_value: Optional[float] = None,
     save_path: Optional[Union[str, Path]] = None,
     **kwargs,
 ) -> Tuple[plt.Figure, Optional[str]]:
     """
-    Visualize compliance with a specific privacy regulation
+    Visualize whether the data meets a caller-chosen l-diversity threshold
+    (technical evidence only; not a legal determination)
 
     Parameters
     -----------
@@ -1448,8 +1426,12 @@ def visualize_regulatory_compliance(
         Sensitive attribute columns
     processor : object, optional
         L-Diversity processor instance for cached calculations
-    regulation : str, optional
-        Regulation to assess compliance with (default: 'GDPR')
+    l_threshold : int, optional
+        Minimum l to test against (default: 3)
+    diversity_type : str, optional
+        'distinct', 'entropy' or 'recursive' (default: 'distinct')
+    c_value : float, optional
+        c parameter for recursive (c, l)-diversity
     save_path : str or Path, optional
         Path to save visualization
     **kwargs : dict
@@ -1462,11 +1444,13 @@ def visualize_regulatory_compliance(
     """
     visualizer = LDiversityAdvancedVisualizer(processor)
 
-    return visualizer.visualize_regulatory_compliance(
+    return visualizer.visualize_threshold_check(
         data,
         quasi_identifiers,
         sensitive_attributes,
-        regulation=regulation,
+        l_threshold=l_threshold,
+        diversity_type=diversity_type,
+        c_value=c_value,
         save_path=save_path,
         **kwargs,
     )
@@ -1538,16 +1522,15 @@ def create_comprehensive_report(
     )
     saved_paths["attribute_correlation"] = saved_path
 
-    # 5. Regulatory Compliance (GDPR)
-    _, saved_path = visualizer.visualize_regulatory_compliance(
+    # 5. Threshold check (default l >= 3, distinct)
+    _, saved_path = visualizer.visualize_threshold_check(
         data,
         quasi_identifiers,
         sensitive_attributes,
-        regulation="GDPR",
         save_path=output_dir,
         **kwargs,
     )
-    saved_paths["gdpr_compliance"] = saved_path
+    saved_paths["threshold_check"] = saved_path
 
     # 6. Attribute-specific visualizations
     attribute_paths = {}

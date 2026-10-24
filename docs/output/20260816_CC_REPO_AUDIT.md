@@ -13,7 +13,7 @@ to a file, line, or git object.
 
 | | |
 |---|---|
-| Remote | `https://github.com/DGT-Network/PAMOLA` (public) |
+| Remote | `https://github.com/realmdata-ai/PAMOLA` (public) |
 | Default branch | `develop` @ `79a9f1c` (2026-06-01) |
 | Stable branch | `main` @ `5fd64cc` (2026-07-09) |
 | Version | `1.0.0.dev3` (PyPI `pamola-core`) |

@@ -416,8 +416,9 @@ def identify_rare_categories(
         return rare_categories, detailed_info
 
     except Exception as e:
+        # "no rare categories" would be a wrong answer (the caller then changes nothing)
         logger.error(f"Error identifying rare categories: {str(e)}")
-        return set(), {}
+        raise
 
 
 def group_rare_categories(
@@ -429,6 +430,7 @@ def group_rare_categories(
     preserve_top_n: Optional[int] = None,
     other_label: str = DEFAULT_OTHER_LABEL,
     value_counts: Optional[pd.Series] = None,
+    categories_to_group: Optional[Set[Any]] = None,
 ) -> Tuple[pd.Series, GroupingInfo]:
     """
     Group rare categories using privacy-preserving strategies.
@@ -491,8 +493,13 @@ def group_rare_categories(
             )
             grouping_strategy = "single_other"
 
-        # Prepare data
-        result_series = series.copy()
+        # Prepare data. A categorical column (the engine converts large text columns to
+        # category to save memory) cannot take the new group labels: assigning "OTHER" raised
+        # "Cannot setitem on a Categorical with a new category", which the handler below used
+        # to swallow, returning the input unchanged - so the strategy silently did nothing on
+        # every dataset above the conversion size. Work on plain values and restore the dtype.
+        was_categorical = isinstance(series.dtype, pd.CategoricalDtype)
+        result_series = series.astype(object) if was_categorical else series.copy()
 
         # Use provided value_counts or calculate once
         if value_counts is None:
@@ -508,17 +515,22 @@ def group_rare_categories(
             # Absolute count threshold
             count_threshold = int(threshold)
 
-        # Preserve top N categories if specified
-        if preserve_top_n and preserve_top_n > 0:
-            top_categories = set(value_counts.head(preserve_top_n).index)
+        if categories_to_group is not None:
+            # The caller already decided which categories are rare (e.g. with both a count
+            # and a frequency criterion); group exactly those.
+            categories_to_group = [c for c in value_counts.index if c in categories_to_group]
         else:
-            top_categories = set()
+            # Preserve top N categories if specified
+            if preserve_top_n and preserve_top_n > 0:
+                top_categories = set(value_counts.head(preserve_top_n).index)
+            else:
+                top_categories = set()
 
-        # Identify categories to group
-        categories_to_group = []
-        for category, count in value_counts.items():
-            if category not in top_categories and count < count_threshold:
-                categories_to_group.append(category)
+            # Identify categories to group
+            categories_to_group = []
+            for category, count in value_counts.items():
+                if category not in top_categories and count < count_threshold:
+                    categories_to_group.append(category)
 
         # Apply grouping strategy
         group_mapping = {}
@@ -587,6 +599,8 @@ def group_rare_categories(
         if group_mapping:
             mask = result_series.isin(group_mapping.keys())
             result_series.loc[mask] = result_series.loc[mask].map(group_mapping)
+            if was_categorical:
+                result_series = result_series.astype("category")
 
         # Calculate group sizes
         group_sizes = {}
@@ -624,8 +638,9 @@ def group_rare_categories(
         return result_series, grouping_info
 
     except Exception as e:
+        # Never degrade to "unchanged data + SUCCESS": the caller must see the failure.
         logger.error(f"Error in category grouping: {str(e)}")
-        return series.copy(), _empty_grouping_result(error=str(e))
+        raise
 
 
 def calculate_category_entropy(

@@ -5,15 +5,14 @@ This module provides specialized functions for analyzing currency and salary fie
 including currency conversion, distribution analysis, and specialized statistics.
 """
 
-import logging
 from typing import Dict, Any, Optional
 
 import pandas as pd
 from pamola_core.profiling.commons.currency_utils import analyze_currency_stats
 import pamola_core.utils.logging as pamola_logging
 
-# Configure logger using the custom logging utility
-logger = pamola_logging.configure_logging(level=logging.INFO)
+# A module logger only: handlers, level and propagation belong to the application
+logger = pamola_logging.getLogger(__name__)
 
 
 def analyze_currency_field(

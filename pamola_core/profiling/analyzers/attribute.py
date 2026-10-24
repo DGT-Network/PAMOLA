@@ -29,6 +29,11 @@ from pathlib import Path
 import time
 from typing import Dict, Any, Optional, Union
 import pandas as pd
+from pamola_core.utils.vis_helpers.render_guard import (
+    VisualizationTimeoutError,
+    prepare_render_context,
+    wait_for_render,
+)
 from pamola_core.common.enum.language_enum import Language
 from pamola_core.profiling.commons.attribute_utils import (
     analyze_dataset_attributes,
@@ -84,6 +89,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         language: str = Language.ENGLISH.value,
         sample_size: int = 10,
         max_columns: Optional[int] = None,
+        include_raw_samples_in_metrics: bool = False,
         **kwargs,
     ):
         """
@@ -98,7 +104,13 @@ class DataAttributeProfilerOperation(BaseOperation):
         language : str
             Language code for keyword matching (default Language.ENGLISH.value).
         sample_size : int
-            Number of sample values to inspect per column.
+            Number of sample values to extract per column - used only when
+            ``include_raw_samples_in_metrics`` is True.
+        include_raw_samples_in_metrics : bool
+            Diagnostic option, default False. If True, the profile (``attribute_roles_*.json``)
+            and ``attribute_sample_*.json`` carry ``sample_size`` raw values of every column,
+            drawn reproducibly (``seed``, 0 when unset). WARNING: those are source values,
+            possibly PII.
         max_columns : int | None
             Max number of columns to analyze.
         kwargs : dict
@@ -118,6 +130,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             language=language,
             sample_size=sample_size,
             max_columns=max_columns,
+            include_raw_samples_in_metrics=include_raw_samples_in_metrics,
             **kwargs,
         )
 
@@ -323,8 +336,10 @@ class DataAttributeProfilerOperation(BaseOperation):
                 df=df,
                 dictionary=dictionary,
                 language=self.language,
-                sample_size=self.sample_size,
+                # raw values only on explicit request: 0 samples otherwise
+                sample_size=self.sample_size if self.include_raw_samples_in_metrics else 0,
                 max_columns=self.max_columns,
+                random_state=0 if self.seed is None else self.seed,
             )
 
             # Step 4: Analysis
@@ -408,41 +423,43 @@ class DataAttributeProfilerOperation(BaseOperation):
                         "csv", str(entropy_path), "Attribute entropy and uniqueness"
                     )
 
-            # Save sample values for each column
-            sample_filename = f"attribute_sample_{operation_timestamp}.json"
-            sample_path = output_dir / sample_filename
+            # Raw sample values are written only on explicit request (ASB-4)
+            if self.include_raw_samples_in_metrics:
+                # Save sample values for each column
+                sample_filename = f"attribute_sample_{operation_timestamp}.json"
+                sample_path = output_dir / sample_filename
 
-            sample_data = {
-                col_name: {
-                    "role": col_data["role"],
-                    "inferred_type": col_data["statistics"].get(
-                        "inferred_type", "unknown"
-                    ),
-                    "samples": col_data["statistics"]["samples"],
+                sample_data = {
+                    col_name: {
+                        "role": col_data["role"],
+                        "inferred_type": col_data["statistics"].get(
+                            "inferred_type", "unknown"
+                        ),
+                        "samples": col_data["statistics"]["samples"],
+                    }
+                    for col_name, col_data in analysis_results["columns"].items()
+                    if "statistics" in col_data and "samples" in col_data["statistics"]
                 }
-                for col_name, col_data in analysis_results["columns"].items()
-                if "statistics" in col_data and "samples" in col_data["statistics"]
-            }
 
-            encryption_mode_sample_data = get_encryption_mode(
-                sample_data, self.use_encryption
-            )
-            write_json(
-                sample_data,
-                sample_path,
-                encryption_key=self.encryption_key,
-                encryption_mode=encryption_mode_sample_data,
-            )
-            result.add_artifact(
-                "json",
-                sample_path,
-                "Attribute sample values",
-                category=Constants.Artifact_Category_Dictionary,
-            )
-            if reporter:
-                reporter.add_artifact(
-                    "json", str(sample_path), "Attribute sample values"
+                encryption_mode_sample_data = get_encryption_mode(
+                    sample_data, self.use_encryption
                 )
+                write_json(
+                    sample_data,
+                    sample_path,
+                    encryption_key=self.encryption_key,
+                    encryption_mode=encryption_mode_sample_data,
+                )
+                result.add_artifact(
+                    "json",
+                    sample_path,
+                    "Attribute sample values",
+                    category=Constants.Artifact_Category_Dictionary,
+                )
+                if reporter:
+                    reporter.add_artifact(
+                        "json", str(sample_path), "Attribute sample values"
+                    )
 
             # Step 4: Saving Metrics
             if progress_tracker:
@@ -790,6 +807,7 @@ class DataAttributeProfilerOperation(BaseOperation):
 
         except Exception as e:
             self.logger.error(f"Error creating visualizations: {e}", exc_info=True)
+            self._record_visualization_failure(result, e)
             if reporter:
                 reporter.add_operation(
                     "Creating visualizations",
@@ -1042,14 +1060,14 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             # Copy context for the thread
             logger.info("[DIAG] Preparing to launch visualization thread...")
-            ctx = contextvars.copy_context()
+            ctx, render_run = prepare_render_context()
 
             # Create thread with context
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
                 name="VizThread-",
-                daemon=False,  # Changed from True to ensure proper cleanup
+                daemon=True,  # an abandoned renderer must not keep the process alive
             )
 
             logger.info(
@@ -1058,26 +1076,16 @@ class DataAttributeProfilerOperation(BaseOperation):
             thread_start_time = time.time()
             viz_thread.start()
 
-            # Log periodic status while waiting
-            check_interval = 5  # seconds
-            elapsed = 0
-            while viz_thread.is_alive() and elapsed < vis_timeout:
-                viz_thread.join(timeout=check_interval)
-                elapsed = time.time() - thread_start_time
-                if viz_thread.is_alive():
-                    logger.info(
-                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
-                    )
+            # Bounded wait: on timeout the run is cancelled and cleaned up
+            if not wait_for_render(viz_thread, render_run, vis_timeout, logger):
+                visualization_error = VisualizationTimeoutError(
+                    f"visualization did not finish within {render_run.limit:g}s"
+                )
 
-            if viz_thread.is_alive():
-                logger.error(
-                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
-                )
-                logger.error(
-                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
-                )
-                visualization_paths = {}
-            elif visualization_error:
+            if visualization_error:
+                # Rendering is part of execute(): a failure is recorded in the result,
+                # never swallowed (and no worker is left running after the join).
+                self._record_visualization_failure(result, visualization_error)
                 logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )

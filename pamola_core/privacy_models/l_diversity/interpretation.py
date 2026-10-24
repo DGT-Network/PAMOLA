@@ -7,7 +7,7 @@ contextualizes them based on various privacy requirements.
 Key Features:
 - Risk interpretation for different attack models
 - Domain-specific risk categorization
-- Regulatory compliance assessment
+- Threshold checks against a caller-chosen l
 - Risk interpretation optimization
 
 This module is used by the main privacy.py module but can also be used
@@ -31,12 +31,12 @@ class RiskInterpreter:
     Interprets privacy risk metrics for l-diversity
 
     Provides context-aware interpretation of various risk metrics
-    with support for different regulatory frameworks and data domains.
+    with support for different data domains.
     """
 
     def __init__(self,
                  domain: str = "general",
-                 regulation: str = None,
+                 l_threshold: int = 3,
                  custom_thresholds: Dict[str, List[float]] = None):
         """
         Initialize Risk Interpreter
@@ -46,14 +46,14 @@ class RiskInterpreter:
         domain : str, optional
             Data domain for context-specific interpretation (default: "general")
             Options: "general", "healthcare", "finance", "education", "telecom"
-        regulation : str, optional
-            Regulatory framework for compliance assessment
-            Options: "GDPR", "HIPAA", "CCPA", etc.
+        l_threshold : int, optional
+            l-diversity threshold used by ``interpret_threshold`` (default: 3).
+            Chosen by the caller; no law or regulation is mapped to it.
         custom_thresholds : Dict[str, List[float]], optional
             Custom risk thresholds for different risk types
         """
         self.domain = domain
-        self.regulation = regulation
+        self.l_threshold = l_threshold
         self.logger = logging.getLogger(__name__)
 
         # Default risk thresholds (very low, low, moderate, high, very high)
@@ -67,15 +67,6 @@ class RiskInterpreter:
 
         # Use custom thresholds if provided
         self.custom_thresholds = custom_thresholds or {}
-
-        # Regulatory minimum l-values
-        self.regulatory_l_values = {
-            'GDPR': 3,
-            'HIPAA': 4,
-            'CCPA': 3,
-            'PIPEDA': 3,
-            'APPI': 3
-        }
 
         # Risk terms for different levels
         self.risk_terms = [
@@ -177,12 +168,15 @@ class RiskInterpreter:
 
         return interpretations
 
-    def interpret_compliance(self,
-                             min_diversity: float,
-                             diversity_type: str = "distinct",
-                             regulation: str = None) -> Dict[str, Any]:
+    def interpret_threshold(self,
+                            min_diversity: float,
+                            diversity_type: str = "distinct",
+                            l_threshold: int = None) -> Dict[str, Any]:
         """
-        Interpret l-diversity compliance for regulatory frameworks
+        Check l-diversity against a caller-chosen threshold.
+
+        The result says whether the achieved l reaches the threshold; it is
+        technical evidence, not a statement of compliance with any law.
 
         Parameters
         -----------
@@ -190,92 +184,60 @@ class RiskInterpreter:
             Minimum diversity value across the dataset
         diversity_type : str, optional
             Type of diversity being assessed (default: "distinct")
-        regulation : str, optional
-            Specific regulation to check (overrides instance regulation)
+        l_threshold : int, optional
+            Threshold to test (overrides the instance's ``l_threshold``)
 
         Returns
         --------
         Dict[str, Any]
-            Compliance assessment
+            ``threshold_met``, ``l_threshold``, ``achieved_l``, ``recommendation``
         """
-        # Use provided regulation or instance regulation
-        reg = regulation or self.regulation
+        target_l = l_threshold if l_threshold is not None else self.l_threshold
 
-        # If no regulation specified, evaluate general compliance
-        if not reg:
-            if diversity_type == "entropy":
-                # For entropy, convert to effective l
-                effective_l = np.exp(min_diversity) if min_diversity > 0 else 1
-                compliant = effective_l >= 3  # General minimum requirement
-                target = 3
-            else:
-                # For distinct and recursive
-                compliant = min_diversity >= 3  # General minimum requirement
-                target = 3
-
-            return {
-                'compliant': compliant,
-                'target_l': target,
-                'achieved_l': min_diversity if diversity_type != "entropy" else effective_l,
-                'regulation': "general",
-                'recommendation': self._get_compliance_recommendation(
-                    compliant, min_diversity, diversity_type, 3
-                )
-            }
-
-        # Get regulatory l-value requirement
-        target_l = self.regulatory_l_values.get(reg, 3)
-
-        # Evaluate compliance based on diversity type
         if diversity_type == "entropy":
-            # For entropy, compliance is based on exp(entropy) >= l
-            effective_l = np.exp(min_diversity) if min_diversity > 0 else 1
-            compliant = effective_l >= target_l
-            achieved_l = effective_l
+            # For entropy, the achieved l is exp(entropy)
+            achieved_l = np.exp(min_diversity) if min_diversity > 0 else 1
         else:
             # For distinct and recursive
-            compliant = min_diversity >= target_l
             achieved_l = min_diversity
+        threshold_met = achieved_l >= target_l
 
-        # Return compliance assessment
         return {
-            'compliant': compliant,
-            'target_l': target_l,
+            'threshold_met': bool(threshold_met),
+            'l_threshold': target_l,
             'achieved_l': achieved_l,
-            'regulation': reg,
-            'recommendation': self._get_compliance_recommendation(
-                compliant, min_diversity, diversity_type, target_l
+            'recommendation': self._get_threshold_recommendation(
+                threshold_met, min_diversity, diversity_type, target_l
             )
         }
 
-    def _get_compliance_recommendation(self,
-                                       compliant: bool,
-                                       min_diversity: float,
-                                       diversity_type: str,
-                                       target_l: int) -> str:
+    def _get_threshold_recommendation(self,
+                                      threshold_met: bool,
+                                      min_diversity: float,
+                                      diversity_type: str,
+                                      target_l: int) -> str:
         """
-        Get recommendation for improving compliance
+        Get a recommendation for reaching the l-diversity threshold
 
         Parameters
         -----------
-        compliant : bool
-            Whether the dataset is compliant
+        threshold_met : bool
+            Whether the threshold is met
         min_diversity : float
             Minimum diversity value
         diversity_type : str
             Type of diversity being assessed
         target_l : int
-            Target l-value for compliance
+            Threshold l-value
 
         Returns
         --------
         str
-            Recommendation for compliance
+            Recommendation
         """
-        if compliant:
-            return "Dataset meets compliance requirements"
+        if threshold_met:
+            return "Dataset meets the configured l-diversity threshold"
 
-        # For non-compliant datasets, provide specific recommendations
         if diversity_type == "entropy":
             effective_l = np.exp(min_diversity) if min_diversity > 0 else 1
             gap = target_l - effective_l
@@ -332,7 +294,7 @@ class RiskInterpreter:
                 return f"Entropy l-Diversity: effective l={effective_l:.2f} - Excellent diversity, very low disclosure risk"
 
         elif diversity_type == "recursive":
-            # For recursive l-diversity, interpretation depends on compliance
+            # For recursive l-diversity, interpretation depends on the threshold
             if diversity_value < 2:
                 return f"Recursive l-Diversity: l={diversity_value} - No diversity, high attribute disclosure risk"
             elif diversity_value < l_threshold:
@@ -396,7 +358,7 @@ class RiskInterpreter:
                     'recommendation'] += "High risk for healthcare data. Further anonymization strongly recommended before sharing."
             elif min_diversity < 4:
                 assessment[
-                    'recommendation'] += "Consider increasing diversity for sensitive medical attributes to meet HIPAA-like standards."
+                    'recommendation'] += "Consider increasing diversity for sensitive medical attributes (healthcare data is highly sensitive)."
             else:
                 assessment['recommendation'] += "Acceptable for internal analytics. Review before external sharing."
 
@@ -467,7 +429,7 @@ def interpret_risk_value(risk_value: float, domain: str = "general") -> str:
 
 def interpret_risk_metrics(risk_metrics: Dict[str, Any],
                            domain: str = "general",
-                           regulation: str = None) -> Dict[str, Any]:
+                           target_l: int = 3) -> Dict[str, Any]:
     """
     Comprehensive interpretation of risk metrics
 
@@ -477,15 +439,15 @@ def interpret_risk_metrics(risk_metrics: Dict[str, Any],
         Dictionary with risk values and metrics
     domain : str, optional
         Data domain for context-specific interpretation (default: "general")
-    regulation : str, optional
-        Regulatory framework for compliance assessment
+    target_l : int, optional
+        l-diversity threshold to test (default: 3); chosen by the caller
 
     Returns
     --------
     Dict[str, Any]
         Comprehensive risk interpretation
     """
-    interpreter = RiskInterpreter(domain=domain, regulation=regulation)
+    interpreter = RiskInterpreter(domain=domain, l_threshold=target_l)
 
     # Extract key metrics
     attack_models = risk_metrics.get('attack_models', {})
@@ -502,71 +464,10 @@ def interpret_risk_metrics(risk_metrics: Dict[str, Any],
         'diversity_assessment': interpreter.interpret_diversity(
             min_diversity, diversity_type, l_threshold, c_value
         ),
-        'compliance': interpreter.interpret_compliance(
-            min_diversity, diversity_type, regulation
+        'threshold_check': interpreter.interpret_threshold(
+            min_diversity, diversity_type, target_l
         ),
         'domain_assessment': interpreter.get_domain_specific_assessment(risk_metrics)
     }
 
     return interpretations
-
-
-def get_regulatory_requirements(regulation: str) -> Dict[str, Any]:
-    """
-    Get l-diversity requirements for different privacy regulations
-
-    Parameters
-    -----------
-    regulation : str
-        Regulation to get requirements for ('GDPR', 'HIPAA', 'CCPA', etc.)
-
-    Returns
-    --------
-    Dict[str, Any]
-        Dictionary with recommended l-diversity parameters for the regulation
-    """
-    regulation = regulation.upper()
-
-    # Default requirements
-    default = {
-        "l_threshold": 3,
-        "diversity_type": "distinct",
-        "c_value": 1.0,
-        "description": "General recommendation for l-diversity"
-    }
-
-    # Regulation-specific requirements
-    regulations = {
-        "GDPR": {
-            "l_threshold": 3,
-            "diversity_type": "distinct",
-            "c_value": 1.0,
-            "description": "General Data Protection Regulation (EU)"
-        },
-        "HIPAA": {
-            "l_threshold": 4,
-            "diversity_type": "recursive",
-            "c_value": 0.5,
-            "description": "Health Insurance Portability and Accountability Act (US)"
-        },
-        "CCPA": {
-            "l_threshold": 3,
-            "diversity_type": "entropy",
-            "c_value": 1.0,
-            "description": "California Consumer Privacy Act (US)"
-        },
-        "PIPEDA": {
-            "l_threshold": 3,
-            "diversity_type": "distinct",
-            "c_value": 1.0,
-            "description": "Personal Information Protection and Electronic Documents Act (Canada)"
-        },
-        "APPI": {
-            "l_threshold": 3,
-            "diversity_type": "distinct",
-            "c_value": 1.0,
-            "description": "Act on the Protection of Personal Information (Japan)"
-        }
-    }
-
-    return regulations.get(regulation, default)
