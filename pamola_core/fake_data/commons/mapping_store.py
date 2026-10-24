@@ -15,6 +15,7 @@ import pandas as pd
 import pamola_core.utils.io as pamola_io
 import pamola_core.utils.logging as pamola_logging
 from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
+from pamola_core.utils.io_helpers.crypto_utils import write_encrypted_json
 from pamola_core.utils.safe_deserialization import require_unsafe_pickle_opt_in
 
 # Configure module logger
@@ -539,21 +540,49 @@ class MappingStore:
         # Prepare serializable data
         serializable_data = self._prepare_serializable_data()
 
-        # Use provided io_module if available (backward compatibility)
-        if io_module:
-            io_module.write_json(serializable_data, path)
-        elif encryption_key:
-            pamola_io.write_json(
-                serializable_data,
-                path,
-                encryption_key=encryption_key,
-                use_encryption=True,
+        if io_module and encryption_key:
+            raise InvalidParameterError(
+                param_name="io_module",
+                param_value=type(io_module).__name__,
+                reason="a custom io_module cannot be combined with encryption_key: "
+                "the mapping would be written in plain text",
             )
+        if encryption_key:
+            write_encrypted_json(serializable_data, path, encryption_key)
+        elif io_module:
+            # Use provided io_module (backward compatibility); plain text by request
+            io_module.write_json(serializable_data, path)
         else:
             # Use standard io module from pamola_core.utils
             pamola_io.write_json(serializable_data, path)
 
         logger.info(f"Saved mapping store to JSON: {path}")
+
+    @staticmethod
+    def _read_mapping_json(
+        path: Union[str, Path], io_module=None, encryption_key: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Read a mapping JSON (decrypting with the key when given) and validate its schema."""
+        if io_module and encryption_key:
+            raise InvalidParameterError(
+                param_name="io_module",
+                param_value=type(io_module).__name__,
+                reason="a custom io_module cannot be combined with encryption_key",
+            )
+        if io_module:
+            data = io_module.read_json(path)
+        elif encryption_key:
+            data = pamola_io.read_json(
+                path, encryption_key=encryption_key, use_encryption=True
+            )
+        else:
+            data = pamola_io.read_json(path)
+        if not isinstance(data, dict) or not isinstance(data.get("mappings"), dict):
+            raise ValidationError(
+                f"'{Path(path).name}' does not hold a mapping store (no 'mappings' object); "
+                "it may be encrypted: pass encryption_key"
+            )
+        return data
 
     def load_json(
         self,
@@ -575,16 +604,7 @@ class MappingStore:
         """
         logger.info(f"Loading mapping store from JSON: {path}")
 
-        # Use provided io_module if available (backward compatibility)
-        if io_module:
-            data = io_module.read_json(path)
-        elif encryption_key:
-            data = pamola_io.read_json(
-                path, encryption_key=encryption_key, use_encryption=True
-            )
-        else:
-            # Use standard io module from pamola_core.utils
-            data = pamola_io.read_json(path)
+        data = self._read_mapping_json(path, io_module, encryption_key)
 
         # Process the loaded data
         self._process_loaded_data(data)
@@ -599,6 +619,7 @@ class MappingStore:
         overwrite_existing: bool = True,
         fields_to_update: Optional[List[str]] = None,
         io_module=None,
+        encryption_key: Optional[str] = None,
     ) -> Dict[str, int]:
         """
         Incrementally updates mappings from a JSON file.
@@ -621,12 +642,7 @@ class MappingStore:
         """
         logger.info(f"Incrementally updating mapping store from JSON: {path}")
 
-        # Use provided io_module if available (backward compatibility)
-        if io_module:
-            data = io_module.read_json(path)
-        else:
-            # Use standard io module from pamola_core.utils
-            data = pamola_io.read_json(path)
+        data = self._read_mapping_json(path, io_module, encryption_key)
 
         # Process the data
         update_stats = {}
@@ -1018,7 +1034,9 @@ class MappingStore:
 
         # If not overwriting, we need to use incremental methods
         if not overwrite_existing and format.lower() == "json":
-            return self.update_from_json(path, overwrite_existing, fields_to_load)
+            return self.update_from_json(
+                path, overwrite_existing, fields_to_load, encryption_key=encryption_key
+            )
         elif not overwrite_existing and format.lower() == "csv":
             return self.load_csv(path, overwrite_existing, fields_to_load)
 

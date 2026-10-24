@@ -184,4 +184,5 @@ def test_profiling_value_artifacts_are_diagnostic_and_not_for_release(tmp_path):
     assert result.status == OperationStatus.SUCCESS, result.error_message
     classes = {a.artifact_class for a in result.artifacts}
     assert classes == {ArtifactClass.DIAGNOSTIC}
-    assert all(a.to_dict()["not_for_release"] for a in result.artifacts)
+    with_values = [a for a in result.artifacts if a.contains_source_values]
+    assert with_values and all(a.to_dict()["not_for_release"] for a in with_values)

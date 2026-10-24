@@ -24,10 +24,19 @@ import socket
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
-from pamola_core.utils.artifact_policy import ArtifactClass, class_for_category
+from pamola_core.utils.artifact_policy import (
+    ArtifactClass,
+    check_class_and_content,
+    class_for_category,
+)
 from pamola_core.errors.exceptions import ReportingError
 from pamola_core.utils.io import write_json, ensure_directory
 from pamola_core.utils.tasks.task_config import validate_path_security
+
+
+def _normalized_path(path: Any) -> str:
+    """Key for deduplicating artifact entries by file."""
+    return os.path.normcase(os.path.normpath(os.path.abspath(str(path))))
 
 
 class ArtifactGroup:
@@ -243,6 +252,7 @@ class TaskReporter:
         group_name: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         artifact_class: Optional[ArtifactClass] = None,
+        contains_source_values: Optional[bool] = None,
     ):
         """
         Add an artifact to the report.
@@ -285,6 +295,7 @@ class TaskReporter:
                         group_name,
                         metadata or {},
                         artifact_class,
+                        contains_source_values,
                     )
 
                     progress.update(1, {"status": "added"})
@@ -306,6 +317,7 @@ class TaskReporter:
                 group_name,
                 metadata or {},
                 artifact_class,
+                contains_source_values,
             )
 
     def _process_artifact(
@@ -318,6 +330,7 @@ class TaskReporter:
         group_name: Optional[str],
         metadata: Dict[str, Any],
         artifact_class: Optional[ArtifactClass] = None,
+        contains_source_values: Optional[bool] = None,
     ):
         """
         Process and add an artifact to the report (internal helper method).
@@ -354,17 +367,27 @@ class TaskReporter:
             "filename": filename,
             "description": description,
             "category": category,
-            "artifact_class": (
-                ArtifactClass(artifact_class)
-                if artifact_class is not None
-                else class_for_category(category)
-            ).value,
+            **self._classification(category, artifact_class, contains_source_values),
             "tags": tags,
             "size_bytes": size_bytes,
             "timestamp": timestamp or datetime.now().isoformat(),
             "metadata": metadata,
         }
 
+        # One entry per normalized path: a second registration merges, and never
+        # replaces a classification that was already assigned.
+        key = _normalized_path(path_str)
+        for existing in self.artifacts:
+            if _normalized_path(existing.get("path", "")) == key:
+                if artifact["classified_explicitly"] and not existing["classified_explicitly"]:
+                    for k in (
+                        "artifact_class",
+                        "contains_source_values",
+                        "not_for_release",
+                        "classified_explicitly",
+                    ):
+                        existing[k] = artifact[k]
+                return
         self.artifacts.append(artifact)
 
         # Add to group if specified
@@ -372,6 +395,25 @@ class TaskReporter:
             if group_name not in self.artifact_groups:
                 self.add_artifact_group(group_name)
             self.artifact_groups[group_name].add_artifact(artifact)
+
+    @staticmethod
+    def _classification(category, artifact_class, contains_source_values) -> Dict[str, Any]:
+        """artifact_class / contains_source_values / not_for_release for one entry."""
+        explicit = artifact_class is not None
+        cls = ArtifactClass(artifact_class) if explicit else class_for_category(category)
+        has_values = (
+            bool(contains_source_values)
+            if contains_source_values is not None
+            else str(category).lower() == "dictionary"
+        )
+        cls = check_class_and_content(cls, has_values)
+        return {
+            "artifact_class": cls.value,
+            "contains_source_values": has_values,
+            "not_for_release": has_values
+            and cls not in (ArtifactClass.DATA, ArtifactClass.PROTECTED_MAPPING),
+            "classified_explicitly": explicit or contains_source_values is not None,
+        }
 
     def add_artifact_group(self, name: str, description: str = "") -> ArtifactGroup:
         """

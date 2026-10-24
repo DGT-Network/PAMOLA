@@ -77,7 +77,11 @@ from pamola_core.utils.io import (
     load_settings_operation,
 )
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.utils.artifact_policy import ArtifactClass, require_encryption_key
+from pamola_core.utils.artifact_policy import (
+    ArtifactClass,
+    ArtifactPolicyError,
+    require_encryption_key,
+)
 import pamola_core.utils.io as pamola_io
 from pamola_core.utils.ops.op_base import FieldOperation
 
@@ -621,10 +625,12 @@ class GeneratorOperation(FieldOperation):
         Never writes plain text: the task encryption key is required (checked at
         construction and again here).
         """
-        if not (
-            self.save_mapping and hasattr(self, "mapping_store") and self.mapping_store
-        ):
+        if not self.save_mapping:
             return None
+        if getattr(self, "mapping_store", None) is None:
+            raise ArtifactPolicyError(
+                "save_mapping=True but the operation has no mapping store to save"
+            )
         key = require_encryption_key(
             self.encryption_key if self.use_encryption else None,
             "the fake_data mapping (save_mapping=True)",
@@ -661,24 +667,26 @@ class GeneratorOperation(FieldOperation):
         ----------
             path: Path to mapping store file
         """
-        try:
-            from pamola_core.fake_data.commons.mapping_store import MappingStore
+        from pamola_core.fake_data.commons.mapping_store import MappingStore
+        from pamola_core.utils.io_helpers import crypto_utils
 
-            self.mapping_store = MappingStore()
+        self.mapping_store = MappingStore()
 
-            # Load existing mappings if the file exists
-            path_obj = Path(path)
-            if path_obj.exists():
-                self.mapping_store.load(
-                    path_obj,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
-                )
-                self.logger.info(f"Loaded mapping store from {path_obj.name}")
-        except Exception as e:
-            self.logger.warning(f"Failed to initialize mapping store: {str(e)}")
-            self.mapping_store = None
+        # Load existing mappings if the file exists. The INPUT file is judged by what it
+        # is, not by the output encryption setting: an encrypted envelope is decrypted with
+        # the task key, plain JSON still loads. Failures (wrong key, a refused pickle, a
+        # corrupt file) propagate - a store that silently stays empty would hide them.
+        path_obj = Path(path)
+        if path_obj.exists():
+            key = None
+            if self.use_encryption and self.encryption_key:
+                try:
+                    if crypto_utils.is_encrypted(path_obj):
+                        key = self.encryption_key
+                except Exception:
+                    key = None
+            self.mapping_store.load(path_obj, encryption_key=key)
+            self.logger.info(f"Loaded mapping store from {path_obj.name}")
 
     def _validate_and_get_dataframe(
         self, data_source: DataSource, dataset_name: str, **kwargs: Any

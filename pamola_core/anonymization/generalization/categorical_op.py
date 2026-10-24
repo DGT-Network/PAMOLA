@@ -51,6 +51,7 @@ import dask.dataframe as dd
 
 # Base class
 from pamola_core.utils.artifact_policy import ArtifactClass
+from pamola_core.utils.io_helpers.crypto_utils import write_encrypted_json
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 
 # Configuration and strategies from commons
@@ -1393,17 +1394,16 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 "mappings": self._category_mapping,
             }
 
-            result = writer.write_json(
-                data=mapping_data,
-                name=f"{self.field_name}_category_mapping",
+            # Plain text never touches the disk: encrypt in memory, write ciphertext only
+            path = writer._get_output_path(
+                f"{self.field_name}_category_mapping",
+                extension="json",
                 subdir="mappings",
                 timestamp_in_name=True,
-                encryption_key=self.encryption_key,
             )
-
-            # If we reach here, the write was successful
-            self.logger.info(f"Saved category mapping to {result.path}")
-            return result.path
+            write_encrypted_json(mapping_data, path, self.encryption_key)
+            self.logger.info(f"Saved category mapping to {path}")
+            return path
 
         except Exception as e:
             self.logger.warning(f"Error saving category mapping: {e}")

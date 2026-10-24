@@ -106,6 +106,12 @@ T = TypeVar("T", bound="BaseTask")
 OpType = TypeVar("OpType", bound="BaseOperation")
 
 
+
+def _enum_value(value):
+    """``value.value`` for an enum member, else the value itself."""
+    return getattr(value, "value", value)
+
+
 class BaseTask:
     """
     Base class for all tasks in the PAMOLA ecosystem.
@@ -1142,7 +1148,9 @@ class BaseTask:
             # Summarize artifacts
             for artifact in self.artifacts:
                 # Register with reporter if not already tracked
-                if artifact not in self.reporter.artifacts:
+                # (the reporter deduplicates by normalized path and keeps the class the
+                # operation assigned; it is carried over here, never re-derived)
+                if True:
                     # Check if artifact is encrypted
                     encrypted = False
                     encryption_mode = EncryptionMode.NONE.value
@@ -1166,6 +1174,10 @@ class BaseTask:
                         description=artifact.description,
                         category=artifact.category,
                         tags=artifact.tags,
+                        artifact_class=getattr(artifact, "artifact_class", None),
+                        contains_source_values=getattr(
+                            artifact, "contains_source_values", None
+                        ),
                         metadata={
                             "encrypted": encrypted,
                             "encryption_mode": encryption_mode,
@@ -1256,6 +1268,13 @@ class BaseTask:
                 "path": str(artifact_path) if artifact_path else "",
                 "type": getattr(artifact, "artifact_type", "unknown"),
                 "category": getattr(artifact, "category", ""),
+                "artifact_class": _enum_value(getattr(artifact, "artifact_class", None)),
+                "contains_source_values": getattr(artifact, "contains_source_values", None),
+                "not_for_release": bool(
+                    getattr(artifact, "contains_source_values", False)
+                    and _enum_value(getattr(artifact, "artifact_class", None))
+                    not in ("data", "protected_mapping")
+                ),
                 "description": getattr(artifact, "description", ""),
                 "sha256": checksum,
             })

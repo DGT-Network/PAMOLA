@@ -722,7 +722,7 @@ class SplitByIDValuesOperation(TransformationOperation):
         split_info = {
             name: {
                 "record_count": len(df),
-                "included_records": df[self.id_field].dropna().unique().tolist(),
+                "unique_id_count": int(df[self.id_field].dropna().nunique()),
             }
             for name, df in output_data.items()
         }

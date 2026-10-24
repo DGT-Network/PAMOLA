@@ -68,7 +68,11 @@ import pandas as pd
 
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.utils.optional_deps import optional_import
-from pamola_core.utils.safe_deserialization import require_unsafe_pickle_opt_in
+from pamola_core.utils.safe_deserialization import (
+    gate_pickle,
+    is_pickle_format,
+    require_unsafe_pickle_opt_in,
+)
 from pamola_core.errors.exceptions import (
     DependencyMissingError,
     DataError,
@@ -1855,6 +1859,8 @@ def read_dataframe(
     # Infer format from file extension if not specified
     if file_format is None:
         file_format = format_utils.detect_format_from_extension(file_path)
+    if is_pickle_format(file_format, file_path):
+        file_format = "pickle"
 
     logger.info(f"Reading file {file_path} as {file_format}")
     start_time = time.time()
@@ -2066,6 +2072,8 @@ def read_multi_file_dask(
     """
     # Get file format of the first file
     file_format = file_paths[0].suffix.lower().lstrip(".")
+    for _path in file_paths:
+        gate_pickle(None, _path)  # pickle is never read through the Dask path
 
     with temporary_decrypted_files(
         file_paths=file_paths, encryption_key=encryption_key, suffix=f".{file_format}"

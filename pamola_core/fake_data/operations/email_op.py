@@ -496,7 +496,7 @@ class FakeEmailOperation(GeneratorOperation):
                 "total_emails": total,
                 "unique_domains": unique_domains,
                 "diversity_ratio": diversity_ratio,
-                "top_domains": domain_distribution,
+                **self._labelled_domains(domain_distribution),
                 "domain_categories": domain_categories,
             }
 
@@ -529,9 +529,17 @@ class FakeEmailOperation(GeneratorOperation):
             "total_emails": total,
             "unique_domains": unique_domains,
             "diversity_ratio": diversity_ratio,
-            "top_domains": domain_distribution,
+            **self._labelled_domains(domain_distribution),
             "domain_categories": domain_categories,
         }
+
+    def _labelled_domains(self, domain_distribution: Dict[str, float]) -> Dict[str, Any]:
+        """Domain labels are source values: published only with raw samples enabled.
+
+        By default only value-free statistics are kept (counts, ratios, categories)."""
+        if self.include_raw_samples_in_metrics:
+            return {"top_domains": domain_distribution}
+        return {}
 
     def _categorize_domains_distribution(
         self, domain_counts: Counter

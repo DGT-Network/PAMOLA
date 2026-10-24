@@ -26,6 +26,10 @@ import dask.dataframe as dd
 import pandas as pd
 
 import pamola_core.utils.logging as pamola_logging
+from pamola_core.utils.safe_deserialization import (
+    UnsafeDeserializationError,
+    gate_pickle,
+)
 from pamola_core.utils.io import (
     # Pamola Core reading functions
     read_full_csv,
@@ -156,6 +160,20 @@ class DataReader:
         memory_info = {}  # Инициализируем переменную memory_info
         file_memory_infos = []
         system_memory = {}
+
+        # Unsafe-format gate FIRST: before memory estimation, Dask or any dispatch.
+        _allow = kwargs.get("allow_unsafe_pickle") is True
+        _candidates = []
+        if isinstance(source, (str, Path)):
+            _candidates.append(source)
+        elif isinstance(source, dict):
+            for _v in source.values():
+                _candidates.extend(_v if isinstance(_v, list) else [_v])
+        elif isinstance(source, list):
+            _candidates.extend(source)
+        for _c in _candidates:
+            if isinstance(_c, (str, Path)):
+                gate_pickle(file_format, _c, _allow)
 
         # Get source files
         source_list = []
@@ -383,6 +401,8 @@ class DataReader:
                         encryption_key=encryption_key,
                         **kwargs,
                     )
+                except UnsafeDeserializationError:
+                    raise
                 except Exception as e:
                     error_info = {
                         "error_type": type(e).__name__,

@@ -448,11 +448,11 @@ class TestFakeOrganzationOperationExecute(unittest.TestCase):
                     msg=f"Artifact file does not exist: {artifact.path}"
                 )
                 self.assertTrue(
-                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
+                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png", ".md")),
                     msg=f"Unexpected artifact file type: {artifact.path}"
                 )
                 self.assertIsInstance(artifact.description, str)
-                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping"])
+                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping", "config", "report"])
                 self.assertIsInstance(artifact.tags, list)
                 self.assertIsInstance(artifact.creation_time, str)
                 self.assertIsInstance(artifact.size, int)
@@ -509,11 +509,11 @@ class TestFakeOrganzationOperationExecute(unittest.TestCase):
                     msg=f"Artifact file does not exist: {artifact.path}"
                 )
                 self.assertTrue(
-                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
+                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png", ".md")),
                     msg=f"Unexpected artifact file type: {artifact.path}"
                 )
                 self.assertIsInstance(artifact.description, str)
-                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping"])
+                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping", "config", "report"])
                 self.assertIsInstance(artifact.tags, list)
                 self.assertIsInstance(artifact.creation_time, str)
                 self.assertIsInstance(artifact.size, int)

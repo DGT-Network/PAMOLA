@@ -25,6 +25,7 @@ from pamola_core.common.enum.encryption_mode import EncryptionMode
 from pamola_core.utils.crypto_helpers.register_providers import register_all_providers
 
 
+from pamola_core.errors.exceptions import EncryptionError
 from pamola_core.utils.crypto_helpers.audit import log_crypto_operation
 from pamola_core.utils.io_helpers.crypto_router import (
     encrypt_file_router,
@@ -143,6 +144,42 @@ def encrypt_file(
 
         logger.error(f"Error encrypting file {source_path}: {e}")
         raise
+
+
+def write_encrypted_json(
+    data: Any, path: Union[str, Path], key: str, indent: int = 2
+) -> Path:
+    """Write ``data`` as an encrypted JSON file without any plain-text file on disk.
+
+    The JSON is serialized in memory, the bytes are encrypted, the ciphertext goes to a
+    temporary file in the destination directory and replaces ``path`` atomically. Use this
+    for protected mappings: a crash can leave a ciphertext leftover, never plain text.
+    """
+    import json
+    import os
+    import tempfile
+
+    if not key:
+        raise EncryptionError("an encryption key is required to write an encrypted file")
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(data, ensure_ascii=False, indent=indent, default=str).encode("utf-8")
+    envelope = encrypt_data(payload, key=key, mode="simple")
+    blob = envelope if isinstance(envelope, bytes) else json.dumps(envelope).encode("utf-8")
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(blob)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    return path
 
 
 def decrypt_file(

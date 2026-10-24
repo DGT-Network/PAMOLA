@@ -25,6 +25,21 @@ class UnsafeDeserializationError(ValidationError):
     """Raised when a format that can execute code is loaded without an explicit opt-in."""
 
 
+def is_pickle_format(file_format: Union[str, None] = None, path: Union[str, Path, None] = None) -> bool:
+    """True when the format (or, without one, the file suffix) names pickle: any case,
+    ``pkl`` and ``pickle`` alike."""
+    name = file_format if file_format else (Path(path).suffix if path is not None else "")
+    return str(name).lower().lstrip(".") in ("pkl", "pickle")
+
+
+def gate_pickle(
+    file_format: Union[str, None], path: Union[str, Path, None], allow_unsafe_pickle=False
+) -> None:
+    """Refuse a pickle read before any dispatch (memory, Dask, adapters) happens."""
+    if is_pickle_format(file_format, path):
+        require_unsafe_pickle_opt_in(allow_unsafe_pickle, path)
+
+
 def require_unsafe_pickle_opt_in(allow_unsafe_pickle: bool, path: Union[str, Path]) -> None:
     """Refuse to unpickle ``path`` unless the caller opted in explicitly.
 
