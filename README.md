@@ -329,7 +329,7 @@ Hands-on notebooks live under [`examples/`](https://github.com/realmdata-ai/PAMO
 - `examples/anonymization/` — masking, generalization, noise, suppression
 - `examples/profiling/` — field-level and dataset-level profilers
 - `examples/transformations/` — merge, split, aggregate, clean, impute
-- `examples/fake_data/` — synthetic identity, email, phone, organization
+- `examples/fake_data/` — fake-value substitution for names, email, phone, organization (replacement values, reproducible when a key is given; not synthetic data)
 - `examples/metrics/` — fidelity, privacy, utility metrics
 - `examples/data_examples/sample.csv` — non-PII synthetic sample used by the notebooks
 
