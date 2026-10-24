@@ -1,6 +1,6 @@
 [project]
 name = "pamola-core"
-version = "1.0.0.dev4"
+version = "1.0.0rc1"
 requires-python = ">=3.10,<3.13"
 
 # NOTE: an entry WITH an email lands in the `Author-email` core-metadata field;

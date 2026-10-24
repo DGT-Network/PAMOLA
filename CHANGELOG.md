@@ -7,6 +7,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0rc1] - 2026-10-24
+
 ### As-built review fixes (ASB)
 
 - **Fake data: the replacement is derived from the whole key, and a missing key means a random key
