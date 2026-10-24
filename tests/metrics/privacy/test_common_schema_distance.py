@@ -21,7 +21,9 @@ def _mixed():
 
 def test_identical_records_in_different_representations_are_identical():
     o, t = prepare_pair_for_distance_metrics(*_mixed())
-    assert o["v"].tolist() == t["v"].tolist() == [10.0, 20.0] * 6
+    # a categorical column against integers is nominal on both sides; 10 and "10" are one label
+    assert list(o.columns) == list(t.columns) == ["v=10", "v=20", "w"]
+    pd.testing.assert_frame_equal(o, t)
 
 
 def test_dcr_is_zero_for_identical_records_stored_differently():

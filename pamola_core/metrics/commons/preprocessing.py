@@ -16,7 +16,7 @@ Description:
 Key Features:
   - Convert boolean columns to integers
   - Convert datetime columns to numeric timestamps
-  - Ordinal encoding for string and categorical columns
+  - One-hot encoding of nominal categorical columns (ordinal only when declared)
   - Drop rows with missing values for robust metric computation
 
 Design Principles:
@@ -26,14 +26,13 @@ Design Principles:
 
 Dependencies:
   - pandas - DataFrame operations
-  - scikit-learn - OrdinalEncoder for categorical encoding
+  - scikit-learn - StandardScaler for the shared standardization
 """
 
 from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import OrdinalEncoder
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.exceptions import DataError
 
@@ -71,10 +70,27 @@ def encode_pair_with_dummies(
     return original_out, transformed_out
 
 
-def _is_numeric_like(s: pd.Series) -> bool:
-    if isinstance(s.dtype, pd.CategoricalDtype):
-        return _is_numeric_like(pd.Series(s.cat.categories))
-    return pd.api.types.is_numeric_dtype(s) or pd.api.types.is_bool_dtype(s)
+def _semantic_type(s: pd.Series) -> str:
+    """``nominal`` | ``numeric`` | ``datetime`` | ``text`` - decided from the dtype FIRST.
+
+    A pandas categorical and a boolean are nominal whatever their labels look like (``1, 2, 10``
+    are names, not measurements). An object column holding Python numbers is numeric (never
+    parsed as dates).
+    """
+    if isinstance(s.dtype, pd.CategoricalDtype) or pd.api.types.is_bool_dtype(s):
+        return "nominal"
+    if pd.api.types.is_datetime64_any_dtype(s):
+        return "datetime"
+    if pd.api.types.is_numeric_dtype(s):
+        return "numeric"
+    inferred = pd.api.types.infer_dtype(s, skipna=True)
+    if inferred == "boolean":
+        return "nominal"
+    if inferred in ("integer", "floating", "mixed-integer-float", "decimal"):
+        return "numeric"
+    if inferred in ("datetime", "datetime64", "date"):
+        return "datetime"
+    return "text"
 
 
 def _plain(s: pd.Series) -> pd.Series:
@@ -85,7 +101,7 @@ def _plain(s: pd.Series) -> pd.Series:
 def _as_datetime(s: pd.Series) -> Optional[pd.Series]:
     if pd.api.types.is_datetime64_any_dtype(s):
         return s
-    if pd.api.types.is_object_dtype(s) or isinstance(s.dtype, pd.CategoricalDtype):
+    if _semantic_type(s) in ("datetime", "text"):
         try:
             return pd.to_datetime(_plain(s), errors="raise")
         except Exception:  # noqa: BLE001
@@ -96,25 +112,26 @@ def _as_datetime(s: pd.Series) -> Optional[pd.Series]:
 def _column_kind(a: pd.Series, b: pd.Series) -> str:
     """ONE representation for a column, decided from BOTH inputs.
 
-    ``datetime`` if both sides are (or parse as) datetimes, ``numeric`` if both are numbers
-    (a categorical of numbers counts as numbers), else ``categorical`` - and then both sides
-    are compared as text, so ``10`` in an integer column and ``10`` in a categorical column
-    are the same value in the same space.
+    The dtype decides first: a pandas categorical or a boolean on either side makes the column
+    ``categorical`` (nominal) even when its labels are numbers or dates. Otherwise ``datetime``
+    if both sides are (or parse as) datetimes, ``numeric`` if both are numbers (or one is a
+    number and the other text that is all numbers), else ``categorical``.
     """
-    if _as_datetime(a) is not None and _as_datetime(b) is not None and not (
-        _is_numeric_like(a) or _is_numeric_like(b)
-    ):
-        return "datetime"
-    if _is_numeric_like(a) and _is_numeric_like(b):
+    ta, tb = _semantic_type(a), _semantic_type(b)
+    if "nominal" in (ta, tb):
+        return "categorical"
+    if ta == tb == "numeric":
         return "numeric"
-    # a number column against text that is all numbers: numbers
-    for num, other in ((a, b), (b, a)):
-        if _is_numeric_like(num) and not _is_numeric_like(other):
-            try:
-                pd.to_numeric(_plain(other), errors="raise")
-                return "numeric"
-            except Exception:  # noqa: BLE001
-                pass
+    if {ta, tb} == {"numeric", "text"}:
+        text = b if ta == "numeric" else a
+        try:
+            pd.to_numeric(text, errors="raise")
+            return "numeric"
+        except Exception:  # noqa: BLE001
+            return "categorical"
+    if ta in ("datetime", "text") and tb in ("datetime", "text") and "datetime" in (ta, tb) or ta == tb == "text":
+        if _as_datetime(a) is not None and _as_datetime(b) is not None:
+            return "datetime"
     return "categorical"
 
 
@@ -131,33 +148,64 @@ NOMINAL_ONE_HOT_WEIGHT = 1.0 / float(np.sqrt(2.0))
 MAX_ONE_HOT_FEATURES = 1000
 
 
-def _ordinal_levels(
-    col: str,
-    ordinal_columns: Optional[object],
-    union_levels: Sequence[str],
-) -> Optional[list]:
-    """The declared order of an ordinal column, or ``None`` when the column is nominal."""
+def _format_label(value: object) -> str:
+    """The label of one non-missing categorical value: the same text for ``10``, ``10.0`` and
+    ``"10"``-typed numbers, ``True`` / ``False`` for booleans, stripped text otherwise."""
+    if isinstance(value, (bool, np.bool_)):
+        return "True" if value else "False"
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    if isinstance(value, (float, np.floating)):
+        number = float(value)
+        return str(int(number)) if number.is_integer() else repr(number)
+    return str(value).strip()
+
+
+def _labels(s: pd.Series) -> Tuple[pd.Series, np.ndarray]:
+    """(labels, missing mask). The mask is taken BEFORE any string conversion, so a missing
+    value never becomes the text ``'None'`` / ``'nan'`` and cannot equal a real label."""
+    missing = s.isna().to_numpy()
+    plain = _plain(s)
+    labels = plain.where(~missing, other="").map(_format_label)
+    return labels, missing
+
+
+def _validate_ordinal_declaration(columns: Sequence[str], ordinal_columns: Optional[object]) -> dict:
+    """``{column: declared order or None}``; rejects unknown names, duplicate levels, bad types."""
     from pamola_core.errors.exceptions import ValidationError
 
-    if not ordinal_columns:
-        return None
+    if ordinal_columns is None:
+        return {}
+    if isinstance(ordinal_columns, str):
+        raise ValidationError(
+            "ordinal_columns must be a sequence of column names or a mapping "
+            "{column: [categories in increasing order]}, not a single string."
+        )
     if isinstance(ordinal_columns, dict):
-        if col not in ordinal_columns:
-            return None
-        declared = [str(v).strip() for v in ordinal_columns[col]]
-        unknown = [v for v in union_levels if v not in set(declared)]
-        if unknown:
+        declared = {str(k) if not isinstance(k, str) else k: v for k, v in ordinal_columns.items()}
+    else:
+        declared = {name: None for name in ordinal_columns}
+    unknown = [c for c in declared if c not in set(columns)]
+    if unknown:
+        raise ValidationError(
+            f"ordinal_columns names unknown column(s) {unknown}; the data has {list(columns)}."
+        )
+    out = {}
+    for name, order in declared.items():
+        if order is None:
+            out[name] = None
+            continue
+        if isinstance(order, str) or not hasattr(order, "__iter__"):
+            raise ValidationError(f"Ordinal column '{name}': the order must be a list of categories.")
+        norm = [_format_label(v) for v in order]
+        dup = sorted({v for v in norm if norm.count(v) > 1})
+        if not norm or dup:
             raise ValidationError(
-                f"Ordinal column '{col}': the declared order does not list "
-                f"{len(unknown)} value(s) present in the data."
+                f"Ordinal column '{name}': the declared order "
+                + ("is empty." if not norm else f"repeats {dup}; each category may appear once.")
             )
-        return declared
-    if col not in set(ordinal_columns):
-        return None
-    try:  # numbers sort as numbers, everything else as text
-        return sorted(union_levels, key=float)
-    except (TypeError, ValueError):
-        return sorted(union_levels)
+        out[name] = norm
+    return out
 
 
 def prepare_pair_for_distance_metrics(
@@ -172,25 +220,34 @@ def prepare_pair_for_distance_metrics(
     category - is decided from both inputs together *before* either is encoded. Deciding per
     input made identical records look different (``[10, 20]`` categorical in one input and
     integer in the other became ``[0, 1]`` against ``[10, 20]``) and unrelated category sets
-    look identical. The two inputs must have the same columns (any order); otherwise a
+    look identical. The two inputs must have the same, unique columns (any order); otherwise a
     ``ValidationError`` names the difference. Rows with a missing numeric / datetime value are
     dropped, as in ``prepare_data_for_distance_metrics``.
 
     Treatment of categorical columns
     --------------------------------
-    A categorical column is **nominal** unless the caller declares it ordinal: it is one-hot
-    encoded over the union of the categories of both inputs (one 0/1 column per category,
-    named ``<column>=<category>``), so every pair of different categories is equally far
-    apart. Integer codes (``A=0, B=1, C=2``) would make ``d(A, C) = 2 * d(A, B)`` although
-    nominal values have no order. The one-hot columns are listed in
-    ``frame.attrs["nominal_columns"]`` of both results; ``scale_pair_for_distance`` gives
+    The dtype decides first: a pandas categorical or a boolean column is categorical even if its
+    labels are numbers or dates. A categorical column is **nominal** unless the caller declares
+    it ordinal: it is one-hot encoded over the union of the categories of both inputs (one 0/1
+    column per category, named ``<column>=<category>``), so every pair of different categories
+    is equally far apart. Integer codes (``A=0, B=1, C=2``) would make ``d(A, C) = 2 * d(A, B)``
+    although nominal values have no order. Missing values (``None``, ``NaN``, ``pd.NA``) form
+    ONE extra category (``<column>=<missing>``) that is disjoint from every real label,
+    including the texts ``'None'`` and ``'nan'``.
+
+    The one-hot columns are recorded by POSITION in ``frame.attrs["nominal_positions"]`` (and
+    by name in ``attrs["nominal_columns"]`` for reading); ``scale_pair_for_distance`` gives
     them the weight ``NOMINAL_ONE_HOT_WEIGHT`` so that one mismatch is one unit of Euclidean
     distance, commensurate with one standard deviation of a standardized numeric feature.
+    Generated names never collide with an input column name.
 
     ``ordinal_columns`` declares columns whose categories have an order: a sequence of column
-    names (the order is the numeric order of the values if all are numbers, otherwise the
+    names (the order is the numeric order of the labels if all are numbers, otherwise the
     alphabetical order) or a mapping ``{column: [categories in increasing order]}``. An ordinal
-    column is encoded as the rank of its category, a numeric feature.
+    column is encoded as the rank of its category, a numeric feature (a missing value drops the
+    row, as for a numeric column). The whole declaration is validated before any encoding:
+    unknown column names, repeated or missing categories, and columns that are numeric or
+    datetime (already ordered) raise ``ValidationError``.
 
     Raises ``ResourceError`` when the nominal columns would need more than
     ``MAX_ONE_HOT_FEATURES`` one-hot columns together.
@@ -209,13 +266,27 @@ def prepare_pair_for_distance_metrics(
             "features on both sides."
         )
     cols = list(original_df.columns)
+    if len(set(cols)) != len(cols) or transformed_df.columns.duplicated().any():
+        raise ValidationError("Distance metrics need unique column names in both datasets.")
+    declared = _validate_ordinal_declaration(cols, ordinal_columns)
+
+    # pass 1: the kind of every column, and the whole ordinal declaration checked against them
+    kinds = {c: _column_kind(original_df[c], transformed_df[c]) for c in cols}
+    for name in declared:
+        if kinds[name] in ("numeric", "datetime"):
+            raise ValidationError(
+                f"Ordinal column '{name}' is {kinds[name]}: its values are already ordered. "
+                "Declare only categorical columns as ordinal."
+            )
+
     a_out: list = []
     b_out: list = []
-    nominal: list = []
+    reserved = set(cols)  # generated names must never equal an input column name
+    nominal_names: list = []
     width = 0
     for col in cols:
         sa, sb = original_df[col], transformed_df[col]
-        kind = _column_kind(sa, sb)
+        kind = kinds[col]
         if kind == "datetime":
             da, db = _as_datetime(sa), _as_datetime(sb)
             a_out.append((col, da.astype("int64").where(~da.isna()).astype(float)))
@@ -224,16 +295,30 @@ def prepare_pair_for_distance_metrics(
             a_out.append((col, pd.to_numeric(_plain(sa).astype(float) if sa.dtype == bool else _plain(sa), errors="coerce").astype(float)))
             b_out.append((col, pd.to_numeric(_plain(sb).astype(float) if sb.dtype == bool else _plain(sb), errors="coerce").astype(float)))
         else:
-            ta = _plain(sa).astype(str).str.strip()
-            tb = _plain(sb).astype(str).str.strip()
-            levels = sorted(set(ta.unique()) | set(tb.unique()))
-            order = _ordinal_levels(col, ordinal_columns, levels)
-            if order is not None:
+            la, ma = _labels(sa)
+            lb, mb = _labels(sb)
+            levels = sorted(set(la[~ma]) | set(lb[~mb]))
+            if col in declared:
+                order = declared[col]
+                if order is None:  # a bare name: numbers sort as numbers, text alphabetically
+                    try:
+                        order = sorted(levels, key=float)
+                    except (TypeError, ValueError):
+                        order = list(levels)
+                missing_levels = [v for v in levels if v not in set(order)]
+                if missing_levels:
+                    raise ValidationError(
+                        f"Ordinal column '{col}': the declared order does not list "
+                        f"{len(missing_levels)} value(s) present in the data."
+                    )
                 rank = {v: float(i) for i, v in enumerate(order)}
-                a_out.append((col, ta.map(rank).astype(float)))
-                b_out.append((col, tb.map(rank).astype(float)))
+                ra = la.map(rank).astype(float).where(~ma)
+                rb = lb.map(rank).astype(float).where(~mb)
+                a_out.append((col, ra))
+                b_out.append((col, rb))
                 continue
-            width += len(levels)
+            has_missing = bool(ma.any() or mb.any())
+            width += len(levels) + int(has_missing)
             if width > MAX_ONE_HOT_FEATURES:
                 raise ResourceError(
                     operation="distance metrics",
@@ -244,21 +329,25 @@ def prepare_pair_for_distance_metrics(
                         "with `ordinal_columns` if its categories have an order."
                     ),
                 )
-            used = {name for name, _ in a_out}
-            for k, level in enumerate(levels):
-                name = f"{col}={level}"
-                if name in used:
-                    name = f"{col}=#{k}"
-                used.add(name)
-                nominal.append(name)
-                a_out.append((name, (ta == level).astype(float)))
-                b_out.append((name, (tb == level).astype(float)))
+            entries = [(f"{col}={lv}", (la == lv) & ~ma, (lb == lv) & ~mb) for lv in levels]
+            if has_missing:
+                entries.append((f"{col}=<missing>", pd.Series(ma, index=la.index), pd.Series(mb, index=lb.index)))
+            for k, (name, ea, eb) in enumerate(entries):
+                unique_name = name
+                while unique_name in reserved:
+                    unique_name = f"{name}#{k}" if unique_name == name else f"{unique_name}#"
+                reserved.add(unique_name)
+                nominal_names.append(unique_name)
+                a_out.append((unique_name, ea.astype(float)))
+                b_out.append((unique_name, eb.astype(float)))
     out_a = pd.concat([s.rename(n) for n, s in a_out], axis=1)
     out_b = pd.concat([s.rename(n) for n, s in b_out], axis=1)
     out_a.index, out_b.index = original_df.index, transformed_df.index
     out_a, out_b = out_a.dropna(), out_b.dropna()
-    out_a.attrs["nominal_columns"] = list(nominal)
-    out_b.attrs["nominal_columns"] = list(nominal)
+    positions = [i for i, (n, _) in enumerate(a_out) if n in set(nominal_names)]
+    for frame in (out_a, out_b):
+        frame.attrs["nominal_columns"] = list(nominal_names)
+        frame.attrs["nominal_positions"] = list(positions)
     return out_a, out_b
 
 
@@ -271,19 +360,23 @@ def scale_pair_for_distance(
 
     Numeric, datetime and ordinal columns are standardized with ONE ``StandardScaler`` fitted on
     the original (when ``normalize_features``), or used raw. One-hot columns of nominal
-    features are never standardized (their variance depends on category frequency, which would
-    make a mismatch of a rare category count more than a mismatch of a common one); they are
-    multiplied by ``NOMINAL_ONE_HOT_WEIGHT``, so each mismatch is one unit of Euclidean
-    distance. All backends (exact, block-wise, FAISS) receive the same arrays.
+    features (identified by POSITION, never by name) are not standardized (their variance
+    depends on category frequency, which would make a mismatch of a rare category count more
+    than a mismatch of a common one); they are multiplied by ``NOMINAL_ONE_HOT_WEIGHT``, so
+    each mismatch is one unit of Euclidean distance. All backends (exact, block-wise, FAISS)
+    receive the same arrays.
     """
     from sklearn.preprocessing import StandardScaler
+    from pamola_core.errors.exceptions import ValidationError
 
-    nominal = set(original.attrs.get("nominal_columns", []))
-    cols = list(original.columns)
-    numeric_idx = [i for i, c in enumerate(cols) if c not in nominal]
-    nominal_idx = [i for i, c in enumerate(cols) if c in nominal]
-    a = np.zeros((len(original), len(cols)), dtype=float)
-    b = np.zeros((len(transformed), len(cols)), dtype=float)
+    if len(set(original.columns)) != len(original.columns):
+        raise ValidationError("Feature names are not unique; the feature types cannot be told apart.")
+    nominal = set(original.attrs.get("nominal_positions", []))
+    n_cols = original.shape[1]
+    numeric_idx = [i for i in range(n_cols) if i not in nominal]
+    nominal_idx = sorted(nominal)
+    a = np.zeros((len(original), n_cols), dtype=float)
+    b = np.zeros((len(transformed), n_cols), dtype=float)
     if numeric_idx:
         num_a = original.iloc[:, numeric_idx].values.astype(float)
         num_b = transformed.iloc[:, numeric_idx].values.astype(float)
@@ -297,109 +390,37 @@ def scale_pair_for_distance(
     return a, b
 
 
+def mahalanobis_inverse_covariance(original_features: np.ndarray) -> np.ndarray:
+    """``VI`` for the Mahalanobis distance: the pseudo-inverse of the covariance of the
+    ORIGINAL's prepared features. One-hot columns make the covariance singular (the columns of
+    one feature sum to a constant), so a plain inverse does not exist; the Moore-Penrose
+    pseudo-inverse is the distance in the span of the data."""
+    x = np.asarray(original_features, dtype=float)
+    cov = np.atleast_2d(np.cov(x, rowvar=False)) if x.shape[0] > 1 else np.zeros((x.shape[1], x.shape[1]))
+    return np.linalg.pinv(cov, hermitian=True)
+
+
 def prepare_data_for_distance_metrics(
-    df: pd.DataFrame, reference: Optional[pd.DataFrame] = None
+    df: pd.DataFrame,
+    reference: Optional[pd.DataFrame] = None,
+    ordinal_columns: Optional[object] = None,
 ) -> pd.DataFrame:
     """
-    Preprocess the input DataFrame for distance-based metric calculations.
-    Converts boolean, datetime, string, and categorical columns to numeric.
+    Preprocess a DataFrame for distance-based metric calculations, in the same nominal-aware
+    schema as ``prepare_pair_for_distance_metrics`` (nominal categoricals one-hot encoded,
+    ordinal only when declared, missing categories as one tagged category).
 
-    Distances between two datasets are only meaningful if both are encoded in the
-    same space. Encoding each one on its own maps *unrelated* category sets to the
-    same codes (``['alice', 'bob']`` and ``['xavier', 'zoe']`` both become 0 and 1),
-    so records that share nothing look identical and a distance metric reports 0.
-    Pass the other dataset as ``reference``: each categorical column is then encoded
-    from the union of the categories of both datasets (sorted, so the same category
-    gets the same code in both), and calling this function once per dataset with
-    the other as ``reference`` yields comparable frames. There is no unseen-category
-    case: every category of either dataset is in the encoding.
-
-    Parameters
-    -----------
-    df : pd.DataFrame
-        Input dataset. Each row is a record, columns are features.
-    reference : pd.DataFrame, optional
-        The dataset ``df`` will be compared with. Only its categorical values are
-        read, to complete the encoding.
+    Distances between two datasets are only meaningful if both are encoded in the same space,
+    so pass the other dataset as ``reference``: the categories are then those of both datasets
+    and calling this function once per dataset with the other as ``reference`` yields
+    comparable frames. Without a reference the dataset is encoded with its own categories.
+    Apply ``scale_pair_for_distance`` to obtain the weighted arrays.
 
     Returns
     --------
     pd.DataFrame
-        Preprocessed DataFrame with all features converted to numeric types.
+        Numeric frame; ``frame.attrs["nominal_positions"]`` marks the one-hot columns.
     """
     if reference is not None:
-        # a reference means "compare with it": one shared schema for both
-        return prepare_pair_for_distance_metrics(df, reference)[0]
-
-    if df.empty:
-        raise DataError(
-            message="Input DataFrame is empty",
-            error_code=ErrorCode.DATA_EMPTY,
-        )
-
-    df_converted = df.copy()
-
-    # 1. Convert boolean columns to integers
-    bool_cols = df_converted.select_dtypes(include=["bool"]).columns.tolist()
-    df_converted[bool_cols] = df_converted[bool_cols].astype(int)
-
-    # 2. Convert datetime columns (including convertible object columns) to int64 (nanoseconds)
-    datetime_cols = []
-    for col in df_converted.columns:
-        if pd.api.types.is_datetime64_any_dtype(df_converted[col]):
-            datetime_cols.append(col)
-        elif pd.api.types.is_object_dtype(df_converted[col]):
-            try:
-                converted = pd.to_datetime(df_converted[col], errors="raise")
-                df_converted[col] = converted
-                datetime_cols.append(col)
-            except Exception:
-                continue
-
-    for col in datetime_cols:
-        df_converted[col] = df_converted[col].astype(
-            "int64"
-        )  # timestamp in nanoseconds
-
-    # 3. Convert string and categorical columns to ordinal encoded numeric values
-    string_cols = df_converted.select_dtypes(
-        include=["object", "category"]
-    ).columns.tolist()
-
-    for col in string_cols:
-        df_converted[col] = df_converted[col].astype(str)
-        df_converted[col] = df_converted[col].str.strip()
-
-    if string_cols:
-        encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
-        if reference is not None:
-            # Declare the categories as the union of both datasets (sorted, as
-            # OrdinalEncoder does) so a category has one code in both.
-            categories = []
-            for col in string_cols:
-                values = set(df_converted[col].unique())
-                if col in reference.columns and (
-                    pd.api.types.is_object_dtype(reference[col])
-                    or isinstance(reference[col].dtype, pd.CategoricalDtype)
-                    or pd.api.types.is_string_dtype(reference[col])
-                ):
-                    values |= set(reference[col].astype(str).str.strip().unique())
-                categories.append(sorted(values))
-            encoder = OrdinalEncoder(
-                categories=categories,
-                handle_unknown="use_encoded_value",
-                unknown_value=-1,
-            )
-            df_converted[string_cols] = encoder.fit_transform(df_converted[string_cols])
-        else:
-            df_converted[string_cols] = encoder.fit_transform(df_converted[string_cols])
-
-    # 4. Drop rows with any NaN values
-    df_converted = df_converted.dropna()
-
-    numeric_cols = df_converted.select_dtypes(include=[np.number]).columns
-    df_converted[numeric_cols] = df_converted[numeric_cols].fillna(
-        df_converted[numeric_cols].median()
-    )
-
-    return df_converted
+        return prepare_pair_for_distance_metrics(df, reference, ordinal_columns)[0]
+    return prepare_pair_for_distance_metrics(df, df, ordinal_columns)[0]

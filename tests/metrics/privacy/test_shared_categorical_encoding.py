@@ -85,4 +85,5 @@ def test_numeric_only_data_is_unchanged_by_the_reference():
 def test_single_dataset_call_keeps_working():
     df = pd.DataFrame({"c": ["x", "y", "x"], "n": [1.0, 2.0, 3.0]})
     out = prepare_data_for_distance_metrics(df)
-    assert out["c"].tolist() == [0.0, 1.0, 0.0]
+    assert list(out.columns) == ["c=x", "c=y", "n"]  # nominal: one-hot, no integer codes
+    assert out["c=x"].tolist() == [1.0, 0.0, 1.0]
