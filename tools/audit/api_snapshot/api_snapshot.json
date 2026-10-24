@@ -138,60 +138,6 @@
    "qualname": "LinkageAttack",
    "signature": "(fs_threshold=None, n_components=2)"
   },
-  "pamola_core.attacks:RecordRisk": {
-   "kind": "class",
-   "module": "pamola_core.attacks.singling_out",
-   "qualname": "RecordRisk",
-   "signature": "(index, msus=<factory>, min_msu_size=0, suda_score=0.0)"
-  },
-  "pamola_core.attacks:SinglingOutAttack": {
-   "kind": "class",
-   "module": "pamola_core.attacks.singling_out",
-   "qualname": "SinglingOutAttack",
-   "signature": "(max_combo=4, threshold=0.0, baseline_draws=10, seed=42)"
-  },
-  "pamola_core.attacks:dis_risk": {
-   "kind": "function",
-   "module": "pamola_core.attacks.singling_out",
-   "qualname": "dis_risk",
-   "signature": "(df, quasi_identifiers, max_size=None)"
-  },
-  "pamola_core.attacks:enumerate_subset_count": {
-   "kind": "function",
-   "module": "pamola_core.attacks.singling_out",
-   "qualname": "enumerate_subset_count",
-   "signature": "(n_qid, max_combo)"
-  },
-  "pamola_core.attacks:independent_marginals_baseline": {
-   "kind": "function",
-   "module": "pamola_core.attacks.singling_out",
-   "qualname": "independent_marginals_baseline",
-   "signature": "(df, subset, draws=10, seed=42)"
-  },
-  "pamola_core.attacks:minimal_sample_uniques": {
-   "kind": "function",
-   "module": "pamola_core.attacks.singling_out",
-   "qualname": "minimal_sample_uniques",
-   "signature": "(df, quasi_identifiers, max_size=None)"
-  },
-  "pamola_core.attacks:singling_out_sweep": {
-   "kind": "function",
-   "module": "pamola_core.attacks.singling_out",
-   "qualname": "singling_out_sweep",
-   "signature": "(df, quasi_identifiers, max_combo=4, threshold=0.0)"
-  },
-  "pamola_core.attacks:suda_scores": {
-   "kind": "function",
-   "module": "pamola_core.attacks.singling_out",
-   "qualname": "suda_scores",
-   "signature": "(df, quasi_identifiers, max_size=None)"
-  },
-  "pamola_core.attacks:wilson_ci": {
-   "kind": "function",
-   "module": "pamola_core.attacks.singling_out",
-   "qualname": "wilson_ci",
-   "signature": "(p_hat, n, z=1.959963984540054)"
-  },
   "pamola_core.cli:app": {
    "kind": "callable",
    "module": "typer.main",
@@ -906,6 +852,60 @@
    "qualname": "create_schema_from_dataframe",
    "signature": "(df, auto_detect=True)"
   },
+  "pamola_core.metrics.privacy.cvpl:ALGORITHM_ID": {
+   "kind": "constant",
+   "module": "",
+   "qualname": "",
+   "signature": "str"
+  },
+  "pamola_core.metrics.privacy.cvpl:ALGORITHM_VERSION": {
+   "kind": "constant",
+   "module": "",
+   "qualname": "",
+   "signature": "str"
+  },
+  "pamola_core.metrics.privacy.cvpl:CVPLConfig": {
+   "kind": "class",
+   "module": "pamola_core.metrics.privacy.cvpl.config",
+   "qualname": "CVPLConfig",
+   "signature": "(qids, auxiliary=(), blocking_ladder=None, tau=0.9, fit_strategy='joint', variance_retained=0.9, min_components=3, max_components=50, max_categories=50, qid_as_features=True, null_policy='equal_null', wildcard_tokens=('*',), direction='source_to_release', linkage_unit='subject', ground_truth=None, seed=None, max_comparisons=20000000000, max_group_pairs=300000000, chunk_pairs=1000000, tie_tolerance=1e-09, zero_norm_tolerance=1e-09)"
+  },
+  "pamola_core.metrics.privacy.cvpl:CVPLProjection": {
+   "kind": "class",
+   "module": "pamola_core.metrics.privacy.cvpl.projection",
+   "qualname": "CVPLProjection",
+   "signature": "(kinds, num_mean, num_scale, categories, has_other, pca_mean, components, info, _cat_index=<factory>)"
+  },
+  "pamola_core.metrics.privacy.cvpl:CVPLResult": {
+   "kind": "class",
+   "module": "pamola_core.metrics.privacy.cvpl.engine",
+   "qualname": "CVPLResult",
+   "signature": "(metrics, projection=None)"
+  },
+  "pamola_core.metrics.privacy.cvpl:GroundTruthSpec": {
+   "kind": "class",
+   "module": "pamola_core.metrics.privacy.cvpl.config",
+   "qualname": "GroundTruthSpec",
+   "signature": "(source_id_column, release_id_column, scope='complete')"
+  },
+  "pamola_core.metrics.privacy.cvpl:QIDSpec": {
+   "kind": "class",
+   "module": "pamola_core.metrics.privacy.cvpl.config",
+   "qualname": "QIDSpec",
+   "signature": "(name, kind='auto', bin_width=None, hierarchy=None, generalized=None)"
+  },
+  "pamola_core.metrics.privacy.cvpl:run_cvpl": {
+   "kind": "function",
+   "module": "pamola_core.metrics.privacy.cvpl.engine",
+   "qualname": "run_cvpl",
+   "signature": "(source, release, config, frozen_projection=None, force_union=False)"
+  },
+  "pamola_core.metrics:CVPLLinkageOperation": {
+   "kind": "class",
+   "module": "pamola_core.metrics.operations.cvpl_ops",
+   "qualname": "CVPLLinkageOperation",
+   "signature": "(qids, auxiliary=None, blocking_ladder=None, tau=0.9, fit_strategy='joint', variance_retained=0.9, min_components=3, max_components=50, max_categories=50, qid_as_features=True, null_policy='equal_null', wildcard_tokens=('*',), direction='source_to_release', linkage_unit='subject', ground_truth=None, seed=None, max_comparisons=20000000000, max_group_pairs=300000000, chunk_pairs=1000000, tie_tolerance=1e-09, zero_norm_tolerance=1e-09, name='cvpl_linkage', frozen_projection=None, **kwargs)"
+  },
   "pamola_core.metrics:FidelityOperation": {
    "kind": "class",
    "module": "pamola_core.metrics.operations.fidelity_ops",
@@ -971,18 +971,6 @@
    "module": "pamola_core.privacy_models.base",
    "qualname": "BasePrivacyModelProcessor",
    "signature": "()"
-  },
-  "pamola_core.privacy_models:DifferentialPrivacyModel": {
-   "kind": "class",
-   "module": "pamola_core.privacy_models.differential_privacy.calculation",
-   "qualname": "DifferentialPrivacyProcessor",
-   "signature": "(epsilon, sensitivity, mechanism='laplace')"
-  },
-  "pamola_core.privacy_models:DifferentialPrivacyProcessor": {
-   "kind": "class",
-   "module": "pamola_core.privacy_models.differential_privacy.calculation",
-   "qualname": "DifferentialPrivacyProcessor",
-   "signature": "(epsilon, sensitivity, mechanism='laplace')"
   },
   "pamola_core.privacy_models:FullMaskingStrategy": {
    "kind": "class",
@@ -1060,7 +1048,7 @@
    "kind": "class",
    "module": "pamola_core.privacy_models.l_diversity.interpretation",
    "qualname": "RiskInterpreter",
-   "signature": "(domain='general', regulation=None, custom_thresholds=None)"
+   "signature": "(domain='general', l_threshold=3, custom_thresholds=None)"
   },
   "pamola_core.privacy_models:SuppressionStrategy": {
    "kind": "class",
@@ -1108,7 +1096,7 @@
    "kind": "class",
    "module": "pamola_core.profiling.analyzers.attribute",
    "qualname": "DataAttributeProfilerOperation",
-   "signature": "(name='DataAttributeProfiler', dictionary_path=None, language='en', sample_size=10, max_columns=None, **kwargs)"
+   "signature": "(name='DataAttributeProfiler', dictionary_path=None, language='en', sample_size=10, max_columns=None, include_raw_samples_in_metrics=False, **kwargs)"
   },
   "pamola_core.profiling:DateOperation": {
    "kind": "class",
@@ -1168,7 +1156,7 @@
    "kind": "function",
    "module": "pamola_core.profiling.commons.attribute_utils",
    "qualname": "analyze_dataset_attributes",
-   "signature": "(df, dictionary=None, dictionary_path=None, language='en', sample_size=10, max_columns=None)"
+   "signature": "(df, dictionary=None, dictionary_path=None, language='en', sample_size=10, max_columns=None, random_state=0)"
   },
   "pamola_core.transformations:AddOrModifyFieldsOperation": {
    "kind": "class",
@@ -1848,6 +1836,12 @@
    "qualname": "BaseTask",
    "signature": "(task_id, task_type, description, input_datasets=None, data_types=None, auxiliary_datasets=None, version='1.0.0', use_encryption=False, encryption_keys=None, task_dir=None)"
   },
+  "pamola_core:CVPLLinkageOperation": {
+   "kind": "class",
+   "module": "pamola_core.metrics.operations.cvpl_ops",
+   "qualname": "CVPLLinkageOperation",
+   "signature": "(qids, auxiliary=None, blocking_ladder=None, tau=0.9, fit_strategy='joint', variance_retained=0.9, min_components=3, max_components=50, max_categories=50, qid_as_features=True, null_policy='equal_null', wildcard_tokens=('*',), direction='source_to_release', linkage_unit='subject', ground_truth=None, seed=None, max_comparisons=20000000000, max_group_pairs=300000000, chunk_pairs=1000000, tie_tolerance=1e-09, zero_norm_tolerance=1e-09, name='cvpl_linkage', frozen_projection=None, **kwargs)"
+  },
   "pamola_core:CategoricalGeneralizationOperation": {
    "kind": "class",
    "module": "pamola_core.anonymization.generalization.categorical_op",
@@ -1900,7 +1894,7 @@
    "kind": "class",
    "module": "pamola_core.profiling.analyzers.attribute",
    "qualname": "DataAttributeProfilerOperation",
-   "signature": "(name='DataAttributeProfiler', dictionary_path=None, language='en', sample_size=10, max_columns=None, **kwargs)"
+   "signature": "(name='DataAttributeProfiler', dictionary_path=None, language='en', sample_size=10, max_columns=None, include_raw_samples_in_metrics=False, **kwargs)"
   },
   "pamola_core:DataSource": {
    "kind": "class",
@@ -2122,7 +2116,7 @@
    "kind": "function",
    "module": "pamola_core.profiling.commons.attribute_utils",
    "qualname": "analyze_dataset_attributes",
-   "signature": "(df, dictionary=None, dictionary_path=None, language='en', sample_size=10, max_columns=None)"
+   "signature": "(df, dictionary=None, dictionary_path=None, language='en', sample_size=10, max_columns=None, random_state=0)"
   },
   "pamola_core:analyze_dataset_summary": {
    "kind": "function",
@@ -2356,7 +2350,6 @@
   "pamola_core.attacks.base",
   "pamola_core.attacks.linkage_attack",
   "pamola_core.attacks.preprocess_data",
-  "pamola_core.attacks.singling_out",
   "pamola_core.cli",
   "pamola_core.cli.commands",
   "pamola_core.cli.commands.list_ops",
@@ -2463,15 +2456,25 @@
   "pamola_core.metrics.fidelity.distribution.ks_test",
   "pamola_core.metrics.fidelity.statistical_fidelity",
   "pamola_core.metrics.operations",
+  "pamola_core.metrics.operations.cvpl_ops",
   "pamola_core.metrics.operations.fidelity_ops",
   "pamola_core.metrics.operations.privacy_ops",
   "pamola_core.metrics.operations.utility_ops",
   "pamola_core.metrics.privacy",
+  "pamola_core.metrics.privacy.cvpl",
+  "pamola_core.metrics.privacy.cvpl.compat",
+  "pamola_core.metrics.privacy.cvpl.config",
+  "pamola_core.metrics.privacy.cvpl.engine",
+  "pamola_core.metrics.privacy.cvpl.projection",
   "pamola_core.metrics.privacy.disclosure_risk",
   "pamola_core.metrics.privacy.distance",
   "pamola_core.metrics.privacy.identity",
   "pamola_core.metrics.privacy.neighbor",
   "pamola_core.metrics.schemas",
+  "pamola_core.metrics.schemas.cvpl_op_core_schema",
+  "pamola_core.metrics.schemas.cvpl_op_schema_exclude",
+  "pamola_core.metrics.schemas.cvpl_op_tooltip",
+  "pamola_core.metrics.schemas.cvpl_op_ui_schema",
   "pamola_core.metrics.schemas.fidelity_op_core_schema",
   "pamola_core.metrics.schemas.fidelity_op_schema_exclude",
   "pamola_core.metrics.schemas.fidelity_op_tooltip",
@@ -2494,8 +2497,6 @@
   "pamola_core.metrics.utility.regression",
   "pamola_core.privacy_models",
   "pamola_core.privacy_models.base",
-  "pamola_core.privacy_models.differential_privacy",
-  "pamola_core.privacy_models.differential_privacy.calculation",
   "pamola_core.privacy_models.k_anonymity",
   "pamola_core.privacy_models.k_anonymity.calculation",
   "pamola_core.privacy_models.k_anonymity.ka_reporting",
@@ -2508,11 +2509,6 @@
   "pamola_core.privacy_models.l_diversity.interpretation",
   "pamola_core.privacy_models.l_diversity.metrics",
   "pamola_core.privacy_models.l_diversity.privacy",
-  "pamola_core.privacy_models.l_diversity.report_generators",
-  "pamola_core.privacy_models.l_diversity.report_generators.compliance",
-  "pamola_core.privacy_models.l_diversity.report_generators.technical",
-  "pamola_core.privacy_models.l_diversity.report_utils",
-  "pamola_core.privacy_models.l_diversity.report_utils.formatters",
   "pamola_core.privacy_models.l_diversity.reporting",
   "pamola_core.privacy_models.l_diversity.visualization",
   "pamola_core.privacy_models.t_closeness",
@@ -2526,10 +2522,8 @@
   "pamola_core.profiling.analyzers.currency",
   "pamola_core.profiling.analyzers.date",
   "pamola_core.profiling.analyzers.email",
-  "pamola_core.profiling.analyzers.email_dask",
   "pamola_core.profiling.analyzers.group",
   "pamola_core.profiling.analyzers.identity",
-  "pamola_core.profiling.analyzers.longtext",
   "pamola_core.profiling.analyzers.mvf",
   "pamola_core.profiling.analyzers.numeric",
   "pamola_core.profiling.analyzers.phone",
@@ -2725,6 +2719,7 @@
   "pamola_core.utils.nlp.language",
   "pamola_core.utils.nlp.minhash",
   "pamola_core.utils.nlp.model_manager",
+  "pamola_core.utils.nlp.remote_resources",
   "pamola_core.utils.nlp.stopwords",
   "pamola_core.utils.nlp.text_utils",
   "pamola_core.utils.nlp.tokenization",

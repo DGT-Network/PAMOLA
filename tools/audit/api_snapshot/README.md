@@ -7,7 +7,7 @@ public modules. `tests/test_api_snapshot.py` compares the installed package with
 
 | File | What it is |
 |---|---|
-| `api_snapshot.json` | the snapshot the test checks - regenerate it with `--write` in the same commit as any intended API change |
+| `api_snapshot.json` | the snapshot the test checks (the ASSEMBLED 1.0 tree, including CVPL) - regenerate it with `--write` in the same commit as any intended API change |
 | `snapshots/develop_9623aee.json` | baseline: the public API of `develop` at 9623aee, before the 1.0 stabilization |
 | `snapshots/final_tree_without_cvpl.json` | the integrated stabilization tree (ops + privacy + scope + release), without CVPL; replace `api_snapshot.json` with a fresh snapshot of the assembled tree before the release |
 
