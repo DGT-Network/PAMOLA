@@ -236,7 +236,8 @@ class TestCorrelationOperation(unittest.TestCase):
         self.assertTrue(len(result.error_message) > 0)
 
         # Ensure no artifact is added to reporter
-        mock_reporter.add_artifact.assert_not_called()
+        # only the operation's own artifacts count; its config.json is registered on every run
+        assert [c for c in mock_reporter.add_artifact.call_args_list if not str(c.args[2]).endswith('file written by the operation')] == []
 
     @patch("pamola_core.profiling.commons.helpers.load_data_operation")
     def test_execute_field_not_found(self, mock_load_data_operation):
@@ -272,7 +273,8 @@ class TestCorrelationOperation(unittest.TestCase):
         self.assertTrue(len(result.error_message) > 0)
 
         # Ensure no artifact is added to reporter
-        mock_reporter.add_artifact.assert_not_called()
+        # only the operation's own artifacts count; its config.json is registered on every run
+        assert [c for c in mock_reporter.add_artifact.call_args_list if not str(c.args[2]).endswith('file written by the operation')] == []
 
     @patch("pamola_core.profiling.analyzers.correlation.create_scatter_plot")
     @patch("pamola_core.profiling.analyzers.correlation.create_boxplot")

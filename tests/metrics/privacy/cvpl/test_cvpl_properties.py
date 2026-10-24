@@ -400,10 +400,12 @@ def test_cvpl_bucketing_is_reported_never_silent():
     (b,) = r["bucketed_features"]
     assert b == {"feature": "tag", "distinct_values": 300, "encoded_width": 20,
                  "distinct_values_collapsed": 281, "rows_in_other_bucket": 562}
-    (w,) = r["warnings"]
+    # the bucketing warning; a PCA eigenspace warning may accompany it on this degenerate data
+    (w,) = [x for x in r["warnings"] if x.startswith("feature ")]
     assert "'tag'" in w and "300" in w and "281" in w and "t1" not in w.replace("tag", "")  # names and counts only
     clean = run_cvpl(src.head(10), src.head(10).copy(), cfg)
-    assert clean["bucketed_features"] == [] and clean["warnings"] == []
+    assert clean["bucketed_features"] == []
+    assert not [x for x in clean["warnings"] if x.startswith("feature ")]
 
 
 def test_cvpl_not_applicable_reason_names_the_qid_and_the_fix():
