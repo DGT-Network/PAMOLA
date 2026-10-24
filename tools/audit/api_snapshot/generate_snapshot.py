@@ -21,6 +21,7 @@ under ``import_errors`` and contributes no names.
 from __future__ import annotations
 
 import argparse
+import enum
 import importlib
 import inspect
 import json
@@ -91,11 +92,17 @@ def describe(name: str, obj: Any) -> Dict[str, str]:
         kind = "callable"
     else:
         return {"kind": "constant", "module": "", "qualname": "", "signature": type(obj).__name__}
+    if kind == "class" and issubclass(obj, enum.Enum):
+        # An Enum's constructor signature comes from the interpreter (3.11 adds
+        # ``boundary``), not from us; its public surface is its members.
+        signature = "members: [" + ", ".join(obj.__members__) + "]"
+    else:
+        signature = normalised_signature(obj)
     return {
         "kind": kind,
         "module": getattr(obj, "__module__", "") or "",
         "qualname": getattr(obj, "__qualname__", name),
-        "signature": normalised_signature(obj),
+        "signature": signature,
     }
 
 
