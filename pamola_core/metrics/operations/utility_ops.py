@@ -236,7 +236,7 @@ class UtilityMetricOperation(MetricsOperation):
         )
 
         for metric_type in utility_metrics:
-            params = metric_params.get(metric_type, {})
+            params = dict(metric_params.get(metric_type, {}))
 
             try:
                 if progress_tracker:
