@@ -185,6 +185,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[test,viz]"   # the suite covers plotting paths (FP-02a)
 
+      - name: Make sure plotly can render PNGs (kaleido needs a Chrome)
+        # ubuntu-latest ships google-chrome, which kaleido finds on PATH; if a runner image ever
+        # drops it, fetch one explicitly instead of letting tests fail on the renderer probe.
+        run: |
+          render='import plotly.graph_objects as go; go.Figure(go.Bar(x=[1], y=[1])).to_image(format="png")'
+          python -c "$render" || { plotly_get_chrome -y && python -c "$render"; }
+
       - name: Install the NLTK corpora the tests use (explicit opt-in)
         # pamola-core never downloads corpora by itself (offline by default); the tests that
         # exercise tokenization need them, so the job installs them explicitly.
