@@ -106,7 +106,9 @@ class KolmogorovSmirnovTest:
             )
 
             ks_stat, p_value = self._calculate_ks_from_dicts(orig_dist, trans_dist)
-            return self._assemble(ks_stat, p_value, max(len(orig_dist), len(trans_dist)))
+            result = self._assemble(ks_stat, p_value, max(len(orig_dist), len(trans_dist)))
+            result["normalization_applied"] = "none: key/value masses are normalized to probabilities"
+            return result
 
         # Every common column, in the order of the original dataset. A non-numeric column has
         # no KS statistic and is reported under ``skipped_columns`` instead of failing the run.
@@ -183,24 +185,20 @@ class KolmogorovSmirnovTest:
         """Enhanced KS calculation with normalization support for dictionaries."""
         all_keys = sorted(set(dict1) | set(dict2))
 
-        # Extract values for normalization
-        values1 = np.array([dict1.get(key, 0.0) for key in all_keys])
-        values2 = np.array([dict2.get(key, 0.0) for key in all_keys])
-
-        # Apply normalization if requested
-        if self.normalize:
-            norm_method = "zscore" if self.normalize is True else self.normalize
-            values1, values2 = normalize_pair_sklearn(values1, values2, norm_method)
-            # z-scores can be negative, but the values are used as masses of a cumulative
-            # distribution: shift both by the pooled minimum so that every mass is >= 0 (otherwise
-            # the "cumulative" sums leave [0, 1] and the statistic can exceed 1)
-            floor = min(float(values1.min()), float(values2.min())) if len(values1) else 0.0
-            if floor < 0:
-                values1, values2 = values1 - floor, values2 - floor
-
-        # Calculate totals for probability normalization
-        total1 = np.sum(np.abs(values1))
-        total2 = np.sum(np.abs(values2))
+        values1 = np.array([dict1.get(key, 0.0) for key in all_keys], dtype=float)
+        values2 = np.array([dict2.get(key, 0.0) for key in all_keys], dtype=float)
+        # These are MASSES of a cumulative distribution; each is divided by its own total below, so
+        # normalization does not apply to them (a scale is undone by the division, a shift - z-score
+        # mean, min-max minimum - makes masses negative or erases the smallest one). A mass below
+        # zero has no CDF.
+        if (values1 < 0).any() or (values2 < 0).any():
+            raise ValidationError(
+                "KS on key/value data needs non-negative values per key; the aggregated "
+                f"'{self.value_field}' is negative for some key. Use a non-negative value_field or "
+                "aggregation."
+            )
+        total1 = np.sum(values1)
+        total2 = np.sum(values2)
 
         if total1 == 0 or total2 == 0:
             return 0.0, 1.0

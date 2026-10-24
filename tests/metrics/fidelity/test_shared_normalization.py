@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.metrics.commons.normalize import normalize_pair_sklearn
 from pamola_core.metrics.fidelity.distribution.kl_divergence import KLDivergence
 from pamola_core.metrics.fidelity.distribution.ks_test import KolmogorovSmirnovTest
@@ -30,13 +31,61 @@ def test_ks_identical_inputs_stay_zero():
     assert KolmogorovSmirnovTest(normalize=True).calculate_metric(original, original.copy())["ks_statistic"] == 0
 
 
-def test_ks_aggregated_path_shares_the_transformation():
+def test_ks_aggregated_path_ignores_normalization_and_stays_in_range():
     keys = [f"k{i}" for i in range(30)]
-    a = pd.DataFrame({"k": keys, "v": np.arange(30.0)})
-    b = pd.DataFrame({"k": keys, "v": np.arange(30.0) * 50 + 500})
-    plain = KolmogorovSmirnovTest(key_fields=["k"], value_field="v", normalize=False).calculate_metric(a, b)
-    shared = KolmogorovSmirnovTest(key_fields=["k"], value_field="v", normalize=True).calculate_metric(a, b)
-    assert shared["ks_statistic"] > 0 and plain["ks_statistic"] > 0
+    a = pd.DataFrame({"k": keys, "v": np.arange(1.0, 31.0)})
+    b = pd.DataFrame({"k": keys, "v": np.arange(1.0, 31.0)[::-1] * 50 + 500})
+    stats = {}
+    for norm in (False, True, "zscore", "minmax"):
+        r = KolmogorovSmirnovTest(key_fields=["k"], value_field="v", normalize=norm).calculate_metric(a, b)
+        assert 0.0 <= r["ks_statistic"] <= 1.0
+        stats[str(norm)] = r["ks_statistic"]
+    assert len(set(round(v, 12) for v in stats.values())) == 1
+    assert stats["False"] > 0
+
+
+def test_ks_aggregated_path_rejects_negative_values():
+    keys = ["a", "b", "c"]
+    a = pd.DataFrame({"k": keys, "v": [1.0, -2.0, 3.0]})
+    b = pd.DataFrame({"k": keys, "v": [1.0, 2.0, 3.0]})
+    with pytest.raises(ValidationError, match="non-negative"):
+        KolmogorovSmirnovTest(key_fields=["k"], value_field="v", normalize=False).calculate_metric(a, b)
+
+
+def test_ks_aggregated_path_near_identical_masses_are_not_reported_identical():
+    keys = [f"k{i}" for i in range(5)]
+    a = pd.DataFrame({"k": keys, "v": [100.0] * 5})
+    b = pd.DataFrame({"k": keys, "v": [100.0, 100.0, 100.0, 100.0, 140.0]})
+    for norm in (False, True, "minmax"):
+        r = KolmogorovSmirnovTest(
+            key_fields=["k"], value_field="v", aggregation="sum", normalize=norm
+        ).calculate_metric(a, b)
+        assert 0.0 < r["ks_statistic"] < 1.0
+        assert r["ks_statistic"] == pytest.approx(0.0593, abs=1e-3)
+
+
+def test_ks_aggregated_path_reversed_masses_match_the_plain_value():
+    keys = [f"k{i}" for i in range(5)]
+    a = pd.DataFrame({"k": keys, "v": [10.0, 20.0, 30.0, 40.0, 50.0]})
+    b = pd.DataFrame({"k": keys, "v": [50.0, 40.0, 30.0, 20.0, 10.0]})
+    for norm in (False, True, "zscore", "minmax"):
+        r = KolmogorovSmirnovTest(
+            key_fields=["k"], value_field="v", aggregation="sum", normalize=norm
+        ).calculate_metric(a, b)
+        assert r["ks_statistic"] == pytest.approx(0.4)
+
+
+def test_kl_key_fields_result_is_independent_of_normalize():
+    keys = [f"k{i}" for i in range(6)]
+    a = pd.DataFrame({"k": keys, "v": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]})
+    b = pd.DataFrame({"k": keys, "v": [6.0, 1.0, 2.0, 9.0, 1.0, 3.0]})
+    values = [
+        KLDivergence(key_fields=["k"], value_field="v", aggregation="sum", normalize=n)
+        .calculate_metric(a, b)["kl_divergence"]
+        for n in ("zscore", "minmax", True, False)
+    ]
+    assert values[0] > 0
+    assert values == pytest.approx([values[0]] * 4)
 
 
 @pytest.mark.parametrize("method", ["zscore", "minmax"])

@@ -214,16 +214,12 @@ class TestKLDivergence:
         assert "Large distributional" in kl._interpret_kl(2.0)
 
     def test_kl_divergence_get_normalization_description(self):
-        kl = KLDivergence(normalize=False)
-        assert kl._get_normalization_description() == "none"
-        kl = KLDivergence(normalize=True)
-        assert kl._get_normalization_description() == "probability normalization"
-        kl = KLDivergence(normalize="zscore")
-        assert kl._get_normalization_description() == "z-score normalization"
-        kl = KLDivergence(normalize="minmax")
-        assert kl._get_normalization_description() == "min-max normalization"
-        kl = KLDivergence(normalize="custom")
-        assert kl._get_normalization_description() == "custom"
+        base = "probabilities (counts / masses are always normalized to probabilities)"
+        for value in (False, True, "probability", "custom"):
+            assert KLDivergence(normalize=value)._get_normalization_description() == base
+        for value in ("zscore", "minmax"):
+            text = KLDivergence(normalize=value)._get_normalization_description()
+            assert text == base + " (the requested normalization does not apply to counts)"
 
     def test_kl_divergence_effect_size_thresholds(self):
         kl = KLDivergence(confidence_level=0.95)
