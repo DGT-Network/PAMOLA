@@ -40,6 +40,26 @@ def gate_pickle(
         require_unsafe_pickle_opt_in(allow_unsafe_pickle, path)
 
 
+class UnsupportedBulkPickleError(ValidationError):
+    """Pickle is not read by the multi-file / Dask readers, even with the opt-in."""
+
+
+def reject_pickle_for_bulk_read(path, allow_unsafe_pickle=False) -> None:
+    """Bulk (multi-file / Dask) readers never read pickle.
+
+    Without the opt-in the refusal is the usual ``UnsafeDeserializationError``; with it the
+    caller learns, explicitly, that the bulk path does not support pickle and the file has
+    to be read on its own (``read_dataframe(path, allow_unsafe_pickle=True)``). Never a
+    silent ``(None, None)``.
+    """
+    if allow_unsafe_pickle is not True:
+        require_unsafe_pickle_opt_in(False, path)  # raises
+    raise UnsupportedBulkPickleError(
+        f"'{path}': pickle is not supported by multi-file or Dask readers. Read the file "
+        "on its own with allow_unsafe_pickle=True."
+    )
+
+
 def require_unsafe_pickle_opt_in(allow_unsafe_pickle: bool, path: Union[str, Path]) -> None:
     """Refuse to unpickle ``path`` unless the caller opted in explicitly.
 

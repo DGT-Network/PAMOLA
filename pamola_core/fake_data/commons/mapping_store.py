@@ -15,7 +15,10 @@ import pandas as pd
 import pamola_core.utils.io as pamola_io
 import pamola_core.utils.logging as pamola_logging
 from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
-from pamola_core.utils.io_helpers.crypto_utils import write_encrypted_json
+from pamola_core.utils.io_helpers.crypto_utils import (
+    read_encrypted_json,
+    write_encrypted_json,
+)
 from pamola_core.utils.safe_deserialization import require_unsafe_pickle_opt_in
 
 # Configure module logger
@@ -572,9 +575,7 @@ class MappingStore:
         if io_module:
             data = io_module.read_json(path)
         elif encryption_key:
-            data = pamola_io.read_json(
-                path, encryption_key=encryption_key, use_encryption=True
-            )
+            data = read_encrypted_json(path, encryption_key)  # in memory, no staging file
         else:
             data = pamola_io.read_json(path)
         if not isinstance(data, dict) or not isinstance(data.get("mappings"), dict):

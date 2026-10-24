@@ -182,6 +182,32 @@ def write_encrypted_json(
     return path
 
 
+def read_encrypted_json(path: Union[str, Path], key: Optional[str]) -> Any:
+    """Read a JSON file, decrypting in memory: no plain-text file is ever created.
+
+    The file holds either an encryption envelope (decrypted with ``key``, then parsed) or
+    plain JSON (returned as parsed). Authentication failures raise; nothing is staged on
+    disk, so an interruption cannot leave decrypted content behind.
+    """
+    import json
+
+    raw = Path(path).read_bytes()
+    try:
+        document = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        document = raw
+    if isinstance(document, dict) and "mode" in document and "algorithm" in document:
+        if not key:
+            raise EncryptionError(f"'{Path(path).name}' is encrypted: an encryption key is required")
+        plain = decrypt_data(document, key=key)
+        if isinstance(plain, bytes):
+            plain = plain.decode("utf-8")
+        return json.loads(plain)
+    if isinstance(document, (bytes, bytearray)):
+        raise EncryptionError(f"'{Path(path).name}' is neither JSON nor a known encryption envelope")
+    return document
+
+
 def decrypt_file(
     source_path: Union[str, Path],
     destination_path: Union[str, Path],

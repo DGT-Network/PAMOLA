@@ -253,9 +253,6 @@ def _register_written_files(result, task_dir, reporter):
     from pamola_core.utils.artifact_policy import ArtifactClass
 
     artifacts = getattr(result, "artifacts", None)
-    status = getattr(getattr(result, "status", None), "name", "")
-    if status != "SUCCESS":
-        return
     if task_dir is None or not isinstance(artifacts, list) or not hasattr(result, "add_artifact"):
         return
     root = Path(task_dir)
@@ -316,8 +313,8 @@ def _classify_source_value_artifacts(execute):
         task_dir = kwargs.get("task_dir", args[1] if len(args) > 1 else None)
         try:
             _register_written_files(result, task_dir, reporter)
-        except Exception as exc:  # classification must never fail an operation
-            logger.debug("artifact registration of written files skipped: %s", exc)
+        except Exception as exc:  # never fail the operation, but never hide it either
+            logger.warning("artifact registration of written files failed: %s", exc)
         if not getattr(self, "ARTIFACTS_CONTAIN_SOURCE_VALUES", False):
             return result
         from pamola_core.utils.artifact_policy import ArtifactClass

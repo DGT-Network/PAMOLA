@@ -35,8 +35,78 @@ from pamola_core.utils.tasks.task_config import validate_path_security
 
 
 def _normalized_path(path: Any) -> str:
-    """Key for deduplicating artifact entries by file."""
-    return os.path.normcase(os.path.normpath(os.path.abspath(str(path))))
+    """Canonical key for an artifact file: symlinks resolved, case folded per platform."""
+    p = os.path.abspath(str(path))
+    try:
+        p = os.path.realpath(p)
+    except OSError:
+        pass
+    return os.path.normcase(p)
+
+
+def _same_artifact_path(a: Any, b: Any) -> bool:
+    """True when two path strings name the same file (key equality, else file identity)."""
+    if _normalized_path(a) == _normalized_path(b):
+        return True
+    try:
+        return os.path.exists(str(a)) and os.path.exists(str(b)) and os.path.samefile(
+            str(a), str(b)
+        )
+    except OSError:
+        return False
+
+
+#: Protection order for source-bearing artifacts and for explicit classes in general.
+_PROTECTION_RANK = {
+    ArtifactClass.PROTECTED_MAPPING.value: 4,
+    ArtifactClass.DIAGNOSTIC.value: 3,
+    ArtifactClass.DATA.value: 2,
+    ArtifactClass.AGGREGATE_METRIC.value: 1,
+    ArtifactClass.EVIDENCE.value: 0,
+}
+_SOURCE_BEARING = (
+    ArtifactClass.PROTECTED_MAPPING.value,
+    ArtifactClass.DIAGNOSTIC.value,
+    ArtifactClass.DATA.value,
+)
+
+
+def _merge_artifact_entries(existing: Dict[str, Any], new: Dict[str, Any]) -> None:
+    """Merge ``new`` into ``existing`` monotonically (in place).
+
+    * ``contains_source_values`` is the OR of both;
+    * the class never becomes less protective: with source values it is the more protective
+      of the two source-capable classes (protected_mapping > diagnostic > data), never an
+      aggregate_metric or evidence; without them an explicit class beats a derived one and
+      two explicit classes keep the more protective;
+    * ``not_for_release`` is derived after the merge;
+    * tags are united and missing metadata keys are added.
+    """
+    contains = bool(existing.get("contains_source_values")) or bool(
+        new.get("contains_source_values")
+    )
+    candidates = [existing, new]
+    if contains:
+        pool = [c["artifact_class"] for c in candidates if c["artifact_class"] in _SOURCE_BEARING]
+        cls = max(pool, key=_PROTECTION_RANK.get) if pool else ArtifactClass.DIAGNOSTIC.value
+    else:
+        explicit = [c["artifact_class"] for c in candidates if c.get("classified_explicitly")]
+        pool = explicit or [c["artifact_class"] for c in candidates]
+        cls = max(pool, key=_PROTECTION_RANK.get)
+    existing["artifact_class"] = cls
+    existing["contains_source_values"] = contains
+    existing["classified_explicitly"] = bool(
+        existing.get("classified_explicitly") or new.get("classified_explicitly")
+    )
+    existing["not_for_release"] = contains and cls not in (
+        ArtifactClass.DATA.value,
+        ArtifactClass.PROTECTED_MAPPING.value,
+    )
+    for tag in new.get("tags") or []:
+        if tag not in existing.setdefault("tags", []):
+            existing["tags"].append(tag)
+    for k, v in (new.get("metadata") or {}).items():
+        existing.setdefault("metadata", {}).setdefault(k, v)
 
 
 class ArtifactGroup:
@@ -376,17 +446,9 @@ class TaskReporter:
 
         # One entry per normalized path: a second registration merges, and never
         # replaces a classification that was already assigned.
-        key = _normalized_path(path_str)
         for existing in self.artifacts:
-            if _normalized_path(existing.get("path", "")) == key:
-                if artifact["classified_explicitly"] and not existing["classified_explicitly"]:
-                    for k in (
-                        "artifact_class",
-                        "contains_source_values",
-                        "not_for_release",
-                        "classified_explicitly",
-                    ):
-                        existing[k] = artifact[k]
+            if _same_artifact_path(existing.get("path", ""), path_str):
+                _merge_artifact_entries(existing, artifact)
                 return
         self.artifacts.append(artifact)
 

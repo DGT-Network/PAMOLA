@@ -71,6 +71,7 @@ from pamola_core.utils.optional_deps import optional_import
 from pamola_core.utils.safe_deserialization import (
     gate_pickle,
     is_pickle_format,
+    reject_pickle_for_bulk_read,
     require_unsafe_pickle_opt_in,
 )
 from pamola_core.errors.exceptions import (
@@ -2073,7 +2074,8 @@ def read_multi_file_dask(
     # Get file format of the first file
     file_format = file_paths[0].suffix.lower().lstrip(".")
     for _path in file_paths:
-        gate_pickle(None, _path)  # pickle is never read through the Dask path
+        if is_pickle_format(None, _path):
+            reject_pickle_for_bulk_read(_path)  # pickle is never read through the Dask path
 
     with temporary_decrypted_files(
         file_paths=file_paths, encryption_key=encryption_key, suffix=f".{file_format}"

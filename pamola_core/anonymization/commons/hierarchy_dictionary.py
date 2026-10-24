@@ -64,6 +64,7 @@ from pamola_core.anonymization.commons.text_processing_utils import normalize_te
 
 # Import core utilities
 from pamola_core.utils.io import read_json, read_full_csv, get_file_metadata
+from pamola_core.utils.io_helpers.crypto_utils import read_encrypted_json
 from pamola_core.errors.exceptions import (
     InvalidParameterError,
     PamolaFileNotFoundError,
@@ -188,7 +189,10 @@ class HierarchyDictionary:
 
             try:
                 if format_type == "json":
-                    data = read_json(filepath, encryption_key=encryption_key)
+                    if encryption_key:
+                        data = read_encrypted_json(filepath, encryption_key)
+                    else:
+                        data = read_json(filepath)
                     self._parse_json_hierarchy(data)
                 else:  # csv
                     df = read_full_csv(

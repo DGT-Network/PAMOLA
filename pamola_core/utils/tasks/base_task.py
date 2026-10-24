@@ -107,6 +107,18 @@ OpType = TypeVar("OpType", bound="BaseOperation")
 
 
 
+def _reporter_entry(reporter, path):
+    """The reporter's merged entry for ``path`` (the single source of truth), or None."""
+    if reporter is None or path is None:
+        return None
+    from pamola_core.utils.tasks.task_reporting import _same_artifact_path
+
+    for entry in getattr(reporter, "artifacts", None) or []:
+        if isinstance(entry, dict) and _same_artifact_path(entry.get("path", ""), path):
+            return entry
+    return None
+
+
 def _enum_value(value):
     """``value.value`` for an enum member, else the value itself."""
     return getattr(value, "value", value)
@@ -1184,6 +1196,10 @@ class BaseTask:
                         },
                     )
 
+            # Task products (report, manifest, logs) are artifacts too: classified
+            # conservatively as diagnostic with source values until audited.
+            self._register_task_products()
+
             # Generate and save report
             try:
                 report_path = self.reporter.save_report()
@@ -1244,6 +1260,34 @@ class BaseTask:
             self.status = "finalization_error"
             return False
 
+    def _register_task_products(self) -> None:
+        """Register task_report.json, manifest.json and the task logs in the reporter."""
+        from pamola_core.utils.artifact_policy import ArtifactClass
+
+        products = []
+        report_path = getattr(self.reporter, "report_path", None)
+        if report_path:
+            products.append(("json", report_path, "Task report"))
+        products.append(("json", Path(self.task_dir) / "manifest.json", "Task manifest"))
+        for name in ("log_file", "task_log_file"):
+            value = getattr(self.config, name, None)
+            if value:
+                products.append(("log", value, f"Task log ({name})"))
+        for artifact_type, path, description in products:
+            try:
+                self.reporter.add_artifact(
+                    artifact_type,
+                    path,
+                    description,
+                    category="task_product",
+                    artifact_class=ArtifactClass.DIAGNOSTIC,
+                    contains_source_values=True,
+                )
+            except Exception as e:  # a registration problem must be visible
+                self.logger.warning(
+                    f"Could not register task product '{Path(str(path)).name}': {e}"
+                )
+
     def _write_manifest(self, success: bool) -> None:
         """
         Write manifest.json to task_dir root.
@@ -1264,20 +1308,44 @@ class BaseTask:
                     checksum = h.hexdigest()
                 except Exception:
                     pass
+            merged = _reporter_entry(getattr(self, "reporter", None), artifact_path)
+            if merged is None:  # not in the reporter: the artifact's own classification
+                merged = {
+                    "artifact_class": _enum_value(getattr(artifact, "artifact_class", None)),
+                    "contains_source_values": getattr(artifact, "contains_source_values", None),
+                    "not_for_release": bool(
+                        getattr(artifact, "contains_source_values", False)
+                        and _enum_value(getattr(artifact, "artifact_class", None))
+                        not in ("data", "protected_mapping")
+                    ),
+                }
             artifact_entries.append({
                 "path": str(artifact_path) if artifact_path else "",
                 "type": getattr(artifact, "artifact_type", "unknown"),
                 "category": getattr(artifact, "category", ""),
-                "artifact_class": _enum_value(getattr(artifact, "artifact_class", None)),
-                "contains_source_values": getattr(artifact, "contains_source_values", None),
-                "not_for_release": bool(
-                    getattr(artifact, "contains_source_values", False)
-                    and _enum_value(getattr(artifact, "artifact_class", None))
-                    not in ("data", "protected_mapping")
-                ),
+                "artifact_class": merged["artifact_class"],
+                "contains_source_values": merged["contains_source_values"],
+                "not_for_release": merged["not_for_release"],
                 "description": getattr(artifact, "description", ""),
                 "sha256": checksum,
             })
+
+        # Reporter entries that are not operation artifacts (task report, manifest, logs)
+        listed = {str(e["path"]) for e in artifact_entries}
+        for entry in getattr(getattr(self, "reporter", None), "artifacts", None) or []:
+            if isinstance(entry, dict) and entry.get("category") == "task_product":
+                if str(entry["path"]) in listed:
+                    continue
+                artifact_entries.append({
+                    "path": str(entry["path"]),
+                    "type": entry.get("type", "unknown"),
+                    "category": entry.get("category", ""),
+                    "artifact_class": entry["artifact_class"],
+                    "contains_source_values": entry["contains_source_values"],
+                    "not_for_release": entry["not_for_release"],
+                    "description": entry.get("description", ""),
+                    "sha256": None,
+                })
 
         # Build pipeline steps from results dict
         steps = [
