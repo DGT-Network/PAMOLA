@@ -7,6 +7,37 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Mathematical contract of the distance and linkage metrics (MATH)
+
+- **DCR / NNDR: nominal categorical columns are one-hot encoded. DCR and NNDR values change for
+  data with categorical columns.** The categories were encoded as sorted integer codes
+  (`A=0, B=1, C=2`), which made `d(A, C) = 2 * d(A, B)` for values that have no order, so the
+  distances reflected the encoding. A categorical column is now nominal: one 0/1 column per
+  category of the union of both datasets, weighted by `1/sqrt(2)` so that a mismatch of any two
+  categories is one unit of Euclidean distance, commensurate with one standard deviation of a
+  standardized numeric column. One-hot columns are never standardized; numeric, datetime and
+  ordinal columns are standardized with a single fit on the original. All backends (exact,
+  block-wise, FAISS) receive the same vectors. A column is treated as ordinal (rank-encoded) only
+  when declared with the new `ordinal_columns` parameter of `DistanceToClosestRecord` and
+  `NearestNeighborDistanceRatio` (names, or `{column: [categories in increasing order]}`).
+  Nominal columns with more than 1000 one-hot features together raise `ResourceError`.
+- **DCR: `privacy_score` is removed** (and `DistanceToClosestRecord._calculate_privacy_score`).
+  The `d * m^(-1/4)`, `1 - exp(-x)` normalization had no justification and no calibration, and
+  values with a different number of columns were not comparable. Use the raw `dcr_statistics`
+  (and `distance_thresholds`) as technical diagnostics; no DCR/NNDR value is a probability of
+  re-identification. The example notebooks no longer print or threshold it.
+- **CVPL: wording and PCA stability.** `evaluation_model` is
+  `white_box_maximum_over_declared_profiles_and_fixed_strategies` (was
+  `white_box_upper_value_over_declared_profiles`): the identification numbers are the maximum
+  over the declared attacker profiles and fixed identification strategies, not a bound for an
+  arbitrary attacker. The result carries `maturity: "experimental"`. The `projection` block reports
+  `degenerate_eigenspace`, `cutoff_in_degenerate_eigenspace` and `min_relative_eigengap`; when the
+  cut-off between retained and dropped components lies inside a (near-)degenerate eigenspace a
+  warning is added. The sign of a component is decided by the first of its largest-magnitude
+  loadings (ties within rounding no longer depend on the last bits). `source_only` / `frozen` are
+  documented as the way to compare several releases of one source; the default (`joint`) is
+  unchanged.
+
 ## [1.0.0rc1] - 2026-10-24
 
 ### As-built review fixes (ASB)

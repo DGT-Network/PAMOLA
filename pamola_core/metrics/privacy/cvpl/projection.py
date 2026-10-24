@@ -11,8 +11,15 @@ of components that reaches ``variance_retained`` (within [min, max] components).
 The PCA is computed from streamed sufficient statistics (mean and scatter matrix
 merged chunk by chunk), so fitting needs ``O(F^2)`` memory whatever the number of
 rows, and it is exact and deterministic: the eigen-decomposition of the sample
-covariance matrix. Component signs are canonicalised; cosine similarity does not
-depend on them anyway.
+covariance matrix. Component signs are canonicalised (the first of the largest-magnitude loadings is positive;
+cosine similarity does not depend on them anyway).
+
+Stability: the retained subspace is determined by the eigenvalues only where they are separated.
+Rotating the components INSIDE a retained eigenspace leaves every cosine similarity unchanged
+(an orthogonal map), but when the cut-off between retained and dropped components falls inside a
+(near-)degenerate eigenspace the retained subspace is arbitrary. ``ProjectionInfo`` reports
+``degenerate_eigenspace`` (any examined eigenvalue pair closer than ``DEGENERACY_REL_TOL``),
+``cutoff_in_degenerate_eigenspace`` (the harmful case) and ``min_relative_eigengap``.
 
 ``fit_strategy``: ``joint`` fits on source + release (the original CVPL), ``source_only``
 on the source alone, ``frozen`` reuses a projection fitted earlier so that several
@@ -81,6 +88,15 @@ class ProjectionInfo:
     encoding: Dict[str, dict]
     imputed_values: Dict[str, Dict[str, int]]
     degenerate: bool = False
+    #: Two eigenvalues examined (adjacent retained components, and the last retained one against
+    #: the first dropped one) differ by less than ``DEGENERACY_REL_TOL`` of the larger one.
+    degenerate_eigenspace: bool = False
+    #: The cut-off between retained and dropped components falls INSIDE a (near-)degenerate
+    #: eigenspace: which directions of that eigenspace are retained is then arbitrary (it
+    #: depends on rounding, row order and the linear-algebra library), and so can the result.
+    cutoff_in_degenerate_eigenspace: bool = False
+    #: Smallest relative gap ``(l_j - l_{j+1}) / l_j`` among the examined eigenvalue pairs.
+    min_relative_eigengap: Optional[float] = None
 
 
 @dataclass
@@ -178,6 +194,30 @@ class CVPLProjection:
             stop = min(start + step, n_rows)
             out[start:stop] = (self._phi(cols, start, stop) - self.pca_mean) @ self.components
         return out
+
+
+#: Relative gap ``(l_j - l_{j+1}) / l_j`` below which two eigenvalues are treated as equal.
+DEGENERACY_REL_TOL = 1e-6
+
+
+def _eigengap_diagnostics(evals: np.ndarray, k: int):
+    """(degenerate_eigenspace, cutoff_in_degenerate_eigenspace, min_relative_eigengap).
+
+    Examines the adjacent eigenvalue pairs among the ``k`` retained components and the pair
+    formed by the last retained and the first dropped one (when there is one).
+    """
+    top = float(evals[0]) if len(evals) else 0.0
+    if top <= 0.0:
+        return False, False, None
+    stop = min(k + 1, len(evals))
+    gaps = []
+    for j in range(stop - 1):
+        lj = float(evals[j])
+        gaps.append((lj - float(evals[j + 1])) / lj if lj > 0.0 else 0.0)
+    if not gaps:
+        return False, False, None
+    cutoff = k < len(evals) and gaps[k - 1] < DEGENERACY_REL_TOL
+    return bool(min(gaps) < DEGENERACY_REL_TOL), bool(cutoff), float(min(gaps))
 
 
 def _row_chunks(n: int, width: int) -> Iterator[Tuple[int, int]]:
@@ -303,6 +343,7 @@ def fit_projection(
         retained = None
         components = np.zeros((n_features, 1))
         degenerate = True
+        eig_deg, eig_cut, eig_gap = False, False, None
     else:
         cum = np.cumsum(evals[:max_k] / total)
         k_var = min(int(np.searchsorted(cum, cfg.variance_retained)) + 1, max_k)
@@ -311,14 +352,20 @@ def fit_projection(
         components = evecs[:, :k].copy()
         # canonical sign: the largest-magnitude loading of each component is positive
         for j in range(k):
-            if components[np.argmax(np.abs(components[:, j])), j] < 0:
+            mags = np.abs(components[:, j])
+            # first loading within rounding of the largest one: a tie between equal-magnitude
+            # loadings must not be decided by the last bits
+            lead = int(np.argmax(mags >= mags.max() * (1.0 - 1e-9)))
+            if components[lead, j] < 0:
                 components[:, j] = -components[:, j]
         degenerate = False
+        eig_deg, eig_cut, eig_gap = _eigengap_diagnostics(evals, k)
     proj.pca_mean = mean
     proj.components = components
     proj.info = ProjectionInfo(
         n_features=n_features, n_components=int(k), variance_retained=retained, n_fit_rows=int(n_seen),
         fit_strategy=cfg.fit_strategy, feature_columns=list(kinds), encoding=encoding,
-        imputed_values=imputed, degenerate=degenerate,
+        imputed_values=imputed, degenerate=degenerate, degenerate_eigenspace=eig_deg,
+        cutoff_in_degenerate_eigenspace=eig_cut, min_relative_eigengap=eig_gap,
     )
     return proj

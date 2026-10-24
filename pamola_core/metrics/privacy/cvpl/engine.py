@@ -8,12 +8,13 @@ License:       BSD 3-Clause
 The CVPL operator chain ``B_lambda -> phi -> psi -> s -> tau`` and the quantities
 measured with it. See ``docs`` ("CVPL linkage metric") for what each number means.
 
-CVPL is a **white-box evaluation**: the auditor holds the source data, the release and
-(for the GT measures) the ground truth. Every identification number is the **upper value over
-the declared attacker profiles (the rungs of the blocking ladder) and the declared fixed
-strategies** (uniform choice over subjects, uniform choice over rows, similarity top-1). It is
-not an optimal-attacker guarantee, not an average over attackers and not a Fellegi-Sunter style
-match probability. The existential rate ``cvpl_lr`` is the share of source records that have a
+CVPL is an **experimental technical metric** with an explicit threat model: a **white-box
+evaluation** in which the auditor holds the source data, the release and (for the GT measures)
+the ground truth. Every identification number is the **maximum over the declared attacker
+profiles (the rungs of the blocking ladder) and the declared fixed identification strategies**
+(uniform choice over subjects, uniform choice over rows, similarity top-1). It is NOT a bound
+for an arbitrary attacker: an attacker with another profile or strategy may do better. It is
+not an average over attackers and not a Fellegi-Sunter style match probability. The existential rate ``cvpl_lr`` is the share of source records that have a
 candidate at all; under a fixed representation it can only grow when candidate sets grow.
 
 For source record ``x_i``:
@@ -718,9 +719,9 @@ def _max_pop(
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[int, str]]]:
     """The larger of several population summaries ``(rung, strategy, pop)``.
 
-    The result is the upper value over the declared candidates (attacker profiles and fixed
+    The result is the maximum over the declared candidates (attacker profiles and fixed
     strategies): lower = the largest lower bound, upper = the largest upper bound, point only
-    when both coincide. ``winner`` names the candidate with the largest upper value (the first
+    when both coincide. ``winner`` names the candidate with the largest value (the first
     one on ties). A summary with no declared links takes no part."""
     live = []
     for rung, label, pop in cands:
@@ -893,7 +894,7 @@ def _ident_headline(
     never derived from another rung's. ``cvpl_id_uniform_gt`` is the largest over rungs and
     over the two fixed strategies (uniform over subjects, uniform over rows); the winning
     rung and strategy are named. All rungs must be measured: a maximum over only some of the
-    declared profiles would understate the upper value."""
+    declared profiles would understate the maximum."""
     if gt is None or gt.status in ("absent", "invalid") or any(
             m is None or "_gt" not in m for m in rung_meas):
         return _absent_gt_fields(gt)
@@ -998,7 +999,8 @@ def run_cvpl(
         "n_original": n,
         "n_released": m_rel,
         "parameters": cfg.describe(),
-        "evaluation_model": "white_box_upper_value_over_declared_profiles",
+        "evaluation_model": "white_box_maximum_over_declared_profiles_and_fixed_strategies",
+        "maturity": "experimental",
         "metric_semantics": {
             "cvpl_lr": "existential_candidate_exposure",
             "cvpl_id_uniform_subjects_gt": "uniform_choice_among_distinct_candidate_subjects",
@@ -1009,12 +1011,13 @@ def run_cvpl(
             "cvpl_weighted_lr_legacy": "weighted_existential_linkage_v1",
         },
         "interpretation": (
-            "White-box evaluation with full auditor access. Identification values are the upper "
-            "value over the declared attacker profiles (rungs) and declared fixed strategies "
-            "(uniform over subjects, uniform over rows, similarity top-1); not an "
-            "optimal-attacker guarantee, not an average over attackers, not a probability of "
-            "re-identification in general and not a verdict on anonymity. A bounded value is a "
-            "conservative bound: it may be loose and need not be attainable."
+            "Experimental technical metric. White-box evaluation with full auditor access: "
+            "identification values are the maximum over the declared attacker profiles (rungs) "
+            "and the declared fixed identification strategies (uniform over subjects, uniform "
+            "over rows, similarity top-1). They are not a bound for an arbitrary attacker, not "
+            "an average over attackers, not a probability of re-identification in general and "
+            "not a verdict on anonymity. A bounded value is a conservative bound on the "
+            "quantity measured under this model: it may be loose and need not be attainable."
         ),
     }
     if n == 0:
@@ -1069,6 +1072,9 @@ def run_cvpl(
         "variance_retained": info.variance_retained, "n_fit_rows": info.n_fit_rows,
         "feature_columns": info.feature_columns, "encoding": info.encoding,
         "imputed_values": info.imputed_values, "degenerate": info.degenerate,
+        "degenerate_eigenspace": info.degenerate_eigenspace,
+        "cutoff_in_degenerate_eigenspace": info.cutoff_in_degenerate_eigenspace,
+        "min_relative_eigengap": info.min_relative_eigengap,
         "fingerprint": proj.fingerprint(),
     }
     # bucketing is never silent: which attributes were collapsed, and by how much
@@ -1085,6 +1091,15 @@ def run_cvpl(
         "bucket (raise max_categories for finer detail)"
         for b in bucketed
     ]
+    if info.cutoff_in_degenerate_eigenspace:
+        base["warnings"].append(
+            "the cut-off between retained and dropped PCA components falls inside a (near-)degenerate "
+            "eigenspace (relative eigengap "
+            f"{info.min_relative_eigengap:.3g}): the retained subspace is arbitrary, so results can "
+            "change with row order or the linear-algebra library; use fit_strategy='frozen' or "
+            "'source_only' with a fixed projection, or change variance_retained / min_components / "
+            "max_components so that the cut-off lies between separated eigenvalues"
+        )
     zs = proj.project(cols_s, n)
     zr = proj.project(cols_r, m_rel)
     if not (np.isfinite(zs).all() and np.isfinite(zr).all()):

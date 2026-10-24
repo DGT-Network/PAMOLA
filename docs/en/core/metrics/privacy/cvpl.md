@@ -4,7 +4,9 @@
 **Algorithm:** `cvpl-operator-chain`, version `1.0`
 
 CVPL (Cluster-Vector-Projection Linkage) measures how far a protected release can be
-linked back to its source by **one specified attacker**. It is a measurement, not a
+linked back to its source by **one specified attacker**. It is an **experimental technical
+metric** with an explicit threat model (below), not a universal measure of re-identification
+risk, and its results carry `maturity: "experimental"`. It is a measurement, not a
 verdict: it returns numbers and says what each of them counts. It does not decide
 whether a release is "anonymous" or "safe", and there is no pass/fail threshold in it.
 
@@ -21,10 +23,11 @@ TruncatedSVD), which is kept unchanged and measures something else.
 
 CVPL is a **white-box evaluation**. The auditor has full access: the source data, the
 release, the attacker's declared knowledge and - for the ground-truth (GT) measures - the
-true correspondence between them. Every identification number is the **upper value over the
+true correspondence between them. Every identification number is the **maximum over the
 declared attacker profiles (the rungs of the blocking ladder) and the declared fixed
-strategies** (uniform choice among subjects, uniform choice among rows, similarity top-1). It
-is **not an optimal-attacker guarantee**: it is *not* the average over attackers that a
+identification strategies** (uniform choice among subjects, uniform choice among rows,
+similarity top-1). It is **not a bound for an arbitrary attacker** - an attacker with another
+profile or a better strategy may do better - and not an optimal-attacker guarantee: it is *not* the average over attackers that a
 black-box tool such as Anonymeter reports, *not* a Fellegi-Sunter style match probability,
 and not the best an attacker could do with a better strategy. Consequences:
 
@@ -36,7 +39,7 @@ and not the best an attacker could do with a better strategy. Consequences:
   headline is the **larger population value** of them - not a per-record choice of the better
   strategy, which would be higher still;
 * an unknown (undefined cosine) is carried as a **bound** (see "Statuses"), never as a
-  point value; a bound is *conservative*: it contains every completion, may be loose and need
+  point value; a bound is *conservative* for the declared model: it contains every completion, may be loose and need
   not be attainable, whereas a `measured` value is exact for the declared model;
 * the numbers say what **this** model reaches. They say nothing about attackers with other
   background knowledge, other profiles or a better matcher.
@@ -242,7 +245,7 @@ Each rung is a **declared attacker profile**. The headline fields are:
   `cvpl_id_uniform_basis_rung` name both. For a nested ladder this may differ from the last
   rung - that is intended. All declared rungs must be measured, otherwise the identification
   headline is `not_measured` / `not_applicable` (a maximum over only some of the declared
-  profiles would understate the upper value).
+  profiles would understate the maximum).
 
 Per-rung values stay available: `blocking_ladder_trajectory` (all measures per rung, with their
 statuses and bounds), `identification_by_rung`, `cvpl_lr_by_rung`, and
@@ -255,7 +258,23 @@ ground truth in hand leaks the evaluation into the attacker.
 `fit_strategy="joint"` (default, the original CVPL) fits the scaler, encoder and PCA on
 source and release together. `"source_only"` fits on the source. `"frozen"` reuses a fitted
 projection (`result.projection`) so that several releases of one source are measured in the
-same space - use it, or `source_only`, to compare releases.
+same space. **To compare several releases of one source, use `source_only` or `frozen`
+(recommended):** with `joint` each release is projected in a space that also depends on that
+release, so two numbers are not measured in the same space. `joint` remains the default (the
+original CVPL); the operation has no parameter that declares a comparison intent, so the choice
+is the caller's.
+
+**PCA stability.** The retained subspace is determined by the eigenvalues only where they are
+separated. The result reports, under `projection`: `degenerate_eigenspace` (two examined
+eigenvalues - adjacent retained ones, or the last retained against the first dropped - differ
+by less than `1e-6` of the larger), `cutoff_in_degenerate_eigenspace` (the cut-off between
+retained and dropped components falls inside such an eigenspace, so which directions are kept
+is arbitrary and the numbers can change with row order or the linear-algebra library) and
+`min_relative_eigengap`. In the second case `warnings` carries a message. A degenerate
+eigenspace lying entirely inside the retained components is harmless (an orthogonal rotation of
+the retained subspace leaves every cosine unchanged) and is only reported. Signs of components
+are canonicalised (the first of the largest-magnitude loadings is positive). With a separated
+spectrum the results do not depend on row order.
 
 **Duplicate release rows.** Subject-level counting (`cvpl_id_uniform_subjects_gt`, top-1) is
 invariant to duplicating a released row of a subject **only under a fixed representation**
@@ -311,7 +330,7 @@ result = op.execute(data_source, task_dir, reporter,
 ```
 
 The metrics JSON and `result.metrics` carry the fields above plus `algorithm_id`,
-`algorithm_version`, `evaluation_model` (`white_box_upper_value_over_declared_profiles`), `direction`
+`algorithm_version`, `evaluation_model` (`white_box_maximum_over_declared_profiles_and_fixed_strategies`), `maturity` (`experimental`), `direction`
 (`source_to_release`, the only direction in 1.0), `linkage_unit` (`subject`), `seed`,
 `projection` and `qid_status`. Column names and counts only: no values, no identifiers.
 
@@ -337,13 +356,14 @@ produces; they are not reference values and say nothing about the BEST ones.
   *rows* strategy needs no such knowledge, which is why both are published and the larger one
   is the headline. Neither is an optimal strategy.
 * Linear projection and cosine similarity only; no learned embedding, no optimal strategy:
-  the headline is the upper value over the declared profiles and fixed strategies, not an
-  optimal-attacker guarantee.
+  the headline is the maximum over the declared profiles and fixed strategies, not a
+  bound for an arbitrary attacker.
 * `source_to_release` only; the reverse question (which person does a released record
   belong to) needs a reference population and is not implemented.
 * Ground truth is an auditor's input and must be trustworthy; this metric does not check it
   beyond uniqueness of source identifiers and identifier types.
-* The joint fit depends on the whole data; compare releases with `source_only` or `frozen`.
+* The joint fit depends on the whole data; compare releases with `source_only` or `frozen` (recommended).
+* A fitted PCA whose retained/dropped cut-off falls in a (near-)degenerate eigenspace is not reproducible across solvers: see `projection.cutoff_in_degenerate_eigenspace`.
 * Categorical attributes are one-hot encoded. Very high-cardinality attributes are encoded in
   a bounded width (rare values share a bucket); a rare value's exact-match evidence then
   reaches the attacker through blocking only if the attribute is also a QID.
