@@ -31,6 +31,7 @@ from pamola_core.utils.io_helpers.crypto_router import (
     ENVELOPE_ALLOWED,
     ENVELOPE_KEYS,
     is_encryption_envelope,
+    reject_duplicate_keys,
     encrypt_file_router,
     decrypt_file_router,
     encrypt_data_router,
@@ -195,8 +196,9 @@ class UnsupportedMemoryOnlyModeError(DecryptionError):
 def read_encrypted_json(path: Union[str, Path], key: Optional[str]) -> Any:
     """Read a JSON file, decrypting in memory: no plain-text file is ever created.
 
-    * A document without envelope keys is ordinary JSON and is returned as parsed.
-    * A document with any envelope key is an envelope and is authenticated first: the mode
+    * A document without the ciphertext fields (string ``algorithm``, ``iv``, ``data``) is
+      ordinary JSON and is returned as parsed; a repeated key is refused.
+    * A document with those fields is an envelope and is authenticated first: the mode
       must be absent (legacy) or ``simple``, the algorithm ``AES-GCM``, ``iv``/``salt``/
       ``data`` present, and nothing but the known envelope fields may sit next to them (an
       injected outer ``mappings`` object, a ``none`` mode with crypto fields, ... are rejected).
@@ -211,10 +213,10 @@ def read_encrypted_json(path: Union[str, Path], key: Optional[str]) -> Any:
             f"'{Path(path).name}': age-encrypted files are unsupported for memory-only mapping reads"
         )
     try:
-        document = json.loads(raw.decode("utf-8"))
+        document = json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
     except (UnicodeDecodeError, ValueError) as exc:
         raise DecryptionError(
-            f"'{Path(path).name}' is neither JSON nor a supported encryption envelope"
+            f"'{Path(path).name}' is neither (unambiguous) JSON nor a supported encryption envelope: {exc}"
         ) from exc
     if not is_encryption_envelope(document):
         return document

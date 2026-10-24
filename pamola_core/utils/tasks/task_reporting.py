@@ -44,16 +44,24 @@ def _normalized_path(path: Any) -> str:
     return os.path.normcase(p)
 
 
-def _same_artifact_path(a: Any, b: Any) -> bool:
-    """True when two path strings name the same file (key equality, else file identity)."""
-    if _normalized_path(a) == _normalized_path(b):
-        return True
+def _identity_key(path: Any):
+    """File identity: (device, inode) for an existing file, else the normalized path.
+
+    One ``stat`` per path; hard links, symlinks and case aliases of an existing file share
+    the key. A path that does not exist yet is keyed by its normalized path and is
+    reconciled once the file exists."""
     try:
-        return os.path.exists(str(a)) and os.path.exists(str(b)) and os.path.samefile(
-            str(a), str(b)
-        )
+        st = os.stat(str(path))
+        if st.st_ino:
+            return ("id", st.st_dev, st.st_ino)
     except OSError:
-        return False
+        pass
+    return ("path", _normalized_path(path))
+
+
+def _same_artifact_path(a: Any, b: Any) -> bool:
+    """True when two path strings name the same file (identity key or normalized path)."""
+    return _identity_key(a) == _identity_key(b) or _normalized_path(a) == _normalized_path(b)
 
 
 #: Protection order for source-bearing artifacts and for explicit classes in general.
@@ -462,17 +470,21 @@ class TaskReporter:
 
         # One entry per normalized path: a second registration merges, and never
         # replaces a classification that was already assigned.
-        matches = [
-            e for e in self.artifacts if _same_artifact_path(e.get("path", ""), path_str)
-        ]
+        matches = self._find_matches(path_str)
         if matches:
             first = matches[0]
             for other in matches[1:]:  # earlier aliases that only now turn out to be one file
                 _merge_artifact_entries(first, other)
-                self._drop_entry(other)
+                self._replace_entry(other, first)
             _merge_artifact_entries(first, artifact)
+            if group_name:
+                if group_name not in self.artifact_groups:
+                    self.add_artifact_group(group_name)
+                self._join_group(self.artifact_groups[group_name], first)
+            self._build_index()
             return
         self.artifacts.append(artifact)
+        self._index_entry(artifact)
 
         # Add to group if specified
         if group_name:
@@ -500,32 +512,96 @@ class TaskReporter:
             "classified_explicitly": explicit or contains_source_values is not None,
         }
 
-    def _drop_entry(self, entry: Dict[str, Any]) -> None:
-        """Remove ``entry`` (by identity) from the report and from every group."""
-        self.artifacts[:] = [e for e in self.artifacts if e is not entry]
+    # ---- alias index: O(1) per lookup, O(n) per rebuild --------------------------------
+    def _index_entry(self, entry: Dict[str, Any]) -> None:
+        idx = self.__dict__.setdefault("_alias_index", {})
+        path = entry.get("path", "")
+        idx[("path", _normalized_path(path))] = entry
+        ident = _identity_key(path)
+        idx[ident] = entry
+        if ident[0] == "path":  # not on disk yet: its identity is unknown until it is
+            self.__dict__.setdefault("_pending", []).append(entry)
+        self._indexed_count = len(self.artifacts)
+
+    def _refresh_pending(self) -> None:
+        """Entries registered before their file existed get their file identity now; two
+        entries that turn out to be one file are merged."""
+        pending = self.__dict__.get("_pending")
+        if not pending:
+            return
+        idx = self._alias_index
+        still = []
+        for entry in list(pending):
+            if not any(entry is e for e in self.artifacts):
+                continue
+            ident = _identity_key(entry.get("path", ""))
+            if ident[0] == "path":
+                still.append(entry)
+                continue
+            other = idx.get(ident)
+            if other is not None and other is not entry:
+                _merge_artifact_entries(other, entry)
+                self._replace_entry(entry, other)
+                self._indexed_count = len(self.artifacts)
+            else:
+                idx[ident] = entry
+        self._pending = still
+
+    def _build_index(self) -> None:
+        self._alias_index = {}
+        self._pending = []
+        for entry in self.artifacts:
+            self._index_entry(entry)
+        self._indexed_count = len(self.artifacts)
+
+    def _find_matches(self, path: Any) -> list:
+        """Entries naming the same file as ``path`` (usually zero or one)."""
+        if getattr(self, "_indexed_count", -1) != len(self.artifacts):
+            self.reconcile_aliases()  # entries were added or removed without the index
+        self._refresh_pending()
+        idx = self.__dict__.get("_alias_index", {})
+        found = []
+        for key in (("path", _normalized_path(path)), _identity_key(path)):
+            entry = idx.get(key)
+            if entry is not None and not any(entry is f for f in found):
+                found.append(entry)
+        return found
+
+    @staticmethod
+    def _join_group(group: "ArtifactGroup", entry: Dict[str, Any]) -> None:
+        if not any(e is entry for e in group.artifacts):
+            group.artifacts.append(entry)
+
+    def _replace_entry(self, old: Dict[str, Any], keep: Dict[str, Any]) -> None:
+        """Drop ``old`` and move every group membership it had to ``keep``."""
+        self.artifacts[:] = [e for e in self.artifacts if e is not old]
         for group in self.artifact_groups.values():
-            group.artifacts[:] = [e for e in group.artifacts if e is not entry]
+            if any(e is old for e in group.artifacts):
+                group.artifacts[:] = [e for e in group.artifacts if e is not old]
+                self._join_group(group, keep)
 
     def reconcile_aliases(self) -> None:
-        """Merge entries whose paths turned out to be one file (files created after
-        registration, case aliases on a case-insensitive filesystem). Runs before the report
-        and the manifest are serialized; every match is merged, not only the first."""
-        index = 0
-        while index < len(self.artifacts):
-            keep = self.artifacts[index]
-            for other in [
-                e
-                for e in self.artifacts[index + 1 :]
-                if _same_artifact_path(keep.get("path", ""), e.get("path", ""))
-            ]:
-                _merge_artifact_entries(keep, other)
-                for group in self.artifact_groups.values():
-                    if any(e is other for e in group.artifacts) and not any(
-                        e is keep for e in group.artifacts
-                    ):
-                        group.artifacts.append(keep)
-                self._drop_entry(other)
-            index += 1
+        """Merge entries that name one file (files created after registration, hard links,
+        case aliases on a case-insensitive filesystem). O(n): one ``stat`` per entry and a
+        dictionary keyed by file identity. Runs before the report and the manifest are
+        serialized; group memberships, tags and metadata are united."""
+        owner: Dict[Any, Dict[str, Any]] = {}
+        for entry in list(self.artifacts):
+            keep = None
+            for key in (("path", _normalized_path(entry.get("path", ""))), _identity_key(entry.get("path", ""))):
+                found = owner.get(key)
+                if found is not None and found is not entry:
+                    keep = found
+                    break
+            if keep is None:
+                owner[("path", _normalized_path(entry.get("path", "")))] = entry
+                owner[_identity_key(entry.get("path", ""))] = entry
+                continue
+            _merge_artifact_entries(keep, entry)
+            self._replace_entry(entry, keep)
+            owner[("path", _normalized_path(entry.get("path", "")))] = keep
+            owner[_identity_key(entry.get("path", ""))] = keep
+        self._build_index()
 
     def add_artifact_group(self, name: str, description: str = "") -> ArtifactGroup:
         """

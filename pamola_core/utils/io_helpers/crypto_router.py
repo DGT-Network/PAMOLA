@@ -11,7 +11,12 @@ from typing import Union, Dict, Any, Optional, List, Type
 import ijson
 
 from pamola_core.utils.io_helpers.provider_interface import CryptoProvider
-from pamola_core.errors.exceptions import ValidationError, ModeError, FormatError
+from pamola_core.errors.exceptions import (
+    DecryptionError,
+    ValidationError,
+    ModeError,
+    FormatError,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -35,21 +40,31 @@ ENVELOPE_ALLOWED = frozenset(ENVELOPE_KEYS) | {
 def is_encryption_envelope(document: Any) -> bool:
     """True when a parsed JSON document is an encryption envelope.
 
-    Any document carrying an envelope key is one. A string ``data`` is ciphertext; a
-    ``data`` object belongs to an ordinary JSON schema (a hierarchy dictionary, say) and does
-    not count by itself. The router's file detection and the memory-only reader share this
-    rule.
+    An envelope is recognised by its CIPHERTEXT fields only: string ``algorithm``, ``iv``
+    and ``data`` (the current ``simple`` envelope and the legacy one, which has no
+    ``mode``). A lone ``data``, ``mode``, ``salt`` or ``version`` key in an application
+    document (a mapping store, a hierarchy dictionary) is plain JSON. This one rule is used
+    by the memory-only reader, ``decrypt_data_router`` and the file detection alike.
     """
-    if not isinstance(document, dict):
-        return False
-    for key in ENVELOPE_KEYS:
-        if key not in document:
-            continue
-        if key == "data" and not isinstance(document["data"], str):
-            continue
-        return True
-    return False
+    return (
+        isinstance(document, dict)
+        and isinstance(document.get("algorithm"), str)
+        and isinstance(document.get("iv"), str)
+        and isinstance(document.get("data"), str)
+    )
 
+
+def reject_duplicate_keys(pairs):
+    """``object_pairs_hook`` that refuses a JSON object with a repeated key.
+
+    A repeated key lets two parsers disagree about which value counts (the first or the
+    last); an encrypted document is never given that ambiguity."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate key in JSON document: {key!r}")
+        result[key] = value
+    return result
 
 
 def register_provider(provider_class: Type[CryptoProvider]) -> None:
@@ -156,21 +171,23 @@ def try_detect_json_structure(file_path: Path) -> Optional[str]:
         return None
 
     try:
+        partial = {}
         with open(file_path, "r", encoding="utf-8") as f:
-            parser = ijson.kvitems(f, "")  # Parse top-level JSON key-value pairs
-            keys_found = set()
-
-            for key, value in parser:
-                if key == "mode" and value in PROVIDERS:
-                    logger.info(f"Detected mode from metadata: {value}")
-                    return value
-
-                if key in SIMPLE_JSON_KEYS:
-                    keys_found.add(key)
-
-                if len(keys_found) == len(SIMPLE_JSON_KEYS):
-                    logger.info("Detected 'simple' mode from JSON structure")
-                    return "simple"
+            for key, value in ijson.kvitems(f, ""):  # top-level members only
+                if key in ENVELOPE_KEYS:
+                    if key in partial:
+                        raise DecryptionError(
+                            f"duplicate key {key!r} in the JSON document {file_path.name}"
+                        )
+                    partial[key] = value
+        if is_encryption_envelope(partial):
+            mode = partial.get("mode")
+            if mode not in (None, "simple"):
+                raise DecryptionError(
+                    f"{file_path.name}: mode {mode!r} next to encryption fields is not a valid envelope"
+                )
+            logger.info("Detected 'simple' mode from the envelope fields")
+            return "simple"
 
     except (
         ValidationError,
@@ -378,11 +395,8 @@ def decrypt_data_router(
     # Detect mode if not specified
     if mode is None:
         # Check if data is a dictionary with mode info
-        if isinstance(data, dict) and "mode" in data:
-            mode = data["mode"]
-        # Check if it's a simple encrypted dictionary
-        elif is_encryption_envelope(data):
-            mode = "simple"  # an envelope without a mode (legacy writer)
+        if is_encryption_envelope(data):
+            mode = data.get("mode", "simple")  # legacy envelopes carry no mode
         # Default to none for anything else
         else:
             mode = "none"

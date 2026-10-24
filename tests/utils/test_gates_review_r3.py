@@ -85,8 +85,8 @@ def test_r3_1_only_a_document_without_envelope_keys_is_plain_json(tmp_path):
     assert read_encrypted_json(plain, None) == PAYLOAD
     hierarchy = _write(tmp_path / "h.json", {"levels": ["g"], "data": {"x": {"g": "y"}}})
     assert read_encrypted_json(hierarchy, KEY)["data"] == {"x": {"g": "y"}}  # data as an object
-    with pytest.raises(DecryptionError):  # a ciphertext string is an envelope key
-        read_encrypted_json(_write(tmp_path / "s.json", {"mappings": INJECTED, "data": "AAAA"}), KEY)
+    lone = _write(tmp_path / "s.json", {"mappings": INJECTED, "data": "AAAA"})
+    assert read_encrypted_json(lone, KEY)["mappings"] == INJECTED  # R4-1: lone key = plain JSON
 
 
 def test_r3_1_age_is_an_explicit_typed_unsupported_error(tmp_path):
@@ -94,7 +94,7 @@ def test_r3_1_age_is_an_explicit_typed_unsupported_error(tmp_path):
     age.write_bytes(b"age-encryption.org/v1\n-> X25519 abc\n")
     with pytest.raises(UnsupportedMemoryOnlyModeError):
         read_encrypted_json(age, KEY)
-    env = _write(tmp_path / "m.json", {"mode": "age", "data": "x"})
+    env = _write(tmp_path / "m.json", {"mode": "age", "algorithm": "x", "iv": "y", "data": "z"})
     with pytest.raises(UnsupportedMemoryOnlyModeError):
         read_encrypted_json(env, KEY)
 

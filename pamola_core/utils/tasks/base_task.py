@@ -111,11 +111,10 @@ def _reporter_entry(reporter, path):
     """The reporter's merged entry for ``path`` (the single source of truth), or None."""
     if reporter is None or path is None:
         return None
-    from pamola_core.utils.tasks.task_reporting import _same_artifact_path
-
-    for entry in getattr(reporter, "artifacts", None) or []:
-        if isinstance(entry, dict) and _same_artifact_path(entry.get("path", ""), path):
-            return entry
+    find = getattr(reporter, "_find_matches", None)
+    if callable(find):
+        found = find(path)
+        return found[0] if found else None
     return None
 
 
@@ -1297,19 +1296,32 @@ class BaseTask:
         """
         verdict = "PASS" if success else "FAIL"
 
-        # Build artifact entries with checksums
+        # Reconcile the reporter first, then build ONE inventory keyed by file identity from
+        # operation artifacts and task products alike (no separate string-based dedup).
+        reporter = getattr(self, "reporter", None)
+        reconcile = getattr(reporter, "reconcile_aliases", None)
+        if callable(reconcile):
+            reconcile()
+        from pamola_core.utils.tasks.task_reporting import _identity_key, _normalized_path
+
+        inventory = {}  # identity -> manifest record
+
+        def _keys(path):
+            return (_identity_key(path), ("path", _normalized_path(path)))
+
+        def _add(path, record):
+            for key in _keys(path):
+                if key in inventory:
+                    return inventory[key]
+            for key in _keys(path):
+                inventory[key] = record
+            artifact_entries.append(record)
+            return record
+
         artifact_entries = []
         for artifact in self.artifacts:
             artifact_path = Path(artifact.path) if hasattr(artifact, "path") else None
-            checksum = None
-            if artifact_path and artifact_path.is_file():
-                try:
-                    h = hashlib.sha256()
-                    h.update(artifact_path.read_bytes())
-                    checksum = h.hexdigest()
-                except Exception:
-                    pass
-            merged = _reporter_entry(getattr(self, "reporter", None), artifact_path)
+            merged = _reporter_entry(reporter, artifact_path)
             if merged is None:  # not in the reporter: the artifact's own classification
                 merged = {
                     "artifact_class": _enum_value(getattr(artifact, "artifact_class", None)),
@@ -1320,36 +1332,49 @@ class BaseTask:
                         not in ("data", "protected_mapping")
                     ),
                 }
-            artifact_entries.append({
-                "path": str(artifact_path) if artifact_path else "",
-                "type": getattr(artifact, "artifact_type", "unknown"),
-                "category": getattr(artifact, "category", ""),
-                "artifact_class": merged["artifact_class"],
-                "contains_source_values": merged["contains_source_values"],
-                "not_for_release": merged["not_for_release"],
-                "description": getattr(artifact, "description", ""),
-                "sha256": checksum,
-            })
+            checksum = None
+            # a task product (report, manifest, log) carries no self-referential checksum
+            if (
+                artifact_path
+                and artifact_path.is_file()
+                and not (merged or {}).get("task_product")
+            ):
+                try:
+                    h = hashlib.sha256()
+                    h.update(artifact_path.read_bytes())
+                    checksum = h.hexdigest()
+                except Exception:
+                    pass
+            _add(
+                artifact_path if artifact_path else "",
+                {
+                    "path": str(artifact_path) if artifact_path else "",
+                    "type": getattr(artifact, "artifact_type", "unknown"),
+                    "category": getattr(artifact, "category", ""),
+                    "artifact_class": merged["artifact_class"],
+                    "contains_source_values": merged["contains_source_values"],
+                    "not_for_release": merged["not_for_release"],
+                    "description": getattr(artifact, "description", ""),
+                    "sha256": checksum,
+                },
+            )
 
-        reconcile = getattr(getattr(self, "reporter", None), "reconcile_aliases", None)
-        if callable(reconcile):
-            reconcile()
-        # Reporter entries that are not operation artifacts (task report, manifest, logs)
-        listed = {str(e["path"]) for e in artifact_entries}
-        for entry in getattr(getattr(self, "reporter", None), "artifacts", None) or []:
+        # Task products (task report, manifest, logs) from the reporter's merged entries
+        for entry in getattr(reporter, "artifacts", None) or []:
             if isinstance(entry, dict) and entry.get("task_product"):
-                if str(entry["path"]) in listed:
-                    continue
-                artifact_entries.append({
-                    "path": str(entry["path"]),
-                    "type": entry.get("type", "unknown"),
-                    "category": entry.get("category", ""),
-                    "artifact_class": entry["artifact_class"],
-                    "contains_source_values": entry["contains_source_values"],
-                    "not_for_release": entry["not_for_release"],
-                    "description": entry.get("description", ""),
-                    "sha256": None,
-                })
+                _add(
+                    entry["path"],
+                    {
+                        "path": str(entry["path"]),
+                        "type": entry.get("type", "unknown"),
+                        "category": entry.get("category", ""),
+                        "artifact_class": entry["artifact_class"],
+                        "contains_source_values": entry["contains_source_values"],
+                        "not_for_release": entry["not_for_release"],
+                        "description": entry.get("description", ""),
+                        "sha256": None,
+                    },
+                )
 
         # Build pipeline steps from results dict
         steps = [
