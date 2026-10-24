@@ -31,6 +31,7 @@ import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 
 from pamola_core.metrics.commons.preprocessing import (
+    mahalanobis_inverse_covariance,
     prepare_pair_for_distance_metrics,
     scale_pair_for_distance,
 )
@@ -132,8 +133,15 @@ class NearestNeighborDistanceRatio:
                 f"records, found {len(orig_data)}."
             )
         # Fit nearest neighbors model
+        metric_params = None
+        if str(self.distance_metric) == "mahalanobis":
+            # the pseudo-inverse covariance of the original's prepared features
+            metric_params = {"VI": mahalanobis_inverse_covariance(orig_data)}
         nn_model = NearestNeighbors(
-            n_neighbors=self.n_neighbors, metric=self.distance_metric, algorithm="auto"
+            n_neighbors=self.n_neighbors,
+            metric=self.distance_metric,
+            algorithm="auto",
+            metric_params=metric_params,
         ).fit(orig_data)
 
         # Find nearest neighbors

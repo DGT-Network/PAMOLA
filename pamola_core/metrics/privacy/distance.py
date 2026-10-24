@@ -44,6 +44,7 @@ from sklearn.metrics import pairwise_distances_chunked
 
 from pamola_core.common.enum.distance_metric_type import DistanceMetricType
 from pamola_core.metrics.commons.preprocessing import (
+    mahalanobis_inverse_covariance,
     prepare_pair_for_distance_metrics,
     scale_pair_for_distance,
 )
@@ -93,14 +94,14 @@ _DEFAULT_MAX_COMPARISONS = {
 
 #: (metric, aggregation) pairs for which ``_calculate_dcr_faiss`` returns the same
 #: values as ``_calculate_dcr_sklearn`` (to float32 rounding), verified by
-#: ``tests/metrics/privacy/test_distance_backends.py``. Everything else differs:
-#: for euclidean ``mean_k`` FAISS averages *squared* distances before the square
-#: root, and for ``percentile`` it takes the 10th percentile of only the k <= 10
-#: nearest neighbours rather than of all distances. Those pairs are never chosen
-#: automatically.
+#: ``tests/metrics/privacy/test_distance_backends.py``. FAISS searches only the k <= 10
+#: nearest neighbours, so ``percentile`` (a percentile of ALL distances of a row) is not
+#: reproducible with it: ``_calculate_dcr_faiss`` falls back to the exact search for it
+#: (visibly, via ``backend_fallback``), and automatic selection never chooses FAISS for it.
 _FAISS_EXACT = frozenset(
     {
         ("euclidean", "min"),
+        ("euclidean", "mean_k"),
         ("cosine", "min"),
         ("cosine", "mean_k"),
     }
@@ -350,6 +351,14 @@ class DistanceToClosestRecord:
         """
         if faiss is None:
             return self._fall_back("faiss is not installed", orig_data, trans_data)
+        if self.aggregation == "percentile":
+            return self._fall_back(
+                "FAISS searches only the nearest neighbours, so the percentile of all "
+                "distances is not reproducible with it",
+                orig_data,
+                trans_data,
+            )
+        original_64, transformed_64 = orig_data, trans_data  # the exact path gets full precision
         try:
             # Ensure data is float32 for FAISS
             orig_data = orig_data.astype(np.float32)
@@ -367,7 +376,9 @@ class DistanceToClosestRecord:
                 faiss.normalize_L2(trans_data)
             else:
                 return self._fall_back(
-                    f"FAISS does not support the '{self._metric_name()}' metric", orig_data, trans_data
+                    f"FAISS does not support the '{self._metric_name()}' metric",
+                    original_64,
+                    transformed_64,
                 )
 
             # Add original data to index
@@ -384,6 +395,12 @@ class DistanceToClosestRecord:
             # Search for nearest neighbors
             distances, indices = index.search(trans_data, k)
 
+            # FAISS returns SQUARED L2 distances: take the root of every neighbour before any
+            # aggregation, so the mean over neighbours is the mean of distances (as in the
+            # exact search), not the root of the mean of squares
+            if self.distance_metric == "euclidean":
+                distances = np.sqrt(np.maximum(distances, 0))
+
             # For cosine, convert similarity to distance
             if self.distance_metric == "cosine":
                 distances = 1.0 - distances
@@ -394,19 +411,15 @@ class DistanceToClosestRecord:
                 dcr_values = distances[:, 0]
             elif self.aggregation == "mean_k":
                 dcr_values = np.mean(distances, axis=1)
-            elif self.aggregation == "percentile":
-                dcr_values = np.percentile(distances, 10, axis=1)
             else:
                 dcr_values = distances[:, 0]
-
-            # Convert back from squared distances if L2
-            if self.distance_metric == "euclidean":
-                dcr_values = np.sqrt(np.maximum(dcr_values, 0))  # Ensure non-negative
 
             return dcr_values
 
         except Exception as exc:  # noqa: BLE001 - reported in the result, not hidden
-            return self._fall_back(f"{type(exc).__name__}: {str(exc)[:200]}", orig_data, trans_data)
+            return self._fall_back(
+                f"{type(exc).__name__}: {str(exc)[:200]}", original_64, transformed_64
+            )
 
     def _fall_back(self, reason: str, orig_data: np.ndarray, trans_data: np.ndarray) -> np.ndarray:
         """Compute with the exact search instead of FAISS and say so (one warning, and the
@@ -514,12 +527,17 @@ class DistanceToClosestRecord:
 
         # Row blocks of the (synthetic x original) distance matrix: the values are
         # those of the dense matrix, the peak memory is the block budget.
+        extra = {}
+        if self._metric_name() == "mahalanobis":
+            # sklearn needs VI for Y given: the pseudo-inverse covariance of the original
+            extra["VI"] = mahalanobis_inverse_covariance(orig_data)
         blocks = pairwise_distances_chunked(
             trans_data,
             orig_data,
             metric=self.distance_metric,
             reduce_func=aggregate,
             working_memory=_WORKING_MEMORY_MIB,
+            **extra,
         )
         return np.concatenate(list(blocks))
 
