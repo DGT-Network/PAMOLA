@@ -8,10 +8,10 @@ import pandas as pd
 import pytest
 from scipy.spatial.distance import cdist
 
-from pamola_core.errors.exceptions import ValidationError
+from pamola_core.common.enum.distance_metric_type import DistanceMetricType
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 from pamola_core.metrics.commons.preprocessing import (
     _column_kind,
-    mahalanobis_inverse_covariance,
     prepare_data_for_distance_metrics,
     prepare_pair_for_distance_metrics,
     scale_pair_for_distance,
@@ -189,22 +189,107 @@ def test_r1_07_standalone_preparation_does_not_ordinal_encode_nominal_data():
     assert dist[0, 1] == pytest.approx(dist[0, 2]) == pytest.approx(dist[1, 2]) == pytest.approx(1.0)
 
 
-# --- Mahalanobis ---------------------------------------------------------------------------
-def test_mahalanobis_dcr_equals_the_pseudo_inverse_reference_on_mixed_data():
-    rng = np.random.default_rng(2)
-    orig = pd.DataFrame(
-        {"n": rng.normal(size=60), "m": rng.normal(size=60), "c": rng.choice(["A", "B", "C"], 60)}
+# --- R2 -------------------------------------------------------------------------------------
+def test_r2_01_float_and_string_labels_are_distinct_nominal_levels():
+    original = pd.DataFrame({"c": pd.Categorical([1.0, "other"])})
+    synthetic = pd.DataFrame({"c": pd.Categorical(["1"])})
+    assert DistanceToClosestRecord(use_faiss=False).calculate_metric(original, synthetic)[
+        "dcr_statistics"
+    ]["mean"] == pytest.approx(1.0)  # was 0
+    nndr = NearestNeighborDistanceRatio().calculate_metric(original, synthetic)["nndr_values"]
+    assert nndr[0] == pytest.approx(1.0, abs=1e-6)  # was 0
+
+
+def test_r2_01_one_categorical_with_three_distinct_levels_gives_three_columns():
+    frame = pd.DataFrame({"c": pd.Categorical([1.0, "1", 2.0])})
+    o, _ = prepare_pair_for_distance_metrics(frame, frame.copy())
+    assert o.shape[1] == 3
+    assert o.attrs["nominal_positions"] == [0, 1, 2]
+
+
+def test_r2_01_the_same_identity_rules_apply_to_ordinal_checks():
+    data = pd.DataFrame({"c": pd.Categorical(["1", "x"])})
+    with pytest.raises(ValidationError, match="does not list"):
+        prepare_pair_for_distance_metrics(data, data.copy(), {"c": [1.0, "x"]})  # 1.0 is not "1"
+    with pytest.raises(ValidationError, match="repeats"):
+        prepare_pair_for_distance_metrics(data, data.copy(), {"c": [1, 1.0, "x"]})  # 1 is 1.0
+
+
+def test_r2_01_integers_and_floats_with_the_same_value_are_one_category():
+    orig = pd.DataFrame({"c": pd.Categorical([1, 2])})
+    synth = pd.DataFrame({"c": pd.Categorical([1.0])})
+    assert DistanceToClosestRecord(use_faiss=False).calculate_metric(orig, synth)[
+        "dcr_statistics"
+    ]["min"] == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize("cls", [DistanceToClosestRecord, NearestNeighborDistanceRatio])
+def test_r2_02_nullable_boolean_keeps_a_missing_category(cls):
+    original = pd.DataFrame({"c": pd.Series([True, False, pd.NA], dtype="boolean")})
+    synthetic = pd.DataFrame({"c": [True]})
+    result = cls().calculate_metric(original, synthetic)
+    value = result["dcr_statistics"]["mean"] if "dcr_statistics" in result else result["nndr_values"][0]
+    assert value == pytest.approx(0.0, abs=1e-9)
+    o, _ = prepare_pair_for_distance_metrics(original, synthetic)
+    assert o.shape == (3, 3)  # False, True, <missing>
+    assert o.sum(axis=1).tolist() == [1.0, 1.0, 1.0]
+
+
+def test_r2_02_nullable_integers_against_a_categorical_do_not_crash():
+    original = pd.DataFrame({"c": pd.Series([1, 2, pd.NA], dtype="Int64")})
+    synthetic = pd.DataFrame({"c": pd.Categorical([1, 2, 3])})
+    o, t = prepare_pair_for_distance_metrics(original, synthetic)
+    assert list(o.columns) == list(t.columns) == ["c=1", "c=2", "c=3", "c=<missing>"]
+    nullable = pd.DataFrame({"c": pd.Series([True, pd.NA], dtype="boolean")})
+    out = prepare_data_for_distance_metrics(nullable)  # the standalone helper too
+    assert "c=<missing>" in out.columns
+
+
+@pytest.mark.parametrize("cls", [DistanceToClosestRecord, NearestNeighborDistanceRatio])
+@pytest.mark.parametrize("form", ["mahalanobis", DistanceMetricType.MAHALANOBIS])
+def test_r2_03_mahalanobis_is_rejected_before_any_computation(cls, form):
+    with pytest.raises(InvalidParameterError, match="not supported for"):
+        cls(distance_metric=form)
+
+
+def test_r2_03_the_other_metrics_are_unaffected_by_the_guard():
+    for metric in ("euclidean", "manhattan", "cosine"):
+        DistanceToClosestRecord(distance_metric=metric)
+        NearestNeighborDistanceRatio(distance_metric=metric)
+    DistanceToClosestRecord(distance_metric=DistanceMetricType.EUCLIDEAN)
+
+
+def test_r2_05_reciprocal_reference_calls_agree_on_the_feature_order():
+    a = pd.DataFrame({"c": ["A", "B"], "n": [0.0, 2.0]})
+    b = pd.DataFrame({"n": [0.0], "c": ["A"]})
+    x = prepare_data_for_distance_metrics(a, reference=b)
+    y = prepare_data_for_distance_metrics(b, reference=a)
+    assert list(x.columns) == list(y.columns)
+    u, v = scale_pair_for_distance(x, y, False)
+    np.testing.assert_allclose(cdist(v, u), [[0.0, np.sqrt(5)]])  # was [[1, 2]]
+
+
+def test_r2_05_scaling_refuses_frames_with_different_features():
+    x = pd.DataFrame({"a": [1.0], "b": [2.0]})
+    y = pd.DataFrame({"b": [2.0], "a": [1.0]})
+    with pytest.raises(ValidationError, match="same features"):
+        scale_pair_for_distance(x, y, False)
+
+
+def test_r2_06_datetime_resolutions_are_unified_before_extraction():
+    days = pd.to_datetime(["2020-01-01", "2020-01-02"])
+    original = pd.DataFrame({"d": pd.Series(days).astype("datetime64[s]")})
+    transformed = pd.DataFrame({"d": pd.Series(days).astype("datetime64[ns]")})
+    o, t = prepare_pair_for_distance_metrics(original, transformed)
+    np.testing.assert_array_equal(o["d"].to_numpy(), t["d"].to_numpy())
+    values = DistanceToClosestRecord(use_faiss=False, normalize_features=False).calculate_metric(
+        original, transformed
     )
-    synth = pd.DataFrame(
-        {"n": rng.normal(size=10), "m": rng.normal(size=10), "c": rng.choice(["A", "B", "C"], 10)}
-    )
-    o, t = prepare_pair_for_distance_metrics(orig, synth)
-    a, b = scale_pair_for_distance(o, t, normalize_features=True)
-    vi = mahalanobis_inverse_covariance(a)
-    expected = cdist(b, a, "mahalanobis", VI=vi).min(axis=1)
-    got = DistanceToClosestRecord(distance_metric="mahalanobis", use_faiss=False)._calculate_dcr_sklearn(a, b)
-    np.testing.assert_allclose(got, expected, rtol=1e-8)
-    stats = DistanceToClosestRecord(distance_metric="mahalanobis").calculate_metric(orig, synth)
-    assert stats["dcr_statistics"]["mean"] == pytest.approx(float(expected.mean()), rel=1e-8)
-    res = NearestNeighborDistanceRatio(distance_metric="mahalanobis").calculate_metric(orig, synth)
-    assert len(res["nndr_values"]) == 10
+    assert values["dcr_statistics"]["max"] == pytest.approx(0.0)  # was 1.58e18
+
+
+def test_r2_06_timezone_aware_values_are_compared_in_utc():
+    aware = pd.DataFrame({"d": pd.to_datetime(["2020-01-01 12:00"]).tz_localize("UTC")})
+    shifted = pd.DataFrame({"d": pd.to_datetime(["2020-01-01 13:00"]).tz_localize("Europe/Paris")})
+    o, t = prepare_pair_for_distance_metrics(aware, shifted)
+    np.testing.assert_array_equal(o["d"].to_numpy(), t["d"].to_numpy())

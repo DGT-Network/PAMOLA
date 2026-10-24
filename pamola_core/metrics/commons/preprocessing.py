@@ -98,6 +98,17 @@ def _plain(s: pd.Series) -> pd.Series:
     return s.astype(object) if isinstance(s.dtype, pd.CategoricalDtype) else s
 
 
+def _to_nanoseconds(s: pd.Series) -> pd.Series:
+    """A datetime series in ONE unit (``datetime64[ns]``), whatever its stored resolution.
+
+    Timezone policy: a timezone-aware series is converted to UTC and made naive; a naive series
+    is taken as it is (the two sides are assumed to be in the same zone).
+    """
+    if getattr(s.dtype, "tz", None) is not None:
+        s = s.dt.tz_convert("UTC").dt.tz_localize(None)
+    return s.astype("datetime64[ns]")
+
+
 def _as_datetime(s: pd.Series) -> Optional[pd.Series]:
     if pd.api.types.is_datetime64_any_dtype(s):
         return s
@@ -148,26 +159,47 @@ NOMINAL_ONE_HOT_WEIGHT = 1.0 / float(np.sqrt(2.0))
 MAX_ONE_HOT_FEATURES = 1000
 
 
-def _format_label(value: object) -> str:
-    """The label of one non-missing categorical value: the same text for ``10``, ``10.0`` and
-    ``"10"``-typed numbers, ``True`` / ``False`` for booleans, stripped text otherwise."""
+def _category_key(value: object) -> tuple:
+    """Identity of one non-missing category: (type tag, value).
+
+    Identity follows pandas: ``1`` and ``1.0`` are the same category, ``True`` is not ``1``, and
+    the number ``1`` is NOT the text ``"1"`` (nor is ``"1"`` the text ``" 1"``); timestamps are
+    their own type. Display text is never used for identity.
+    """
     if isinstance(value, (bool, np.bool_)):
-        return "True" if value else "False"
-    if isinstance(value, (int, np.integer)):
-        return str(int(value))
-    if isinstance(value, (float, np.floating)):
-        number = float(value)
-        return str(int(number)) if number.is_integer() else repr(number)
-    return str(value).strip()
+        return ("b", bool(value))
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return ("n", float(value))
+    if isinstance(value, pd.Timestamp):
+        return ("t", value.value)
+    if isinstance(value, str):
+        return ("s", value)
+    return ("o:" + type(value).__name__, str(value))
 
 
-def _labels(s: pd.Series) -> Tuple[pd.Series, np.ndarray]:
-    """(labels, missing mask). The mask is taken BEFORE any string conversion, so a missing
-    value never becomes the text ``'None'`` / ``'nan'`` and cannot equal a real label."""
+def _key_text(key: tuple) -> str:
+    """Display text of a category key, for generated column names only."""
+    tag, value = key
+    if tag == "n":
+        return str(int(value)) if float(value).is_integer() else repr(value)
+    return str(value)
+
+
+def _key_sort(key: tuple):
+    tag, value = key
+    return (tag, value) if tag in ("n", "b", "t") else (tag, str(value))
+
+
+def _labels(s: pd.Series) -> Tuple[np.ndarray, np.ndarray]:
+    """(category keys, missing mask). The mask is taken BEFORE any conversion, so a missing
+    value (``None``, ``NaN``, ``pd.NA``) never becomes a label; the keys are built in an object
+    buffer, so nullable extension dtypes (``boolean``, ``Int64``) never receive a placeholder."""
     missing = s.isna().to_numpy()
-    plain = _plain(s)
-    labels = plain.where(~missing, other="").map(_format_label)
-    return labels, missing
+    values = np.asarray(_plain(s).astype(object), dtype=object)
+    keys = np.empty(len(values), dtype=object)
+    for i, (value, gone) in enumerate(zip(values, missing)):
+        keys[i] = None if gone else _category_key(value)
+    return keys, missing
 
 
 def _validate_ordinal_declaration(columns: Sequence[str], ordinal_columns: Optional[object]) -> dict:
@@ -197,8 +229,8 @@ def _validate_ordinal_declaration(columns: Sequence[str], ordinal_columns: Optio
             continue
         if isinstance(order, str) or not hasattr(order, "__iter__"):
             raise ValidationError(f"Ordinal column '{name}': the order must be a list of categories.")
-        norm = [_format_label(v) for v in order]
-        dup = sorted({v for v in norm if norm.count(v) > 1})
+        norm = [_category_key(v) for v in order]
+        dup = sorted({_key_text(v) for v in norm if norm.count(v) > 1})
         if not norm or dup:
             raise ValidationError(
                 f"Ordinal column '{name}': the declared order "
@@ -265,7 +297,7 @@ def prepare_pair_for_distance_metrics(
             f"{only_a}, only in the transformed {only_b}. Distance metrics need the same "
             "features on both sides."
         )
-    cols = list(original_df.columns)
+    cols = sorted(original_df.columns, key=str)  # canonical order: reciprocal calls agree
     if len(set(cols)) != len(cols) or transformed_df.columns.duplicated().any():
         raise ValidationError("Distance metrics need unique column names in both datasets.")
     declared = _validate_ordinal_declaration(cols, ordinal_columns)
@@ -288,7 +320,7 @@ def prepare_pair_for_distance_metrics(
         sa, sb = original_df[col], transformed_df[col]
         kind = kinds[col]
         if kind == "datetime":
-            da, db = _as_datetime(sa), _as_datetime(sb)
+            da, db = _to_nanoseconds(_as_datetime(sa)), _to_nanoseconds(_as_datetime(sb))
             a_out.append((col, da.astype("int64").where(~da.isna()).astype(float)))
             b_out.append((col, db.astype("int64").where(~db.isna()).astype(float)))
         elif kind == "numeric":
@@ -297,13 +329,14 @@ def prepare_pair_for_distance_metrics(
         else:
             la, ma = _labels(sa)
             lb, mb = _labels(sb)
-            levels = sorted(set(la[~ma]) | set(lb[~mb]))
+            levels = sorted(set(la[~ma]) | set(lb[~mb]), key=_key_sort)
             if col in declared:
                 order = declared[col]
-                if order is None:  # a bare name: numbers sort as numbers, text alphabetically
+                if order is None:  # a bare name: numbers (and numerals) sort as numbers
+                    numerals = all(k[0] in ("n", "s") for k in levels)
                     try:
-                        order = sorted(levels, key=float)
-                    except (TypeError, ValueError):
+                        order = sorted(levels, key=lambda k: float(k[1])) if numerals else list(levels)
+                    except ValueError:
                         order = list(levels)
                 missing_levels = [v for v in levels if v not in set(order)]
                 if missing_levels:
@@ -312,8 +345,8 @@ def prepare_pair_for_distance_metrics(
                         f"{len(missing_levels)} value(s) present in the data."
                     )
                 rank = {v: float(i) for i, v in enumerate(order)}
-                ra = la.map(rank).astype(float).where(~ma)
-                rb = lb.map(rank).astype(float).where(~mb)
+                ra = pd.Series([rank.get(k, np.nan) for k in la], index=sa.index, dtype=float)
+                rb = pd.Series([rank.get(k, np.nan) for k in lb], index=sb.index, dtype=float)
                 a_out.append((col, ra))
                 b_out.append((col, rb))
                 continue
@@ -329,9 +362,16 @@ def prepare_pair_for_distance_metrics(
                         "with `ordinal_columns` if its categories have an order."
                     ),
                 )
-            entries = [(f"{col}={lv}", (la == lv) & ~ma, (lb == lv) & ~mb) for lv in levels]
+            index = {lv: i for i, lv in enumerate(levels)}
+            codes_a = np.array([index.get(k, -1) if k is not None else -1 for k in la])
+            codes_b = np.array([index.get(k, -1) if k is not None else -1 for k in lb])
+            entries = [
+                (f"{col}={_key_text(lv)}",
+                 pd.Series(codes_a == i, index=sa.index), pd.Series(codes_b == i, index=sb.index))
+                for i, lv in enumerate(levels)
+            ]
             if has_missing:
-                entries.append((f"{col}=<missing>", pd.Series(ma, index=la.index), pd.Series(mb, index=lb.index)))
+                entries.append((f"{col}=<missing>", pd.Series(ma, index=sa.index), pd.Series(mb, index=sb.index)))
             for k, (name, ea, eb) in enumerate(entries):
                 unique_name = name
                 while unique_name in reserved:
@@ -371,6 +411,13 @@ def scale_pair_for_distance(
 
     if len(set(original.columns)) != len(original.columns):
         raise ValidationError("Feature names are not unique; the feature types cannot be told apart.")
+    if list(original.columns) != list(transformed.columns):
+        raise ValidationError(
+            "The two frames do not have the same features in the same order "
+            f"({list(original.columns)} vs {list(transformed.columns)}); scaling by position "
+            "would compare unrelated features. Prepare them together with "
+            "`prepare_pair_for_distance_metrics`."
+        )
     nominal = set(original.attrs.get("nominal_positions", []))
     n_cols = original.shape[1]
     numeric_idx = [i for i in range(n_cols) if i not in nominal]
@@ -388,16 +435,6 @@ def scale_pair_for_distance(
         a[:, nominal_idx] = original.iloc[:, nominal_idx].values * NOMINAL_ONE_HOT_WEIGHT
         b[:, nominal_idx] = transformed.iloc[:, nominal_idx].values * NOMINAL_ONE_HOT_WEIGHT
     return a, b
-
-
-def mahalanobis_inverse_covariance(original_features: np.ndarray) -> np.ndarray:
-    """``VI`` for the Mahalanobis distance: the pseudo-inverse of the covariance of the
-    ORIGINAL's prepared features. One-hot columns make the covariance singular (the columns of
-    one feature sum to a constant), so a plain inverse does not exist; the Moore-Penrose
-    pseudo-inverse is the distance in the span of the data."""
-    x = np.asarray(original_features, dtype=float)
-    cov = np.atleast_2d(np.cov(x, rowvar=False)) if x.shape[0] > 1 else np.zeros((x.shape[1], x.shape[1]))
-    return np.linalg.pinv(cov, hermitian=True)
 
 
 def prepare_data_for_distance_metrics(

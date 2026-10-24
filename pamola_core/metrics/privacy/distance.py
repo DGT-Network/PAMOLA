@@ -44,7 +44,6 @@ from sklearn.metrics import pairwise_distances_chunked
 
 from pamola_core.common.enum.distance_metric_type import DistanceMetricType
 from pamola_core.metrics.commons.preprocessing import (
-    mahalanobis_inverse_covariance,
     prepare_pair_for_distance_metrics,
     scale_pair_for_distance,
 )
@@ -108,6 +107,21 @@ _FAISS_EXACT = frozenset(
 )
 
 
+def reject_unsupported_distance_metric(metric: Any, metric_name: str) -> None:
+    """DCR and NNDR do not support the Mahalanobis distance in 1.0 (string or enum)."""
+    value = metric.value if isinstance(metric, DistanceMetricType) else str(metric)
+    if value.lower() == "mahalanobis":
+        raise InvalidParameterError(
+            param_name="distance_metric",
+            param_value=value,
+            reason=(
+                f"the Mahalanobis distance is not supported for {metric_name} in 1.0: the "
+                "one-hot features of nominal columns make the covariance singular. Use "
+                "'euclidean', 'manhattan' or 'cosine'."
+            ),
+        )
+
+
 class DistanceToClosestRecord:
     """
     DCR measures minimum distance from synthetic to real records.
@@ -123,7 +137,8 @@ class DistanceToClosestRecord:
     Parameters
     -----------
     distance_metric : str, default='euclidean'
-        Distance metric to use ('euclidean', 'manhattan', 'cosine', 'mahalanobis')
+        Distance metric to use ('euclidean', 'manhattan', 'cosine'); 'mahalanobis' is not
+        supported in 1.0
     normalize_features : bool, default=True
         Whether to standardize the non-nominal features (one StandardScaler fit on the original);
         one-hot columns of nominal categoricals are never standardized, they carry a fixed weight
@@ -168,7 +183,9 @@ class DistanceToClosestRecord:
         Parameters
         -----------
         distance_metric : str
-            Distance metric to use ('euclidean', 'manhattan', 'cosine', 'mahalanobis').
+            Distance metric: 'euclidean', 'manhattan' or 'cosine'. 'mahalanobis' (string or
+            ``DistanceMetricType``) is not supported for DCR in 1.0 and raises
+            ``InvalidParameterError`` here, before any computation.
         normalize_features : bool
             Whether to normalize features using StandardScaler.
         percentiles : List[int]
@@ -192,6 +209,7 @@ class DistanceToClosestRecord:
             ``prepare_pair_for_distance_metrics``). Every other categorical column is nominal:
             one-hot encoded so that all mismatches are equally far apart.
         """
+        reject_unsupported_distance_metric(distance_metric, "DCR")
         self.distance_metric = distance_metric
         self.normalize_features = normalize_features
         self.percentiles = percentiles
@@ -527,17 +545,12 @@ class DistanceToClosestRecord:
 
         # Row blocks of the (synthetic x original) distance matrix: the values are
         # those of the dense matrix, the peak memory is the block budget.
-        extra = {}
-        if self._metric_name() == "mahalanobis":
-            # sklearn needs VI for Y given: the pseudo-inverse covariance of the original
-            extra["VI"] = mahalanobis_inverse_covariance(orig_data)
         blocks = pairwise_distances_chunked(
             trans_data,
             orig_data,
             metric=self.distance_metric,
             reduce_func=aggregate,
             working_memory=_WORKING_MEMORY_MIB,
-            **extra,
         )
         return np.concatenate(list(blocks))
 

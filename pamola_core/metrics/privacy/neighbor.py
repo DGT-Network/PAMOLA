@@ -30,8 +30,8 @@ import pandas as pd
 
 from sklearn.neighbors import NearestNeighbors
 
+from pamola_core.metrics.privacy.distance import reject_unsupported_distance_metric
 from pamola_core.metrics.commons.preprocessing import (
-    mahalanobis_inverse_covariance,
     prepare_pair_for_distance_metrics,
     scale_pair_for_distance,
 )
@@ -74,7 +74,7 @@ class NearestNeighborDistanceRatio:
 
         Parameters
         ----------
-            distance_metric (str): Distance metric ('euclidean', 'manhattan', 'cosine').
+            distance_metric (str): Distance metric ('euclidean', 'manhattan', 'cosine'); 'mahalanobis' is not supported in 1.0.
             n_neighbors (int): Number of neighbors to consider (default: 2).
             normalize_features (bool): Whether to normalize features before calculation.
             threshold (float): NNDR threshold for high privacy risk.
@@ -92,6 +92,7 @@ class NearestNeighborDistanceRatio:
                 param_value=n_neighbors,
                 reason="NNDR compares the nearest neighbour with the n_neighbors-th one, so it needs at least 2",
             )
+        reject_unsupported_distance_metric(distance_metric, "NNDR")
         self.distance_metric = distance_metric
         self.n_neighbors = int(n_neighbors)
         self.normalize_features = normalize_features
@@ -133,15 +134,8 @@ class NearestNeighborDistanceRatio:
                 f"records, found {len(orig_data)}."
             )
         # Fit nearest neighbors model
-        metric_params = None
-        if str(self.distance_metric) == "mahalanobis":
-            # the pseudo-inverse covariance of the original's prepared features
-            metric_params = {"VI": mahalanobis_inverse_covariance(orig_data)}
         nn_model = NearestNeighbors(
-            n_neighbors=self.n_neighbors,
-            metric=self.distance_metric,
-            algorithm="auto",
-            metric_params=metric_params,
+            n_neighbors=self.n_neighbors, metric=self.distance_metric, algorithm="auto"
         ).fit(orig_data)
 
         # Find nearest neighbors

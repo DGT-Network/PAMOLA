@@ -31,8 +31,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `ordinal_columns` declaration is validated before encoding: unknown names, repeated or empty
   orders and numeric/datetime columns raise `ValidationError`.
   `prepare_data_for_distance_metrics` uses the same nominal-aware schema.
-- **DCR / NNDR: Mahalanobis works.** `VI` is the pseudo-inverse of the covariance of the original's
-  prepared features (one-hot columns make the covariance singular).
+- **DCR / NNDR: the Mahalanobis distance is rejected.** `distance_metric='mahalanobis'` (string or
+  `DistanceMetricType`) raises `InvalidParameterError` ("not supported for DCR/NNDR in 1.0") when the
+  metric is constructed. It never worked (sklearn needs a covariance it was not given), and the
+  one-hot features of nominal columns make the covariance singular.
+- **DCR / NNDR: category identity is the pandas identity.** `1.0` and `"1"` are different
+  nominal levels, `1` and `1.0` the same; the text is not stripped. Nullable `boolean` / `Int64`
+  columns keep a missing category. Datetime columns of different resolutions or time zones are
+  compared in one unit (nanoseconds, UTC). `prepare_pair_for_distance_metrics` orders the features
+  canonically (so reciprocal `prepare_data_for_distance_metrics` calls agree) and
+  `scale_pair_for_distance` refuses frames with different features.
 - **DCR: forced FAISS equals the exact search.** `use_faiss=True` with `mean_k` averages the
   distances (the square root is taken per neighbour before averaging; Euclidean `mean_k` is now also
   eligible for automatic FAISS selection); `percentile` falls back to the exact search visibly

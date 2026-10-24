@@ -23,6 +23,7 @@ Process:
 """
 
 import pytest
+from pamola_core.errors.exceptions import InvalidParameterError
 import numpy as np
 import pandas as pd
 from pamola_core.metrics.privacy.distance import DistanceToClosestRecord
@@ -83,9 +84,8 @@ class TestDistanceToClosestRecord:
 
     def test_mahalanobis_metric(self):
         orig, synth = self.get_dfs(n=20, m=5, d=2)
-        dcr = DistanceToClosestRecord(distance_metric="mahalanobis")
-        with pytest.raises(ValueError):
-            dcr.calculate_metric(orig, synth)
+        with pytest.raises(InvalidParameterError):
+            DistanceToClosestRecord(distance_metric="mahalanobis")
 
     def test_sample_size(self):
         orig, synth = self.get_dfs(n=100, m=100, d=3)
@@ -203,12 +203,11 @@ class TestDistanceToClosestRecord:
     @pytest.mark.parametrize("metric", ["euclidean", "manhattan", "cosine", "mahalanobis"])
     def test_all_distance_metrics(self, metric):
         orig, synth = self.get_dfs()
-        dcr = DistanceToClosestRecord(distance_metric=metric)
         if metric == "mahalanobis":
-            with pytest.raises(ValueError):
-                dcr.calculate_metric(orig, synth)
+            with pytest.raises(InvalidParameterError):
+                DistanceToClosestRecord(distance_metric=metric)
         else:
-            result = dcr.calculate_metric(orig, synth)
+            result = DistanceToClosestRecord(distance_metric=metric).calculate_metric(orig, synth)
             assert "dcr_statistics" in result
 
     @pytest.mark.parametrize("agg", ["min", "mean_k", "percentile"])
@@ -382,9 +381,8 @@ class TestDistanceToClosestRecord:
             normalize_L2 = staticmethod(lambda x: None)
         sys.modules['faiss'] = DummyFaiss()
         orig, synth = self.get_dfs()
-        dcr = DistanceToClosestRecord(use_faiss=True, distance_metric="mahalanobis")
-        with pytest.raises(ValueError):
-            dcr.calculate_metric(orig, synth)
+        with pytest.raises(InvalidParameterError):
+            DistanceToClosestRecord(use_faiss=True, distance_metric="mahalanobis")
 
     def test_faiss_try_exception(self, monkeypatch):
         # Simulate FAISS present, error in try block triggers fallback
