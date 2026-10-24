@@ -130,9 +130,9 @@ def test_generate_visualizations_success(mock_create_bar_plot, tmp_path):
 def test_generate_visualizations_failure(mock_create_bar_plot, tmp_path):
     op = FidelityOperation()
     metrics = {"ks": {"ks_statistic": 0.1, "p_value": 0.05}}
-    # Should not raise, just log error
-    paths = op._generate_visualizations(metrics, tmp_path, vis_theme=None, vis_backend="plotly", vis_strict=False, timestamp="20240101")
-    assert isinstance(paths, dict)
+    # a chart failure propagates (CDX-R2-7); the operation reports it as visualization_error
+    with pytest.raises(Exception, match="viz fail"):
+        op._generate_visualizations(metrics, tmp_path, vis_theme=None, vis_backend="plotly", vis_strict=False, timestamp="20240101")
 
 def test_generate_visualizations_error_logging(tmp_path):
     op = FidelityOperation()

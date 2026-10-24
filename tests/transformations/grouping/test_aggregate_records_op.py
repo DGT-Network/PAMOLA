@@ -694,7 +694,8 @@ def test_execute_non_dataframe_input(tmp_path):
     op = AggregateRecordsOperation(group_by_fields=['A'], aggregations={'B': ['sum']}, custom_aggregations={})
     with patch('pamola_core.transformations.base_transformation_op.load_data_operation', return_value=42):
         result = op.execute(DummyDataSource(), tmp_path, DummyReporter())
-        assert "object of type 'int' has no len()" in result.error_message
+        # the operation works on its own copy of the input (DATA-01): a non-frame fails at load
+        assert "Failed to load data" in result.error_message and "'int'" in result.error_message
 
 def test_execute_dask_fallback_to_pandas(sample_df, tmp_path, monkeypatch):
     op = AggregateRecordsOperation(group_by_fields=['A'], aggregations={'B': ['sum']}, custom_aggregations={}, use_dask=True)
