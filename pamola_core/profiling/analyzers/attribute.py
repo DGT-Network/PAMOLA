@@ -82,6 +82,10 @@ class DataAttributeProfilerOperation(BaseOperation):
     recommendations for data handling.
     """
 
+    #: Profiling shows source values (value dictionaries, examples, top values, chart labels):
+    #: its artifacts are DIAGNOSTIC and not for release.
+    ARTIFACTS_CONTAIN_SOURCE_VALUES = True
+
     def __init__(
         self,
         name: str = "DataAttributeProfiler",

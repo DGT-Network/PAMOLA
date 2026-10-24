@@ -68,6 +68,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Security
 
+- **Profiling output is `diagnostic`, not for release.** Profiling analyzers show source values by design (value
+  dictionaries, examples, `top_values`, charts labelled with data values). Their artifacts (and the matching
+  task-report entries) are now classified `diagnostic` with `contains_source_values=True` and `not_for_release=True`
+  (`BaseOperation.ARTIFACTS_CONTAIN_SOURCE_VALUES`, set on the profiling operations); nothing is redacted and the
+  files are written as before. A canary test over masking, pseudonymization, generalization, fake_data and
+  profiling operations checks that, with default settings, source values never appear in an `aggregate_metric`,
+  `evidence` or `protected_mapping` artifact, every artifact has a class, and no mapping file is in plain text.
+
 - **Reversible mappings are written encrypted only - BREAKING for `fake_data` with `save_mapping=True`.** The four
   `fake_data` operations wrote `maps/<operation>_<field>_mapping.json` in clear text (original values and their
   substitutes). The file is now a `protected_mapping` artifact encrypted with the task key; constructing an operation with

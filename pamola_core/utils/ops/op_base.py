@@ -240,6 +240,44 @@ def _scope_nlp_degradation(execute):
     return scoped
 
 
+def _classify_source_value_artifacts(execute):
+    """Wrap ``execute``: an operation whose products show source values says so.
+
+    When ``ARTIFACTS_CONTAIN_SOURCE_VALUES`` is true (profiling analyzers: value
+    dictionaries, examples, ``top_values``, charts labelled with data values), every
+    artifact of the result that did not get an explicit class becomes a ``DIAGNOSTIC``
+    with ``contains_source_values=True`` (so ``not_for_release``), and the reporter entries
+    for the same paths follow. Nothing is redacted: the files are written as before.
+    """
+    import functools
+
+    @functools.wraps(execute)
+    def classified(self, *args, **kwargs):
+        result = execute(self, *args, **kwargs)
+        if not getattr(self, "ARTIFACTS_CONTAIN_SOURCE_VALUES", False):
+            return result
+        from pamola_core.utils.artifact_policy import ArtifactClass
+
+        artifacts = getattr(result, "artifacts", None) or []
+        paths = set()
+        for artifact in artifacts:
+            if getattr(artifact, "class_is_explicit", False):
+                continue
+            artifact.artifact_class = ArtifactClass.DIAGNOSTIC
+            artifact.contains_source_values = True
+            paths.add(str(artifact.path))
+        reporter = kwargs.get("reporter", args[2] if len(args) > 2 else None)
+        for entry in getattr(reporter, "artifacts", None) or []:
+            if isinstance(entry, dict) and entry.get("path") in paths:
+                entry["artifact_class"] = ArtifactClass.DIAGNOSTIC.value
+                entry["contains_source_values"] = True
+                entry["not_for_release"] = True
+        return result
+
+    classified._source_values_classified = True
+    return classified
+
+
 class BaseOperation(ABC):
     """
     Base class for all operations.
@@ -248,6 +286,10 @@ class BaseOperation(ABC):
     common functionality such as configuration management, logging,
     performance tracking, and output control.
     """
+
+    #: True for operations whose artifacts show source values by design (profiling
+    #: analyzers). Their artifacts are classified ``DIAGNOSTIC`` / ``not_for_release``.
+    ARTIFACTS_CONTAIN_SOURCE_VALUES: ClassVar[bool] = False
 
     #: Whether this operation can be driven as a pure in-memory
     #: ``DataFrame -> DataFrame`` transform via ``process_batch()``, rather than
@@ -284,6 +326,8 @@ class BaseOperation(ABC):
         if callable(execute):
             if not getattr(execute, "_nlp_scoped", False):
                 execute = _scope_nlp_degradation(execute)
+            if not getattr(execute, "_source_values_classified", False):
+                execute = _classify_source_value_artifacts(execute)
             cls.execute = _guard_visualization_dependencies(execute)
 
     def check_visualization_dependencies(self) -> None:

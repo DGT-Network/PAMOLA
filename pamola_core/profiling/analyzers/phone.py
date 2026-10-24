@@ -327,6 +327,10 @@ class PhoneOperation(FieldOperation):
     executing analysis, saving results, and generating artifacts.
     """
 
+    #: Profiling shows source values (value dictionaries, examples, top values, chart labels):
+    #: its artifacts are DIAGNOSTIC and not for release.
+    ARTIFACTS_CONTAIN_SOURCE_VALUES = True
+
     def __init__(
         self,
         field_name: str,
