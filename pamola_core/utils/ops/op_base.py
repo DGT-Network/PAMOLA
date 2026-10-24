@@ -258,7 +258,9 @@ def _classify_source_value_artifacts(execute):
             return result
         from pamola_core.utils.artifact_policy import ArtifactClass
 
-        artifacts = getattr(result, "artifacts", None) or []
+        artifacts = getattr(result, "artifacts", None)
+        if not isinstance(artifacts, (list, tuple)):
+            return result
         paths = set()
         for artifact in artifacts:
             if getattr(artifact, "class_is_explicit", False):
@@ -267,7 +269,8 @@ def _classify_source_value_artifacts(execute):
             artifact.contains_source_values = True
             paths.add(str(artifact.path))
         reporter = kwargs.get("reporter", args[2] if len(args) > 2 else None)
-        for entry in getattr(reporter, "artifacts", None) or []:
+        entries = getattr(reporter, "artifacts", None)
+        for entry in entries if isinstance(entries, (list, tuple)) else []:
             if isinstance(entry, dict) and entry.get("path") in paths:
                 entry["artifact_class"] = ArtifactClass.DIAGNOSTIC.value
                 entry["contains_source_values"] = True
