@@ -77,3 +77,53 @@ def test_fixture_part_2_the_next_test_sees_the_original_state(caplog):
     with caplog.at_level(logging.WARNING):
         logging.getLogger("pamola_core.utils.ops.anything").warning("visible")
     assert "visible" in caplog.text
+
+
+_EXERCISE = textwrap.dedent(
+    """
+    import logging, os, tempfile
+    from pamola_core.privacy_models.l_diversity.calculation import LDiversityCalculator
+    from pamola_core.utils.progress import SimpleProgressBar, get_progress_logger
+    os.chdir(tempfile.mkdtemp())
+    before = list(logging.root.handlers)
+    pamola_before = {n for n in logging.root.manager.loggerDict if n.startswith("pamola_core")}
+
+    # l-diversity used to call logging.basicConfig() in its constructor
+    LDiversityCalculator(l=2, log_level="DEBUG")
+
+    # the progress tracker used to configure a stdout handler and a log file on first use
+    with SimpleProgressBar(total=3, description="probe") as bar:
+        for _ in range(3):
+            bar.update(1)
+    get_progress_logger().info("probe")
+
+    bad = []
+    if list(logging.root.handlers) != before:
+        bad.append("root handlers changed: " + repr(logging.root.handlers))
+    for name, lg in list(logging.root.manager.loggerDict.items()):
+        if not (name == "pamola_core" or name.startswith("pamola_core.")):
+            continue
+        if not isinstance(lg, logging.Logger):
+            continue
+        if lg.propagate is False:
+            bad.append(name + ": propagate is False")
+        if lg.handlers and not all(isinstance(h, logging.NullHandler) for h in lg.handlers):
+            bad.append(name + ": has handlers " + repr(lg.handlers))
+    if os.listdir("."):
+        bad.append("files written to the working directory: " + repr(os.listdir(".")))
+    print("BAD:" + "|".join(bad))
+    """
+)
+
+
+def test_using_l_diversity_and_progress_adds_no_handlers_and_writes_no_files():
+    out = subprocess.run(
+        [sys.executable, "-c", _EXERCISE],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=Path(__file__).resolve().parents[2],
+    )
+    assert out.returncode == 0, out.stderr[-2000:]
+    line = [ln for ln in out.stdout.splitlines() if ln.startswith("BAD:")][-1]
+    assert line == "BAD:", line

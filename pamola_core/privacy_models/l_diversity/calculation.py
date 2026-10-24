@@ -95,18 +95,17 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
 
     def _setup_logging(self, log_level: str):
         """
-        Configure logging with flexible verbosity
+        Set the verbosity of this module's logger
 
         Parameters
         -----------
         log_level : str
             Logging level (e.g., 'INFO', 'DEBUG', 'WARNING')
         """
-        logging.basicConfig(
-            level=getattr(logging, log_level.upper()),
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        )
+        # Library code never configures the root logger (``logging.basicConfig``): handlers
+        # and formats belong to the application. Only this module's logger gets the level.
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(getattr(logging, log_level.upper()))
 
     def _check_configuration(self):
         """

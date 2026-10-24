@@ -67,60 +67,35 @@ import psutil
 from tqdm import tqdm
 from pamola_core.errors.exceptions import ValidationError
 
-# Import centralized logging configuration
-from pamola_core.utils.logging import configure_logging, get_configured_logger
-
 # ======= Logger Management =======
 _PROGRESS_LOGGER_NAME = "pamola_core.progress"
-_DEFAULT_PROGRESS_LOG_FILE = "pamola_processing.log"
 
 
 def get_progress_logger() -> logging.Logger:
     """
-    Get the progress module logger, configuring it if necessary.
+    Get the progress module logger.
 
-    This function ensures consistent logger configuration across
-    the progress tracking module using the centralized logging system.
+    This is a plain module logger (``pamola_core.progress``): the library adds no
+    handler, file or stream, and does not change propagation. Records reach whatever
+    logging configuration the application installed. To write progress to a file, give
+    the application's logging configuration a handler for ``pamola_core.progress``, or
+    call ``pamola_core.utils.logging.configure_logging`` explicitly.
 
     Returns
     --------
     logging.Logger
-        Configured logger for progress tracking
+        Logger for progress tracking
 
     Examples
     ---------
     >>> logger = get_progress_logger()
     >>> logger.info("Processing started")
-
-    Notes
-    ------
-    For custom logging configuration, use pamola_core.logging_config:
-    >>> from pamola_core.logging_config import configure_logging
-    >>> logger = configure_logging(
-    ...     name="pamola_core.progress",
-    ...     level="DEBUG",
-    ...     log_file="custom_progress.log",
-    ...     max_bytes=10*1024*1024,
-    ...     backup_count=5
-    ... )
     """
-    # Check if already configured
-    logger = get_configured_logger(_PROGRESS_LOGGER_NAME)
-    if logger is not None:
-        return logger
-
-    # Configure using centralized system
-    return configure_logging(
-        name=_PROGRESS_LOGGER_NAME,
-        level=logging.INFO,
-        log_file=_DEFAULT_PROGRESS_LOG_FILE,
-        max_bytes=10 * 1024 * 1024,  # 10MB
-        backup_count=5,
-    )
+    return logging.getLogger(_PROGRESS_LOGGER_NAME)
 
 
 class _LazyProgressLogger:
-    """Lazy proxy to avoid configuring logging at import time."""
+    """Proxy kept for backwards compatibility: resolves the logger on each access."""
 
     def __getattr__(self, name: str):
         return getattr(get_progress_logger(), name)

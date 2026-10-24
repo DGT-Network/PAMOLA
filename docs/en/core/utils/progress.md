@@ -184,7 +184,7 @@ with HierarchicalHierarchicalProgressTracker(total=3, description="Main Process"
 ### Factory Functions
 
 #### get_progress_logger()
-Get the centralized logger for the progress module.
+Get the logger of the progress module (`pamola_core.progress`). It is a plain module logger: the library adds no handler or log file; records follow the application's logging configuration.
 
 ```python
 def get_progress_logger() -> logging.Logger:
