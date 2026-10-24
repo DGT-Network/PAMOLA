@@ -199,6 +199,10 @@ class CVPLProjection:
 #: Relative gap ``(l_j - l_{j+1}) / l_j`` below which two eigenvalues are treated as equal.
 DEGENERACY_REL_TOL = 1e-6
 
+#: Eigenvalues up to ``NULL_EIGENVALUE_FACTOR * eps * dimension * (largest eigenvalue)`` are
+#: numerically zero (the usual rank tolerance of a symmetric eigenproblem, with a margin of 10).
+NULL_EIGENVALUE_FACTOR = 10.0
+
 
 def _eigengap_diagnostics(evals: np.ndarray, k: int):
     """(degenerate_eigenspace, cutoff_in_degenerate_eigenspace, min_relative_eigengap).
@@ -209,11 +213,19 @@ def _eigengap_diagnostics(evals: np.ndarray, k: int):
     top = float(evals[0]) if len(evals) else 0.0
     if top <= 0.0:
         return False, False, None
+    # Eigenvalues at the level of the rounding error of the decomposition are numerically ZERO
+    # (a rank-deficient covariance has an exactly degenerate null eigenspace, but its computed
+    # eigenvalues are residues such as 3e-16, 1e-47, 0): they are all tied with each other,
+    # however large their ratios look.
+    null_level = NULL_EIGENVALUE_FACTOR * np.finfo(float).eps * len(evals) * top
     stop = min(k + 1, len(evals))
     gaps = []
     for j in range(stop - 1):
-        lj = float(evals[j])
-        gaps.append((lj - float(evals[j + 1])) / lj if lj > 0.0 else 0.0)
+        lj, lnext = float(evals[j]), float(evals[j + 1])
+        if lj <= null_level:  # both are in the null cluster (evals are sorted descending)
+            gaps.append(0.0)
+        else:
+            gaps.append((lj - lnext) / lj)
     if not gaps:
         return False, False, None
     cutoff = k < len(evals) and gaps[k - 1] < DEGENERACY_REL_TOL

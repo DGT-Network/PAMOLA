@@ -129,3 +129,30 @@ def test_the_result_states_the_evaluation_model_and_the_experimental_status():
     text = r["interpretation"]
     assert "maximum over the declared attacker profiles" in text
     assert "not a bound for an arbitrary attacker" in text
+
+
+def test_r1_03_a_cutoff_inside_the_numerical_null_eigenspace_is_flagged():
+    from pamola_core.metrics.privacy.cvpl.projection import _eigengap_diagnostics
+
+    # the eigenvalues of a rank-one standardized covariance as the solver returns them
+    residues = np.array([6.0845, 3.44e-16, 1.35e-47, 0.0, 0.0, 0.0])
+    degenerate, cutoff, gap = _eigengap_diagnostics(residues, 2)
+    assert (degenerate, cutoff, gap) == (True, True, 0.0)
+    # keeping only the positive component cuts between a resolved eigenvalue and the null
+    # cluster: not ambiguous
+    degenerate, cutoff, _ = _eigengap_diagnostics(residues, 1)
+    assert cutoff is False
+
+
+def test_r1_03_codex_rank_one_source_warns():
+    rng = np.random.default_rng(918)
+    n = 72
+    t = np.linspace(-2, 2, n)
+    source_values = np.tile(t[:, None], (1, len(FEATURES)))  # six identical columns: rank one
+    release_values = source_values + rng.normal(0, 0.8, source_values.shape)
+    src, rel = _frames(source_values, release_values)
+    r = run_cvpl(
+        src, rel, _config(fit_strategy="source_only", tau=0.96, min_components=2, max_components=2)
+    )
+    assert r["projection"]["cutoff_in_degenerate_eigenspace"] is True
+    assert any("degenerate" in w for w in r["warnings"])

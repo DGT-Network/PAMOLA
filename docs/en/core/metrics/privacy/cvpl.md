@@ -267,7 +267,7 @@ is the caller's.
 **PCA stability.** The retained subspace is determined by the eigenvalues only where they are
 separated. The result reports, under `projection`: `degenerate_eigenspace` (two examined
 eigenvalues - adjacent retained ones, or the last retained against the first dropped - differ
-by less than `1e-6` of the larger), `cutoff_in_degenerate_eigenspace` (the cut-off between
+by less than `1e-6` of the larger; eigenvalues at the rounding level - up to `10 * eps * dimension * lambda_max` - are numerically zero and all tied with each other, which is how a rank-deficient covariance with its null eigenspace is recognised), `cutoff_in_degenerate_eigenspace` (the cut-off between
 retained and dropped components falls inside such an eigenspace, so which directions are kept
 is arbitrary and the numbers can change with row order or the linear-algebra library) and
 `min_relative_eigengap`. In the second case `warnings` carries a message. A degenerate
