@@ -145,6 +145,7 @@ jobs:
     needs: wheel
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4 # for .github/pip-audit-ignore.txt
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -158,7 +159,9 @@ jobs:
       - name: Install the wheel into a clean environment
         run: |
           python -m venv "$RUNNER_TEMP/app"
-          "$RUNNER_TEMP/app/bin/python" -m pip install --quiet --upgrade pip
+          # The venv's own tooling is not our dependency: bring pip and setuptools to
+          # current releases so they are not reported as vulnerabilities of the wheel.
+          "$RUNNER_TEMP/app/bin/python" -m pip install --quiet --upgrade pip setuptools
           "$RUNNER_TEMP/app/bin/python" -m pip install --quiet dist/*.whl
 
       - name: Install the audit tools in a separate environment
@@ -169,7 +172,16 @@ jobs:
       - name: pip-audit (known vulnerabilities fail the job)
         run: |
           SITE=$("$RUNNER_TEMP/app/bin/python" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
-          "$RUNNER_TEMP/tools/bin/pip-audit" --path "$SITE" --progress-spinner off
+          # Advisories with no upstream fix are listed one per line in
+          # .github/pip-audit-ignore.txt; each has a reachability analysis in
+          # .github/pip-audit-ignore.md. Anything else fails the job.
+          IGNORES=()
+          while IFS= read -r id; do
+            id="${id%$'\r'}"
+            case "$id" in ''|'#'*) continue ;; esac
+            IGNORES+=(--ignore-vuln "$id")
+          done < .github/pip-audit-ignore.txt
+          "$RUNNER_TEMP/tools/bin/pip-audit" --path "$SITE" --progress-spinner off "${IGNORES[@]}"
 
       - name: Dependency license report
         run: |

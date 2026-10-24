@@ -124,6 +124,18 @@ Each step is reversible by reverting its PR and does not change the public API.
   `[viz]` remains until step 3 of the migration. This is recorded in the as-built specification
   (`asbuilt/60_package_and_release.md`, SRS 12.4/12.5 divergences) and in the 1.0 release notes.
 
+### Security-driven exception to the pin policy (SEC-DEPS)
+
+Exact pins are kept, but where `pip-audit` on the installed wheel reports a fixable advisory the pin is
+moved to the lowest release that fixes all fixable advisories, ahead of "pin stability":
+`cryptography` 46.0.3 -> 50.0.0 (13 advisories), `nltk` 3.9.2 -> 3.10.3, `dask[complete]` 2025.11.0 ->
+2026.1.1 (brings `distributed` 2026.1.1; 2026.1.0 itself requires dask 2025.12.x), `filelock` 3.32.3 ->
+4.2.1 (Python >= 3.11 only; Python 3.10 stays on 4.1.0, the newest release it can install, which still
+carries three filelock advisories - the CI audit runs on 3.11). The one advisory with no upstream fix
+(nltk PYSEC-2026-3740) is listed in `.github/pip-audit-ignore.txt`, with a reachability analysis in
+`.github/pip-audit-ignore.md`. This is an exception made for security, not a change of policy: the
+post-1.0 ranges plus generated constraints (section 4) remain the way to stop doing this by hand.
+
 ## 6. Extras `nlp` and `bigdata` (post-1.0 item)
 
 The base install is dominated by packages that the code already treats as optional. The audit measured

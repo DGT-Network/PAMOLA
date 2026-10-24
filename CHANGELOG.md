@@ -199,6 +199,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   value-distribution plot. Enabling it writes source values into the metrics
   artifact.
 
+- **Dependency security bumps (SEC-DEPS) - an explicit exception to exact-pin stability.** The `supply-chain` job audits the installed wheel; the previous pins failed it. `cryptography` 46.0.3 -> 50.0.0 (13 advisories), `nltk` 3.9.2 -> 3.10.3, `dask[complete]` 2025.11.0 -> 2026.1.1 (`distributed` 2026.1.1, GHSA-c336-7962-wfj2), `filelock` 3.32.3 -> 4.2.1 on Python >= 3.11 (Python 3.10 uses 4.1.0, the newest it can install, which still carries three filelock advisories). One nltk advisory (PYSEC-2026-3740, model-artifact helpers that pamola-core never calls) has no upstream fix; it is the only entry of `.github/pip-audit-ignore.txt`, with a reachability analysis in `.github/pip-audit-ignore.md`. The audit venv upgrades pip and setuptools first.
+
 ### Fixed
 
 - **Pseudonymization (hash-based, consistent mapping): a failed visualization is reported in `result.metrics["visualization_error"]` (CDX-R2-7b)**, not only logged; the pseudonymized output and status are unchanged.

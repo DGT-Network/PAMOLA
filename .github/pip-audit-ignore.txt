@@ -1,0 +1,6 @@
+# One advisory ID per line; read by the `supply-chain` job (--ignore-vuln).
+# Every entry has NO fixed upstream release (nltk 3.10.3 pinned here is the lowest
+# that fixes everything fixable; no later release fixes this one either) and a
+# reachability analysis in .github/pip-audit-ignore.md. Remove a line as soon as a
+# fixed release exists; never add an entry without that analysis.
+PYSEC-2026-3740
