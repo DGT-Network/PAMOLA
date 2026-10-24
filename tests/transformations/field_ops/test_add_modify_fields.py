@@ -333,7 +333,7 @@ def test__handle_visualizations(monkeypatch, op, sample_df):
 def test__generate_visualizations(monkeypatch, op, sample_df, tmp_path):
     from unittest.mock import patch as mpatch
     op.field_operations = {"mod_field": {"operation_type": "modify_constant", "constant_value": "X"}}
-    metrics = {"fields_modified_count": 1, "fields_added_count": 0}
+    metrics = {"fields_modified_count": 1, "fields_added_count": 0, "correlations": {}}
     # Patch create_bar_plot from pamola_core.utils.visualization since add_modify_fields uses it
     with mpatch("pamola_core.utils.visualization.create_bar_plot", return_value=str(tmp_path / "bar.png")):
         vis = op._generate_visualizations(sample_df, sample_df, metrics, tmp_path, None, "matplotlib", False, dummy_progress())
@@ -350,7 +350,7 @@ def test__generate_visualizations_large_enrich(monkeypatch, op, sample_df, tmp_p
     op.mode = "ENRICH"
     op.column_prefix = "PRE_"
     op.field_operations = {"mod_field": {"operation_type": "modify_constant", "constant_value": "X"}}
-    metrics = {"fields_modified_count": 1, "fields_added_count": 0}
+    metrics = {"fields_modified_count": 1, "fields_added_count": 0, "correlations": {}}
     with mpatch("pamola_core.utils.visualization.create_bar_plot", return_value=str(tmp_path / "bar.png")):
         vis = op._generate_visualizations(large_df, large_df, metrics, tmp_path, None, "matplotlib", False, dummy_progress())
     assert isinstance(vis, dict)

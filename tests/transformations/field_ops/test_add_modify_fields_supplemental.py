@@ -720,7 +720,7 @@ class TestGenerateVisualizations:
         op = _op(field_operations={"val": {"operation_type": "modify_constant", "constant_value": 99}})
         orig = pd.DataFrame({"val": [1, 2, 3]})
         processed = pd.DataFrame({"val": [99, 99, 99]})
-        metrics = {"fields_modified_count": 1, "fields_added_count": 0}
+        metrics = {"fields_modified_count": 1, "fields_added_count": 0, "correlations": {}}
 
         with patch("pamola_core.utils.visualization.create_bar_plot",
                    return_value=str(tmp_path / "bar.png")) as mock_bar:
@@ -740,7 +740,7 @@ class TestGenerateVisualizations:
         op = _op(field_operations={"new_col": {"operation_type": "add_constant", "constant_value": 1}})
         orig = pd.DataFrame({"val": [1, 2, 3]})
         processed = pd.DataFrame({"val": [1, 2, 3], "new_col": [1, 1, 1]})
-        metrics = {"fields_added_count": 1, "fields_modified_count": 0}
+        metrics = {"fields_added_count": 1, "fields_modified_count": 0, "correlations": {}}
 
         with patch("pamola_core.utils.visualization.create_bar_plot",
                    return_value=str(tmp_path / "bar.png")):
@@ -756,25 +756,26 @@ class TestGenerateVisualizations:
             )
         assert isinstance(result, dict)
 
-    def test_bar_plot_error_handled_gracefully(self, tmp_path):
+    def test_bar_plot_error_propagates(self, tmp_path):
         op = _op(field_operations={"val": {"operation_type": "modify_constant", "constant_value": 0}})
         orig = pd.DataFrame({"val": [1, 2, 3]})
         processed = pd.DataFrame({"val": [0, 0, 0]})
-        metrics = {"fields_modified_count": 1, "fields_added_count": 0}
+        metrics = {"fields_modified_count": 1, "fields_added_count": 0, "correlations": {"val": 0.5}}
 
-        with patch("pamola_core.utils.visualization.create_bar_plot",
+        # chart failures propagate (CDX-R2-7): they reach the result as visualization_error
+        with patch("pamola_core.transformations.field_ops.add_modify_fields.create_bar_plot",
                    side_effect=RuntimeError("viz crash")):
-            result = op._generate_visualizations(
-                original_df=orig,
-                processed_df=processed,
-                metrics=metrics,
-                task_dir=tmp_path,
-                vis_theme=None,
-                vis_backend="matplotlib",
-                vis_strict=False,
-                progress_tracker=None,
-            )
-        assert isinstance(result, dict)
+            with pytest.raises(RuntimeError, match="viz crash"):
+                op._generate_visualizations(
+                    original_df=orig,
+                    processed_df=processed,
+                    metrics=metrics,
+                    task_dir=tmp_path,
+                    vis_theme=None,
+                    vis_backend="matplotlib",
+                    vis_strict=False,
+                    progress_tracker=None,
+                )
 
     def test_enrich_mode_prefixed_column_compared(self, tmp_path):
         op = _op(
@@ -785,7 +786,7 @@ class TestGenerateVisualizations:
         orig = pd.DataFrame({"val": list(range(100))})
         processed = orig.copy()
         processed["PRE_val"] = [99] * 100
-        metrics = {"fields_modified_count": 1, "fields_added_count": 0}
+        metrics = {"fields_modified_count": 1, "fields_added_count": 0, "correlations": {}}
 
         with patch("pamola_core.utils.visualization.create_bar_plot",
                    return_value=str(tmp_path / "bar.png")):
@@ -811,7 +812,7 @@ class TestHandleVisualizations:
         op = _op()
         orig = pd.DataFrame({"val": [1, 2, 3]})
         processed = pd.DataFrame({"val": [99, 99, 99]})
-        metrics = {"fields_modified_count": 1, "fields_added_count": 0}
+        metrics = {"fields_modified_count": 1, "fields_added_count": 0, "correlations": {}}
         result = OperationResult(status=OperationStatus.PENDING)
 
         with patch.object(op, "_generate_visualizations", return_value={"bar": tmp_path / "b.png"}):
