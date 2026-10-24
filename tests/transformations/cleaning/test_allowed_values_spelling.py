@@ -2,8 +2,8 @@
 
 The constraint is applied to a field that is categorical: either the column has the pandas
 ``category`` dtype or the field is declared ``"data_type": "categorical"``. A text column declared
-``"data_type": "string"`` is NOT covered by these two constraint types (the probe that suggested a
-no-op used ``"string"``). Invalid values are nullified; the replacement of nulls is the separate
+``"data_type": "string"`` is not covered by these two constraint types and is rejected with an
+``InvalidParameterError`` (ASB-OPS-14; before that it was skipped silently). Invalid values are nullified; the replacement of nulls is the separate
 ``null_replacement`` parameter (the constraint has no ``replacement_*`` keys).
 """
 
@@ -49,12 +49,17 @@ def test_disallowed_values_nullifies_just_those(tmp_path):
     assert out.isna().sum() == (frame["city"] == "Oslo").sum() > 0
 
 
-def test_a_string_declared_field_is_not_touched_by_allowed_values(tmp_path):
-    """Pins the current, documented limit: 'string' is not 'categorical'."""
+def test_a_string_declared_field_with_allowed_values_is_rejected_not_ignored(tmp_path):
+    """ASB-OPS-14: 'string' is not 'categorical'; the constraint used to be skipped silently."""
     frame = _frame()
-    out = _run(tmp_path, {"data_type": "string", "constraint_type": "allowed_values",
-                          "allowed_values": ["Paris"]}, frame)
-    assert out.isna().sum() == 0 and set(out) == set(frame["city"])
+    op = CleanInvalidValuesOperation(
+        field_constraints={"city": {"data_type": "string", "constraint_type": "allowed_values",
+                                    "allowed_values": ["Paris"]}},
+        use_cache=False,
+    )
+    result = op.execute(DataSource(dataframes={"main": frame}), tmp_path, None)
+    assert result.status == OperationStatus.ERROR
+    assert "'city'" in result.error_message and '"data_type": "categorical"' in result.error_message
 
 
 def test_invalid_values_are_replaced_with_null_replacement(tmp_path):

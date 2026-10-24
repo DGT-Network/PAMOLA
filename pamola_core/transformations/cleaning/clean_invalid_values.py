@@ -48,7 +48,11 @@ from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.error_handler import ErrorHandler
-from pamola_core.errors.exceptions import FeatureNotImplementedError, ValidationError
+from pamola_core.errors.exceptions import (
+    FeatureNotImplementedError,
+    InvalidParameterError,
+    ValidationError,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
@@ -58,6 +62,43 @@ from pamola_core.transformations.schemas.clean_invalid_values_core_schema import
 
 # Configure module logger
 logger = logging.getLogger(__name__)
+
+
+#: constraint_type -> (field kinds it applies to, parameters it needs). The kinds mirror the
+#: branches of ``process_batch``: a constraint outside its kind used to be skipped silently.
+_CONSTRAINTS = {
+    "min_value": (("numeric",), ("min_value",)),
+    "max_value": (("numeric",), ("max_value",)),
+    "valid_range": (("numeric",), ("min_value", "max_value")),
+    "custom_function": (("numeric",), ()),
+    "allowed_values": (("categorical",), ("allowed_values",)),
+    "disallowed_values": (("categorical",), ("disallowed_values",)),
+    "whitelist_file": (("categorical",), ("whitelist_file",)),
+    "blacklist_file": (("categorical",), ("blacklist_file",)),
+    "pattern": (("categorical",), ("pattern",)),
+    "min_date": (("date",), ("min_date",)),
+    "max_date": (("date",), ("max_date",)),
+    "date_range": (("date",), ("min_date", "max_date")),
+    "valid_format": (("date", "text"), ("valid_format",)),
+    "min_length": (("text",), ("min_length",)),
+    "max_length": (("text",), ("max_length",)),
+    "valid_pattern": (("text",), ("valid_pattern",)),
+}
+_KIND_DECLARATION = {"numeric": "numeric", "categorical": "categorical", "date": "date", "text": "text"}
+
+
+def _field_kinds(dtype, data_type) -> set:
+    """The kinds of constraint ``process_batch`` applies to a column of this dtype / declaration."""
+    kinds = set()
+    if is_numeric_dtype(dtype) or data_type == "numeric":
+        kinds.add("numeric")
+    if isinstance(dtype, CategoricalDtype) or data_type == "categorical":
+        kinds.add("categorical")
+    if is_datetime64_any_dtype(dtype) or data_type == "date":
+        kinds.add("date")
+    if is_string_dtype(dtype) or is_object_dtype(dtype) or data_type == "text":
+        kinds.add("text")
+    return kinds
 
 
 @register(version="1.0.0")
@@ -807,6 +848,53 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
         return parameters
 
+    def _validate_constraints(self, df) -> None:
+        """Reject a constraint that cannot apply instead of skipping it silently.
+
+        Raises ``InvalidParameterError`` naming the field and the fix when the constraint type
+        is missing or unknown, its parameters are missing, or the field is not of a kind the
+        constraint applies to (for example ``allowed_values`` on a field that is not declared
+        ``"data_type": "categorical"`` and is not a pandas ``category`` column).
+        """
+        for field_name, config in (self.field_constraints or {}).items():
+            if not field_name or field_name not in df.columns:
+                continue
+            config = config or {}
+            constraint_type = config.get("constraint_type")
+            param = f"field_constraints['{field_name}']"
+            if constraint_type not in _CONSTRAINTS:
+                raise InvalidParameterError(
+                    param_name=f"{param}['constraint_type']",
+                    param_value=constraint_type,
+                    reason=(
+                        f"field '{field_name}' has no valid constraint_type, so nothing would "
+                        f"be checked. Use one of: {', '.join(sorted(_CONSTRAINTS))}."
+                    ),
+                )
+            kinds, needs = _CONSTRAINTS[constraint_type]
+            missing = [key for key in needs if config.get(key) is None]
+            if missing:
+                raise InvalidParameterError(
+                    param_name=f"{param}[{missing[0]!r}]",
+                    param_value=None,
+                    reason=(
+                        f"constraint '{constraint_type}' on field '{field_name}' needs "
+                        f"{', '.join(repr(k) for k in missing)}; without it nothing is checked."
+                    ),
+                )
+            present = _field_kinds(df.dtypes[field_name], config.get("data_type"))
+            if not present & set(kinds):
+                declare = " or ".join(f'"data_type": "{_KIND_DECLARATION[k]}"' for k in kinds)
+                raise InvalidParameterError(
+                    param_name=f"{param}['constraint_type']",
+                    param_value=constraint_type,
+                    reason=(
+                        f"constraint '{constraint_type}' does not apply to field '{field_name}' "
+                        f"(dtype {df.dtypes[field_name]}), so it would be ignored. Declare "
+                        f"{declare} for the field, or use a constraint type that matches its dtype."
+                    ),
+                )
+
     def _process_dataframe(
         self, df: pd.DataFrame, progress_tracker: Optional[HierarchicalProgressTracker]
     ) -> pd.DataFrame:
@@ -828,6 +916,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
         from pamola_core.transformations.commons.processing_utils import (
             process_dataframe_with_config,
         )
+
+        self._validate_constraints(df)
 
         processed_df = process_dataframe_with_config(
             df=df,

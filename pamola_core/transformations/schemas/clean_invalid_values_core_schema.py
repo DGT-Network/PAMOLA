@@ -53,14 +53,19 @@ class CleanInvalidValuesOperationConfig(OperationConfig):
                         "title": "Field Constraints",
                         "description": (
                             "Dictionary defining validation rules for each field to identify invalid values.\n"
-                            "Constraint types:\n"
-                            "- min/max: Numeric range boundaries\n"
-                            "- pattern: Regular expression pattern for text validation\n"
-                            "- allowed_values / disallowed_values: List of valid / invalid values; applied to a field declared "
-                            "\"data_type\": \"categorical\" (or a pandas category column), other values become null\n"
-                            "- data_type: Expected data type (int, float, str, etc.)\n"
-                            "- not_null: Whether null values are allowed\n\n"
-                            "Example: {'age': {'min': 0, 'max': 150}, 'email': {'pattern': r'^[\\w.-]+@'}}"
+                            "Each field names one 'constraint_type' (a missing or unknown one is rejected). A constraint\n"
+                            "that cannot apply to the field's kind is rejected too, never skipped silently.\n"
+                            "Numeric fields (numeric dtype or \"data_type\": \"numeric\"): min_value, max_value (with the\n"
+                            "same-named key), valid_range (min_value + max_value), custom_function.\n"
+                            "Categorical fields (pandas category dtype or \"data_type\": \"categorical\"): allowed_values,\n"
+                            "disallowed_values (value lists), whitelist_file, blacklist_file, pattern.\n"
+                            "Date fields (datetime dtype or \"data_type\": \"date\"): min_date, max_date, date_range, valid_format.\n"
+                            "Text fields (string / object dtype or \"data_type\": \"text\"): min_length, max_length,\n"
+                            "valid_pattern, valid_format.\n"
+                            "Invalid values become null; replace them with null_replacement.\n\n"
+                            "Example: {'age': {'constraint_type': 'valid_range', 'min_value': 0, 'max_value': 150},\n"
+                            "'status': {'data_type': 'categorical', 'constraint_type': 'allowed_values',\n"
+                            "'allowed_values': ['active', 'inactive']}}"
                         ),
                         "default": None,
                     },
