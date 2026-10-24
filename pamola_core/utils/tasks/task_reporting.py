@@ -24,6 +24,7 @@ import socket
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
+from pamola_core.utils.artifact_policy import ArtifactClass, class_for_category
 from pamola_core.errors.exceptions import ReportingError
 from pamola_core.utils.io import write_json, ensure_directory
 from pamola_core.utils.tasks.task_config import validate_path_security
@@ -241,6 +242,7 @@ class TaskReporter:
         tags: Optional[List[str]] = None,
         group_name: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        artifact_class: Optional[ArtifactClass] = None,
     ):
         """
         Add an artifact to the report.
@@ -254,6 +256,8 @@ class TaskReporter:
             tags: Tags for categorizing the artifact
             group_name: Name of the group to add this artifact to
             metadata: Additional metadata for the artifact
+            artifact_class: Class of the artifact (data, protected_mapping,
+                aggregate_metric, diagnostic, evidence); derived from ``category`` when omitted
         """
         # Use progress manager for artifact addition if available
         if self.progress_manager:
@@ -280,6 +284,7 @@ class TaskReporter:
                         tags or [],
                         group_name,
                         metadata or {},
+                        artifact_class,
                     )
 
                     progress.update(1, {"status": "added"})
@@ -300,6 +305,7 @@ class TaskReporter:
                 tags or [],
                 group_name,
                 metadata or {},
+                artifact_class,
             )
 
     def _process_artifact(
@@ -311,6 +317,7 @@ class TaskReporter:
         tags: List[str],
         group_name: Optional[str],
         metadata: Dict[str, Any],
+        artifact_class: Optional[ArtifactClass] = None,
     ):
         """
         Process and add an artifact to the report (internal helper method).
@@ -347,6 +354,11 @@ class TaskReporter:
             "filename": filename,
             "description": description,
             "category": category,
+            "artifact_class": (
+                ArtifactClass(artifact_class)
+                if artifact_class is not None
+                else class_for_category(category)
+            ).value,
             "tags": tags,
             "size_bytes": size_bytes,
             "timestamp": timestamp or datetime.now().isoformat(),

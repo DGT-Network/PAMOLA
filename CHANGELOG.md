@@ -68,6 +68,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Security
 
+- **Artifact classes (new module `pamola_core.utils.artifact_policy`).** Every registered artifact carries an
+  `ArtifactClass` - `data`, `protected_mapping`, `aggregate_metric`, `diagnostic` or `evidence` - in
+  `OperationArtifact`, `OperationResult.add_artifact(artifact_class=..., contains_source_values=...)`, the task
+  reporter and `to_dict()` (with `contains_source_values` and `not_for_release`). When omitted the class is derived
+  from the legacy `category` (output -> data, metrics -> aggregate_metric, mapping -> protected_mapping,
+  dictionary / visualization / unknown -> diagnostic; `dictionary` artifacts are registered with
+  `contains_source_values=True`). Rule: an artifact that contains source values is never an `aggregate_metric` or
+  `evidence` (`ArtifactPolicyError`).
+
 - **Pickle is never loaded implicitly - BREAKING for callers that read pickle files.** `MappingStore.load_pickle`
   (and `MappingStore.load` for `.pkl`/`.pickle` files or `format="pickle"`) and `read_dataframe` for the
   `pickle` format called `pickle.load` / `pandas.read_pickle` on a user-supplied path, which executes code

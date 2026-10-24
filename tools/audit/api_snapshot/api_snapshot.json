@@ -2666,6 +2666,7 @@
   "pamola_core.transformations.splitting.split_by_id_values_op",
   "pamola_core.transformations.splitting.split_fields_op",
   "pamola_core.utils",
+  "pamola_core.utils.artifact_policy",
   "pamola_core.utils.base_reporting",
   "pamola_core.utils.cli",
   "pamola_core.utils.crypto",
