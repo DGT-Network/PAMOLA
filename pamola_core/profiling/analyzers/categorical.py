@@ -805,7 +805,7 @@ class CategoricalOperation(FieldOperation):
             timeout = getattr(self, "visualization_timeout", None)
             if not wait_for_render(thread, render_run, timeout, self.logger):
                 del result.artifacts[artifacts_before:]
-                return f"Error: visualization did not finish within {timeout}s"
+                return f"Error: visualization did not finish within {render_run.limit:g}s"
             return viz_result_holder["result"]
 
         except Exception as e:

@@ -47,6 +47,8 @@ class RenderRun:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
+        #: Seconds the operation waited (or will wait): the effective limit, not the raw setting.
+        self.limit: float = DEFAULT_VISUALIZATION_TIMEOUT
         self._cancelled = False
         self._written: List[Path] = []
 
@@ -126,6 +128,7 @@ def wait_for_render(
     """
     log = log or logger
     limit = float(timeout) if timeout and float(timeout) > 0 else DEFAULT_VISUALIZATION_TIMEOUT
+    run.limit = limit
     waited = 0.0
     while thread.is_alive() and waited < limit:
         step = min(interval, limit - waited)

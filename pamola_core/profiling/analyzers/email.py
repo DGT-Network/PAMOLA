@@ -1129,7 +1129,7 @@ class EmailOperation(FieldOperation):
             # Bounded wait: on timeout the run is cancelled and cleaned up
             if not wait_for_render(viz_thread, render_run, vis_timeout, self.logger):
                 visualization_error = VisualizationTimeoutError(
-                    f"visualization did not finish within {vis_timeout}s"
+                    f"visualization did not finish within {render_run.limit:g}s"
                 )
 
             if visualization_error:

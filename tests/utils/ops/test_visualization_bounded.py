@@ -114,3 +114,28 @@ def test_a_nonpositive_timeout_is_still_finite(tmp_path):
     thread = threading.Thread(target=ctx.run, args=(lambda: None,), daemon=True)
     thread.start()
     assert wait_for_render(thread, run, 0) is True
+
+
+def test_the_timeout_error_names_the_effective_limit(tmp_path, monkeypatch):
+    """ASB-OPS-12: with the timeout unset (0) the message says the 120 s default, not '0s'."""
+    from pamola_core.utils.vis_helpers import render_guard
+
+    monkeypatch.setattr(render_guard, "DEFAULT_VISUALIZATION_TIMEOUT", 1.0)   # keep the test short
+    release = threading.Event()
+
+    def stuck(self, *args, **kwargs):
+        release.wait(30)
+        return {}
+
+    op = FullMaskingOperation(field_name="name")
+    op.generate_visualization = True
+    op.visualization_backend = "matplotlib"
+    op.visualization_timeout = 0
+    monkeypatch.setattr(type(op), "_generate_visualizations", stuck)
+    try:
+        result = op.execute(DataSource(dataframes={"main": _frame()}), tmp_path, None)
+    finally:
+        release.set()
+    message = result.metrics.get("visualization_error", "")
+    assert "VisualizationTimeoutError" in message and "within 1s" in message, message
+    assert "within 0s" not in message and "None" not in message

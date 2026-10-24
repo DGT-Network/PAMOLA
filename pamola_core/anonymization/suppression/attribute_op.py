@@ -1101,7 +1101,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 del result.artifacts[artifacts_before:]
                 viz_error = VisualizationTimeoutError(
                     "visualization did not finish within "
-                    f"{getattr(self, 'visualization_timeout', None)}s"
+                    f"{render_run.limit:g}s"
                 )
 
             if viz_error:
