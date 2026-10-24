@@ -21,6 +21,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   when declared with the new `ordinal_columns` parameter of `DistanceToClosestRecord` and
   `NearestNeighborDistanceRatio` (names, or `{column: [categories in increasing order]}`).
   Nominal columns with more than 1000 one-hot features together raise `ResourceError`.
+- **DCR / NNDR: the nominal/ordinal decision follows the dtype.** A pandas categorical and a
+  boolean column are nominal whatever their labels are (numeric or date-like labels are names, not
+  measurements; a `True`/`False` mismatch is one unit). An object column of Python numbers is
+  numeric, never parsed as dates. Missing values (`None`, `NaN`, `pd.NA`) form one extra category
+  that cannot equal the real labels `'None'` / `'nan'`. Generated one-hot names never collide with
+  input column names and the type of a feature is tracked by position (a numeric column named
+  `c=A` next to a categorical `c` was previously scaled as a one-hot column). The
+  `ordinal_columns` declaration is validated before encoding: unknown names, repeated or empty
+  orders and numeric/datetime columns raise `ValidationError`.
+  `prepare_data_for_distance_metrics` uses the same nominal-aware schema.
+- **DCR / NNDR: Mahalanobis works.** `VI` is the pseudo-inverse of the covariance of the original's
+  prepared features (one-hot columns make the covariance singular).
+- **DCR: forced FAISS equals the exact search.** `use_faiss=True` with `mean_k` averages the
+  distances (the square root is taken per neighbour before averaging; Euclidean `mean_k` is now also
+  eligible for automatic FAISS selection); `percentile` falls back to the exact search visibly
+  (`backend_fallback`), since FAISS sees only the nearest neighbours.
+- **CVPL: eigenvalues at the rounding level are numerically zero.** Values up to
+  `10 * eps * dimension * (largest eigenvalue)` are tied with each other, so a cut-off inside the
+  null eigenspace of a rank-deficient covariance sets `cutoff_in_degenerate_eigenspace` and adds the
+  warning.
 - **DCR: `privacy_score` is removed** (and `DistanceToClosestRecord._calculate_privacy_score`).
   The `d * m^(-1/4)`, `1 - exp(-x)` normalization had no justification and no calibration, and
   values with a different number of columns were not comparable. Use the raw `dcr_statistics`
@@ -730,7 +750,7 @@ unchanged public values (descriptions reworded).
     version; hierarchy mappings are never written to `config.json`, cache metadata or logs (digest and
     size instead); `OperationResult.metrics` carries the full structured result (statuses, bounds,
     nulls, trajectories); a cached run returns `SUCCESS` (it returned `PENDING`).
-  - Documented: CVPL is a white-box, upper-bound evaluation; duplicate-row invariance holds under a
+  - Documented: CVPL is a white-box evaluation whose identification quantities are the maximum over the declared attacker profiles and fixed strategies (not an upper bound for an arbitrary attacker); duplicate-row invariance holds under a
     fixed representation only; G2/G4 differ from BEST (pinned, legacy-only).
 - **CVPL linkage exposure metric** (`pamola_core.metrics.CVPLLinkageOperation`, engine in
   `pamola_core.metrics.privacy.cvpl`; ADR-CVPL-001). The operator chain

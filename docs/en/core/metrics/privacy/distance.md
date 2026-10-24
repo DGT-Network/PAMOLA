@@ -42,8 +42,11 @@ Implements Distance to Closest Record (DCR) privacy metric, which measures the m
 - Nominal categorical features are one-hot encoded with a fixed weight: a mismatch of any two categories is one unit of Euclidean distance, whatever the categories are (`ordinal_columns` declares columns whose categories have an order; they are encoded as ranks)
 - Multiple aggregation methods: min, mean_k (k-nearest neighbors), percentile-based
 - FAISS support for efficient large-scale nearest neighbor search
+- The dtype decides nominal vs numeric: pandas categoricals and booleans are nominal even with numeric labels; missing values are one category of their own
+- Mahalanobis uses the pseudo-inverse covariance of the original's prepared features
+- Forced FAISS returns the same statistics as the exact search (`percentile` falls back to it, visibly)
 - Distance statistics and percentiles; counts below caller-supplied `distance_thresholds`
-- Neutral description of the numbers (no verdicts); there is no `privacy_score`: DCR and NNDR are technical distance diagnostics, not a probability of re-identification
+- Neutral description of the numbers (no verdicts); DCR and NNDR are technical distance diagnostics, not a probability of re-identification
 
 ## 5. API Reference & Key Methods
 | Method | Description |
