@@ -98,6 +98,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   at the end of every default run (`matrix_df` was assigned only inside the heatmap branch). It is
   initialised before the branch. Found by the all-profilers log-canary test.
 
+- **A profiling test no longer depends on the implicit FastText download (assembly finding).**
+  `test_analyze_language_module_function` called the real language detector on three one-letter strings
+  and expected `en`, which only the downloaded FastText model produced; offline (the default since SEC-01)
+  langdetect answers differently. The test now calls the patched module attribute, as intended.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 from pathlib import Path
 from pamola_core.profiling.analyzers.text import TextSemanticCategorizerOperation
+from pamola_core.profiling.commons import text_utils
 from pamola_core.profiling.commons.text_utils import extract_text_and_ids, find_dictionary_file, analyze_language
 from pamola_core.utils.ops.op_result import OperationStatus, OperationResult
 
@@ -101,7 +102,10 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
         # Patch it at its source location
         with patch("pamola_core.profiling.commons.text_utils.analyze_language",
                    return_value={"predominant_language": "en", "language_distribution": {"en": 2, "fr": 1}}) as mock_detect:
-            res = analyze_language(["a", "b", "c"])
+            # call through the module: the patch replaces the module attribute, not the name
+            # imported above (which would run the real detector - and, offline by default, a
+            # different one than the model-backed detector this test used to rely on)
+            res = text_utils.analyze_language(["a", "b", "c"])
             self.assertEqual(res["predominant_language"], "en")
 
     @patch("pamola_core.profiling.analyzers.text.analyze_null_and_empty", return_value={"total_records": 2, "null_values": {"percentage": 0}, "empty_strings": {"percentage": 0}})
