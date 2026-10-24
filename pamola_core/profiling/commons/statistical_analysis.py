@@ -5,7 +5,6 @@ This module provides functions for statistical analysis, including normality tes
 outlier detection, and distribution analysis that can be applied to various types of data.
 """
 
-import logging
 from typing import Dict, Any
 
 import pandas as pd
@@ -13,8 +12,8 @@ import numpy as np
 from scipy import stats
 import pamola_core.utils.logging as pamola_logging
 
-# Configure logger using the custom logging utility
-logger = pamola_logging.configure_logging(level=logging.INFO)
+# A module logger only: handlers, level and propagation belong to the application
+logger = pamola_logging.getLogger(__name__)
 
 
 def calculate_distribution_metrics(data: pd.Series) -> Dict[str, float]:

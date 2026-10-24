@@ -200,6 +200,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Importing `pamola_core.profiling` no longer takes over the application's logging.** Four modules (`profiling/commons/currency_analysis`, `data_processing`, `report_generation`, `statistical_analysis`) called `configure_logging()` at import time. With its default name that reconfigured the package-root logger `pamola_core`: a stdout handler was added and `propagate` was set to `False`, so every warning of every `pamola_core.*` logger stopped there and never reached the application's own handlers (or a test's `caplog`). They now use `getLogger(__name__)`; handlers, level and propagation belong to the application. Log lines that used to be printed to stdout by that handler now follow the application's logging configuration. The test suite restores logging state around every test (`tests/conftest.py`).
+
 - **Pseudonymization (hash-based, consistent mapping): a failed visualization is reported in `result.metrics["visualization_error"]` (CDX-R2-7b)**, not only logged; the pseudonymized output and status are unchanged.
 - **Reversible mapping could not be reloaded with the default format
   (MAP-01, MAP-02).** `ConsistentMappingPseudonymizationOperation` with its
