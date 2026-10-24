@@ -108,6 +108,8 @@ class TestFakeOrganizationOperationInit(unittest.TestCase):
             "key": None,
             "context_salt": "context-123",
             "save_mapping": True,
+            "use_encryption": True,
+            "encryption_key": "unit-test-task-key",
             "column_prefix": "_",
             "collect_type_distribution": True,
             "type_field": "type",
@@ -382,6 +384,8 @@ class PrepareData:
             "key": None,
             "context_salt": "context-123",
             "save_mapping": True,
+            "use_encryption": True,
+            "encryption_key": "unit-test-task-key",
             "column_prefix": "_",
             "collect_type_distribution": True,
             "type_field": "type",
@@ -448,7 +452,7 @@ class TestFakeOrganzationOperationExecute(unittest.TestCase):
                     msg=f"Unexpected artifact file type: {artifact.path}"
                 )
                 self.assertIsInstance(artifact.description, str)
-                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping"])
                 self.assertIsInstance(artifact.tags, list)
                 self.assertIsInstance(artifact.creation_time, str)
                 self.assertIsInstance(artifact.size, int)
@@ -509,7 +513,7 @@ class TestFakeOrganzationOperationExecute(unittest.TestCase):
                     msg=f"Unexpected artifact file type: {artifact.path}"
                 )
                 self.assertIsInstance(artifact.description, str)
-                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping"])
                 self.assertIsInstance(artifact.tags, list)
                 self.assertIsInstance(artifact.creation_time, str)
                 self.assertIsInstance(artifact.size, int)

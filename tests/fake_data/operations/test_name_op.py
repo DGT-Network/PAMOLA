@@ -92,6 +92,8 @@ class TestFakeNameOperationInit(unittest.TestCase):
             "key": "my-secret-key",
             "context_salt": "context-123",
             "save_mapping": True,
+            "use_encryption": True,
+            "encryption_key": "unit-test-task-key",
             "column_prefix": "_"
         }
 
@@ -357,6 +359,8 @@ class PrepareData:
             "key": "my-secret-key",
             "context_salt": "context-123",
             "save_mapping": True,
+            "use_encryption": True,
+            "encryption_key": "unit-test-task-key",
             "column_prefix": "_"
         }
 
@@ -418,7 +422,7 @@ class TestFakeNameOperationExecute(unittest.TestCase):
                     msg=f"Unexpected artifact file type: {artifact.path}"
                 )
                 self.assertIsInstance(artifact.description, str)
-                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping"])
                 self.assertIsInstance(artifact.tags, list)
                 self.assertIsInstance(artifact.creation_time, str)
                 self.assertIsInstance(artifact.size, int)
@@ -479,7 +483,7 @@ class TestFakeNameOperationExecute(unittest.TestCase):
                     msg=f"Unexpected artifact file type: {artifact.path}"
                 )
                 self.assertIsInstance(artifact.description, str)
-                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIn(artifact.category, ["output", "metrics", "visualization", "mapping"])
                 self.assertIsInstance(artifact.tags, list)
                 self.assertIsInstance(artifact.creation_time, str)
                 self.assertIsInstance(artifact.size, int)

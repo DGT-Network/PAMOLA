@@ -77,6 +77,8 @@ from pamola_core.utils.io import (
     load_settings_operation,
 )
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.utils.artifact_policy import ArtifactClass, require_encryption_key
+import pamola_core.utils.io as pamola_io
 from pamola_core.utils.ops.op_base import FieldOperation
 
 # Import framework utilities
@@ -182,6 +184,15 @@ class GeneratorOperation(FieldOperation):
         self._metrics_collector = create_metrics_collector(
             include_raw_samples=self.include_raw_samples_in_metrics
         )
+
+        # === Protected mapping ===
+        # The mapping holds original values (PROTECTED_MAPPING): it is only written
+        # encrypted with the task key, so saving without that key is refused up front.
+        if self.save_mapping:
+            require_encryption_key(
+                self.encryption_key if self.use_encryption else None,
+                "the fake_data mapping (save_mapping=True)",
+            )
 
         # === Optional Mapping Store Setup ===
         if mapping_store_path:
@@ -602,6 +613,46 @@ class GeneratorOperation(FieldOperation):
                 },
             )
 
+    def _save_protected_mapping(
+        self, task_dir: Union[str, Path], result: OperationResult, reporter: Any = None
+    ) -> Optional[Path]:
+        """Write the mapping store as an encrypted PROTECTED_MAPPING artifact.
+
+        Never writes plain text: the task encryption key is required (checked at
+        construction and again here).
+        """
+        if not (
+            self.save_mapping and hasattr(self, "mapping_store") and self.mapping_store
+        ):
+            return None
+        key = require_encryption_key(
+            self.encryption_key if self.use_encryption else None,
+            "the fake_data mapping (save_mapping=True)",
+        )
+        mapping_dir = Path(task_dir) / "maps"
+        pamola_io.ensure_directory(mapping_dir)
+        mapping_path = mapping_dir / f"{self.name}_{self.field_name}_mapping.json"
+        self.mapping_store.save_json(mapping_path, encryption_key=key)
+        description = f"Encrypted fake_data mapping for {self.field_name}"
+        result.add_artifact(
+            "json",
+            mapping_path,
+            description,
+            category=Constants.Artifact_Category_Mapping,
+            artifact_class=ArtifactClass.PROTECTED_MAPPING,
+            contains_source_values=True,
+        )
+        if reporter:
+            reporter.add_artifact(
+                "json",
+                str(mapping_path),
+                description,
+                category=Constants.Artifact_Category_Mapping,
+                artifact_class=ArtifactClass.PROTECTED_MAPPING,
+            )
+        self.logger.info(f"Saved encrypted mapping to {mapping_path.name}")
+        return mapping_path
+
     def _initialize_mapping_store(self, path: Union[str, Path]) -> None:
         """
         Initialize the mapping store if needed.
@@ -618,7 +669,12 @@ class GeneratorOperation(FieldOperation):
             # Load existing mappings if the file exists
             path_obj = Path(path)
             if path_obj.exists():
-                self.mapping_store.load(path_obj)
+                self.mapping_store.load(
+                    path_obj,
+                    encryption_key=(
+                        self.encryption_key if self.use_encryption else None
+                    ),
+                )
                 self.logger.info(f"Loaded mapping store from {path_obj.name}")
         except Exception as e:
             self.logger.warning(f"Failed to initialize mapping store: {str(e)}")

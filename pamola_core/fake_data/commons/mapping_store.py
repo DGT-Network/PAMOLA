@@ -514,9 +514,18 @@ class MappingStore:
                 self.mappings[field_name]
             )
 
-    def save_json(self, path: Union[str, Path], io_module=None) -> None:
+    def save_json(
+        self,
+        path: Union[str, Path],
+        io_module=None,
+        encryption_key: Optional[str] = None,
+    ) -> None:
         """
         Saves the mapping store to a JSON file.
+
+        The mapping holds original values. Without ``encryption_key`` the file is plain
+        text: only use that for throw-away local files. ``fake_data`` operations always
+        pass the task key (see ``BaseGeneratorOperation``).
 
         Parameters
         -----------
@@ -524,6 +533,8 @@ class MappingStore:
             Path to save the JSON file
         io_module : module, optional
             Legacy parameter for backward compatibility (optional)
+        encryption_key : str, optional
+            Encrypt the file with this key
         """
         # Prepare serializable data
         serializable_data = self._prepare_serializable_data()
@@ -531,13 +542,25 @@ class MappingStore:
         # Use provided io_module if available (backward compatibility)
         if io_module:
             io_module.write_json(serializable_data, path)
+        elif encryption_key:
+            pamola_io.write_json(
+                serializable_data,
+                path,
+                encryption_key=encryption_key,
+                use_encryption=True,
+            )
         else:
             # Use standard io module from pamola_core.utils
             pamola_io.write_json(serializable_data, path)
 
         logger.info(f"Saved mapping store to JSON: {path}")
 
-    def load_json(self, path: Union[str, Path], io_module=None) -> None:
+    def load_json(
+        self,
+        path: Union[str, Path],
+        io_module=None,
+        encryption_key: Optional[str] = None,
+    ) -> None:
         """
         Loads the mapping store from a JSON file.
 
@@ -547,12 +570,18 @@ class MappingStore:
             Path to the JSON file
         io_module : module, optional
             Legacy parameter for backward compatibility (optional)
+        encryption_key : str, optional
+            Key to decrypt a file written with ``save_json(..., encryption_key=...)``
         """
         logger.info(f"Loading mapping store from JSON: {path}")
 
         # Use provided io_module if available (backward compatibility)
         if io_module:
             data = io_module.read_json(path)
+        elif encryption_key:
+            data = pamola_io.read_json(
+                path, encryption_key=encryption_key, use_encryption=True
+            )
         else:
             # Use standard io module from pamola_core.utils
             data = pamola_io.read_json(path)
@@ -944,6 +973,7 @@ class MappingStore:
         overwrite_existing: bool = True,
         fields_to_load: Optional[List[str]] = None,
         allow_unsafe_pickle: bool = False,
+        encryption_key: Optional[str] = None,
     ) -> Dict[str, int]:
         """
         Loads the mapping store from a file.
@@ -962,6 +992,8 @@ class MappingStore:
         allow_unsafe_pickle : bool
             Explicit opt-in required to load the "pickle" format, which executes
             code from the file (default: False; pickle files are refused)
+        encryption_key : Optional[str]
+            Key for a JSON file written encrypted by ``save_json``
 
         Returns
         --------
@@ -992,7 +1024,7 @@ class MappingStore:
 
         # Otherwise, load the full file (overwriting existing data)
         if format.lower() == "json":
-            self.load_json(path)
+            self.load_json(path, encryption_key=encryption_key)
             return {}
         elif format.lower() == "pickle":
             self.load_pickle(path, allow_unsafe_pickle=allow_unsafe_pickle)

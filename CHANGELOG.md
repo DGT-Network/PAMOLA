@@ -68,6 +68,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Security
 
+- **Reversible mappings are written encrypted only - BREAKING for `fake_data` with `save_mapping=True`.** The four
+  `fake_data` operations wrote `maps/<operation>_<field>_mapping.json` in clear text (original values and their
+  substitutes). The file is now a `protected_mapping` artifact encrypted with the task key; constructing an operation with
+  `save_mapping=True` without `use_encryption=True` and an `encryption_key` raises `ArtifactPolicyError`. `MappingStore.save_json`
+  / `load_json` / `load` accept `encryption_key`, and `mapping_store_path` files are read with the task key. The category
+  mapping of `CategoricalGeneralizationOperation` (`mappings/<field>_category_mapping.json`, original categories) is
+  written the same way and, without an encryption key, is not written at all. No operation writes a plain-text mapping file.
+
 - **Artifact classes (new module `pamola_core.utils.artifact_policy`).** Every registered artifact carries an
   `ArtifactClass` - `data`, `protected_mapping`, `aggregate_metric`, `diagnostic` or `evidence` - in
   `OperationArtifact`, `OperationResult.add_artifact(artifact_class=..., contains_source_values=...)`, the task

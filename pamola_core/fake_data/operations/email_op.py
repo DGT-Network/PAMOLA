@@ -216,13 +216,8 @@ class FakeEmailOperation(GeneratorOperation):
             data_source, task_dir, reporter, progress_tracker, **kwargs
         )
 
-        # Save mapping if requested
-        if self.save_mapping and hasattr(self, "mapping_store") and self.mapping_store:
-            mapping_dir = Path(task_dir) / "maps"
-            io.ensure_directory(mapping_dir)
-            mapping_path = mapping_dir / f"{self.name}_{self.field_name}_mapping.json"
-            self.mapping_store.save_json(mapping_path)
-            self.logger.info(f"Saved mapping to {Path(mapping_path).name}")
+        # Save mapping if requested (encrypted PROTECTED_MAPPING only)
+        self._save_protected_mapping(task_dir, result, reporter)
 
         return result
 
