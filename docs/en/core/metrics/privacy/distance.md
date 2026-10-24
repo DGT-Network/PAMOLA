@@ -28,7 +28,6 @@ Implements Distance to Closest Record (DCR) privacy metric, which measures the m
     - _calculate_dcr_faiss
     - _interpret_dcr
     - _calculate_dcr_sklearn
-    - _calculate_privacy_score
 
 ## 3. Architecture & Data Flow
 - DCR class calculates minimum distances from synthetic to original records
@@ -39,11 +38,12 @@ Implements Distance to Closest Record (DCR) privacy metric, which measures the m
 ## 4. Main Functionalities & Features
 - Calculate DCR (Distance to Closest Record) for privacy assessment
 - Support for multiple distance metrics: euclidean, manhattan, cosine, mahalanobis
-- Optional feature normalization using StandardScaler
+- Optional standardization (StandardScaler) of numeric, datetime and declared-ordinal features
+- Nominal categorical features are one-hot encoded with a fixed weight: a mismatch of any two categories is one unit of Euclidean distance, whatever the categories are (`ordinal_columns` declares columns whose categories have an order; they are encoded as ranks)
 - Multiple aggregation methods: min, mean_k (k-nearest neighbors), percentile-based
 - FAISS support for efficient large-scale nearest neighbor search
-- Percentile distribution calculation for risk assessment
-- Human-readable risk interpretation and recommendations
+- Distance statistics and percentiles; counts below caller-supplied `distance_thresholds`
+- Neutral description of the numbers (no verdicts); there is no `privacy_score`: DCR and NNDR are technical distance diagnostics, not a probability of re-identification
 
 ## 5. API Reference & Key Methods
 | Method | Description |
@@ -53,7 +53,6 @@ Implements Distance to Closest Record (DCR) privacy metric, which measures the m
 | `_calculate_dcr_faiss(...)` | Calculate DCR using FAISS index for efficient nearest neighbors |
 | `_interpret_dcr(dcr_stats)` | Interpret DCR statistics into risk level |
 | `_calculate_dcr_sklearn(...)` | Calculate DCR using scikit-learn |
-| `_calculate_privacy_score(...)` | Calculate privacy score based on DCR stats |
 
 ## 6. Usage Examples
 ```python

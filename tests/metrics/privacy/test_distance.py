@@ -40,7 +40,7 @@ class TestDistanceToClosestRecord:
         dcr = DistanceToClosestRecord(distance_metric=metric)
         result = dcr.calculate_metric(orig, synth)
         assert "dcr_statistics" in result
-        assert "privacy_score" in result
+        assert "privacy_score" not in result
         assert result["dcr_statistics"]["min"] >= 0
 
     def test_no_normalization(self):
@@ -244,15 +244,6 @@ class TestDistanceToClosestRecord:
             {"records_below": {"0.1": 3}},
         )
         assert "3 below 0.1" in text and "No distance threshold" not in text
-
-    def test__calculate_privacy_score(self):
-        dcr = DistanceToClosestRecord()
-        # Empty dcr_values
-        assert dcr._calculate_privacy_score(np.array([]), 3) == 0.0
-        # Normal case
-        vals = np.array([0.1, 0.2, 0.3])
-        score = dcr._calculate_privacy_score(vals, 3)
-        assert 0.0 < score < 1.0
 
     def test_mismatched_feature_dim(self):
         orig = np.random.rand(10, 3)

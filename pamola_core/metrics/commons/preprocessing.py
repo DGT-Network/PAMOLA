@@ -118,8 +118,52 @@ def _column_kind(a: pd.Series, b: pd.Series) -> str:
     return "categorical"
 
 
+#: Weight of every one-hot column of a nominal categorical feature. Two records that differ in
+#: such a feature differ in exactly two one-hot columns (the category of one and the category of
+#: the other), so with this weight the Euclidean distance contributed by a mismatch is
+#: ``sqrt(2 * (1/sqrt(2))**2) = 1``, whatever the categories are and however many there are.
+#: A numeric feature standardized to unit variance contributes 1 per standard deviation, so a
+#: mismatch of a nominal feature weighs as much as a one-standard-deviation gap of a numeric one.
+NOMINAL_ONE_HOT_WEIGHT = 1.0 / float(np.sqrt(2.0))
+
+#: Ceiling on the number of one-hot columns of all nominal features together; beyond it the
+#: encoding would need more memory than the distance computation can bound.
+MAX_ONE_HOT_FEATURES = 1000
+
+
+def _ordinal_levels(
+    col: str,
+    ordinal_columns: Optional[object],
+    union_levels: Sequence[str],
+) -> Optional[list]:
+    """The declared order of an ordinal column, or ``None`` when the column is nominal."""
+    from pamola_core.errors.exceptions import ValidationError
+
+    if not ordinal_columns:
+        return None
+    if isinstance(ordinal_columns, dict):
+        if col not in ordinal_columns:
+            return None
+        declared = [str(v).strip() for v in ordinal_columns[col]]
+        unknown = [v for v in union_levels if v not in set(declared)]
+        if unknown:
+            raise ValidationError(
+                f"Ordinal column '{col}': the declared order does not list "
+                f"{len(unknown)} value(s) present in the data."
+            )
+        return declared
+    if col not in set(ordinal_columns):
+        return None
+    try:  # numbers sort as numbers, everything else as text
+        return sorted(union_levels, key=float)
+    except (TypeError, ValueError):
+        return sorted(union_levels)
+
+
 def prepare_pair_for_distance_metrics(
-    original_df: pd.DataFrame, transformed_df: pd.DataFrame
+    original_df: pd.DataFrame,
+    transformed_df: pd.DataFrame,
+    ordinal_columns: Optional[object] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Convert two datasets to numeric frames in ONE shared schema.
@@ -131,8 +175,27 @@ def prepare_pair_for_distance_metrics(
     look identical. The two inputs must have the same columns (any order); otherwise a
     ``ValidationError`` names the difference. Rows with a missing numeric / datetime value are
     dropped, as in ``prepare_data_for_distance_metrics``.
+
+    Treatment of categorical columns
+    --------------------------------
+    A categorical column is **nominal** unless the caller declares it ordinal: it is one-hot
+    encoded over the union of the categories of both inputs (one 0/1 column per category,
+    named ``<column>=<category>``), so every pair of different categories is equally far
+    apart. Integer codes (``A=0, B=1, C=2``) would make ``d(A, C) = 2 * d(A, B)`` although
+    nominal values have no order. The one-hot columns are listed in
+    ``frame.attrs["nominal_columns"]`` of both results; ``scale_pair_for_distance`` gives
+    them the weight ``NOMINAL_ONE_HOT_WEIGHT`` so that one mismatch is one unit of Euclidean
+    distance, commensurate with one standard deviation of a standardized numeric feature.
+
+    ``ordinal_columns`` declares columns whose categories have an order: a sequence of column
+    names (the order is the numeric order of the values if all are numbers, otherwise the
+    alphabetical order) or a mapping ``{column: [categories in increasing order]}``. An ordinal
+    column is encoded as the rank of its category, a numeric feature.
+
+    Raises ``ResourceError`` when the nominal columns would need more than
+    ``MAX_ONE_HOT_FEATURES`` one-hot columns together.
     """
-    from pamola_core.errors.exceptions import ValidationError
+    from pamola_core.errors.exceptions import ResourceError, ValidationError
 
     for df in (original_df, transformed_df):
         if df.empty:
@@ -146,27 +209,92 @@ def prepare_pair_for_distance_metrics(
             "features on both sides."
         )
     cols = list(original_df.columns)
-    a_out, b_out = {}, {}
+    a_out: list = []
+    b_out: list = []
+    nominal: list = []
+    width = 0
     for col in cols:
         sa, sb = original_df[col], transformed_df[col]
         kind = _column_kind(sa, sb)
         if kind == "datetime":
             da, db = _as_datetime(sa), _as_datetime(sb)
-            a_out[col] = da.astype("int64").where(~da.isna()).astype(float)
-            b_out[col] = db.astype("int64").where(~db.isna()).astype(float)
+            a_out.append((col, da.astype("int64").where(~da.isna()).astype(float)))
+            b_out.append((col, db.astype("int64").where(~db.isna()).astype(float)))
         elif kind == "numeric":
-            a_out[col] = pd.to_numeric(_plain(sa).astype(float) if sa.dtype == bool else _plain(sa), errors="coerce").astype(float)
-            b_out[col] = pd.to_numeric(_plain(sb).astype(float) if sb.dtype == bool else _plain(sb), errors="coerce").astype(float)
+            a_out.append((col, pd.to_numeric(_plain(sa).astype(float) if sa.dtype == bool else _plain(sa), errors="coerce").astype(float)))
+            b_out.append((col, pd.to_numeric(_plain(sb).astype(float) if sb.dtype == bool else _plain(sb), errors="coerce").astype(float)))
         else:
             ta = _plain(sa).astype(str).str.strip()
             tb = _plain(sb).astype(str).str.strip()
             levels = sorted(set(ta.unique()) | set(tb.unique()))
-            index = {v: float(i) for i, v in enumerate(levels)}
-            a_out[col] = ta.map(index).astype(float)
-            b_out[col] = tb.map(index).astype(float)
-    out_a = pd.DataFrame(a_out, index=original_df.index)[cols].dropna()
-    out_b = pd.DataFrame(b_out, index=transformed_df.index)[cols].dropna()
+            order = _ordinal_levels(col, ordinal_columns, levels)
+            if order is not None:
+                rank = {v: float(i) for i, v in enumerate(order)}
+                a_out.append((col, ta.map(rank).astype(float)))
+                b_out.append((col, tb.map(rank).astype(float)))
+                continue
+            width += len(levels)
+            if width > MAX_ONE_HOT_FEATURES:
+                raise ResourceError(
+                    operation="distance metrics",
+                    reason=(
+                        f"The nominal columns need more than {MAX_ONE_HOT_FEATURES} one-hot "
+                        f"features (column '{col}' has {len(levels)} categories). Drop or "
+                        "generalize high-cardinality columns, or declare the column ordinal "
+                        "with `ordinal_columns` if its categories have an order."
+                    ),
+                )
+            used = {name for name, _ in a_out}
+            for k, level in enumerate(levels):
+                name = f"{col}={level}"
+                if name in used:
+                    name = f"{col}=#{k}"
+                used.add(name)
+                nominal.append(name)
+                a_out.append((name, (ta == level).astype(float)))
+                b_out.append((name, (tb == level).astype(float)))
+    out_a = pd.concat([s.rename(n) for n, s in a_out], axis=1)
+    out_b = pd.concat([s.rename(n) for n, s in b_out], axis=1)
+    out_a.index, out_b.index = original_df.index, transformed_df.index
+    out_a, out_b = out_a.dropna(), out_b.dropna()
+    out_a.attrs["nominal_columns"] = list(nominal)
+    out_b.attrs["nominal_columns"] = list(nominal)
     return out_a, out_b
+
+
+def scale_pair_for_distance(
+    original: pd.DataFrame, transformed: pd.DataFrame, normalize_features: bool
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Turn the frames of ``prepare_pair_for_distance_metrics`` into the arrays the distance
+    backends use.
+
+    Numeric, datetime and ordinal columns are standardized with ONE ``StandardScaler`` fitted on
+    the original (when ``normalize_features``), or used raw. One-hot columns of nominal
+    features are never standardized (their variance depends on category frequency, which would
+    make a mismatch of a rare category count more than a mismatch of a common one); they are
+    multiplied by ``NOMINAL_ONE_HOT_WEIGHT``, so each mismatch is one unit of Euclidean
+    distance. All backends (exact, block-wise, FAISS) receive the same arrays.
+    """
+    from sklearn.preprocessing import StandardScaler
+
+    nominal = set(original.attrs.get("nominal_columns", []))
+    cols = list(original.columns)
+    numeric_idx = [i for i, c in enumerate(cols) if c not in nominal]
+    nominal_idx = [i for i, c in enumerate(cols) if c in nominal]
+    a = np.zeros((len(original), len(cols)), dtype=float)
+    b = np.zeros((len(transformed), len(cols)), dtype=float)
+    if numeric_idx:
+        num_a = original.iloc[:, numeric_idx].values.astype(float)
+        num_b = transformed.iloc[:, numeric_idx].values.astype(float)
+        if normalize_features:
+            scaler = StandardScaler().fit(num_a)
+            num_a, num_b = scaler.transform(num_a), scaler.transform(num_b)
+        a[:, numeric_idx], b[:, numeric_idx] = num_a, num_b
+    if nominal_idx:
+        a[:, nominal_idx] = original.iloc[:, nominal_idx].values * NOMINAL_ONE_HOT_WEIGHT
+        b[:, nominal_idx] = transformed.iloc[:, nominal_idx].values * NOMINAL_ONE_HOT_WEIGHT
+    return a, b
 
 
 def prepare_data_for_distance_metrics(

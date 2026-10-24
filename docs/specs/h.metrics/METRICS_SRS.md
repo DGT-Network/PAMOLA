@@ -998,18 +998,8 @@ class DistanceToClosestRecordOperation(MetricOperation):
             "dcr_statistics": dcr_stats,
             "risk_assessment": risk_thresholds,
             "proportion_at_risk": risk_thresholds["high_risk"] / len(dcr_values),
-            "privacy_score": self._calculate_privacy_score(dcr_values),
             "interpretation": self._interpret_dcr(dcr_stats)
         }
-    
-    def _calculate_privacy_score(self, dcr_values):
-        """Convert DCR distribution to privacy score [0,1]."""
-        # Higher DCR = better privacy
-        # Normalize by data dimensionality
-        normalized_dcr = dcr_values / np.sqrt(len(self.columns))
-        # Use sigmoid-like transformation
-        scores = 1 - np.exp(-normalized_dcr)
-        return np.mean(scores)
 ```
 
 ### 6.3 Neighbor-Based Privacy Metrics (Extended)
