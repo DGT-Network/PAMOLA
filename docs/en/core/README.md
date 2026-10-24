@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-03-27
 **Version:** 0.0.1
-**Python:** 3.10-3.12
+**Python:** 3.11-3.12
 **Total Docs:** 221 files (Tier 1 + Tier 2)
 
 ---

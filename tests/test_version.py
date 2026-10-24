@@ -1,24 +1,11 @@
 """Verify version consistency across package artifacts."""
-import re
-import sys
 from pathlib import Path
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    try:
-        import tomli as tomllib
-    except ImportError:
-        tomllib = None
+import tomllib
 
 
 def _read_version():
-    """Read version from pyproject.toml, supporting Python 3.10+."""
-    if tomllib is None:
-        # Fallback: parse version line directly
-        text = (Path(__file__).parent.parent / "pyproject.toml").read_text()
-        match = re.search(r'^version\s*=\s*"(.+?)"', text, re.MULTILINE)
-        return match.group(1) if match else "0.0.0"
+    """Read version from pyproject.toml, Python 3.11+ (tomllib)."""
     with open(Path(__file__).parent.parent / "pyproject.toml", "rb") as f:
         return tomllib.load(f)["project"]["version"]
 

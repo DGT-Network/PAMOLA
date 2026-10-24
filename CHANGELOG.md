@@ -77,6 +77,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   unaffected. The rest of the package has no `pickle.load`/`joblib.load`/`torch.load`/`numpy.load(allow_pickle)`
   on user paths. Policy: `docs/en/core/security_loading_files.md`.
 
+### Removed
+
+- **Python 3.10 is no longer supported.** `requires-python` is `>=3.11,<3.13`; the 3.10 classifier, the 3.10 jobs of
+  the release smoke and test matrices, and the 3.10 mentions in README and docs were removed. Reason: the fixed
+  `filelock` 4.2.1 (three advisories: CVE-2026-112940, -112913, -112907) requires Python 3.11 or newer, and the newest
+  release installable on 3.10 (4.1.0) is still affected; `filelock==4.2.1` is now an unconditional pin. Ruff
+  `target-version` is `py311`. Applications on Python 3.10 must stay on `1.0.0.dev*` or upgrade Python.
+
 ## [1.0.0rc1] - 2026-10-24
 
 ### As-built review fixes (ASB)

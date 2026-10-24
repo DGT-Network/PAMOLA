@@ -13,8 +13,8 @@ tag v<version>
   smoke      the EXACT wheel from `dist` in a fresh venv (no -e, no extras):
              pip check, import, `pamola-core --version`, `list-ops`, 9-case operation smoke run with the
              network REFUSED (socket guard, `clean_wheel_smoke.py --no-network`)
-             ubuntu py3.10 / 3.11 / 3.12, windows py3.11, macos py3.12
-  test       the test suite with coverage on py3.10 / 3.11 / 3.12 (source install)
+             ubuntu py3.11 / 3.12, windows py3.11, macos py3.12
+  test       the test suite with coverage on py3.11 / 3.12 (source install)
   publish    consumes the same `dist` artifact, never rebuilds:
                pre-release tag (a, b, rc, .dev) or manual run -> TestPyPI  (environment: testpypi)
                stable tag                                      -> PyPI      (environment: pypi)

@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/realmdata-ai/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD%203--Clause-blue.svg"></a>
-  <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10--3.12-blue.svg"></a>
+  <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.11--3.12-blue.svg"></a>
   <a href="https://pypi.org/project/pamola-core/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-1.0.0.dev4-orange.svg"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-active%20development-orange.svg">
 </p>
@@ -254,14 +254,13 @@ pip install -e ".[viz]"    # adds the plotting stack
 
 ## Supported Python Versions
 
-PAMOLA.CORE supports Python **3.10, 3.11, and 3.12** (`requires-python = ">=3.10,<3.13"`).
+PAMOLA.CORE supports Python **3.11 and 3.12** (`requires-python = ">=3.11,<3.13"`). Python 3.10 is not supported: the fixed `filelock` 4.2.1 requires Python 3.11 or newer.
 
 | Python Version | Supported |
 |---|---|
-| 3.10 | ✅ |
 | 3.11 | ✅ |
 | 3.12 | ✅ |
-| 3.9 and below | ❌ |
+| 3.10 and below | ❌ |
 | 3.13 and above | ❌ (blocked by third-party dependencies) |
 
 ---
@@ -299,7 +298,7 @@ print(pamola_core.__version__)   # e.g. "1.0.0.dev4"
 
 - **Source of truth:** `pyproject.toml` → `version`
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
-- **CI/CD:** GitHub Actions — lint (ruff), test (3.10/3.11/3.12, pytest), build (sdist+wheel), PyPI publish on tag `v*`
+- **CI/CD:** GitHub Actions — lint (ruff), test (3.11/3.12, pytest), build (sdist+wheel), PyPI publish on tag `v*`
 - **Release rules:** Dev tags (`v*dev*`) must be on `develop`; stable tags on `main`.
 
 ---
