@@ -15,6 +15,7 @@ import pandas as pd
 import pamola_core.utils.io as pamola_io
 import pamola_core.utils.logging as pamola_logging
 from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
+from pamola_core.utils.safe_deserialization import require_unsafe_pickle_opt_in
 
 # Configure module logger
 logger = pamola_logging.getLogger(__name__)
@@ -664,15 +665,31 @@ class MappingStore:
 
         logger.info(f"Saved mapping store to pickle: {path}")
 
-    def load_pickle(self, path: Union[str, Path]) -> None:
+    def load_pickle(
+        self, path: Union[str, Path], allow_unsafe_pickle: bool = False
+    ) -> None:
         """
         Loads the mapping store from a pickle file.
+
+        .. warning::
+           Unpickling executes code contained in the file. Load only files you
+           produced yourself or obtained from a fully trusted source. Without
+           ``allow_unsafe_pickle=True`` this method refuses to load.
+           Prefer ``load(path, format="json")``.
 
         Parameters
         -----------
         path : Union[str, Path]
             Path to the pickle file
+        allow_unsafe_pickle : bool
+            Explicit opt-in to unpickling (default: False, refuse)
+
+        Raises
+        -------
+        UnsafeDeserializationError
+            If ``allow_unsafe_pickle`` is not True
         """
+        require_unsafe_pickle_opt_in(allow_unsafe_pickle, path)
         logger.info(f"Loading mapping store from pickle: {path}")
 
         with open(path, "rb") as f:
@@ -926,6 +943,7 @@ class MappingStore:
         format: str = None,
         overwrite_existing: bool = True,
         fields_to_load: Optional[List[str]] = None,
+        allow_unsafe_pickle: bool = False,
     ) -> Dict[str, int]:
         """
         Loads the mapping store from a file.
@@ -941,6 +959,9 @@ class MappingStore:
             Whether to overwrite existing mappings (default: True)
         fields_to_load : Optional[List[str]]
             List of fields to load (if None, all fields are loaded)
+        allow_unsafe_pickle : bool
+            Explicit opt-in required to load the "pickle" format, which executes
+            code from the file (default: False; pickle files are refused)
 
         Returns
         --------
@@ -974,7 +995,7 @@ class MappingStore:
             self.load_json(path)
             return {}
         elif format.lower() == "pickle":
-            self.load_pickle(path)
+            self.load_pickle(path, allow_unsafe_pickle=allow_unsafe_pickle)
             return {}
         elif format.lower() == "csv":
             return self.load_csv(path, True, fields_to_load)

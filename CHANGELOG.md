@@ -66,6 +66,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   documented as the way to compare several releases of one source; the default (`joint`) is
   unchanged.
 
+### Security
+
+- **Pickle is never loaded implicitly - BREAKING for callers that read pickle files.** `MappingStore.load_pickle`
+  (and `MappingStore.load` for `.pkl`/`.pickle` files or `format="pickle"`) and `read_dataframe` for the
+  `pickle` format called `pickle.load` / `pandas.read_pickle` on a user-supplied path, which executes code
+  contained in the file. They now raise `UnsafeDeserializationError` (new module
+  `pamola_core.utils.safe_deserialization`) unless the caller passes `allow_unsafe_pickle=True`; an opt-in load
+  logs a warning and emits a `RuntimeWarning`. JSON, CSV, Parquet, Excel and the encrypted mapping format are
+  unaffected. The rest of the package has no `pickle.load`/`joblib.load`/`torch.load`/`numpy.load(allow_pickle)`
+  on user paths. Policy: `docs/en/core/security_loading_files.md`.
+
 ## [1.0.0rc1] - 2026-10-24
 
 ### As-built review fixes (ASB)

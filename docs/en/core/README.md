@@ -11,6 +11,8 @@
 
 > **Start here for claims:** [Regulatory evidence map](./regulatory_evidence_map.md) - what each privacy measurement shows and does not show (no compliance or legal-anonymity claim).
 
+> **Loading files:** [Security policy for loading files](./security_loading_files.md) - pickle is never loaded implicitly; `allow_unsafe_pickle=True` is an explicit opt-in for trusted files only.
+
 ### [Anonymization](./anonymization/) (13 docs)
 Privacy-preserving transformations: masking, generalization, noise, suppression, pseudonymization.
 

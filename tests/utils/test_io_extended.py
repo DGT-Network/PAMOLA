@@ -504,31 +504,31 @@ class TestReadDataframe:
     def test_pickle_format(self, tmp_path, sample_df):
         pkl_file = tmp_path / "data.pkl"
         sample_df.to_pickle(pkl_file)
-        df = io.read_dataframe(pkl_file)
+        df = io.read_dataframe(pkl_file, allow_unsafe_pickle=True)
         assert len(df) == 5
 
     def test_pickle_with_column_filter(self, tmp_path, sample_df):
         pkl_file = tmp_path / "data.pkl"
         sample_df.to_pickle(pkl_file)
-        df = io.read_dataframe(pkl_file, columns=["id"])
+        df = io.read_dataframe(pkl_file, columns=["id"], allow_unsafe_pickle=True)
         assert list(df.columns) == ["id"]
 
     def test_pickle_with_nrows(self, tmp_path, sample_df):
         pkl_file = tmp_path / "data.pkl"
         sample_df.to_pickle(pkl_file)
-        df = io.read_dataframe(pkl_file, nrows=2)
+        df = io.read_dataframe(pkl_file, nrows=2, allow_unsafe_pickle=True)
         assert len(df) == 2
 
     def test_pickle_with_skiprows_int(self, tmp_path, sample_df):
         pkl_file = tmp_path / "data.pkl"
         sample_df.to_pickle(pkl_file)
-        df = io.read_dataframe(pkl_file, skiprows=2)
+        df = io.read_dataframe(pkl_file, skiprows=2, allow_unsafe_pickle=True)
         assert len(df) == 3
 
     def test_pickle_with_skiprows_list(self, tmp_path, sample_df):
         pkl_file = tmp_path / "data.pkl"
         sample_df.to_pickle(pkl_file)
-        df = io.read_dataframe(pkl_file, skiprows=[0, 1])
+        df = io.read_dataframe(pkl_file, skiprows=[0, 1], allow_unsafe_pickle=True)
         assert len(df) == 3
 
     @patch("pamola_core.utils.io_helpers.format_utils.check_pyarrow_available")

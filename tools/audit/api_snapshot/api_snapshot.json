@@ -2751,6 +2751,7 @@
   "pamola_core.utils.reporting.dependency_graph",
   "pamola_core.utils.reporting.html_formatter",
   "pamola_core.utils.reporting.template_engine",
+  "pamola_core.utils.safe_deserialization",
   "pamola_core.utils.schema_helpers",
   "pamola_core.utils.schema_helpers.form_builder",
   "pamola_core.utils.schema_helpers.schema_builder",

@@ -68,6 +68,7 @@ import pandas as pd
 
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.utils.optional_deps import optional_import
+from pamola_core.utils.safe_deserialization import require_unsafe_pickle_opt_in
 from pamola_core.errors.exceptions import (
     DependencyMissingError,
     DataError,
@@ -1836,7 +1837,9 @@ def read_dataframe(
     skiprows : Union[int, List[int]], optional
         Row indices to skip or number of rows to skip from the start
     **kwargs
-        Additional arguments to pass to the underlying read function
+        Additional arguments to pass to the underlying read function.
+        ``allow_unsafe_pickle=True`` is required to read the "pickle" format,
+        which executes code from the file (refused by default).
 
     Returns
     --------
@@ -1960,6 +1963,11 @@ def read_dataframe(
             **kwargs,
         )
     elif file_format.lower() == "pickle":
+        # Unpickling executes code from the file: never implicit (see
+        # docs/en/core/security_loading_files.md).
+        require_unsafe_pickle_opt_in(
+            kwargs.pop("allow_unsafe_pickle", False), file_path
+        )
         # Handle encrypted pickle files
         with temporary_decrypted_file(
             file_path, encryption_key, suffix=".pkl", encryption_mode=encryption_mode
