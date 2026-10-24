@@ -126,6 +126,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and expected `en`, which only the downloaded FastText model produced; offline (the default since SEC-01)
   langdetect answers differently. The test now calls the patched module attribute, as intended.
 
+- **KS on key/value data can no longer exceed 1 (assembly finding).** With `key_fields` + `value_field`
+  and a normalization, the shared z-score of CDX-R2-13 produced negative "masses" that were accumulated as a
+  cumulative distribution, so the statistic could reach 1.17. After normalization both vectors are now
+  shifted by their pooled minimum so every mass is non-negative; the statistic stays in `[0, 1]`.
+
 ### Security
 
 - **Offline by default (SEC-01, SEC-02).** No NLP resource is fetched from the

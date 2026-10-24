@@ -191,6 +191,12 @@ class KolmogorovSmirnovTest:
         if self.normalize:
             norm_method = "zscore" if self.normalize is True else self.normalize
             values1, values2 = normalize_pair_sklearn(values1, values2, norm_method)
+            # z-scores can be negative, but the values are used as masses of a cumulative
+            # distribution: shift both by the pooled minimum so that every mass is >= 0 (otherwise
+            # the "cumulative" sums leave [0, 1] and the statistic can exceed 1)
+            floor = min(float(values1.min()), float(values2.min())) if len(values1) else 0.0
+            if floor < 0:
+                values1, values2 = values1 - floor, values2 - floor
 
         # Calculate totals for probability normalization
         total1 = np.sum(np.abs(values1))
