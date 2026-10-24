@@ -66,7 +66,8 @@ def test_r2_1_protected_mapping_outranks_diagnostic(tmp_path):
     rep.add_artifact("json", f, "a", artifact_class=ArtifactClass.DIAGNOSTIC, contains_source_values=True)
     rep.add_artifact("json", f, "b", artifact_class=ArtifactClass.PROTECTED_MAPPING, contains_source_values=True)
     e = _entry(rep, f)
-    assert e["artifact_class"] == "protected_mapping" and e["not_for_release"] is False
+    # R3-2: the mapping class wins, the earlier diagnostic's release restriction stays
+    assert e["artifact_class"] == "protected_mapping" and e["not_for_release"] is True
 
 
 def test_r2_1_symlink_alias_is_the_same_artifact(tmp_path):
@@ -154,13 +155,15 @@ def test_r2_2_mapping_reads_never_stage_plaintext(tmp_path, monkeypatch):
 def test_r2_2_a_crash_while_reading_leaves_no_plaintext(tmp_path, monkeypatch):
     path = tmp_path / "m.json"
     _store().save_json(path, encryption_key=KEY)
-    real = crypto_utils.decrypt_data
+    from pamola_core.utils.crypto_helpers.providers.simple_provider import SimpleProvider
 
-    def crash_after_decrypt(*a, **k):
-        real(*a, **k)
+    real = SimpleProvider.decrypt_data
+
+    def crash_after_decrypt(self, *a, **k):
+        real(self, *a, **k)
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(crypto_utils, "decrypt_data", crash_after_decrypt)
+    monkeypatch.setattr(SimpleProvider, "decrypt_data", crash_after_decrypt)
     with pytest.raises(KeyboardInterrupt):
         MappingStore().load(path, encryption_key=KEY)
     for p in tmp_path.iterdir():

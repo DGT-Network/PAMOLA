@@ -1282,6 +1282,7 @@ class BaseTask:
                     category="task_product",
                     artifact_class=ArtifactClass.DIAGNOSTIC,
                     contains_source_values=True,
+                    task_product=True,
                 )
             except Exception as e:  # a registration problem must be visible
                 self.logger.warning(
@@ -1330,10 +1331,13 @@ class BaseTask:
                 "sha256": checksum,
             })
 
+        reconcile = getattr(getattr(self, "reporter", None), "reconcile_aliases", None)
+        if callable(reconcile):
+            reconcile()
         # Reporter entries that are not operation artifacts (task report, manifest, logs)
         listed = {str(e["path"]) for e in artifact_entries}
         for entry in getattr(getattr(self, "reporter", None), "artifacts", None) or []:
-            if isinstance(entry, dict) and entry.get("category") == "task_product":
+            if isinstance(entry, dict) and entry.get("task_product"):
                 if str(entry["path"]) in listed:
                     continue
                 artifact_entries.append({

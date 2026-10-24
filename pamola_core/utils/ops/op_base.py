@@ -289,8 +289,10 @@ def _register_written_files(result, task_dir, reporter):
                     category=category, artifact_class=cls,
                     contains_source_values=has_values,
                 )
-            except TypeError:
-                pass
+            except TypeError as exc:
+                logger.warning(
+                    "could not register %s with the task reporter: %s", f.name, exc
+                )
 
 
 def _classify_source_value_artifacts(execute):

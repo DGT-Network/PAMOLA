@@ -75,33 +75,44 @@ def _merge_artifact_entries(existing: Dict[str, Any], new: Dict[str, Any]) -> No
     """Merge ``new`` into ``existing`` monotonically (in place).
 
     * ``contains_source_values`` is the OR of both;
-    * the class never becomes less protective: with source values it is the more protective
-      of the two source-capable classes (protected_mapping > diagnostic > data), never an
-      aggregate_metric or evidence; without them an explicit class beats a derived one and
-      two explicit classes keep the more protective;
-    * ``not_for_release`` is derived after the merge;
+    * an explicitly declared class is never overridden by one that was only inferred from
+      the legacy category; between explicit classes the more protective one is kept
+      (protected_mapping > diagnostic > data), and with source values never an
+      aggregate_metric or evidence;
+    * ``not_for_release`` is the OR of every restriction seen: it is never cleared because
+      another class (a protected mapping, say) won;
+    * ``task_product`` membership is the OR of both;
     * tags are united and missing metadata keys are added.
     """
     contains = bool(existing.get("contains_source_values")) or bool(
         new.get("contains_source_values")
     )
     candidates = [existing, new]
+    explicit = [c for c in candidates if c.get("class_explicit")]
     if contains:
-        pool = [c["artifact_class"] for c in candidates if c["artifact_class"] in _SOURCE_BEARING]
+        pool = [c["artifact_class"] for c in explicit if c["artifact_class"] in _SOURCE_BEARING]
+        if not pool and not explicit:
+            pool = [
+                c["artifact_class"] for c in candidates if c["artifact_class"] in _SOURCE_BEARING
+            ]
         cls = max(pool, key=_PROTECTION_RANK.get) if pool else ArtifactClass.DIAGNOSTIC.value
     else:
-        explicit = [c["artifact_class"] for c in candidates if c.get("classified_explicitly")]
-        pool = explicit or [c["artifact_class"] for c in candidates]
+        pool = [c["artifact_class"] for c in explicit] or [
+            c["artifact_class"] for c in candidates
+        ]
         cls = max(pool, key=_PROTECTION_RANK.get)
+    restricted = bool(existing.get("not_for_release")) or bool(new.get("not_for_release"))
     existing["artifact_class"] = cls
     existing["contains_source_values"] = contains
-    existing["classified_explicitly"] = bool(
+    existing["class_explicit"] = bool(existing.get("class_explicit") or new.get("class_explicit"))
+    existing["classified_explicitly"] = existing["class_explicit"] or bool(
         existing.get("classified_explicitly") or new.get("classified_explicitly")
     )
-    existing["not_for_release"] = contains and cls not in (
-        ArtifactClass.DATA.value,
-        ArtifactClass.PROTECTED_MAPPING.value,
+    existing["not_for_release"] = restricted or (
+        contains
+        and cls not in (ArtifactClass.DATA.value, ArtifactClass.PROTECTED_MAPPING.value)
     )
+    existing["task_product"] = bool(existing.get("task_product") or new.get("task_product"))
     for tag in new.get("tags") or []:
         if tag not in existing.setdefault("tags", []):
             existing["tags"].append(tag)
@@ -323,6 +334,7 @@ class TaskReporter:
         metadata: Optional[Dict[str, Any]] = None,
         artifact_class: Optional[ArtifactClass] = None,
         contains_source_values: Optional[bool] = None,
+        task_product: bool = False,
     ):
         """
         Add an artifact to the report.
@@ -366,6 +378,7 @@ class TaskReporter:
                         metadata or {},
                         artifact_class,
                         contains_source_values,
+                        task_product,
                     )
 
                     progress.update(1, {"status": "added"})
@@ -388,6 +401,7 @@ class TaskReporter:
                 metadata or {},
                 artifact_class,
                 contains_source_values,
+                task_product,
             )
 
     def _process_artifact(
@@ -401,6 +415,7 @@ class TaskReporter:
         metadata: Dict[str, Any],
         artifact_class: Optional[ArtifactClass] = None,
         contains_source_values: Optional[bool] = None,
+        task_product: bool = False,
     ):
         """
         Process and add an artifact to the report (internal helper method).
@@ -438,6 +453,7 @@ class TaskReporter:
             "description": description,
             "category": category,
             **self._classification(category, artifact_class, contains_source_values),
+            "task_product": bool(task_product),
             "tags": tags,
             "size_bytes": size_bytes,
             "timestamp": timestamp or datetime.now().isoformat(),
@@ -446,10 +462,16 @@ class TaskReporter:
 
         # One entry per normalized path: a second registration merges, and never
         # replaces a classification that was already assigned.
-        for existing in self.artifacts:
-            if _same_artifact_path(existing.get("path", ""), path_str):
-                _merge_artifact_entries(existing, artifact)
-                return
+        matches = [
+            e for e in self.artifacts if _same_artifact_path(e.get("path", ""), path_str)
+        ]
+        if matches:
+            first = matches[0]
+            for other in matches[1:]:  # earlier aliases that only now turn out to be one file
+                _merge_artifact_entries(first, other)
+                self._drop_entry(other)
+            _merge_artifact_entries(first, artifact)
+            return
         self.artifacts.append(artifact)
 
         # Add to group if specified
@@ -474,8 +496,36 @@ class TaskReporter:
             "contains_source_values": has_values,
             "not_for_release": has_values
             and cls not in (ArtifactClass.DATA, ArtifactClass.PROTECTED_MAPPING),
+            "class_explicit": explicit,
             "classified_explicitly": explicit or contains_source_values is not None,
         }
+
+    def _drop_entry(self, entry: Dict[str, Any]) -> None:
+        """Remove ``entry`` (by identity) from the report and from every group."""
+        self.artifacts[:] = [e for e in self.artifacts if e is not entry]
+        for group in self.artifact_groups.values():
+            group.artifacts[:] = [e for e in group.artifacts if e is not entry]
+
+    def reconcile_aliases(self) -> None:
+        """Merge entries whose paths turned out to be one file (files created after
+        registration, case aliases on a case-insensitive filesystem). Runs before the report
+        and the manifest are serialized; every match is merged, not only the first."""
+        index = 0
+        while index < len(self.artifacts):
+            keep = self.artifacts[index]
+            for other in [
+                e
+                for e in self.artifacts[index + 1 :]
+                if _same_artifact_path(keep.get("path", ""), e.get("path", ""))
+            ]:
+                _merge_artifact_entries(keep, other)
+                for group in self.artifact_groups.values():
+                    if any(e is other for e in group.artifacts) and not any(
+                        e is keep for e in group.artifacts
+                    ):
+                        group.artifacts.append(keep)
+                self._drop_entry(other)
+            index += 1
 
     def add_artifact_group(self, name: str, description: str = "") -> ArtifactGroup:
         """
@@ -700,6 +750,7 @@ class TaskReporter:
         -------
             Report as a dictionary
         """
+        self.reconcile_aliases()
         # Use progress manager for report generation if available
         if self.progress_manager:
             with self.progress_manager.create_operation_context(

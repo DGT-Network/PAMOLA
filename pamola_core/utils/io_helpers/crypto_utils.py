@@ -25,9 +25,12 @@ from pamola_core.common.enum.encryption_mode import EncryptionMode
 from pamola_core.utils.crypto_helpers.register_providers import register_all_providers
 
 
-from pamola_core.errors.exceptions import EncryptionError
+from pamola_core.errors.exceptions import DecryptionError, EncryptionError
 from pamola_core.utils.crypto_helpers.audit import log_crypto_operation
 from pamola_core.utils.io_helpers.crypto_router import (
+    ENVELOPE_ALLOWED,
+    ENVELOPE_KEYS,
+    is_encryption_envelope,
     encrypt_file_router,
     decrypt_file_router,
     encrypt_data_router,
@@ -182,30 +185,65 @@ def write_encrypted_json(
     return path
 
 
+
+
+
+class UnsupportedMemoryOnlyModeError(DecryptionError):
+    """The envelope's mode cannot be decrypted without staging a file (``age``)."""
+
+
 def read_encrypted_json(path: Union[str, Path], key: Optional[str]) -> Any:
     """Read a JSON file, decrypting in memory: no plain-text file is ever created.
 
-    The file holds either an encryption envelope (decrypted with ``key``, then parsed) or
-    plain JSON (returned as parsed). Authentication failures raise; nothing is staged on
-    disk, so an interruption cannot leave decrypted content behind.
+    * A document without envelope keys is ordinary JSON and is returned as parsed.
+    * A document with any envelope key is an envelope and is authenticated first: the mode
+      must be absent (legacy) or ``simple``, the algorithm ``AES-GCM``, ``iv``/``salt``/
+      ``data`` present, and nothing but the known envelope fields may sit next to them (an
+      injected outer ``mappings`` object, a ``none`` mode with crypto fields, ... are rejected).
+    * ``age`` envelopes are not supported here (typed error); a wrong key raises
+      ``DecryptionError``.
     """
     import json
 
     raw = Path(path).read_bytes()
+    if raw.startswith(b"age-encryption.org/"):
+        raise UnsupportedMemoryOnlyModeError(
+            f"'{Path(path).name}': age-encrypted files are unsupported for memory-only mapping reads"
+        )
     try:
         document = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
-        document = raw
-    if isinstance(document, dict) and "mode" in document and "algorithm" in document:
-        if not key:
-            raise EncryptionError(f"'{Path(path).name}' is encrypted: an encryption key is required")
-        plain = decrypt_data(document, key=key)
-        if isinstance(plain, bytes):
-            plain = plain.decode("utf-8")
-        return json.loads(plain)
-    if isinstance(document, (bytes, bytearray)):
-        raise EncryptionError(f"'{Path(path).name}' is neither JSON nor a known encryption envelope")
-    return document
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise DecryptionError(
+            f"'{Path(path).name}' is neither JSON nor a supported encryption envelope"
+        ) from exc
+    if not is_encryption_envelope(document):
+        return document
+    name = Path(path).name
+    mode = document.get("mode")
+    if mode == "age":
+        raise UnsupportedMemoryOnlyModeError(
+            f"'{name}': age envelopes are unsupported for memory-only mapping reads"
+        )
+    if mode not in (None, "simple"):
+        raise DecryptionError(
+            f"'{name}': mode {mode!r} next to encryption fields is not a valid envelope"
+        )
+    extra = set(document) - ENVELOPE_ALLOWED
+    if extra:
+        raise DecryptionError(
+            f"'{name}': unexpected fields next to the encryption envelope: {sorted(extra)}"
+        )
+    missing = [k for k in ("algorithm", "iv", "salt", "data") if k not in document]
+    if missing or document.get("algorithm") != "AES-GCM":
+        raise DecryptionError(f"'{name}': malformed encryption envelope")
+    if not key:
+        raise DecryptionError(f"'{name}' is encrypted: an encryption key is required")
+    from pamola_core.utils.io_helpers.crypto_router import get_provider
+
+    plain = get_provider("simple").decrypt_data(document, key)  # authenticates (AES-GCM)
+    if isinstance(plain, bytes):
+        plain = plain.decode("utf-8")
+    return json.loads(plain)
 
 
 def decrypt_file(

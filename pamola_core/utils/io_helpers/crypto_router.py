@@ -23,6 +23,34 @@ PROVIDERS: Dict[str, Type[CryptoProvider]] = {}
 AGE_HEADER = b"age-encryption.org/"
 SIMPLE_JSON_KEYS = ["algorithm", "iv", "data"]
 
+#: Keys that make a JSON document an encryption envelope (current ``simple`` and the legacy
+#: ``pamola_core.utils.crypto`` envelope, which has no ``mode``).
+ENVELOPE_KEYS = ("algorithm", "iv", "data", "salt", "key_derivation", "mode")
+#: Everything an envelope written by this package may carry next to those keys.
+ENVELOPE_ALLOWED = frozenset(ENVELOPE_KEYS) | {
+    "version", "iterations", "timestamp", "format", "data_info", "file_info",
+}
+
+
+def is_encryption_envelope(document: Any) -> bool:
+    """True when a parsed JSON document is an encryption envelope.
+
+    Any document carrying an envelope key is one. A string ``data`` is ciphertext; a
+    ``data`` object belongs to an ordinary JSON schema (a hierarchy dictionary, say) and does
+    not count by itself. The router's file detection and the memory-only reader share this
+    rule.
+    """
+    if not isinstance(document, dict):
+        return False
+    for key in ENVELOPE_KEYS:
+        if key not in document:
+            continue
+        if key == "data" and not isinstance(document["data"], str):
+            continue
+        return True
+    return False
+
+
 
 def register_provider(provider_class: Type[CryptoProvider]) -> None:
     """
@@ -353,8 +381,8 @@ def decrypt_data_router(
         if isinstance(data, dict) and "mode" in data:
             mode = data["mode"]
         # Check if it's a simple encrypted dictionary
-        elif isinstance(data, dict) and all(key in data for key in SIMPLE_JSON_KEYS):
-            mode = "simple"
+        elif is_encryption_envelope(data):
+            mode = "simple"  # an envelope without a mode (legacy writer)
         # Default to none for anything else
         else:
             mode = "none"
